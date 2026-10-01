@@ -57,6 +57,19 @@ class SharedLocationStateService {
   static const String _savedZipCodeKey = 'saved_zip_code';
   static final RegExp _fiveDigitZipPattern = RegExp(r'^\d{5}$');
 
+  static final ValueNotifier<int> _changes = ValueNotifier<int>(0);
+  static Listenable get changes => _changes;
+  static bool _hasPublishedState = false;
+  static bool get hasPublishedState => _hasPublishedState;
+  static const geocodeTimeout = Duration(seconds: 15);
+
+  static void _publish(SharedLocationState value) {
+    _state = value;
+    _hasRestoredFromStorage = true;
+    _hasPublishedState = true;
+    _changes.value += 1;
+  }
+
   static SharedLocationState _state = const SharedLocationState();
   static Future<SharedLocationRestoreResult>? _restoreFuture;
   static bool _hasRestoredFromStorage = false;
@@ -237,10 +250,12 @@ class SharedLocationStateService {
           searchText: savedZipCode,
         );
 
+        String? message;
         try {
-          final locations =
-              await (locationGeocoder?.call(savedZipCode) ??
-                  geocodeSearchQuery(savedZipCode));
+          final locations = await geocodeSearchQuery(
+            savedZipCode,
+            locationGeocoder: locationGeocoder,
+          );
           if (locations.isNotEmpty) {
             restoredState = SharedLocationState(
               usingTypedSearchLocation: true,
@@ -250,11 +265,13 @@ class SharedLocationStateService {
               searchText: savedZipCode,
             );
           }
-        } catch (_) {}
+        } catch (_) {
+          message = 'Could not find that location right now. Please try again.';
+        }
 
         return _publishRestoreIfCurrent(
           restoreRevision,
-          SharedLocationRestoreResult(state: restoredState),
+          SharedLocationRestoreResult(state: restoredState, message: message),
         );
       }
 
@@ -281,8 +298,7 @@ class SharedLocationStateService {
       return SharedLocationRestoreResult(state: _state);
     }
 
-    _state = result.state;
-    _hasRestoredFromStorage = true;
+    _publish(result.state);
     return result;
   }
 
@@ -330,6 +346,7 @@ class SharedLocationStateService {
         savedZipCode: searchText.trim(),
       ),
     );
+    _publish(_state);
     return persistence.then((_) => true);
   }
 
@@ -373,6 +390,7 @@ class SharedLocationStateService {
     final persistence = _enqueuePreferenceMutation(
       (prefs) => _persistPreference(prefs, prefersLiveLocation: true),
     );
+    _publish(_state);
     return persistence.then((_) => true);
   }
 
@@ -389,6 +407,7 @@ class SharedLocationStateService {
     _state = const SharedLocationState();
     _hasRestoredFromStorage = true;
     final persistence = _enqueuePreferenceMutation(_clearPreference);
+    _publish(_state);
     return persistence.then((_) => true);
   }
 
@@ -406,6 +425,7 @@ class SharedLocationStateService {
     _state = const SharedLocationState();
     _hasRestoredFromStorage = true;
     final persistence = _enqueuePreferenceMutation(_clearTypedPreference);
+    _publish(_state);
     return persistence.then((_) => true);
   }
 
@@ -483,19 +503,58 @@ class SharedLocationStateService {
     _state = const SharedLocationState();
     _restoreFuture = null;
     _hasRestoredFromStorage = false;
+    _hasPublishedState = false;
     _activeRestoreLeaseRevisions.clear();
     _preferenceMutationQueue = Future<void>.value();
     _preferenceMutationBarrierForTesting = null;
   }
 
-  static Future<List<Location>> geocodeSearchQuery(String query) async {
+  static Future<List<Location>> geocodeSearchQuery(
+    String query, {
+    bool reuseConfirmed = false,
+    Future<List<Location>> Function(String query)? locationGeocoder,
+  }) {
     final trimmedQuery = query.trim();
+    final confirmed = _state;
+    final latitude = confirmed.typedLatitude;
+    final longitude = confirmed.typedLongitude;
+    if (reuseConfirmed &&
+        confirmed.usingTypedSearchLocation &&
+        !confirmed.usingCurrentLocation &&
+        trimmedQuery.isNotEmpty &&
+        trimmedQuery == confirmed.searchText.trim() &&
+        latitude != null &&
+        longitude != null &&
+        latitude.isFinite &&
+        longitude.isFinite &&
+        latitude.abs() <= 90 &&
+        longitude.abs() <= 180) {
+      return Future.value([
+        Location(
+          latitude: latitude,
+          longitude: longitude,
+          timestamp: DateTime.now(),
+        ),
+      ]);
+    }
+    // One deadline covers all platform candidates. A late platform completion
+    // can finish, but cannot become the result of this already-settled future.
+    return _resolveSearchQuery(
+      trimmedQuery,
+      locationGeocoder ?? locationFromAddress,
+    ).timeout(geocodeTimeout);
+  }
+
+  static Future<List<Location>> _resolveSearchQuery(
+    String trimmedQuery,
+    Future<List<Location>> Function(String) geocoder,
+  ) async {
     final candidates = _geocodeCandidatesFor(trimmedQuery);
     Object? lastError;
 
     for (final candidate in candidates) {
       try {
-        final locations = await locationFromAddress(candidate);
+        final locations = await geocoder(candidate);
         if (locations.isNotEmpty) {
           return locations;
         }

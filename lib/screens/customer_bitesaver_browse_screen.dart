@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
@@ -224,6 +225,8 @@ class _CustomerBiteSaverBrowseScreenState
   int _searchIntentGeneration = 0;
   bool _restoreStarted = false;
   bool _restored = false;
+  bool _lifecyclePaused = false;
+  bool _locationRefreshOnResume = false;
   bool _locating = false;
   bool _geocoding = false;
   bool _suppressLocationListener = false;
@@ -237,8 +240,11 @@ class _CustomerBiteSaverBrowseScreenState
   void initState() {
     super.initState();
     _observedAuthRealmKey = widget.coordinator.auth.realmKey;
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _lifecyclePaused = lifecycle != null && lifecycle != AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
     widget.coordinator.addListener(_handleCoordinatorChanged);
+    SharedLocationStateService.changes.addListener(_sharedLocationChanged);
     _locationController.addListener(_handleLocationTextChanged);
     unawaited(_restoreCriteriaOnce());
   }
@@ -274,18 +280,27 @@ class _CustomerBiteSaverBrowseScreenState
       case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
+        _lifecyclePaused = true;
+        _locationRefreshOnResume = _locationRefreshOnResume || _pendingSearchSetup != null;
         _invalidatePendingSearchSetup();
         if (widget.coordinator.status !=
             CustomerBiteSaverCoordinatorStatus.paused) {
           widget.coordinator.pause();
         }
       case AppLifecycleState.resumed:
-        unawaited(widget.coordinator.resume());
+        _lifecyclePaused = false;
+        if (_locationRefreshOnResume) {
+          _locationRefreshOnResume = false;
+          if (_hasUsableCenter) unawaited(_startSearch());
+        } else {
+          unawaited(widget.coordinator.resume());
+        }
     }
   }
 
   @override
   void dispose() {
+    SharedLocationStateService.changes.removeListener(_sharedLocationChanged);
     WidgetsBinding.instance.removeObserver(this);
     _locationGeneration += 1;
     _invalidatePendingSearchSetup();
@@ -364,6 +379,9 @@ class _CustomerBiteSaverBrowseScreenState
       _replaceLocationText(_retainedLocationLabel(retained));
       _restored = true;
       _attachRestaurantPager(widget.coordinator.restaurantPager);
+      if (SharedLocationStateService.hasPublishedState) {
+        _sharedLocationChanged();
+      }
       if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
         await widget.coordinator.resume();
       }
@@ -376,19 +394,24 @@ class _CustomerBiteSaverBrowseScreenState
       final preferences = await SharedPreferences.getInstance();
       final savedRadius = preferences.getString(_selectedRadiusPreferenceKey);
       final parsedRadius = _parseRadius(savedRadius);
+      if (!mounted || generation != _locationGeneration) return;
+      final radiusChangedAfterPublication = _restored && parsedRadius != null &&
+          parsedRadius != _selectedRadiusMiles;
+      if (parsedRadius != null) _selectedRadiusMiles = parsedRadius;
       final restored =
           await (widget.locationRestoreLoader?.call() ??
               SharedLocationStateService.restoreOnLaunch(
                 reverseLookupLocation: _reverseGeocode,
               ));
       if (!mounted || generation != _locationGeneration) return;
+      final alreadyApplied = _restored && identical(_location, restored.state) &&
+          !radiusChangedAfterPublication;
       setState(() {
         _restored = true;
-        if (parsedRadius != null) _selectedRadiusMiles = parsedRadius;
         _applySharedLocation(restored.state);
         _locationMessage = restored.message;
       });
-      if (_hasUsableCenter) await _startSearch();
+      if (!alreadyApplied && _hasUsableCenter) await _startSearch();
     } catch (error) {
       if (!mounted || generation != _locationGeneration) return;
       setState(() {
@@ -411,6 +434,55 @@ class _CustomerBiteSaverBrowseScreenState
     if (value == null) return null;
     final parsed = int.tryParse(value.split(' ').first);
     return _supportedRadii.contains(parsed) ? parsed : null;
+  }
+
+  (double?, double?, bool, String) _confirmedCenterKey() {
+    final retained = _retainedSearchCenter;
+    if (retained != null) {
+      return (retained.latitude, retained.longitude,
+        retained.locationMode == CustomerBiteSaverLocationMode.current,
+        retained.typedLocation == null ? '' : jsonEncode(retained.typedLocation!.toJson()));
+    }
+    return (_location.usingCurrentLocation ? _location.currentPosition?.latitude : _location.typedLatitude,
+      _location.usingCurrentLocation ? _location.currentPosition?.longitude : _location.typedLongitude,
+      _location.usingCurrentLocation, _location.usingCurrentLocation ? '' : _canonicalTypedLocation());
+  }
+
+  String _canonicalTypedLocation() {
+    try {
+      return jsonEncode(_typedLocation(_location.searchText).toJson());
+    } on CustomerBiteSaverProtocolException {
+      return _location.searchText.trim();
+    }
+  }
+
+  void _sharedLocationChanged() {
+    if (!mounted) return;
+    final owned = _ownedLocationOperation;
+    final ownSubmission = (_geocoding || _locating) && owned != null &&
+        SharedLocationStateService.ownsLocationOperation(owned);
+    final before = _confirmedCenterKey();
+    if (!ownSubmission && (_geocoding || _locating)) _locationGeneration += 1;
+    setState(() {
+      _geocoding = false;
+      _locating = false;
+      _restored = true;
+      _inputError = null;
+      _locationMessage = null;
+      _applySharedLocation(SharedLocationStateService.state);
+    });
+    final changed = before != _confirmedCenterKey();
+    if (!changed) {
+      if (ownSubmission && _hasUsableCenter) unawaited(_startSearch());
+      return;
+    }
+    _invalidatePendingSearchSetup();
+    _lastAcceptedRestaurants = const <CustomerBiteSaverRestaurant>[];
+    _expandedRestaurants.clear();
+    if (!widget.coordinator.isDisposed) {
+      widget.coordinator.invalidateSearchLocation();
+      if (_hasUsableCenter) unawaited(_startSearch());
+    }
   }
 
   void _applySharedLocation(SharedLocationState location) {
@@ -529,6 +601,10 @@ class _CustomerBiteSaverBrowseScreenState
   }
 
   Future<void> _startSearch({bool fresh = false}) {
+    if (_lifecyclePaused) {
+      _locationRefreshOnResume = true;
+      return Future<void>.value();
+    }
     if (_locating || _geocoding) return Future<void>.value();
     late final _SubmittedBrowseSearch snapshot;
     try {
@@ -663,9 +739,9 @@ class _CustomerBiteSaverBrowseScreenState
       _locationMessage = null;
     });
     try {
-      final locations =
-          await (widget.locationGeocoder?.call(query) ??
-              SharedLocationStateService.geocodeSearchQuery(query));
+      final locations = await SharedLocationStateService.geocodeSearchQuery(
+        query, reuseConfirmed: true, locationGeocoder: widget.locationGeocoder,
+      );
       if (!_ownsLocationOperation(generation, token)) return;
       if (locations.isEmpty ||
           !BiteSaverLocationSearch.hasValidCoordinates(
@@ -686,25 +762,23 @@ class _CustomerBiteSaverBrowseScreenState
       if (!accepted || !_ownsLocationOperation(generation, token)) return;
       setState(() {
         _restored = true;
-        _applySharedLocation(SharedLocationStateService.state);
-        _geocoding = false;
         _locationMessage = 'Using "$query" as your search center.';
       });
-      await _startSearch();
     } catch (error) {
       if (!_ownsLocationOperation(generation, token)) return;
-      await SharedLocationStateService.clearTypedLocationForOperation(token);
-      if (!mounted) return;
       setState(() {
         _restored = true;
         _geocoding = false;
-        _retainedSearchCenter = null;
-        _location = SharedLocationStateService.state;
         _inputError = AppErrorText.friendly(
-          error,
+          error is TimeoutException
+              ? 'Could not find that location in time. Please try again.' : error,
           fallback: 'Could not search that city or ZIP.',
         );
       });
+    } finally {
+      if (mounted && generation == _locationGeneration) {
+        setState(() => _geocoding = false);
+      }
     }
   }
 
@@ -735,11 +809,8 @@ class _CustomerBiteSaverBrowseScreenState
       if (!accepted || !_ownsLocationOperation(generation, token)) return;
       setState(() {
         _restored = true;
-        _applySharedLocation(SharedLocationStateService.state);
-        _locating = false;
         _locationMessage = 'Using your current location.';
       });
-      await _startSearch();
     } catch (error) {
       if (!_ownsLocationOperation(generation, token)) return;
       setState(() {
@@ -750,6 +821,10 @@ class _CustomerBiteSaverBrowseScreenState
           fallback: 'Could not get your location right now.',
         );
       });
+    } finally {
+      if (mounted && generation == _locationGeneration) {
+        setState(() => _locating = false);
+      }
     }
   }
 

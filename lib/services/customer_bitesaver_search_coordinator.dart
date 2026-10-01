@@ -907,6 +907,15 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     _notify();
   }
 
+  /// Retires browse results immediately when the shared confirmed center changes.
+  /// Uses the existing expiry fence, including its protection for an uncertain
+  /// redemption start; a discovery center never supplies device-use authority.
+  void invalidateSearchLocation() {
+    _ensureAlive();
+    _pendingSearch = null;
+    _markFreshSearchRequired();
+  }
+
   Future<void> freshSearch([CustomerBiteSaverSearchCriteria? criteria]) {
     final selected = criteria ?? _criteria;
     if (selected == null) {

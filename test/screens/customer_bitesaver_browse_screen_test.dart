@@ -7,6 +7,10 @@ import 'package:coupon_app/models/demo_redemption_store.dart';
 import 'package:coupon_app/models/customer_bitesaver_favorite.dart';
 import 'package:coupon_app/models/customer_bitesaver_search.dart';
 import 'package:coupon_app/screens/coupon_detail_screen.dart';
+import 'package:coupon_app/screens/bitescore_home_screen.dart';
+// ignore: depend_on_referenced_packages
+import 'package:geocoding_platform_interface/geocoding_platform_interface.dart' show GeocodingPlatform;
+import '../services/customer_bitescore_search_service_test.dart' show FakeSearchApi, response;
 import 'package:coupon_app/screens/customer_bitesaver_browse_destinations.dart';
 import 'package:coupon_app/screens/customer_bitesaver_browse_screen.dart';
 import 'package:coupon_app/screens/home_screen.dart';
@@ -26,6 +30,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart' show Location;
 import 'package:coupon_app/widgets/bitesaver_restaurant_images.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+// ignore: depend_on_referenced_packages
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
+// ignore: depend_on_referenced_packages
+import 'package:shared_preferences_platform_interface/types.dart';
 
 import '../support/customer_bitesaver_device_use_fixture.dart';
 
@@ -44,6 +52,258 @@ void main() {
     SharedLocationStateService.resetForTesting();
     AppModeStateService.setMode(AppMode.biteSaver);
   });
+
+  testWidgets('confirmed A B C crosses both retained Homes without sharing filters', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 1600);
+    addTearDown(tester.view.reset);
+    final geocoder = _SharedTestGeocoder();
+    GeocodingPlatform.instance = geocoder;
+    final harness = _BrowseHarness();
+    final scoreRequests = <Map<String, Object?>>[];
+    final scoreApi = FakeSearchApi((name, data) async {
+      if (name.startsWith('start')) scoreRequests.add(data);
+      return response();
+    });
+    var index = 0;
+    late StateSetter switchTab;
+    await tester.pumpWidget(MaterialApp(home: StatefulBuilder(builder: (context, setState) {
+      switchTab = setState;
+      return MediaQuery(data: const MediaQueryData(textScaler: TextScaler.linear(.5)), child: IndexedStack(index: index, children: [
+        harness.screen(onAction: _ignoreAction, restoredLocation: const SharedLocationState(), locationGeocoder: geocoder.locationFromAddress),
+        BiteScoreHomeScreen(testSearchApi: scoreApi),
+      ]));
+    })));
+    await tester.pumpAndSettle();
+    final saverState = tester.state(find.byType(CustomerBiteSaverBrowseScreen));
+    final dynamic scoreState = tester.state(find.byType(BiteScoreHomeScreen, skipOffstage: false));
+    scoreState.setState(() { scoreState.selectedRadius = '3 miles'; scoreState.dishSearchController.text = 'soup'; });
+    final saverContent = find.byKey(const ValueKey('bounded-content-field'));
+    await tester.enterText(saverContent, 'pizza');
+    for (final entry in [(0, '34461', 28.7), (1, '32801', 28.5), (0, '32247', 30.3), (1, '34461', 28.7)]) {
+      switchTab(() => index = entry.$1);
+      await tester.pumpAndSettle();
+      final field = find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == 'City or zip code');
+      await tester.enterText(field, entry.$2);
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pump(const Duration(milliseconds: 500));
+      await _pumpUntil(tester, () => harness.transport.startRequests.isNotEmpty &&
+        harness.transport.startRequests.last['latitude'] == entry.$3 &&
+        scoreRequests.isNotEmpty && ((scoreRequests.last['criteria'] as Map)['center'] as Map)['latitude'] == entry.$3);
+      await tester.pumpAndSettle();
+      final fields = tester.widgetList<TextField>(find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == 'City or zip code', skipOffstage: false));
+      expect(fields.map((f) => f.controller!.text), everyElement(entry.$2));
+      expect(scoreState.selectedRadius, '3 miles');
+      expect(scoreState.dishSearchController.text, 'soup');
+      expect(harness.transport.startRequests.last['radiusMiles'], 15);
+      expect(harness.transport.startRequests.last['searchText'], 'pizza');
+      expect(tester.state(find.byType(CustomerBiteSaverBrowseScreen, skipOffstage: false)), same(saverState));
+      final saverCount = harness.transport.startCalls;
+      final scoreCount = scoreRequests.length;
+      await tester.pump(const Duration(seconds: 1));
+      expect(harness.transport.startCalls, saverCount);
+      expect(scoreRequests.length, scoreCount);
+    }
+    await tester.pumpWidget(const SizedBox());
+    SharedLocationStateService.saveTypedLocation(latitude: 1, longitude: 1, label: 'after dispose', searchText: 'after dispose');
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Saver timeout retains accepted center and ignores late geocode', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 1600);
+    addTearDown(tester.view.reset);
+    SharedLocationStateService.saveTypedLocation(latitude: 28.7, longitude: -81.3, label: '34461', searchText: '34461');
+    final pending = Completer<List<Location>>();
+    final harness = _BrowseHarness();
+    await tester.pumpWidget(MaterialApp(home: harness.screen(onAction: _ignoreAction,
+      restoredLocation: SharedLocationStateService.state, locationGeocoder: (_) => pending.future)));
+    await _pumpBrowseReady(tester, harness.transport);
+    final field = find.byKey(const ValueKey('bounded-location-field'));
+    await tester.enterText(field, '32801');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 16));
+    expect(find.text('Could not find that location in time. Please try again.'), findsOneWidget);
+    expect(tester.widget<TextField>(field).controller!.text, '32801');
+    expect(SharedLocationStateService.state.searchText, '34461');
+    pending.complete([Location(latitude: 28.5, longitude: -81.3, timestamp: DateTime.utc(2026))]);
+    await tester.pumpAndSettle();
+    expect(SharedLocationStateService.state.searchText, '34461');
+    expect(harness.transport.startCalls, 1);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  for (final scenario in ['invalid content', 'paused', 'own delayed persistence']) {
+    testWidgets('shared center retires old Saver results: $scenario', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1000, 1600);
+      addTearDown(tester.view.reset);
+      SharedLocationStateService.saveTypedLocation(latitude: 28.7, longitude: -81.3, label: '34461', searchText: '34461');
+      final harness = _BrowseHarness();
+      final nextTime = Completer<CustomerBiteSaverTimeContext>();
+      var timeCalls = 0;
+      final persistence = Completer<void>();
+      await tester.pumpWidget(MaterialApp(home: harness.screen(onAction: _ignoreAction,
+        restoredLocation: SharedLocationStateService.state,
+        locationGeocoder: _SharedTestGeocoder().locationFromAddress,
+        timeContextProvider: () { timeCalls++; return timeCalls == 1 ? Future.value(_testTimeContext) : nextTime.future; })));
+      await _pumpBrowseReady(tester, harness.transport);
+      final oldAccess = harness.coordinator.captureBrowseAccess(restaurant:
+        harness.coordinator.currentAcceptedRestaurantFor(_restaurantId(harness.transport))!);
+      if (scenario == 'invalid content') {
+        await tester.enterText(find.byKey(const ValueKey('bounded-content-field')), 'x' * 201);
+      }
+      if (scenario == 'paused') {
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      }
+      if (scenario == 'own delayed persistence') {
+        SharedLocationStateService.setPreferenceMutationBarrierForTesting(persistence.future);
+        await tester.enterText(find.byKey(const ValueKey('bounded-location-field')), '32801');
+        await tester.testTextInput.receiveAction(TextInputAction.search);
+        await tester.pump();
+        final newer = SharedLocationStateService.beginLocationOperation();
+        SharedLocationStateService.cancelLocationOperationIfCurrent(newer);
+      } else {
+        SharedLocationStateService.saveTypedLocation(latitude: 28.5, longitude: -81.3, label: '32801', searchText: '32801');
+        await tester.pump();
+      }
+      expect(tester.widget<TextField>(find.byKey(const ValueKey('bounded-location-field'))).controller!.text, '32801');
+      expect(find.text('Fixture Café 😀'), findsNothing);
+      expect(harness.coordinator.isBrowseAccessCurrent(oldAccess), isFalse);
+      expect(harness.transport.startCalls, 1);
+      if (scenario == 'invalid content') {
+        expect(timeCalls, 1);
+        expect(tester.widget<TextField>(find.byKey(const ValueKey('bounded-content-field'))).controller!.text, 'x' * 201);
+      } else {
+        if (scenario == 'paused') {
+          expect(timeCalls, 1);
+          tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+          tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+          tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+          await tester.pump();
+        }
+        expect(timeCalls, 2);
+        nextTime.complete(_testTimeContext);
+        await _pumpUntil(tester, () => harness.transport.startCalls == 2);
+        expect(harness.transport.startRequests.last['latitude'], 28.5);
+      }
+      persistence.complete();
+      SharedLocationStateService.setPreferenceMutationBarrierForTesting(null);
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  testWidgets('Saver superseded geocode clears busy state and cannot replace newer selection', (tester) async {
+    final harness = _BrowseHarness();
+    final pending = Completer<List<Location>>();
+    await tester.pumpWidget(MaterialApp(home: harness.screen(onAction: _ignoreAction, locationGeocoder: (_) => pending.future)));
+    await _pumpBrowseReady(tester, harness.transport);
+    final field = find.byKey(const ValueKey('bounded-location-field'));
+    await tester.enterText(field, '32801');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pump();
+    expect(tester.widget<TextField>(field).enabled, isFalse);
+    SharedLocationStateService.saveTypedLocation(latitude: 30.3, longitude: -81.3, label: '32247', searchText: '32247');
+    await tester.pump();
+    expect(tester.widget<TextField>(field).enabled, isTrue);
+    pending.complete([Location(latitude: 28.5, longitude: -81.3, timestamp: DateTime.utc(2026))]);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(field).controller!.text, '32247');
+    expect(harness.transport.startRequests.last['latitude'], 30.3);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('borrowed Saver retains canonical city results after reconstruction', (tester) async {
+    final harness = _BrowseHarness();
+    SharedLocationStateService.saveTypedLocation(latitude: 28.5, longitude: -81.3, label: 'Orlando, Florida', searchText: 'Orlando, Florida');
+    var timeCalls = 0;
+    Widget app() => MaterialApp(home: CustomerBiteSaverBrowseScreen(
+      coordinator: harness.coordinator, disposeCoordinator: false,
+      timeContextProvider: () async { timeCalls++; return _testTimeContext; },
+      onAction: _ignoreAction,
+    ));
+    await tester.pumpWidget(app());
+    await _pumpBrowseReady(tester, harness.transport);
+    final access = harness.coordinator.captureBrowseAccess(restaurant:
+      harness.coordinator.currentAcceptedRestaurantFor(_restaurantId(harness.transport))!);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(harness.transport.startCalls, 1);
+    expect(timeCalls, 1);
+    expect(harness.coordinator.isBrowseAccessCurrent(access), isTrue);
+    expect(tester.widget<TextField>(find.byKey(const ValueKey('bounded-location-field'))).controller!.text, 'Orlando, Florida');
+    await tester.pumpWidget(const SizedBox());
+    harness.coordinator.dispose();
+  });
+
+  testWidgets('Saver resumes accepted location whose time setup was paused', (tester) async {
+    final harness = _BrowseHarness();
+    final oldTime = Completer<CustomerBiteSaverTimeContext>();
+    var timeCalls = 0;
+    await tester.pumpWidget(MaterialApp(home: harness.screen(onAction: _ignoreAction,
+      timeContextProvider: () { timeCalls++; return timeCalls == 2 ? oldTime.future : Future.value(_testTimeContext); })));
+    await _pumpBrowseReady(tester, harness.transport);
+    SharedLocationStateService.saveTypedLocation(latitude: 28.5, longitude: -81.3, label: '32801', searchText: '32801');
+    await tester.pump();
+    expect(timeCalls, 2);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await _pumpUntil(tester, () => harness.transport.startCalls == 2);
+    oldTime.complete(_testTimeContext);
+    await tester.pumpAndSettle();
+    expect(timeCalls, 3);
+    expect(harness.transport.startCalls, 2);
+    expect(harness.transport.startRequests.last['latitude'], 28.5);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('shared publication during radius restore uses the saved radius', (tester) async {
+    final gate = Completer<void>();
+    SharedPreferencesStorePlatform.instance = _DelayedSearchPreferences(gate.future);
+    final harness = _BrowseHarness();
+    await tester.pumpWidget(MaterialApp(home: CustomerBiteSaverBrowseScreen(
+      coordinator: harness.coordinator, timeContextProvider: () async => _testTimeContext,
+      onAction: _ignoreAction,
+    )));
+    SharedLocationStateService.saveTypedLocation(latitude: 28.5, longitude: -81.3, label: '32801', searchText: '32801');
+    await tester.pump();
+    gate.complete();
+    await _pumpUntil(tester, () => harness.transport.startRequests.isNotEmpty && harness.transport.startRequests.last['radiusMiles'] == 3);
+    expect(harness.transport.startRequests.last['latitude'], 28.5);
+    expect(harness.coordinator.criteria!.radiusMiles, 3);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  for (final unchanged in [true, false]) {
+    testWidgets('Saver reuses confirmed center or preserves it on failure (unchanged=$unchanged)', (tester) async {
+      final harness = _BrowseHarness();
+      SharedLocationStateService.saveTypedLocation(latitude: 28.7, longitude: -81.3, label: '34461', searchText: '34461');
+      var geocodes = 0;
+      await tester.pumpWidget(MaterialApp(home: harness.screen(onAction: _ignoreAction,
+        restoredLocation: SharedLocationStateService.state,
+        locationGeocoder: (_) async { geocodes++; return []; })));
+      await _pumpBrowseReady(tester, harness.transport);
+      final field = find.byKey(const ValueKey('bounded-location-field'));
+      await tester.enterText(field, unchanged ? '34461' : '32801');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(geocodes, unchanged ? 0 : 1);
+      expect(SharedLocationStateService.state.searchText, '34461');
+      expect(SharedLocationStateService.state.typedLatitude, 28.7);
+      expect(harness.transport.startCalls, unchanged ? 2 : 1);
+      expect(tester.widget<TextField>(field).controller!.text, unchanged ? '34461' : '32801');
+      if (!unchanged) expect(find.text('FormatException: That location could not be found.'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
 
   test('default navigation entry has no bounded browse activation', () {
     const screen = MainNavigationScreen(initializePlatformServices: false);
@@ -4708,3 +4968,20 @@ Map<String, Object?> _map(Object? value) =>
 
 Map<String, Object?> _copyMap(Object? value) =>
     _map(jsonDecode(jsonEncode(value)));
+
+class _SharedTestGeocoder extends GeocodingPlatform {
+  @override
+  Future<List<Location>> locationFromAddress(String query) async => [Location(
+    latitude: switch(query) {'34461' => 28.7, '32801' => 28.5, _ => 30.3},
+    longitude: -81.3, timestamp: DateTime.utc(2026))];
+}
+
+class _DelayedSearchPreferences extends InMemorySharedPreferencesStore {
+  _DelayedSearchPreferences(this.gate) : super.withData({'flutter.selected_radius': '3 miles'});
+  final Future<void> gate;
+  @override
+  Future<Map<String, Object>> getAllWithParameters(GetAllParameters parameters) async {
+    await gate;
+    return super.getAllWithParameters(parameters);
+  }
+}

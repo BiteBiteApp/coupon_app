@@ -320,6 +320,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   int _locationOperationGeneration = 0;
   int _entriesRequestGeneration = 0;
   bool _suppressLocationSearchListener = false;
+  SharedLocationState _confirmedLocation = const SharedLocationState();
   SharedLocationOperationToken? _ownedSharedLocationOperation;
   SharedLocationRestoreLease? _activeRestoreLease;
   CustomerBiteScoreSearchController? _boundedSearch;
@@ -334,7 +335,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     final center = _activeSearchCenter();
     return customerBiteScoreDishCriteria(
       text: dishSearchController.text.trim(),
-      locationText: locationSearchController.text.trim(),
+      locationText: _confirmedLocation.usingTypedSearchLocation
+          ? _confirmedLocation.searchText.trim() : '',
       latitude: center?.latitude,
       longitude: center?.longitude,
       radiusMiles: _radiusMiles(),
@@ -382,15 +384,25 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         criteria: _boundedCriteria(),
       )..addListener(_boundedSearchChanged);
       try {
+        final initialUser = FirebaseAuth.instance.currentUser;
+        final initialCriteria = jsonEncode(_boundedCriteria());
+        var awaitingInitialNotification = true;
         _boundedAuthSubscription = FirebaseAuth.instance
             .authStateChanges()
-            .listen((_) {
-              if (mounted) unawaited(_refreshEntries());
+            .listen((user) {
+              final initialEcho = awaitingInitialNotification &&
+                  user?.uid == initialUser?.uid &&
+                  user?.isAnonymous == initialUser?.isAnonymous &&
+                  user?.tenantId == initialUser?.tenantId &&
+                  jsonEncode(_boundedCriteria()) == initialCriteria;
+              awaitingInitialNotification = false;
+              if (mounted && !initialEcho) unawaited(_refreshEntries());
             });
       } catch (_) {
         // Widget tests may supply a transport without Firebase initialization.
       }
     }
+    SharedLocationStateService.changes.addListener(_sharedLocationChanged);
     locationSearchController.addListener(_handleLocationSearchTextChanged);
     _refreshEntries();
     _initializeLocationState();
@@ -407,6 +419,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
 
   @override
   void dispose() {
+    SharedLocationStateService.changes.removeListener(_sharedLocationChanged);
     _boundedSearchDebounce?.cancel();
     _boundedAuthSubscription?.cancel();
     _boundedSearch?.dispose();
@@ -435,6 +448,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   }
 
   bool get _hasLocationOrZipInput {
+    if (_usesBoundedSearch) return _activeSearchCenter() != null;
     return currentPosition != null ||
         typedSearchCenter != null ||
         locationSearchController.text.trim().isNotEmpty;
@@ -686,7 +700,12 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   }
 
   void _invalidateLocationOperation() {
-    _beginLocationOperation();
+    _locationOperationGeneration += 1;
+    final owned = _ownedSharedLocationOperation;
+    _ownedSharedLocationOperation = null;
+    if (owned != null) {
+      SharedLocationStateService.cancelLocationOperationIfCurrent(owned);
+    }
     isSearchingLocation = false;
     isGettingLocation = false;
   }
@@ -711,8 +730,32 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     _suppressLocationSearchListener = false;
   }
 
+  void _sharedLocationChanged() {
+    if (!mounted) return;
+    final owned = _ownedSharedLocationOperation;
+    // The submitting operation applies its own accepted state after saving.
+    if ((isSearchingLocation || isGettingLocation) && owned != null &&
+        SharedLocationStateService.ownsLocationOperation(owned)) {
+      return;
+    }
+    final before = jsonEncode(_boundedCriteria());
+    if (isSearchingLocation || isGettingLocation) {
+      _locationOperationGeneration += 1;
+    }
+    setState(() {
+      isSearchingLocation = false;
+      isGettingLocation = false;
+      _restoreSharedLocationState();
+      _launchLocationMessage = null;
+    });
+    if (_usesBoundedSearch && before != jsonEncode(_boundedCriteria())) {
+      unawaited(_refreshEntries());
+    }
+  }
+
   void _restoreSharedLocationState([SharedLocationState? restoredState]) {
     final sharedLocation = restoredState ?? SharedLocationStateService.state;
+    _confirmedLocation = sharedLocation;
     _replaceLocationSearchText(
       sharedLocation.usingCurrentLocation ? '' : sharedLocation.searchText,
     );
@@ -834,9 +877,11 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
 
     try {
       final locations = await SharedLocationStateService.geocodeSearchQuery(
-        query,
+        query, reuseConfirmed: true,
       );
-      if (locations.isEmpty) {
+      if (locations.isEmpty || !locations.first.latitude.isFinite ||
+          !locations.first.longitude.isFinite ||
+          locations.first.latitude.abs() > 90 || locations.first.longitude.abs() > 180) {
         throw Exception('No matching location found.');
       }
 
@@ -850,14 +895,11 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             searchText: query,
           );
       setState(() {
-        typedSearchCenter = BiteScoreSearchCenter(
-          latitude: locations.first.latitude,
-          longitude: locations.first.longitude,
-          label: query,
-        );
-        currentPosition = null;
+        _restoreSharedLocationState();
+        isSearchingLocation = false;
         _launchLocationMessage = null;
       });
+      if (_usesBoundedSearch) unawaited(_refreshEntries());
       await persistFuture;
     } catch (error) {
       if (!mounted || !_ownsLocationOperation(operation)) return;
@@ -865,14 +907,16 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         SnackBar(
           content: Text(
             AppErrorText.friendly(
-              error,
+              error is TimeoutException
+                  ? 'Could not find that location in time. Please try again.'
+                  : error,
               fallback: 'Could not find that location right now.',
             ),
           ),
         ),
       );
     } finally {
-      if (_ownsLocationOperation(operation)) {
+      if (mounted && operation.generation == _locationOperationGeneration) {
         setState(() {
           isSearchingLocation = false;
         });
@@ -920,11 +964,11 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             detectedZip: locationDetails.zip,
           );
       setState(() {
-        currentPosition = position;
-        typedSearchCenter = null;
-        _replaceLocationSearchText('');
+        _restoreSharedLocationState();
+        isGettingLocation = false;
         _launchLocationMessage = null;
       });
+      if (_usesBoundedSearch) unawaited(_refreshEntries());
       await persistFuture;
     } catch (error) {
       if (!mounted || !_ownsLocationOperation(operation)) return;
@@ -939,7 +983,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         ),
       );
     } finally {
-      if (_ownsLocationOperation(operation)) {
+      if (mounted && operation.generation == _locationOperationGeneration) {
         setState(() {
           isGettingLocation = false;
         });
