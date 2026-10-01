@@ -55,6 +55,8 @@ if (!emulatorGate) {
   const {getFirestore} = require("firebase-admin/firestore");
   const {
     CustomerBiteSaverContractError,
+    customerBiteSaverCatalogGenerationShardCount,
+    privateCustomerBiteSaverCatalogGenerationCollection,
     customerBiteSaverGuestCheckMaximumCandidateIds,
     customerBiteSaverMaximumConcurrentOperations,
     customerBiteSaverMaximumWritesPerCommit,
@@ -2250,8 +2252,15 @@ if (!emulatorGate) {
     const clock = {value: fixedNowMs};
     const bundle = await startSession({guest: true, clock});
     const phases = [];
+    const generationReads = new Set();
+    hooks.afterTransactionGetDocuments = async (paths) => {
+      for (const p of paths) {
+        if (p.startsWith(`${privateCustomerBiteSaverCatalogGenerationCollection}/`)) generationReads.add(p);
+      }
+    };
     const iterationCounters = [];
     let session = await currentSession(bundle);
+    try {
     for (let iteration = 0; session.data.state === "preparing"; iteration += 1) {
       assert.ok(iteration < 120, "real worker continuation did not converge");
       phases.push(session.data.phase);
@@ -2271,12 +2280,15 @@ if (!emulatorGate) {
       iterationCounters.push({...counters});
       session = await currentSession(bundle);
     }
+    } finally {
+      hooks.afterTransactionGetDocuments = null;
+    }
     assert.equal(session.data.state, "ready");
     assert.equal(session.data.phase, "ready");
     assert.ok(phases.filter((phase) => phase === "restaurantRanges").length >= 2);
     assert.ok(phases.filter((phase) => phase === "offerRanges").length >= 3);
     assert.ok(phases.includes("finalizeCandidates"));
-    assert.ok(phases.includes("verifyCatalogGeneration"));
+    assert.equal(generationReads.size, customerBiteSaverCatalogGenerationShardCount);
     assert.ok(iterationCounters.every((entry) =>
       entry.writesCommittedMaximum < customerBiteSaverMaximumWritesPerCommit + 1));
     assert.ok(iterationCounters.every((entry) =>

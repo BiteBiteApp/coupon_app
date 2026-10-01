@@ -1716,6 +1716,13 @@ async function processOfferRanges(
       completedOfferRanges: ranges.filter((range) => range.exhausted).length,
     }),
   });
+  // An empty exhausted offer query has no pending candidate writes or retained
+  // source documents. Its <=2 ranges plus one <=25-candidate finalization page
+  // share the original lease, counters, clock and single completion transaction.
+  if (nextPhase === "finalizeCandidates" && fetchedOffers.length === 0 &&
+      canCoalesce(context, now)) {
+    return processFinalization(lease, context, now, nextSession);
+  }
   return commitIteration({
     context,
     lease,
@@ -1798,12 +1805,13 @@ async function processFinalization(
   lease: Lease,
   context: CustomerBiteSaverWorkerContext,
   now: Date,
+  preparedSession: CustomerBiteSaverSessionDocument = lease.session,
 ): Promise<boolean> {
   const prefix = customerBiteSaverCandidatePrefix(
-    lease.session.sessionId,
-    lease.session.attemptGeneration,
+    preparedSession.sessionId,
+    preparedSession.attemptGeneration,
   );
-  const finalizationCursor = lease.session.finalizeAfterCandidateDocumentId;
+  const finalizationCursor = preparedSession.finalizeAfterCandidateDocumentId;
   if (
     finalizationCursor !== null &&
     (
@@ -1832,22 +1840,22 @@ async function processFinalization(
     limit: customerBiteSaverRangeFetchLimit,
   });
   const results = documents.map((document) => {
-    const candidate = parseCandidate(document, lease.session);
+    const candidate = parseCandidate(document, preparedSession);
     return candidate === null
       ? null
-      : resultFromCandidate(context, lease.session, candidate, now);
+      : resultFromCandidate(context, preparedSession, candidate, now);
   }).filter((entry): entry is NonNullable<typeof entry> => entry !== null);
   const last = documents[documents.length - 1];
   const finished = documents.length < customerBiteSaverRangeFetchLimit;
   const nextSession: CustomerBiteSaverSessionDocument = Object.freeze({
-    ...lease.session,
+    ...preparedSession,
     phase: finished ? "verifyCatalogGeneration" : "finalizeCandidates",
     finalizeAfterCandidateDocumentId: last?.id ??
-      lease.session.finalizeAfterCandidateDocumentId,
+      preparedSession.finalizeAfterCandidateDocumentId,
     progress: Object.freeze({
-      ...lease.session.progress,
+      ...preparedSession.progress,
       finalizedCandidates:
-        lease.session.progress.finalizedCandidates + documents.length,
+        preparedSession.progress.finalizedCandidates + documents.length,
     }),
   });
   incrementCounter(context.counters, "candidateIdentitiesRetained", documents.length);
@@ -1855,7 +1863,9 @@ async function processFinalization(
     context,
     lease,
     now,
-    nextSession,
+    nextSession: finished && canCoalesce(context, now)
+      ? (currentVector) => sessionAfterGenerationVerification(nextSession, currentVector)
+      : nextSession,
     writes: results.map((result) => ({
       path: path(privateCustomerBiteSaverResultCollection, result.id),
       data: result.data,
@@ -1902,60 +1912,72 @@ function resetRange(
   });
 }
 
+// Admission uses the original invocation clock. This leaves half of the existing
+// 30-second lease for the extra bounded query/commit, without renewing the lease.
+function canCoalesce(context: CustomerBiteSaverWorkerContext, startedAt: Date): boolean {
+  const elapsed = nowDate(context).getTime() - startedAt.getTime();
+  return elapsed >= 0 && elapsed < 15_000;
+}
+
+function sessionAfterGenerationVerification(
+  session: CustomerBiteSaverSessionDocument,
+  currentVector: readonly number[],
+): CustomerBiteSaverSessionDocument {
+  const matches = currentVector.every((entry, index) =>
+    entry === session.catalogGenerationVector[index]);
+  if (matches) {
+    return Object.freeze({
+      ...session,
+      state: "ready",
+      phase: "ready",
+    });
+  }
+  if (
+    session.catalogRestartCount >=
+      customerBiteSaverMaximumCatalogRestarts
+  ) {
+    return Object.freeze({
+      ...session,
+      state: "failed",
+      failureCode: "catalog_changed_repeatedly",
+    });
+  }
+  const attemptGeneration = session.attemptGeneration + 1;
+  return Object.freeze({
+    ...session,
+    attemptGeneration,
+    catalogRestartCount: session.catalogRestartCount + 1,
+    catalogGenerationVector: currentVector,
+    queryFingerprint: createCustomerBiteSaverMembershipFingerprint({
+      criteria: session.criteria,
+      attemptGeneration,
+      catalogGenerationVector: currentVector,
+    }),
+    phase: "restaurantRanges",
+    restaurantRanges: Object.freeze(
+      session.restaurantRanges.map(resetRange),
+    ),
+    offerRanges: Object.freeze(session.offerRanges.map(resetRange)),
+    finalizeAfterCandidateDocumentId: null,
+    progress: Object.freeze({
+      processedSourceDocuments: 0,
+      completedRestaurantRanges: 0,
+      completedOfferRanges: 0,
+      finalizedCandidates: 0,
+    }),
+  });
+
+}
+
 async function processGenerationVerification(
   lease: Lease,
   context: CustomerBiteSaverWorkerContext,
   now: Date,
 ): Promise<boolean> {
   return commitIteration({
-    context,
-    lease,
-    now,
-    nextSession: (currentVector) => {
-      const matches = currentVector.every((entry, index) =>
-        entry === lease.session.catalogGenerationVector[index]);
-      if (matches) {
-        return Object.freeze({
-          ...lease.session,
-          state: "ready",
-          phase: "ready",
-        });
-      }
-      if (
-        lease.session.catalogRestartCount >=
-          customerBiteSaverMaximumCatalogRestarts
-      ) {
-        return Object.freeze({
-          ...lease.session,
-          state: "failed",
-          failureCode: "catalog_changed_repeatedly",
-        });
-      }
-      const attemptGeneration = lease.session.attemptGeneration + 1;
-      return Object.freeze({
-        ...lease.session,
-        attemptGeneration,
-        catalogRestartCount: lease.session.catalogRestartCount + 1,
-        catalogGenerationVector: currentVector,
-        queryFingerprint: createCustomerBiteSaverMembershipFingerprint({
-          criteria: lease.session.criteria,
-          attemptGeneration,
-          catalogGenerationVector: currentVector,
-        }),
-        phase: "restaurantRanges",
-        restaurantRanges: Object.freeze(
-          lease.session.restaurantRanges.map(resetRange),
-        ),
-        offerRanges: Object.freeze(lease.session.offerRanges.map(resetRange)),
-        finalizeAfterCandidateDocumentId: null,
-        progress: Object.freeze({
-          processedSourceDocuments: 0,
-          completedRestaurantRanges: 0,
-          completedOfferRanges: 0,
-          finalizedCandidates: 0,
-        }),
-      });
-    },
+    context, lease, now,
+    nextSession: (currentVector) =>
+      sessionAfterGenerationVerification(lease.session, currentVector),
   });
 }
 

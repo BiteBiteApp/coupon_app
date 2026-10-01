@@ -1688,12 +1688,13 @@ function seedStatusRestaurant(database) {
 
 async function restartStatusWorker(database, context, started) {
   const verifying = await advanceStatusWorkerUntil(database, context, started,
-    (session) => session.phase === "verifyCatalogGeneration");
+    (session) => session.phase === "offerRanges");
   const shardPath = `${privateCustomerBiteSaverCatalogGenerationCollection}/` +
     customerBiteSaverGenerationShardId(0);
   const shard = database.documents.get(shardPath);
   database.documents.set(shardPath, {...shard, generation: shard.generation + 1});
-  await processCustomerBiteSaverSearchJob(verifying.currentJobId, context);
+  await advanceStatusWorkerUntil(database, context, started,
+    (session) => session.attemptGeneration !== verifying.attemptGeneration || session.state === "failed");
 }
 
 for (const transition of ["offerRanges", "ready"]) {
@@ -1705,7 +1706,7 @@ for (const transition of ["offerRanges", "ready"]) {
       if (restaurantCount) seedStatusRestaurant(database);
       if (transition === "ready") {
         await advanceStatusWorkerUntil(database, context, started,
-          (session) => session.phase === "verifyCatalogGeneration");
+          (session) => session.phase === "offerRanges");
       }
       let advanced;
       interleaveStatusWorker(database, async () => {

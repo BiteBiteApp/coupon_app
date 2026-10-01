@@ -675,7 +675,6 @@ test("worker continues through every phase and persists exact safe order inputs"
       "finalizeCandidates",
       "offerRanges",
       "restaurantRanges",
-      "verifyCatalogGeneration",
     ],
   );
   assert.equal(currentSession(database, started.sessionId).state, "ready");
@@ -1892,7 +1891,7 @@ test("complete projections avoid raw reads while incomplete projections fail clo
   const offerIterations = await driveUntil(
     database,
     started.sessionId,
-    (session) => session.phase === "finalizeCandidates",
+    (session) => ["finalizeCandidates", "ready"].includes(session.phase),
   );
   const rawReadPaths = database.calls.getDocument.filter((documentPath) =>
     documentPath.startsWith("restaurant_accounts/"));
@@ -2024,8 +2023,9 @@ test("malformed retained candidates become one sanitized terminal failure", asyn
   await driveUntil(
     database,
     started.sessionId,
-    (session) => session.phase === "finalizeCandidates",
+    (session) => session.phase === "offerRanges",
   );
+  forcePhase(database, started.sessionId, "finalizeCandidates");
   const candidates = documentsInCollection(
     database,
     privateCustomerBiteSaverCandidateCollection,
@@ -2178,7 +2178,7 @@ test("counting catalogs complete at 1k through 100k with no total cap", async (t
 
       let iterations = 0;
       while (currentSession(database, started.sessionId).state === "preparing") {
-        assert.ok(iterations <= total / customerBiteSaverRangeFetchLimit + 2);
+        assert.ok(iterations <= total / customerBiteSaverRangeFetchLimit + 1);
         const iteration = await runCurrentJob(database, started.sessionId);
         assert.equal(iteration.result, true);
         assert.ok(
@@ -2198,7 +2198,7 @@ test("counting catalogs complete at 1k through 100k with no total cap", async (t
       assert.equal(database.maximumVirtualPage, customerBiteSaverRangeFetchLimit);
       assert.equal(
         iterations,
-        total / customerBiteSaverRangeFetchLimit + 2,
+        total / customerBiteSaverRangeFetchLimit + 1,
       );
       assert.ok(database.maximumQueryResultSize <= customerBiteSaverRangeFetchLimit);
       assert.ok(database.maximumOperationsInFlight <= 10);
@@ -2215,4 +2215,168 @@ test("counting catalogs complete at 1k through 100k with no total cap", async (t
       );
     });
   }
+});
+
+async function seedEmptyOfferTail(database, total = 0) {
+  const started = await seedSearch(database);
+  const session = currentSession(database, started.sessionId);
+  forcePhase(database, started.sessionId, "offerRanges", {
+    restaurantRanges: session.restaurantRanges.map((range) => ({...range, exhausted: true})),
+    offerRanges: session.offerRanges.map((range, index) => ({...range, exhausted: index > 0})),
+  });
+  installVirtualCandidateCatalog(database, started.sessionId, total);
+  database.resetInstrumentation();
+  return started;
+}
+
+for (const total of [0, 1, 24, 25, 26, 50]) {
+  test(`empty offer tail coalesces bounded finalization and verification (${total} candidates)`, async () => {
+    const database = new InMemoryWorkerDatabase();
+    const started = await seedEmptyOfferTail(database, total);
+    const iterations = await driveUntil(database, started.sessionId, (s) => s.state !== "preparing");
+    assert.equal(iterations.length, Math.floor(total / 25) + 1);
+    assert.equal(database.calls.transactions, iterations.length * 2);
+    assert.equal(database.resultWrites, total);
+    assert.equal(currentSession(database, started.sessionId).progress.finalizedCandidates, total);
+    assert.equal(currentSession(database, started.sessionId).state, "ready");
+    assert.equal(iterations[0].counters.rangesAdvanced, 1);
+    assert.ok(iterations.every((i) => i.counters.sourceDocumentsProcessed === 0));
+    assert.ok(iterations.every((i) => i.counters.candidateIdentitiesRetained <= 25));
+    assert.ok(iterations.every((i) => i.counters.writesCommittedMaximum <= 28));
+    assertIterationBounds(database, iterations);
+    assert.ok(database.calls.getDocuments.some((paths) => paths.length === 16 &&
+      paths.every((p) => p.startsWith(`${privateCustomerBiteSaverCatalogGenerationCollection}/`))));
+    const ordered = await database.queryDocuments(customerBiteSaverOrderedResultQuery({
+      session: currentSession(database, started.sessionId), limit: 26,
+    }));
+    assert.equal(ordered.length, Math.min(total, 26));
+    assert.equal(documentsInCollection(database, privateCustomerBiteSaverResultCollection).length, total);
+    const completedJob = iterations[0].before.currentJobId;
+    assert.equal(await processCustomerBiteSaverSearchJob(completedJob, workerContext(database)), false);
+    assert.equal(database.resultWrites, total);
+  });
+}
+
+for (const boundary of ["beforeFinalization", "beforeVerification"]) {
+  test(`coalescing observes original invocation deadline ${boundary}`, async () => {
+    const database = new InMemoryWorkerDatabase();
+    const started = await seedEmptyOfferTail(database, 1);
+    const context = workerContext(database);
+    let clock = nowMs;
+    context.now = () => clock;
+    const query = database.queryDocuments.bind(database);
+    database.queryDocuments = async (request) => {
+      const result = await query(request);
+      if (boundary === "beforeFinalization" || request.collectionPath === privateCustomerBiteSaverCandidateCollection) {
+        clock = nowMs + 15_000;
+      }
+      return result;
+    };
+    const job = currentSession(database, started.sessionId).currentJobId;
+    assert.equal(await processCustomerBiteSaverSearchJob(job, context), true);
+    assert.equal(database.calls.transactions, 2);
+    assert.equal(currentSession(database, started.sessionId).phase,
+      boundary === "beforeFinalization" ? "finalizeCandidates" : "verifyCatalogGeneration");
+    assert.equal(database.resultWrites, boundary === "beforeFinalization" ? 0 : 1);
+    database.queryDocuments = query;
+    await driveUntil(database, started.sessionId, (s) => s.state === "ready");
+    assert.equal(database.resultWrites, 1);
+  });
+}
+
+for (const failure of ["query", "commit", "acknowledgment"]) {
+  test(`fused transition recovers ${failure} failure without partial checkpoint`, async () => {
+    const database = new InMemoryWorkerDatabase();
+    const started = await seedEmptyOfferTail(database, 1);
+    const initial = currentSession(database, started.sessionId);
+    const query = database.queryDocuments.bind(database);
+    const transaction = database.runTransaction.bind(database);
+    let attempts = 0;
+    database.queryDocuments = async (request) => {
+      if (failure === "query" && request.collectionPath === privateCustomerBiteSaverCandidateCollection) {
+        throw Error("injected fused query failure");
+      }
+      return query(request);
+    };
+    database.runTransaction = async (operation) => {
+      attempts++;
+      if (failure === "commit" && attempts === 2) throw Error("injected fused commit failure");
+      const result = await transaction(operation);
+      if (failure === "acknowledgment" && attempts === 2) throw Error("injected fused acknowledgment failure");
+      return result;
+    };
+    await assert.rejects(processCustomerBiteSaverSearchJob(initial.currentJobId, workerContext(database)), /injected fused/);
+    const after = currentSession(database, started.sessionId);
+    if (failure !== "acknowledgment") {
+      assert.equal(after.phase, "offerRanges");
+      assert.deepEqual(after.offerRanges, initial.offerRanges);
+      assert.equal(after.workerLeaseId, null);
+      assert.equal(database.resultWrites, 0);
+    } else {
+      assert.equal(after.state, "ready");
+      assert.equal(database.resultWrites, 1);
+    }
+    database.queryDocuments = query;
+    database.runTransaction = transaction;
+    await processCustomerBiteSaverSearchJob(initial.currentJobId, workerContext(database));
+    assert.equal(currentSession(database, started.sessionId).state, "ready");
+    assert.equal(database.resultWrites, 1);
+  });
+}
+
+test("fused generation restart resets membership and respects restart ceiling", async () => {
+  for (const restarts of [0, customerBiteSaverMaximumCatalogRestarts]) {
+    const database = new InMemoryWorkerDatabase();
+    const started = await seedEmptyOfferTail(database, 1);
+    const initial = currentSession(database, started.sessionId);
+    database.documents.set(sessionPath(started.sessionId), {...initial, catalogRestartCount: restarts});
+    database.beforeTransaction = (number) => {
+      if (number !== 2) return;
+      const p = `${privateCustomerBiteSaverCatalogGenerationCollection}/${customerBiteSaverGenerationShardId(0)}`;
+      database.documents.set(p, {...database.documents.get(p), generation: 1});
+    };
+    await runCurrentJob(database, started.sessionId);
+    const after = currentSession(database, started.sessionId);
+    if (restarts === 0) {
+      assert.equal(after.attemptGeneration, initial.attemptGeneration + 1);
+      assert.equal(after.phase, "restaurantRanges");
+      assert.notEqual(after.queryFingerprint, initial.queryFingerprint);
+      assert.equal(after.finalizeAfterCandidateDocumentId, null);
+      assert.equal(after.progress.finalizedCandidates, 0);
+      assert.ok(after.offerRanges.every((r) => !r.exhausted));
+    } else {
+      assert.equal(after.state, "failed");
+      assert.equal(after.failureCode, "catalog_changed_repeatedly");
+    }
+  }
+});
+
+test("expired fused lease can be taken over and old completion cannot publish", async () => {
+  const database = new InMemoryWorkerDatabase();
+  const started = await seedEmptyOfferTail(database, 1);
+  const originalQuery = database.queryDocuments.bind(database);
+  let release;
+  let reached;
+  const waiting = new Promise((resolve) => { reached = resolve; });
+  const barrier = new Promise((resolve) => { release = resolve; });
+  let first = true;
+  database.queryDocuments = async (request) => {
+    if (first && request.collectionPath === privateCustomerBiteSaverCandidateCollection) {
+      first = false;
+      reached();
+      await barrier;
+    }
+    return originalQuery(request);
+  };
+  const jobId = currentSession(database, started.sessionId).currentJobId;
+  const stale = processCustomerBiteSaverSearchJob(jobId, workerContext(database));
+  await waiting;
+  await assert.rejects(processCustomerBiteSaverSearchJob(jobId, workerContext(database)), /lease is still active/);
+  const takeover = workerContext(database);
+  takeover.now = () => nowMs + 31_000;
+  assert.equal(await processCustomerBiteSaverSearchJob(jobId, takeover), true);
+  release();
+  assert.equal(await stale, false);
+  assert.equal(currentSession(database, started.sessionId).state, "ready");
+  assert.equal(database.resultWrites, 1);
 });
