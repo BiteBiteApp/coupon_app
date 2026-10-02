@@ -317,3 +317,41 @@ Do not use deeper analysis as a reason to:
 When a safe coherent task can be completed in one bounded autonomous
 assignment, prefer that over unnecessary inspect/report/implement/report
 micro-prompts.
+
+## 14. Change boundaries and qualification
+
+Declare each assignment's permitted change area before editing:
+presentation, client state, navigation/contracts, backend logic,
+schema/infrastructure, or an explicitly authorized combination.
+
+UI-only work preserves button/controller/state behavior, outgoing search
+criteria, IDs, DTOs, route destinations, persistence, authentication and
+backend contracts unless separately authorized. Search work also preserves
+QR identity, deep-link destinations, restaurant-profile entry contracts,
+menu identity/routing, Saved, favorites and redemption boundaries.
+A changed search data source alone does not justify rebuilding QR codes,
+profiles or menus, or removing working links.
+
+Read-only inspection of directly relevant dependencies is allowed; it is
+not permission to modify them. Identify affected symbols and contracts
+before editing. For an exposed broken dependency, trace the exact caller
+→ contract → consumer and propose the smallest sound repair. Never guess
+identities, fabricate missing fields, weaken authorization, silently remove
+functionality or replace a subsystem to avoid repairing its contract.
+
+After editing, review the diff and exercise affected integration behavior.
+For UI-only work, verify protected service/contract files are unchanged.
+For mixed files, review changed symbols and behavior: shared presentation
+and logic neither prohibits all UI work nor proves edits harmless. File
+hashes alone do not prove unchanged callers work with a changed dependency.
+
+Apply Sections 1–4 to incidental work; no opportunistic refactor, feature,
+architecture, service, migration, schema, paid capacity or deployment is
+implied. A demonstrated source bug must not be preserved merely for parity:
+classify it and repair under appropriate authorization. Record unrelated
+real production blockers with evidence without expanding into a rewrite.
+
+Freeze qualified artifacts. Later edits do not inherit qualification by
+replacing a recorded commit/hash; recheck affected dependencies and rerun
+necessary tests. Keep source-corrected, tested, reviewed, committed,
+deployed, default-active and production-qualified statuses separate.
