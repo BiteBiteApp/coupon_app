@@ -2494,6 +2494,14 @@ export const searchAdminRestaurants = onCall(
 
 export const searchAdminLinkRestaurantsPage = onCall(
   {
+    region: "us-central1",
+    minInstances: 0,
+    maxInstances: 10,
+    memory: "256MiB",
+    cpu: 1,
+    concurrency: 80,
+    timeoutSeconds: 60,
+    ingressSettings: "ALLOW_ALL",
     serviceAccount: adminSupportRuntimeServiceAccount,
     secrets: [searchPaginationCursorKey, googleMapsApiKey],
   },
@@ -2605,6 +2613,14 @@ export const listCouponAdminCouponsPage = onCall(
 
 export const listCouponAdminInviteHistoryPage = onCall(
   {
+    region: "us-central1",
+    minInstances: 0,
+    maxInstances: 10,
+    memory: "256MiB",
+    cpu: 1,
+    concurrency: 80,
+    timeoutSeconds: 60,
+    ingressSettings: "ALLOW_ALL",
     serviceAccount: adminSupportRuntimeServiceAccount,
     secrets: [searchPaginationCursorKey],
   },
@@ -2642,6 +2658,14 @@ export const searchRatingAdminRestaurantsPage = onCall(
 
 export const listRatingAdminDirectoryPage = onCall(
   {
+    region: "us-central1",
+    minInstances: 0,
+    maxInstances: 10,
+    memory: "256MiB",
+    cpu: 1,
+    concurrency: 80,
+    timeoutSeconds: 60,
+    ingressSettings: "ALLOW_ALL",
     serviceAccount: adminSupportRuntimeServiceAccount,
     secrets: [searchPaginationCursorKey],
   },
@@ -2672,6 +2696,14 @@ export const listRatingAdminQueuePage = onCall(
 
 export const listRatingAdminInviteHistoryPage = onCall(
   {
+    region: "us-central1",
+    minInstances: 0,
+    maxInstances: 10,
+    memory: "256MiB",
+    cpu: 1,
+    concurrency: 80,
+    timeoutSeconds: 60,
+    ingressSettings: "ALLOW_ALL",
     serviceAccount: adminSupportRuntimeServiceAccount,
     secrets: [searchPaginationCursorKey],
   },
@@ -2768,7 +2800,18 @@ export const getRatingDestructiveOperationStatus = onCall(async (request) => {
 });
 
 export const listRatingAdminDestructiveOperationsPage = onCall(
-  { secrets: [searchPaginationCursorKey] },
+  {
+    region: "us-central1",
+    minInstances: 0,
+    maxInstances: 10,
+    memory: "256MiB",
+    cpu: 1,
+    concurrency: 80,
+    timeoutSeconds: 60,
+    ingressSettings: "ALLOW_ALL",
+    serviceAccount: adminSupportRuntimeServiceAccount,
+    secrets: [searchPaginationCursorKey],
+  },
   async (request) => {
     const admin = requireAdminInviteAccess(request);
     return listRatingAdminDestructiveOperationsPageHandler(request.data, {
