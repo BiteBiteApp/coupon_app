@@ -673,6 +673,15 @@
       "collectionGroup": "results",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "distanceMillimeters", "order": "DESCENDING" },
+        { "fieldPath": "normalizedName", "order": "DESCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "results",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "distanceMillimeters", "order": "ASCENDING" },
         { "fieldPath": "normalizedName", "order": "ASCENDING" },
         { "fieldPath": "sourceDocumentId", "order": "ASCENDING" },
