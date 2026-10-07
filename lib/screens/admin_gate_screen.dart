@@ -28,9 +28,26 @@ class AdminGateScreen extends StatefulWidget {
 }
 
 class _AdminGateScreenState extends State<AdminGateScreen> {
+  late Stream<User?> _userStream;
   MainNavigationAuthRouteBinding? _authBoundRouteBinding;
   String? _authorizedUserId;
   int _authorizationGeneration = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Popup routes rebuild this gate. Keep the subscription stable so a
+    // loading snapshot does not dispose the authenticated workspace.
+    _userStream = widget.userStream ?? FirebaseAuth.instance.userChanges();
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminGateScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userStream != widget.userStream) {
+      _userStream = widget.userStream ?? FirebaseAuth.instance.userChanges();
+    }
+  }
 
   void _ensureAuthorizedBinding(User user) {
     final existing = _authBoundRouteBinding;
@@ -85,7 +102,7 @@ class _AdminGateScreenState extends State<AdminGateScreen> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: widget.userStream ?? FirebaseAuth.instance.userChanges(),
+      stream: _userStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
