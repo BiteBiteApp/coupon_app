@@ -17,7 +17,7 @@ import {reconcileBiteScoreReviewAggregateEvent, biteScoreReviewAggregateStatePat
 import {reconcileCustomerBiteScoreFeedback, reconcileCustomerBiteScoreReview, reconcileCustomerBiteScoreImage} from "./customer_bitescore_reads.js";
 import {customerBiteScoreProfileGenerationPath, reconcileCustomerBiteScoreFavoriteGeneration} from "./customer_bitescore_profile_generation.js";
 import {createFirestoreCustomerBiteSaverSearchDatabase} from "./customer_bitesaver_search_store.js";
-import {adminUserDirectoryDocumentPath, adminUserSourceSummaryDocumentPath, adminUserSourceKinds} from "./admin_user_directory_contract.js";
+import {adminUserWorkPath, adminUserDirectoryDocumentPath, adminUserSourceSummaryDocumentPath, adminUserSourceKinds} from "./admin_user_directory_contract.js";
 import {createDishReviewAggregateReviewerFingerprint} from "./dish_review_aggregate_accumulator.js";
 import {reviewMilestoneReconciliationLockPath, reviewMilestoneReconciliationTerminalStatePath, parseReviewMilestoneReconciliationLockDocument} from "./review_milestone_reconciliation_lock.js";
 
@@ -320,7 +320,7 @@ function personalRootPaths(uid: string): string[] {
   return [`user_profiles/${uid}`, `public_reviewer_profiles/${uid}`, `customer_redemptions/${uid}`,
     `private_bitescore_reviewer_stats/${digest(uid)}`, customerBiteScoreProfileGenerationPath(uid),
     reviewMilestoneReconciliationTerminalStatePath(uid),
-    adminUserDirectoryDocumentPath(uid), ...adminUserSourceKinds.map((sourceKind) => adminUserSourceSummaryDocumentPath({uid, sourceKind}))];
+    adminUserDirectoryDocumentPath(uid), ...adminUserSourceKinds.flatMap((sourceKind) => [adminUserSourceSummaryDocumentPath({uid, sourceKind}), adminUserWorkPath(uid, sourceKind)])];
 }
 
 export function createAccountDeletionStep(auth: AccountDeletionAuth, billing?: AccountDeletionBillingAdapter, objects?: AccountDeletionObjects, finalizedObjects?: AccountDeletionFinalizedObjects): AccountDeletionStep {

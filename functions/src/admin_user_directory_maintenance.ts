@@ -1,3 +1,4 @@
+import {createHash, randomUUID} from "node:crypto";
 import {accountDeletionPath} from "./account_deletion_guard.js";
 import {
   FieldPath,
@@ -15,6 +16,10 @@ import {
   readAdminUserDate,
 } from "./admin_user_directory_builders.js";
 import {
+  adminUserProgressVersion, adminUserWorkPath, adminUserRelationshipWorkPath,
+  exactAdminUserUid,
+  requireAdminUserUid,
+  requireAdminUserProgressSize,
   adminUserClaimedRestaurantDocumentPath,
   adminUserDirectoryDocumentPath,
   adminUserSourceKinds,
@@ -29,7 +34,7 @@ import {
 
 export type AdminUserDirectoryQuery = Readonly<{
   collectionPath: string;
-  where: Readonly<{
+  where?: Readonly<{
     field: string;
     value: string;
   }>;
@@ -37,7 +42,9 @@ export type AdminUserDirectoryQuery = Readonly<{
     field: string;
     direction: "asc" | "desc";
   }>[];
-  limit: 1;
+  limit: number;
+  startAfter?: string;
+  idPrefix?: string;
 }>;
 
 export interface AdminUserDirectoryTransaction {
@@ -55,6 +62,11 @@ export interface AdminUserDirectoryDatabase {
   ): Promise<T>;
 }
 
+export function setAdminUserProgress(transaction: AdminUserDirectoryTransaction, path: string,
+  data: Readonly<Record<string, unknown>>): void {
+  transaction.setDocument(path, requireAdminUserProgressSize(data));
+}
+
 function recordData(value: DocumentData | undefined): AdminUserSourceData | null {
   return value === undefined ? null : value as AdminUserSourceData;
 }
@@ -70,15 +82,18 @@ function firestoreTransactionBoundary(
       return data === null ? null : {id: snapshot.id, data};
     },
     async queryDocuments(options) {
-      let query: Query<DocumentData, DocumentData> = database
-        .collection(options.collectionPath)
-        .where(options.where.field, "==", options.where.value);
+      let query: Query<DocumentData, DocumentData> = database.collection(options.collectionPath);
+      if (options.where) query = query.where(options.where.field, "==", options.where.value);
+      if (options.idPrefix) query = query.where(FieldPath.documentId(), ">=", options.idPrefix)
+        .where(FieldPath.documentId(), "<", options.idPrefix + "\uf8ff");
       for (const order of options.orderBy) {
         query = query.orderBy(
           order.field === "__name__" ? FieldPath.documentId() : order.field,
           order.direction,
         );
       }
+      if (options.startAfter !== undefined) query = query.startAfter(options.startAfter);
+      if (!Number.isInteger(options.limit) || options.limit < 1 || options.limit > 50) throw new Error("Invalid People query budget.");
       const snapshot = await transaction.get(query.limit(options.limit));
       return snapshot.docs.map((document) => ({
         id: document.id,
@@ -100,7 +115,7 @@ export function createFirestoreAdminUserDirectoryDatabase(
   return {
     runTransaction(operation) {
       return database.runTransaction((transaction) =>
-        operation(firestoreTransactionBoundary(database, transaction))
+        operation(firestoreTransactionBoundary(database, transaction)), {maxAttempts: 3}
       );
     },
   };
@@ -178,107 +193,16 @@ export const adminUserSourceConfigurations: Readonly<
 });
 
 function requireDocumentSegment(value: string, label: string): string {
-  const normalized = value.trim();
-  if (!normalized || normalized.includes("/")) {
-    throw new Error(`${label} must be one Firestore document-ID segment.`);
+  if (!value || value.includes("/") || value === "." || value === "..") {
+    throw new Error(`${label} must be one exact Firestore document-ID segment.`);
   }
-  return normalized;
-}
-
-function addDocuments(
-  target: Map<string, AdminUserStoredDocument>,
-  documents: readonly AdminUserStoredDocument[],
-): void {
-  for (const document of documents) {
-    target.set(document.id, document);
-  }
+  return value;
 }
 
 function sourceActivityDate(document: AdminUserStoredDocument): Date | null {
   return readAdminUserDate(document.data.updatedAt) ??
     readAdminUserDate(document.data.createdAt) ??
     readAdminUserDate(document.data.lastContributionAt);
-}
-
-async function loadCurrentSourceState(
-  transaction: AdminUserDirectoryTransaction,
-  sourceKind: AdminUserSourceKind,
-  uid: string,
-  sourceDocumentIdHint?: string,
-): Promise<{
-  representative: AdminUserStoredDocument | null;
-  latestActivityAt: Date | null;
-}> {
-  const configuration = adminUserSourceConfigurations[sourceKind];
-  const candidates = new Map<string, AdminUserStoredDocument>();
-  const latestCandidates = new Map<string, AdminUserStoredDocument>();
-
-  if (configuration.documentIdFallback) {
-    const direct = await transaction.getDocument(
-      `${configuration.collectionPath}/${sourceDocumentIdHint ?? uid}`,
-    );
-    if (direct !== null) {
-      candidates.set(direct.id, direct);
-      latestCandidates.set(direct.id, direct);
-    }
-  } else for (const uidField of configuration.uidFields) {
-    addDocuments(
-      candidates,
-      await transaction.queryDocuments({
-        collectionPath: configuration.collectionPath,
-        where: {field: uidField, value: uid},
-        orderBy: Object.freeze([{field: "__name__", direction: "desc"}]),
-        limit: 1,
-      }),
-    );
-    addDocuments(
-      latestCandidates,
-      await transaction.queryDocuments({
-        collectionPath: configuration.collectionPath,
-        where: {field: uidField, value: uid},
-        orderBy: Object.freeze([
-          {field: "updatedAt", direction: "desc"},
-          {field: "__name__", direction: "desc"},
-        ]),
-        limit: 1,
-      }),
-    );
-    addDocuments(
-      latestCandidates,
-      await transaction.queryDocuments({
-        collectionPath: configuration.collectionPath,
-        where: {field: uidField, value: uid},
-        orderBy: Object.freeze([
-          {field: "createdAt", direction: "desc"},
-          {field: "__name__", direction: "desc"},
-        ]),
-        limit: 1,
-      }),
-    );
-  }
-
-  const validCandidates = [...new Map([
-    ...candidates,
-    ...latestCandidates,
-  ]).values()]
-    .filter((document) =>
-      effectiveAdminUserSourceUid(sourceKind, document.id, document.data) === uid &&
-      isValidAdminUserSourceDocument(sourceKind, document.data)
-    )
-    .sort((left, right) => right.id.localeCompare(left.id));
-  const latestActivityAt = [...latestCandidates.values(), ...validCandidates]
-    .filter((document) =>
-      effectiveAdminUserSourceUid(sourceKind, document.id, document.data) === uid &&
-      isValidAdminUserSourceDocument(sourceKind, document.data)
-    )
-    .map(sourceActivityDate)
-    .filter((date): date is Date => date !== null)
-    .sort((left, right) => right.getTime() - left.getTime())[0] ?? null;
-
-  return {
-    representative: validCandidates[0] ?? null,
-    latestActivityAt,
-  };
 }
 
 function storedSourceSummary(
@@ -321,39 +245,109 @@ function storedFingerprint(document: AdminUserStoredDocument | null): string | n
   return typeof fingerprint === "string" ? fingerprint : null;
 }
 
+export {adminUserProgressVersion, adminUserWorkPath, adminUserRelationshipWorkPath} from "./admin_user_directory_contract.js";
+export const adminUserScanPageSize = 5;
 export type AdminUserSourceReconciliationResult = Readonly<{
+  state: "pending" | "complete";
   uid: string;
   sourceKind: AdminUserSourceKind;
-  sourcePresent: boolean;
+  sourcePresent?: boolean;
   summaryWritten: boolean;
   summaryDeleted: boolean;
   directoryWritten: boolean;
   directoryDeleted: boolean;
 }>;
-
-export async function reconcileAdminUserSource(
-  database: AdminUserDirectoryDatabase,
-  sourceKind: AdminUserSourceKind,
-  rawUid: string,
-  now: Date,
-  sourceDocumentIdHint?: string,
-): Promise<AdminUserSourceReconciliationResult> {
-  const uid = requireDocumentSegment(rawUid, "Admin user UID");
-  if (!Number.isFinite(now.getTime())) {
-    throw new Error("Admin user directory reconciliation time is invalid.");
+export type AdminUserWork = {
+  workVersion: string;
+  workType: "source" | "relationship";
+  state: "pending" | "complete";
+  uid: string;
+  sourceKind: AdminUserSourceKind;
+  restaurantId: string | null;
+  generation: string;
+  verificationId: string | null;
+  lastEventId: string | null;
+  fieldIndex: number;
+  cursor: string | null;
+  directDone: boolean;
+  bestId: string | null;
+  bestHash: string | null;
+  activityId: string | null;
+  activityHash: string | null;
+  activityMillis: number | null;
+  updatedAt: Date;
+};
+export function parseAdminUserWork(document: AdminUserStoredDocument | null): AdminUserWork | null {
+  if (!document) return null;
+  const v = requireAdminUserProgressSize(document.data);
+  if (v.workVersion !== adminUserProgressVersion || !["source", "relationship"].includes(String(v.workType)) ||
+      !["pending", "complete"].includes(String(v.state)) || !adminUserSourceKinds.includes(v.sourceKind as AdminUserSourceKind) ||
+      (v.workType === "source" && exactAdminUserUid(v.uid) === null) ||
+      typeof v.generation !== "string" || !Number.isInteger(v.fieldIndex) || (v.fieldIndex as number) < 0 ||
+      (v.fieldIndex as number) > 2 || typeof v.directDone !== "boolean" ||
+      !["cursor", "bestId", "bestHash", "activityId", "activityHash", "verificationId", "lastEventId"].every(k => v[k] === null || typeof v[k] === "string") ||
+      !(v.activityMillis === null || (typeof v.activityMillis === "number" && Number.isFinite(v.activityMillis)))) {
+    throw new Error("Invalid private People progress; recovery is incomplete.");
   }
-  return database.runTransaction(async (transaction) => {
-    if (await transaction.getDocument(accountDeletionPath(uid))) {
-      for (const kind of adminUserSourceKinds) transaction.deleteDocument(adminUserSourceSummaryDocumentPath({uid, sourceKind: kind}));
-      transaction.deleteDocument(adminUserDirectoryDocumentPath(uid));
-      return {uid, sourceKind, sourcePresent: false, summaryWritten: false, summaryDeleted: true, directoryWritten: false, directoryDeleted: true};
-    }
-    const currentSource = await loadCurrentSourceState(
-      transaction,
-      sourceKind,
-      uid,
-      sourceDocumentIdHint,
-    );
+  if (v.workType === "relationship") requireDocumentSegment(v.restaurantId as string, "Restaurant ID");
+  const parsed = v as unknown as AdminUserWork;
+  const expected = parsed.workType === "source" ? adminUserWorkPath(parsed.uid, parsed.sourceKind) : adminUserRelationshipWorkPath(parsed.restaurantId!);
+  if (expected.slice(expected.lastIndexOf("/") + 1) !== document.id) throw new Error("People work identity mismatch.");
+  return parsed;
+}
+function freshWork(uid: string, sourceKind: AdminUserSourceKind, now: Date,
+  verificationId: string | null = null, lastEventId: string | null = null): AdminUserWork {
+  return {workVersion: adminUserProgressVersion, workType: "source", state: "pending", uid, sourceKind,
+    restaurantId: null, generation: randomUUID(), verificationId, lastEventId, fieldIndex: 0, cursor: null,
+    directDone: false, bestId: null, bestHash: null, activityId: null, activityHash: null,
+    activityMillis: null, updatedAt: now};
+}
+export function deleteFencedAdminUser(transaction: AdminUserDirectoryTransaction, uid: string): void {
+  for (const kind of adminUserSourceKinds) {
+    transaction.deleteDocument(adminUserSourceSummaryDocumentPath({uid, sourceKind: kind}));
+    transaction.deleteDocument(adminUserWorkPath(uid, kind));
+  }
+  transaction.deleteDocument(adminUserDirectoryDocumentPath(uid));
+}
+/** Read registration first; caller applies all returned writes only after reads. */
+export async function prepareAdminUserWork(transaction: AdminUserDirectoryTransaction,
+  scope: {uid: string; sourceKind: AdminUserSourceKind} | {restaurantId: string}, now: Date,
+  options: {verificationId?: string; eventId?: string; invalidate?: boolean; fencedUids?: Set<string>} = {},
+): Promise<() => void> {
+  const relationship = "restaurantId" in scope;
+  const path = relationship ? adminUserRelationshipWorkPath(scope.restaurantId) : adminUserWorkPath(scope.uid, scope.sourceKind);
+  if (!relationship && await transaction.getDocument(accountDeletionPath(scope.uid))) {
+    if (options.fencedUids?.has(scope.uid)) return () => undefined;
+    options.fencedUids?.add(scope.uid);
+    return () => deleteFencedAdminUser(transaction, scope.uid);
+  }
+  const old = parseAdminUserWork(await transaction.getDocument(path));
+  if (old && ((options.verificationId && old.verificationId === options.verificationId) ||
+      (options.eventId && old.lastEventId === options.eventId))) return () => undefined;
+  if (old?.state === "pending" && !options.invalidate && !options.verificationId) return () => undefined;
+  const work = freshWork(relationship ? "" : scope.uid, relationship ? "biteScoreRestaurant" : scope.sourceKind,
+    now, options.verificationId ?? old?.verificationId ?? null, options.eventId ?? null);
+  if (relationship) { work.workType = "relationship"; work.restaurantId = scope.restaurantId; }
+  return () => setAdminUserProgress(transaction, path, work);
+}
+function witnessHash(document: AdminUserStoredDocument): string {
+  return createHash("sha256").update(JSON.stringify(document.data)).digest("hex");
+}
+function consider(work: AdminUserWork, document: AdminUserStoredDocument | null): void {
+  if (!document || effectiveAdminUserSourceUid(work.sourceKind, document.id, document.data) !== work.uid ||
+      !isValidAdminUserSourceDocument(work.sourceKind, document.data)) return;
+  if (work.bestId === null || Buffer.compare(Buffer.from(document.id), Buffer.from(work.bestId)) > 0) {
+    work.bestId = document.id; work.bestHash = witnessHash(document);
+  }
+  const activity = sourceActivityDate(document)?.getTime() ?? null;
+  if (activity !== null && (work.activityMillis === null || activity > work.activityMillis)) {
+    work.activityMillis = activity; work.activityId = document.id; work.activityHash = witnessHash(document);
+  }
+}
+async function publishAdminUserSource(transaction: AdminUserDirectoryTransaction,
+  sourceKind: AdminUserSourceKind, uid: string, now: Date,
+  currentSource: {representative: AdminUserStoredDocument | null; latestActivityAt: Date | null},
+): Promise<AdminUserSourceReconciliationResult> {
     const summaryDocuments = new Map<
       AdminUserSourceKind,
       AdminUserStoredDocument | null
@@ -417,6 +411,7 @@ export async function reconcileAdminUserSource(
       directoryWritten = true;
     }
     return {
+      state: "complete" as const,
       uid,
       sourceKind,
       sourcePresent: nextSummary !== null,
@@ -425,6 +420,75 @@ export async function reconcileAdminUserSource(
       directoryWritten,
       directoryDeleted,
     };
+}
+
+/** One transaction/page. Progress and final publication serialize on the work
+ * document; event invalidation replaces the generation/cursor in that same doc.
+ * This is an eventual pass, not a source-wide atomic snapshot. */
+export async function advanceAdminUserSource(transaction: AdminUserDirectoryTransaction,
+  stored: AdminUserWork, now: Date): Promise<AdminUserSourceReconciliationResult> {
+  const {uid, sourceKind} = stored;
+  const result = {state: "pending" as const, uid, sourceKind, summaryWritten: false,
+    summaryDeleted: false, directoryWritten: false, directoryDeleted: false};
+  if (await transaction.getDocument(accountDeletionPath(uid))) {
+    deleteFencedAdminUser(transaction, uid);
+    return {...result, state: "complete", sourcePresent: false, summaryDeleted: true, directoryDeleted: true};
+  }
+  if (stored.state === "complete") return {...result, state: "complete"};
+  const work = {...stored, updatedAt: now};
+  const configuration = adminUserSourceConfigurations[sourceKind];
+  if (!work.directDone) {
+    if (configuration.documentIdFallback) consider(work, await transaction.getDocument(`${configuration.collectionPath}/${uid}`));
+    work.directDone = true;
+  }
+  if (work.fieldIndex < configuration.uidFields.length) {
+    const page = await transaction.queryDocuments({collectionPath: configuration.collectionPath,
+      where: {field: configuration.uidFields[work.fieldIndex], value: uid},
+      orderBy: [{field: "__name__", direction: "asc"}], limit: adminUserScanPageSize,
+      ...(work.cursor === null ? {} : {startAfter: work.cursor})});
+    for (const document of page) consider(work, document);
+    if (page.length === adminUserScanPageSize) work.cursor = page[page.length - 1].id;
+    else {work.fieldIndex++; work.cursor = null;}
+  }
+  const path = adminUserWorkPath(uid, sourceKind);
+  if (work.fieldIndex < configuration.uidFields.length) {
+    setAdminUserProgress(transaction, path, work); return result;
+  }
+  const representative = work.bestId === null ? null :
+    await transaction.getDocument(`${configuration.collectionPath}/${work.bestId}`);
+  const activity = work.activityId === null ? null : work.activityId === work.bestId ? representative :
+    await transaction.getDocument(`${configuration.collectionPath}/${work.activityId}`);
+  if ((work.bestId !== null && (!representative || witnessHash(representative) !== work.bestHash)) ||
+      (work.activityId !== null && (!activity || witnessHash(activity) !== work.activityHash))) {
+    setAdminUserProgress(transaction, path, freshWork(uid, sourceKind, now, work.verificationId, work.lastEventId));
+    return result;
+  }
+  // Re-run identity/shape validation on current source, not cached payloads.
+  if (representative && (effectiveAdminUserSourceUid(sourceKind, representative.id, representative.data) !== uid ||
+      !isValidAdminUserSourceDocument(sourceKind, representative.data))) {
+    setAdminUserProgress(transaction, path, freshWork(uid, sourceKind, now, work.verificationId, work.lastEventId)); return result;
+  }
+  const published = await publishAdminUserSource(transaction, sourceKind, uid, now,
+    {representative, latestActivityAt: work.activityMillis === null ? null : new Date(work.activityMillis)});
+  setAdminUserProgress(transaction, path, {...work, state: "complete", cursor: null, bestId: null, bestHash: null,
+    activityId: null, activityHash: null, activityMillis: null});
+  return published;
+}
+
+export async function reconcileAdminUserSource(database: AdminUserDirectoryDatabase,
+  sourceKind: AdminUserSourceKind, rawUid: string, now: Date,
+  _sourceDocumentIdHint?: string): Promise<AdminUserSourceReconciliationResult> {
+  const uid = requireAdminUserUid(rawUid);
+  await database.runTransaction(async tx => { (await prepareAdminUserWork(tx, {uid, sourceKind}, now))(); });
+  return database.runTransaction(async tx => {
+    const work = parseAdminUserWork(await tx.getDocument(adminUserWorkPath(uid, sourceKind)));
+    if (!work) { // A fence can remove progress between registration and resume.
+      if (!await tx.getDocument(accountDeletionPath(uid))) throw new Error("Missing People work.");
+      deleteFencedAdminUser(tx, uid);
+      return {state: "complete", uid, sourceKind, sourcePresent: false, summaryWritten: false,
+        summaryDeleted: true, directoryWritten: false, directoryDeleted: true};
+    }
+    return advanceAdminUserSource(tx, work, now);
   });
 }
 
@@ -437,17 +501,23 @@ export async function reconcileAdminUserClaimedRestaurant(
     rawSourceRestaurantId,
     "BiteScore restaurant source ID",
   );
-  return database.runTransaction(async (transaction) => {
+  return database.runTransaction(transaction => reconcileAdminUserClaimedRestaurantInTransaction(transaction, sourceRestaurantId, now));
+}
+
+export async function reconcileAdminUserClaimedRestaurantInTransaction(
+  transaction: AdminUserDirectoryTransaction, sourceRestaurantId: string, now: Date,
+): Promise<boolean> {
     const source = await transaction.getDocument(
       `bitescore_restaurants/${sourceRestaurantId}`,
     );
     const indexPath = adminUserClaimedRestaurantDocumentPath(sourceRestaurantId);
     const existing = await transaction.getDocument(indexPath);
-    const next = buildAdminUserClaimedRestaurantDocument({
+    let next = buildAdminUserClaimedRestaurantDocument({
       sourceRestaurantId,
       source: source?.data ?? null,
       now,
     });
+    if (next && await transaction.getDocument(accountDeletionPath(next.ownerUid))) next = null;
     if (next === null) {
       if (existing !== null) {
         transaction.deleteDocument(indexPath);
@@ -460,7 +530,6 @@ export async function reconcileAdminUserClaimedRestaurant(
     }
     transaction.setDocument(indexPath, next);
     return true;
-  });
 }
 
 export type AdminUserSourceWrite = Readonly<{
@@ -469,6 +538,7 @@ export type AdminUserSourceWrite = Readonly<{
   before: AdminUserSourceData | null;
   after: AdminUserSourceData | null;
   now: Date;
+  eventId?: string;
 }>;
 
 export async function handleAdminUserSourceWrite(
@@ -490,12 +560,18 @@ export async function handleAdminUserSourceWrite(
       affectedUids.add(uid);
     }
   }
+  await database.runTransaction(async tx => {
+    const writes: (() => void)[] = [];
+    for (const uid of affectedUids) writes.push(await prepareAdminUserWork(tx, {uid, sourceKind: write.sourceKind}, write.now, {invalidate: true, eventId: write.eventId}));
+    if (write.sourceKind === "biteScoreRestaurant") writes.push(await prepareAdminUserWork(tx, {restaurantId: sourceDocumentId}, write.now, {invalidate: true, eventId: write.eventId}));
+    writes.forEach(apply => apply());
+  });
   if (write.sourceKind === "biteScoreRestaurant") {
-    await reconcileAdminUserClaimedRestaurant(
-      database,
-      sourceDocumentId,
-      write.now,
-    );
+    await database.runTransaction(async tx => {
+      const work = parseAdminUserWork(await tx.getDocument(adminUserRelationshipWorkPath(sourceDocumentId)));
+      await reconcileAdminUserClaimedRestaurantInTransaction(tx, sourceDocumentId, write.now);
+      if (work) setAdminUserProgress(tx, adminUserRelationshipWorkPath(sourceDocumentId), {...work, state: "complete", updatedAt: write.now});
+    });
   }
   const results: AdminUserSourceReconciliationResult[] = [];
   for (const uid of affectedUids) {

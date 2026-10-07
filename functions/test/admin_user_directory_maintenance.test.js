@@ -17,77 +17,17 @@ const {
 const now = new Date("2026-08-09T18:00:00.000Z");
 const prior = new Date("2026-08-08T18:00:00.000Z");
 
-function dateValue(value) {
-  return value instanceof Date ? value.getTime() : null;
-}
-
-class FakeAdminUserDirectoryDatabase {
-  constructor(initial = {}) {
-    this.records = new Map(Object.entries(initial));
-    this.operations = [];
-    this.transactionCount = 0;
-    this._tail = Promise.resolve();
+const {AdminUserMemoryDatabase: FakeAdminUserDirectoryDatabase} = require("./helpers/admin_user_memory_database.js");
+const {reconcileAdminUserSource} = require("../lib/admin_user_directory_maintenance.js");
+async function deliverAndFinish(database, event) {
+  const results = await handleAdminUserSourceWrite(database, event);
+  for (let result of results) {
+    for (let i = 0; result.state === "pending" && i < 100; i++) {
+      result = await reconcileAdminUserSource(database, result.sourceKind, result.uid, event.now);
+    }
+    assert.equal(result.state, "complete");
   }
-
-  runTransaction(operation) {
-    const execute = async () => {
-      const transactionId = ++this.transactionCount;
-      const staged = [];
-      const boundary = {
-        getDocument: async (path) => {
-          this.operations.push({transactionId, operation: "get", path});
-          return this.records.has(path)
-            ? {id: path.split("/").at(-1), data: this.records.get(path)}
-            : null;
-        },
-        queryDocuments: async (query) => {
-          this.operations.push({transactionId, operation: "query", query});
-          const prefix = `${query.collectionPath}/`;
-          const segments = query.collectionPath.split("/").length + 1;
-          let documents = [...this.records.entries()]
-            .filter(([path]) => path.startsWith(prefix) && path.split("/").length === segments)
-            .map(([path, data]) => ({id: path.slice(prefix.length), data}))
-            .filter((document) => document.data[query.where.field] === query.where.value);
-          for (const order of [...query.orderBy].reverse()) {
-            if (order.field !== "__name__") {
-              documents = documents.filter((document) =>
-                Object.hasOwn(document.data, order.field) && document.data[order.field] != null);
-            }
-            documents.sort((left, right) => {
-              const leftValue = order.field === "__name__"
-                ? left.id
-                : dateValue(left.data[order.field]) ?? left.data[order.field];
-              const rightValue = order.field === "__name__"
-                ? right.id
-                : dateValue(right.data[order.field]) ?? right.data[order.field];
-              const compared = typeof leftValue === "string"
-                ? leftValue.localeCompare(rightValue)
-                : leftValue < rightValue ? -1 : leftValue > rightValue ? 1 : 0;
-              return order.direction === "asc" ? compared : -compared;
-            });
-          }
-          return documents.slice(0, query.limit);
-        },
-        setDocument: (path, data) => {
-          this.operations.push({transactionId, operation: "set", path, data});
-          staged.push({operation: "set", path, data});
-        },
-        deleteDocument: (path) => {
-          this.operations.push({transactionId, operation: "delete", path});
-          staged.push({operation: "delete", path});
-        },
-      };
-      const result = await operation(boundary);
-      for (const write of staged) {
-        if (write.operation === "set") this.records.set(write.path, write.data);
-        else this.records.delete(write.path);
-      }
-      return result;
-    };
-    const result = this._tail.then(execute, execute);
-    this._tail = result.then(() => undefined, () => undefined);
-    return result;
-  }
+  return results;
 }
 
 function restaurant(uid = "user-1", overrides = {}) {
@@ -210,7 +150,7 @@ function sourcePath(kind, uid = "user-1") {
 
 async function deliver(database, kind, uid = "user-1", event = {}) {
   const current = database.records.get(sourcePath(kind, uid)) ?? null;
-  return handleAdminUserSourceWrite(database, {
+  return deliverAndFinish(database, {
     sourceKind: kind,
     sourceDocumentId: sourceDocumentId(kind, uid),
     before: event.before ?? null,
@@ -225,7 +165,7 @@ for (const kind of adminUserSourceKinds) {
     const path = sourcePath(kind, uid);
     const current = fixture(kind, uid);
     const database = new FakeAdminUserDirectoryDatabase({[path]: current});
-    await handleAdminUserSourceWrite(database, {
+    await deliverAndFinish(database, {
       sourceKind: kind,
       sourceDocumentId: sourceDocumentId(kind, uid),
       before: null,
@@ -239,7 +179,7 @@ for (const kind of adminUserSourceKinds) {
     assert.equal(JSON.stringify(directory).includes("STALE_EVENT_CANARY"), false);
     assert.equal(
       [...database.records.keys()].filter((entry) =>
-        entry.startsWith("admin_user_directory_source_summaries/")).length,
+        entry.startsWith("admin_user_directory_source_summaries/auss_")).length,
       1,
     );
   });
@@ -253,7 +193,7 @@ test("duplicate and out-of-order delivery converge and suppress redundant writes
   await deliver(database, "userProfile", "user-1", {
     after: fixture("userProfile", "user-1", {displayName: "Older Event"}),
   });
-  const writesAfterFirst = database.operations.filter((entry) => entry.operation === "set").length;
+  const writesAfterFirst = database.operations.filter((entry) => entry.operation === "set" && !entry.path.includes("/auw_")).length;
   await deliver(database, "userProfile", "user-1", {
     before: fixture("userProfile", "user-1", {displayName: "Oldest Event"}),
     after: fixture("userProfile", "user-1", {displayName: "Older Event"}),
@@ -261,7 +201,7 @@ test("duplicate and out-of-order delivery converge and suppress redundant writes
   const directory = database.records.get(adminUserDirectoryDocumentPath("user-1"));
   assert.equal(directory.displayName, "Newest Current");
   assert.equal(
-    database.operations.filter((entry) => entry.operation === "set").length,
+    database.operations.filter((entry) => entry.operation === "set" && !entry.path.includes("/auw_")).length,
     writesAfterFirst,
   );
 });
@@ -293,7 +233,7 @@ test("UID reassignment reconciles old and new identities for a multi-record sour
   const before = fixture(kind, "user-a");
   const after = fixture(kind, "user-b");
   const database = new FakeAdminUserDirectoryDatabase({[path]: after});
-  await handleAdminUserSourceWrite(database, {
+  await deliverAndFinish(database, {
     sourceKind: kind,
     sourceDocumentId: sourceDocumentId(kind, "user-a"),
     before,
@@ -309,7 +249,7 @@ test("UID reassignment reconciles old and new identities for a direct profile so
   const before = fixture("userProfile", "user-a");
   const after = fixture("userProfile", "user-b");
   const database = new FakeAdminUserDirectoryDatabase({[path]: after});
-  await handleAdminUserSourceWrite(database, {
+  await deliverAndFinish(database, {
     sourceKind: "userProfile",
     sourceDocumentId: "user-a",
     before,
@@ -324,7 +264,7 @@ test("invalid source UIDs are ignored while a valid reassigned UID is reconciled
   const path = sourcePath("dishReview", "user-a");
   const after = fixture("dishReview", "user-b");
   const database = new FakeAdminUserDirectoryDatabase({[path]: after});
-  await handleAdminUserSourceWrite(database, {
+  await deliverAndFinish(database, {
     sourceKind: "dishReview",
     sourceDocumentId: sourceDocumentId("dishReview", "user-a"),
     before: fixture("dishReview", "invalid/uid"),
@@ -399,7 +339,7 @@ test("restaurant rename and owner change update one claimed index and both UID a
   const before = restaurant("user-a", {name: "Before Name"});
   const after = restaurant("user-b", {name: "After Name"});
   const database = new FakeAdminUserDirectoryDatabase({[path]: after});
-  await handleAdminUserSourceWrite(database, {
+  await deliverAndFinish(database, {
     sourceKind: "biteScoreRestaurant",
     sourceDocumentId: id,
     before,
@@ -413,7 +353,7 @@ test("restaurant rename and owner change update one claimed index and both UID a
   assert.equal(database.records.has(adminUserDirectoryDocumentPath("user-b")), true);
 
   database.records.delete(path);
-  await handleAdminUserSourceWrite(database, {
+  await deliverAndFinish(database, {
     sourceKind: "biteScoreRestaurant",
     sourceDocumentId: id,
     before: after,
@@ -433,16 +373,13 @@ test("source and aggregate reconciliation enforce exact bounded read maxima", as
     const operations = database.operations.filter((entry) => entry.transactionId === transactionId);
     const queries = operations.filter((entry) => entry.operation === "query");
     const gets = operations.filter((entry) => entry.operation === "get");
-    const expectedQueries = adminUserSourceConfigurations[kind].documentIdFallback
-      ? 0
-      : adminUserSourceConfigurations[kind].uidFields.length * 3;
-    assert.equal(queries.length, expectedQueries, `${kind} query count`);
-    assert.equal(gets.length, adminUserSourceConfigurations[kind].documentIdFallback ? 15 : 14);
+    assert.equal(queries.length, 1, `${kind} bounded source page`);
+    assert.ok(gets.length <= 20, `${kind} bounded point reads`);
     assert.equal(gets.filter((entry) => entry.path.startsWith("private_account_deletions/")).length, 1);
-    assert.equal(queries.every((entry) => entry.query.limit === 1), true);
+    assert.equal(queries.every((entry) => entry.query.limit === 5), true);
     assert.equal(
       gets.filter((entry) =>
-        entry.path.startsWith("admin_user_directory_source_summaries/")).length,
+        entry.path.startsWith("admin_user_directory_source_summaries/auss_")).length,
       12,
     );
   }
@@ -454,9 +391,9 @@ test("no query is unbounded and no complete collection or user history is read",
   });
   await deliver(database, "dishEditProposal");
   const queries = database.operations.filter((entry) => entry.operation === "query");
-  assert.equal(queries.length, 6);
+  assert.equal(queries.length, 2);
   for (const operation of queries) {
-    assert.equal(operation.query.limit, 1);
+    assert.equal(operation.query.limit, 5);
     assert.equal(typeof operation.query.where.field, "string");
     assert.equal(operation.query.where.value, "user-1");
   }

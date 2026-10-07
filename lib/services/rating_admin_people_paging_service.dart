@@ -24,6 +24,37 @@ class RatingAdminPeoplePagingService {
 
   final RatingAdminPeopleFunctionsBoundary _functionsBoundary;
 
+  Future<AdminUserVerificationStatus> verifyUserDirectory(
+    String action, {
+    AdminUserVerificationStatus? current,
+  }) async {
+    try {
+      final raw = await _functionsBoundary('verifyAdminUserDirectory', {
+        'schemaVersion': 1,
+        'action': action,
+        if (current != null && (action == 'continue' || action == 'pause')) ...{
+          'passId': current.passId,
+          'revision': current.revision,
+        },
+      });
+      return AdminUserVerificationStatus.fromJson(raw);
+    } catch (_) {
+      throw const RatingAdminPeoplePagingException(
+        'Verification could not continue. Saved progress can be resumed.',
+      );
+    }
+  }
+
+  Future<RatingAdminUserRecord?> loadUserDetails(String uid) async {
+    final page = await loadUsersPage(PagedRequest(
+      pageSize: pageSize,
+      direction: PageDirection.first,
+      criteria: {'mode': 'uid', 'value': uid},
+      clientRequestId: 'user-details-${DateTime.now().microsecondsSinceEpoch}',
+    ));
+    return page.items.isEmpty ? null : page.items.single;
+  }
+
   Future<PagedResponse<RatingAdminUserRecord>> loadUsersPage(
     PagedRequest request,
   ) => _load(
@@ -101,8 +132,7 @@ class RatingAdminPeoplePagingService {
           ),
         );
       }
-      if (request.criteria['mode'] != 'claimedRestaurant' ||
-          page.total?.state != PagedTotalState.unknown ||
+      if (page.total?.state != PagedTotalState.unknown ||
           page.pageNumber == null ||
           !page.hasNext ||
           page.nextCursor == null) {
@@ -125,7 +155,14 @@ class RatingAdminPeoplePagingService {
         }
         candidate = page;
       }
-      final cursor = page.nextCursor!;
+      final backwardContinuation = request.criteria['mode'] != 'claimedRestaurant' &&
+          request.direction == PageDirection.backward;
+      final cursor = backwardContinuation ? page.previousCursor : page.nextCursor;
+      if (cursor == null) {
+        throw const RatingAdminPeoplePagingException(
+          'Rating Admin returned an invalid continuation. Refresh and try again.',
+        );
+      }
       if (!continuationCursors.add(cursor)) {
         throw const RatingAdminPeoplePagingException(
           'Rating Admin returned an invalid continuation. Refresh and try again.',
@@ -147,7 +184,7 @@ class RatingAdminPeoplePagingService {
         pageSize: request.pageSize,
         criteria: request.criteria,
         cursor: cursor,
-        direction: PageDirection.forward,
+        direction: backwardContinuation ? PageDirection.backward : PageDirection.forward,
         requestExactCount: request.requestExactCount,
         clientRequestId: '$requestId$suffix',
       );
@@ -212,7 +249,9 @@ class RatingAdminPeoplePagingService {
     if (mode == RatingAdminUserSearchMode.viewAll) {
       return <String, Object?>{'mode': mode.wireName};
     }
-    final normalized = value?.trim() ?? '';
+    final normalized = mode == RatingAdminUserSearchMode.uid
+        ? (value ?? '')
+        : (value?.trim() ?? '');
     if (normalized.isEmpty || normalized.length > 1500) {
       throw const RatingAdminPeoplePagingException(
         'Enter a search value for the selected mode.',

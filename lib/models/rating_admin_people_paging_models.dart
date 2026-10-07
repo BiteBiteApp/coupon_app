@@ -53,6 +53,14 @@ void _keys(
   }
 }
 
+String _exactUid(Object? value) {
+  if (value is! String || value.isEmpty || value.length > 128 ||
+      value == '.' || value == '..' || RegExp(r'[/\x00-\x1f\x7f]').hasMatch(value)) {
+    throw const FormatException('Invalid user identity.');
+  }
+  return value;
+}
+
 String _string(Object? value, {bool allowEmpty = false}) {
   if (value is! String || (!allowEmpty && value.trim().isEmpty)) {
     throw const FormatException('Invalid Rating Admin people page item.');
@@ -125,7 +133,7 @@ class RatingAdminUserRecord {
       'activityTags',
     });
     return RatingAdminUserRecord(
-      uid: _string(data['uid']),
+      uid: _exactUid(data['uid']),
       displayName: _string(data['displayName']),
       email: _nullableString(data['email']),
       phoneNumber: _nullableString(data['phoneNumber']),
@@ -278,4 +286,44 @@ class RatingAdminContributionLedgerRecord {
   final String? requestId;
   final String? reason;
   final DateTime createdAt;
+}
+class AdminUserVerificationStatus {
+  const AdminUserVerificationStatus({
+    required this.status, required this.passId, required this.revision,
+    required this.phase, required this.examined, required this.steps,
+    required this.lastCompletedAt,
+  });
+  final String status;
+  final String? passId;
+  final String? revision;
+  final String phase;
+  final int examined;
+  final int steps;
+  final DateTime? lastCompletedAt;
+
+  factory AdminUserVerificationStatus.fromJson(Object? raw) {
+    if (raw is! Map || raw['schemaVersion'] != 1 ||
+        !const ['notStarted', 'pending', 'paused', 'failed', 'complete'].contains(raw['status']) ||
+        !const ['discovering', 'reconciling'].contains(raw['phase']) ||
+        raw['examined'] is! int || raw['steps'] is! int ||
+        (raw['passId'] != null && raw['passId'] is! String) ||
+        (raw['revision'] != null && raw['revision'] is! String) ||
+        (raw['lastCompletedAtMillis'] != null && raw['lastCompletedAtMillis'] is! int)) {
+      throw const FormatException('Invalid directory verification status.');
+    }
+    return AdminUserVerificationStatus(
+      status: raw['status'] as String, passId: raw['passId'] as String?,
+      revision: raw['revision'] as String?, phase: raw['phase'] as String,
+      examined: raw['examined'] as int, steps: raw['steps'] as int,
+      lastCompletedAt: raw['lastCompletedAtMillis'] == null ? null :
+          DateTime.fromMillisecondsSinceEpoch(raw['lastCompletedAtMillis'] as int),
+    );
+  }
+
+  String get summary => switch (status) {
+    'complete' => 'Recovery pass completed at ${lastCompletedAt?.toLocal()}.',
+    'failed' => 'Verification failed. Saved progress can be resumed.',
+    'pending' || 'paused' => 'Verification incomplete. Resume to continue.',
+    _ => 'No completed recovery pass.',
+  };
 }

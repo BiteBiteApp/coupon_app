@@ -1,7 +1,10 @@
+import {accountDeletionPath} from "./account_deletion_guard.js";
 import { createHash } from "node:crypto";
 import { FieldPath, type DocumentData, type Firestore, type Query } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import {
+  exactAdminUserUid,
+  exactAdminUserSourceId,
   adminUserClaimedRestaurantCollection,
   adminUserClaimedRestaurantVersion,
   adminUserDirectoryCollection,
@@ -448,11 +451,96 @@ function encodeBoundary(value: {
   });
 }
 
+async function boundedPeopleGets(database: RatingAdminPeoplePagingDatabase, paths: readonly string[]): Promise<readonly RatingAdminPeopleDocument[]> {
+  const result: RatingAdminPeopleDocument[] = [];
+  for (let offset = 0; offset < paths.length; offset += ratingAdminPeoplePageSize) {
+    result.push(...await database.getDocuments(paths.slice(offset, offset + ratingAdminPeoplePageSize)));
+  }
+  return result;
+}
+
+async function unfencedUsers(documents: readonly RatingAdminPeopleDocument[], database: RatingAdminPeoplePagingDatabase,
+  identity: (document: RatingAdminPeopleDocument) => unknown = document => document.id,
+): Promise<readonly RatingAdminPeopleDocument[]> {
+  const uids = [...new Set(documents.map(identity).map(exactAdminUserUid).filter((uid): uid is string => uid !== null))];
+  const fences = new Set((await boundedPeopleGets(database, uids.map(accountDeletionPath))).map(row => row.id));
+  return documents.filter(row => {const uid = exactAdminUserUid(identity(row)); return uid !== null && !fences.has(uid);});
+}
+
+/** Users counts cannot count authoritative fences with a projection aggregate.
+ * Preserve raw boundaries while filtering, and disclose unknown totals. Points
+ * and ledger paging retain their separate existing contract. */
+async function executeVisibleUsersPage(parsed: ParsedContext, definition: OrderedDefinition,
+  database: RatingAdminPeoplePagingDatabase,
+  matches: (document: RatingAdminPeopleDocument) => boolean = () => true,
+): Promise<Readonly<Record<string, unknown>>> {
+  if (parsed.request.direction === "last") callableError("invalid-argument", "Last-page navigation is unavailable for verified User results.");
+  const queryFingerprint = createQueryFingerprint(definition.fingerprintCriteria);
+  const width = definition.orders.length;
+  let tuple: readonly CursorSortValue[] | null = null;
+  let pageEnd: readonly CursorSortValue[] | null = null;
+  if (parsed.request.cursor !== undefined) {
+    try {
+      const decoded = parsed.codec.decode(parsed.request.cursor, {queryFingerprint,
+        source: definition.source, searchMode: definition.searchMode, pageSize: ratingAdminPeoplePageSize,
+        callerBinding: parsed.callerBinding, purposes: [parsed.request.direction === "backward" ? "backward" : "forward"]});
+      tuple = decoded.sortTuple;
+      if (decoded.sessionId === "users-visible-lookahead-v1") {
+        if (parsed.request.direction !== "forward" || tuple.length !== width * 2 + 1) throw new Error();
+        pageEnd = tuple.slice(width, width * 2);
+        definition.queryCursorValues([...pageEnd, pageNumber(tuple)]);
+        tuple = [...tuple.slice(0, width), pageNumber(tuple)];
+      } else if (decoded.sessionId !== undefined || tuple.length !== width + 1) throw new Error();
+    } catch { callableError("invalid-argument", "The page cursor is invalid or expired."); }
+  }
+  const currentPageNumber = tuple === null ? 1 : pageNumber(tuple);
+  const backward = parsed.request.direction === "backward";
+  const raw = await database.queryDocuments({collectionPath: definition.collectionPath, filters: definition.filters,
+    orders: definition.orders, limit: ratingAdminPeoplePostFilterReadBudget,
+    ...(tuple === null ? {} : {cursor: {kind: backward ? "endBefore" as const : "startAfter" as const, values: definition.queryCursorValues(tuple)}}),
+    ...(backward ? {limitToLast: true} : {})});
+  const visible = (await unfencedUsers(raw, database)).filter(matches);
+  const moreRaw = raw.length === ratingAdminPeoplePostFilterReadBudget;
+  const boundary = (values: readonly CursorSortValue[], purpose: "forward" | "backward", targetPage: number) =>
+    encodeBoundary({parsed, queryFingerprint, source: definition.source, searchMode: definition.searchMode,
+      purpose, tuple: values, targetPage});
+  const lookahead = (last: RatingAdminPeopleDocument, end: readonly CursorSortValue[]) => parsed.codec.encode({
+    queryFingerprint, source: definition.source, searchMode: definition.searchMode,
+    pageSize: ratingAdminPeoplePageSize, purpose: "forward", callerBinding: parsed.callerBinding,
+    sessionId: "users-visible-lookahead-v1", sortTuple: [...definition.cursorValues(last), ...end, currentPageNumber]});
+  const preparing = {state: "preparing" as const, completedUnits: 0, message: "Checking indexed User results…"};
+  if (pageEnd !== null) {
+    // A candidate page remains hidden by the client until a visible successor or
+    // exhaustion is established. A full raw window alone must never expose Next.
+    const pending = visible.length === 0 && moreRaw;
+    const hasNext = pending || visible.length > 0;
+    return response({parsed, items: [], queryFingerprint, currentPageNumber, total: {state: "unknown"},
+      hasNext, hasPrevious: false, allowLast: false,
+      ...(hasNext ? {nextCursor: pending ? lookahead(raw[raw.length - 1], pageEnd) : boundary(pageEnd, "forward", currentPageNumber + 1)} : {}),
+      preparation: pending ? preparing : {state: "ready", completedUnits: 0}});
+  }
+  const selected = backward ? visible.slice(-ratingAdminPeoplePageSize) : visible.slice(0, ratingAdminPeoplePageSize);
+  if (selected.length === 0 && !moreRaw && currentPageNumber > 1) callableError("failed-precondition", "The indexed User results changed. Refresh and try again.");
+  const items = await enrichDirectoryUsers(selected, database);
+  const emptyContinuation = selected.length === 0 && moreRaw;
+  const needsLookahead = !backward && selected.length > 0 && visible.length <= ratingAdminPeoplePageSize && moreRaw;
+  const hasNext = backward || visible.length > ratingAdminPeoplePageSize || moreRaw;
+  const hasPrevious = currentPageNumber > 1 || (backward && emptyContinuation);
+  const forwardAnchor = visible.length > ratingAdminPeoplePageSize ? selected[selected.length - 1] : raw[raw.length - 1];
+  const backwardAnchor = backward && visible.length > ratingAdminPeoplePageSize ? selected[0] : raw[0];
+  return response({parsed, items, queryFingerprint, currentPageNumber, total: {state: "unknown"}, hasNext, hasPrevious,
+    ...(hasNext && forwardAnchor ? {nextCursor: needsLookahead ? lookahead(raw[raw.length - 1], definition.cursorValues(selected[selected.length - 1])) :
+      boundary(definition.cursorValues(forwardAnchor), "forward", emptyContinuation ? currentPageNumber : currentPageNumber + 1)} : {}),
+    ...(hasPrevious && backwardAnchor ? {previousCursor: boundary(definition.cursorValues(backwardAnchor), "backward", emptyContinuation ? currentPageNumber : currentPageNumber - 1)} : {}),
+    ...(emptyContinuation || needsLookahead ? {preparation: preparing} : {}), allowLast: false});
+}
+
 async function executeOrderedPage(
   parsed: ParsedContext,
   definition: OrderedDefinition,
   database: RatingAdminPeoplePagingDatabase,
 ): Promise<Readonly<Record<string, unknown>>> {
+  if (definition.source === "ratingAdminUsers") return executeVisibleUsersPage(parsed, definition, database);
   const queryFingerprint = createQueryFingerprint(
     definition.fingerprintCriteria,
   );
@@ -610,7 +698,7 @@ function directoryProjection(
   const data = document.data;
   if (
     data.directoryVersion !== adminUserDirectoryVersion ||
-    readString(data.uid, 1_500) !== document.id
+    exactAdminUserUid(data.uid) !== document.id
   ) {
     callableError("failed-precondition", "The user directory is unavailable.");
   }
@@ -641,7 +729,8 @@ async function enrichDirectoryUsers(
   database: RatingAdminPeoplePagingDatabase,
   matchedNames: ReadonlyMap<string, string> = new Map(),
 ): Promise<readonly Readonly<Record<string, unknown>>[]> {
-  const previews = await Promise.all(documents.map(async (document) => {
+  const visible = await unfencedUsers(documents, database);
+  const previews = await Promise.all(visible.map(async (document) => {
     const rows = await database.queryDocuments({
       collectionPath: adminUserClaimedRestaurantCollection,
       filters: [
@@ -701,109 +790,22 @@ async function executeDisplayNamePostFilter(
   criteria: NameCriteria,
   context: RatingAdminPeopleHandlerContext,
 ): Promise<Readonly<Record<string, unknown>>> {
-  if (parsed.request.direction === "last") {
-    callableError("invalid-argument", "Last-page navigation is unavailable.");
-  }
-  const searchMode = "displayName";
-  const source = "ratingAdminUsers";
-  const queryFingerprint = createQueryFingerprint({
-    entity: "users",
-    mode: searchMode,
-    value: criteria.normalized,
-  });
-  const tuple = decodeCursor(parsed, {
-    queryFingerprint,
-    source,
-    searchMode,
-    tupleLength: 3,
-  });
-  const currentPageNumber = tuple === null ? 1 : pageNumber(tuple);
-  const raw = await context.database.queryDocuments({
-    collectionPath: adminUserDirectoryCollection,
-    filters: [{
-      field: "displayNamePrefixTokens",
-      operation: "array-contains",
-      value: criteria.anchor,
-    }],
-    orders: [
-      { field: "normalizedDisplayName", direction: "asc" },
-      { field: "__name__", direction: "asc" },
-    ],
-    ...(tuple === null
-      ? {}
-      : {
-          cursor: {
-            kind: parsed.request.direction === "backward"
-              ? "endBefore" as const
-              : "startAfter" as const,
-            values: displayQueryTuple(tuple),
-          },
-        }),
-    limit: ratingAdminPeoplePostFilterReadBudget,
-    ...(parsed.request.direction === "backward"
-      ? { limitToLast: true }
-      : {}),
-  });
-  const matching = raw.filter((document) =>
-    matchesWords(document.data.normalizedDisplayName, criteria));
-  const selected = parsed.request.direction === "backward"
-    ? matching.slice(Math.max(0, matching.length - ratingAdminPeoplePageSize))
-    : matching.slice(0, ratingAdminPeoplePageSize);
-  const items = await enrichDirectoryUsers(selected, context.database);
-  const hasNext = parsed.request.direction === "backward"
-    ? true
-    : matching.length > ratingAdminPeoplePageSize ||
-      raw.length === ratingAdminPeoplePostFilterReadBudget;
-  const hasPrevious = currentPageNumber > 1;
-  const firstRaw = raw[0];
-  const lastSelected = selected[selected.length - 1];
-  const lastRaw = raw[raw.length - 1];
-  const nextAnchor = matching.length > ratingAdminPeoplePageSize
-    ? lastSelected
-    : lastRaw;
-  const nextCursor = hasNext && nextAnchor !== undefined
-    ? encodeBoundary({
-        parsed,
-        queryFingerprint,
-        source,
-        searchMode,
-        purpose: "forward",
-        tuple: displayTuple(nextAnchor),
-        targetPage: currentPageNumber + 1,
-      })
-    : undefined;
-  const previousCursor = hasPrevious && firstRaw !== undefined
-    ? encodeBoundary({
-        parsed,
-        queryFingerprint,
-        source,
-        searchMode,
-        purpose: "backward",
-        tuple: displayTuple(firstRaw),
-        targetPage: currentPageNumber - 1,
-      })
-    : undefined;
-  return response({
-    parsed,
-    items,
-    queryFingerprint,
-    currentPageNumber,
-    total: { state: "unknown" },
-    hasNext,
-    hasPrevious,
-    ...(nextCursor === undefined ? {} : { nextCursor }),
-    ...(previousCursor === undefined ? {} : { previousCursor }),
-    allowLast: false,
-  });
+  return executeVisibleUsersPage(parsed, {
+    source: "ratingAdminUsers", searchMode: "displayName", collectionPath: adminUserDirectoryCollection,
+    filters: [{field: "displayNamePrefixTokens", operation: "array-contains", value: criteria.anchor}],
+    orders: [{field: "normalizedDisplayName", direction: "asc"}, {field: "__name__", direction: "asc"}],
+    fingerprintCriteria: {entity: "users", mode: "displayName", value: criteria.normalized},
+    cursorValues: displayTuple, queryCursorValues: displayQueryTuple, project: directoryProjection,
+  }, context.database, document => matchesWords(document.data.normalizedDisplayName, criteria));
 }
 
 function claimedTuple(
   document: RatingAdminPeopleDocument,
 ): readonly CursorSortValue[] {
   return [
-    readString(document.data.ownerUid, 1_500) ?? "",
+    exactAdminUserUid(document.data.ownerUid) ?? "",
     readString(document.data.normalizedRestaurantName, 200) ?? "",
-    readString(document.data.sourceRestaurantId, 1_500) ?? "",
+    exactAdminUserSourceId(document.data.sourceRestaurantId) ?? "",
   ];
 }
 
@@ -1034,12 +1036,15 @@ async function executeClaimedRestaurantUsers(
         }),
     limit: ratingAdminPeoplePostFilterReadBudget,
   });
-  const matching = raw.filter((document) =>
+  const unfenced = await unfencedUsers(raw, context.database, row => row.data.ownerUid);
+  const ownerIdsInWindow = [...new Set(unfenced.map(row => exactAdminUserUid(row.data.ownerUid)!))];
+  const existingOwners = new Set((await boundedPeopleGets(context.database, ownerIdsInWindow.map(uid => `${adminUserDirectoryCollection}/${uid}`))).map(row => row.id));
+  const matching = unfenced.filter((document) => existingOwners.has(exactAdminUserUid(document.data.ownerUid)!) &&
     matchesWords(document.data.normalizedRestaurantName, criteria));
 
   if (state.phase === "lookahead") {
     const hasNext = matching.some((document) => {
-      const ownerUid = readString(document.data.ownerUid, 1_500);
+      const ownerUid = exactAdminUserUid(document.data.ownerUid);
       return ownerUid !== null &&
         ownerUid !== state.pageLastOwner &&
         !ownerUid.includes("/");
@@ -1104,7 +1109,7 @@ async function executeClaimedRestaurantUsers(
 
   const owners = new Map<string, RatingAdminPeopleDocument>();
   for (const document of matching) {
-    const ownerUid = readString(document.data.ownerUid, 1_500);
+    const ownerUid = exactAdminUserUid(document.data.ownerUid);
     if (
       ownerUid !== null &&
       !ownerUid.includes("/") &&
@@ -1175,9 +1180,8 @@ async function executeClaimedRestaurantUsers(
       (document): document is RatingAdminPeopleDocument =>
         document !== undefined,
     );
-  if (selectedDirectory.length !== selectedOwners.length) {
-    callableError("failed-precondition", "The claimed User search is unavailable.");
-  }
+  // An owner may be fenced/removed or still awaiting reconciliation between reads.
+  // Raw owner boundaries continue past it; absence here is not a fatal page error.
   const matchedNames = new Map<string, string>();
   for (const [ownerUid, row] of selectedOwners) {
     const name = readString(row.data.displayRestaurantName, 100);
@@ -1313,7 +1317,8 @@ export async function searchRatingAdminUsersPageHandler(
     ) {
       callableError("invalid-argument", "UID navigation is invalid.");
     }
-    const uid = requireDocumentId(parsed.request.criteria.value);
+    const uid = exactAdminUserUid(parsed.request.criteria.value);
+    if (uid === null) callableError("invalid-argument", "The user identity is invalid.");
     const queryFingerprint = createQueryFingerprint({
       entity: "users",
       mode,
@@ -1510,7 +1515,7 @@ function pointsProjection(
   const data = document.data;
   if (
     data.directoryVersion !== adminUserDirectoryVersion ||
-    readString(data.uid, 1_500) !== document.id ||
+    exactAdminUserUid(data.uid) !== document.id ||
     data.includedInUserPointsDirectory !== true
   ) {
     callableError("failed-precondition", "The User Points directory is unavailable.");

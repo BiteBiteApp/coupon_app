@@ -1,4 +1,17 @@
 import { createHash } from "node:crypto";
+import {accountDeletionPath} from "./account_deletion_guard.js";
+
+/** Use the existing account fence's identity contract without normalization. */
+export function exactAdminUserUid(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  try { accountDeletionPath(value); return value; } catch { return null; }
+}
+
+export function requireAdminUserUid(value: unknown): string {
+  const uid = exactAdminUserUid(value);
+  if (uid === null) throw new Error("Invalid Admin user identity.");
+  return uid;
+}
 
 export const adminUserDirectoryVersion =
   "bitestar.admin-user-directory.v1" as const;
@@ -130,11 +143,15 @@ export type AdminUserClaimedRestaurantDocument = Readonly<{
 }>;
 
 function requireDocumentId(value: string, label: string): string {
-  const normalized = value.trim();
-  if (!normalized || normalized.includes("/")) {
+  if (!value || value.includes("/") || value === "." || value === "..") {
     throw new Error(`${label} must be one Firestore document-ID segment.`);
   }
-  return normalized;
+  return value;
+}
+
+export function exactAdminUserSourceId(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  try { return requireDocumentId(value, "Source document ID"); } catch { return null; }
 }
 
 function digestTuple(tuple: readonly unknown[]): string {
@@ -145,7 +162,7 @@ export function createAdminUserSourceSummaryId(value: {
   uid: string;
   sourceKind: AdminUserSourceKind;
 }): string {
-  const uid = requireDocumentId(value.uid, "Admin user UID");
+  const uid = requireAdminUserUid(value.uid);
   if (!isAdminUserSourceKind(value.sourceKind)) {
     throw new Error("Admin user source kind is invalid.");
   }
@@ -178,7 +195,7 @@ export function createAdminUserFingerprint(
 }
 
 export function adminUserDirectoryDocumentPath(uid: string): string {
-  return `${adminUserDirectoryCollection}/${requireDocumentId(uid, "Admin user UID")}`;
+  return `${adminUserDirectoryCollection}/${requireAdminUserUid(uid)}`;
 }
 
 export function adminUserSourceSummaryDocumentPath(value: {
@@ -212,4 +229,19 @@ export function requireAdminUserDocumentSize<
     throw new Error("Admin user directory document exceeds the private size limit.");
   }
   return document;
+}
+
+export const adminUserProgressVersion = "bitestar.admin-user-reconciliation.v1";
+export const maximumAdminUserProgressBytes = 32_768;
+export function requireAdminUserProgressSize<T extends Readonly<Record<string, unknown>>>(value: T): T {
+  if (serializedAdminUserDocumentBytes(value) > maximumAdminUserProgressBytes) {
+    throw new Error("Private People progress exceeds its bounded size limit.");
+  }
+  return value;
+}
+export function adminUserWorkPath(uid: string, sourceKind: AdminUserSourceKind): string {
+  return `${adminUserSourceSummaryCollection}/auw_${createHash("sha256").update(JSON.stringify([adminUserProgressVersion, requireAdminUserUid(uid), sourceKind])).digest("hex")}`;
+}
+export function adminUserRelationshipWorkPath(id: string): string {
+  return `${adminUserSourceSummaryCollection}/auw_${createHash("sha256").update(JSON.stringify([adminUserProgressVersion, "relationship", requireDocumentId(id, "Restaurant ID")])).digest("hex")}`;
 }

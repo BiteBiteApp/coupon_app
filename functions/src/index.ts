@@ -1,3 +1,4 @@
+import {verifyAdminUserDirectoryHandler} from "./admin_user_directory_recovery.js";
 import {randomBytes} from "node:crypto";
 import {createDeletionAwareCheckout, queueAccountDeletionSubscription, reserveAccountDeletionCheckoutIntent, requireOwnedAccountDeletionSubscription} from "./account_deletion_billing.js";
 import {accountDeletionRequested, requireAccountWritable} from "./account_deletion_guard.js";
@@ -2716,6 +2717,11 @@ export const listRatingAdminInviteHistoryPage = onCall(
     });
   },
 );
+
+export const verifyAdminUserDirectory = onCall({timeoutSeconds: 60}, async (request) => {
+  requireAdminInviteAccess(request);
+  return verifyAdminUserDirectoryHandler(adminUserDirectoryDatabase, request.data);
+});
 
 export const searchRatingAdminUsersPage = onCall(
   { secrets: [searchPaginationCursorKey] },
@@ -5611,9 +5617,10 @@ export const maintainBiteSaverDailySpecialSearchIndex = onDocumentWritten(
 );
 
 export const maintainAdminUserDirectoryFromRestaurantAccount = onDocumentWritten(
-  "restaurant_accounts/{restaurantAccountId}",
+  {document: "restaurant_accounts/{restaurantAccountId}", retry: true},
   async (event) => {
     await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+      eventId: event.id,
       sourceKind: "restaurantAccount",
       sourceDocumentId: event.params.restaurantAccountId as string,
       before: event.data?.before.exists
@@ -5628,9 +5635,10 @@ export const maintainAdminUserDirectoryFromRestaurantAccount = onDocumentWritten
 );
 
 export const maintainAdminUserDirectoryFromUserProfile = onDocumentWritten(
-  "user_profiles/{userId}",
+  {document: "user_profiles/{userId}", retry: true},
   async (event) => {
     await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+      eventId: event.id,
       sourceKind: "userProfile",
       sourceDocumentId: event.params.userId as string,
       before: event.data?.before.exists
@@ -5646,9 +5654,10 @@ export const maintainAdminUserDirectoryFromUserProfile = onDocumentWritten(
 
 export const maintainAdminUserDirectoryFromPublicReviewerProfile =
   onDocumentWritten(
-    "public_reviewer_profiles/{userId}",
+    {document: "public_reviewer_profiles/{userId}", retry: true},
     async (event) => {
       await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+        eventId: event.id,
         sourceKind: "publicReviewerProfile",
         sourceDocumentId: event.params.userId as string,
         before: event.data?.before.exists
@@ -5664,9 +5673,10 @@ export const maintainAdminUserDirectoryFromPublicReviewerProfile =
 
 export const maintainAdminUserDirectoryFromBiteScoreRestaurant =
   onDocumentWritten(
-    "bitescore_restaurants/{restaurantId}",
+    {document: "bitescore_restaurants/{restaurantId}", retry: true},
     async (event) => {
       await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+        eventId: event.id,
         sourceKind: "biteScoreRestaurant",
         sourceDocumentId: event.params.restaurantId as string,
         before: event.data?.before.exists
@@ -5682,9 +5692,10 @@ export const maintainAdminUserDirectoryFromBiteScoreRestaurant =
 
 export const maintainAdminUserDirectoryFromRestaurantClaimRequest =
   onDocumentWritten(
-    "restaurant_claim_requests/{claimRequestId}",
+    {document: "restaurant_claim_requests/{claimRequestId}", retry: true},
     async (event) => {
       await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+        eventId: event.id,
         sourceKind: "restaurantClaimRequest",
         sourceDocumentId: event.params.claimRequestId as string,
         before: event.data?.before.exists
@@ -5699,9 +5710,10 @@ export const maintainAdminUserDirectoryFromRestaurantClaimRequest =
   );
 
 export const maintainAdminUserDirectoryFromDishReview = onDocumentWritten(
-  "dish_reviews/{reviewId}",
+  {document: "dish_reviews/{reviewId}", retry: true},
   async (event) => {
     await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+      eventId: event.id,
       sourceKind: "dishReview",
       sourceDocumentId: event.params.reviewId as string,
       before: event.data?.before.exists
@@ -5716,9 +5728,10 @@ export const maintainAdminUserDirectoryFromDishReview = onDocumentWritten(
 );
 
 export const maintainAdminUserDirectoryFromReviewReport = onDocumentWritten(
-  "review_reports/{reportId}",
+  {document: "review_reports/{reportId}", retry: true},
   async (event) => {
     await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+      eventId: event.id,
       sourceKind: "reviewReport",
       sourceDocumentId: event.params.reportId as string,
       before: event.data?.before.exists
@@ -5733,9 +5746,10 @@ export const maintainAdminUserDirectoryFromReviewReport = onDocumentWritten(
 );
 
 export const maintainAdminUserDirectoryFromRestaurantReport = onDocumentWritten(
-  "restaurant_reports/{reportId}",
+  {document: "restaurant_reports/{reportId}", retry: true},
   async (event) => {
     await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+      eventId: event.id,
       sourceKind: "restaurantReport",
       sourceDocumentId: event.params.reportId as string,
       before: event.data?.before.exists
@@ -5750,9 +5764,10 @@ export const maintainAdminUserDirectoryFromRestaurantReport = onDocumentWritten(
 );
 
 export const maintainAdminUserDirectoryFromDishReport = onDocumentWritten(
-  "dish_reports/{reportId}",
+  {document: "dish_reports/{reportId}", retry: true},
   async (event) => {
     await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+      eventId: event.id,
       sourceKind: "dishReport",
       sourceDocumentId: event.params.reportId as string,
       before: event.data?.before.exists
@@ -5768,9 +5783,10 @@ export const maintainAdminUserDirectoryFromDishReport = onDocumentWritten(
 
 export const maintainAdminUserDirectoryFromDuplicateRestaurantReport =
   onDocumentWritten(
-    "duplicate_restaurant_reports/{reportId}",
+    {document: "duplicate_restaurant_reports/{reportId}", retry: true},
     async (event) => {
       await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+        eventId: event.id,
         sourceKind: "duplicateRestaurantReport",
         sourceDocumentId: event.params.reportId as string,
         before: event.data?.before.exists
@@ -5785,9 +5801,10 @@ export const maintainAdminUserDirectoryFromDuplicateRestaurantReport =
   );
 
 export const maintainAdminUserDirectoryFromDishEditProposal = onDocumentWritten(
-  "dish_edit_proposals/{proposalId}",
+  {document: "dish_edit_proposals/{proposalId}", retry: true},
   async (event) => {
     await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+      eventId: event.id,
       sourceKind: "dishEditProposal",
       sourceDocumentId: event.params.proposalId as string,
       before: event.data?.before.exists
@@ -5814,9 +5831,10 @@ export const maintainDishEditProposalPrivateState = onDocumentWritten(
 
 export const maintainAdminUserDirectoryFromReviewFeedbackVote =
   onDocumentWritten(
-    "review_feedback_votes/{voteId}",
+    {document: "review_feedback_votes/{voteId}", retry: true},
     async (event) => {
       await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+        eventId: event.id,
         sourceKind: "reviewFeedbackVote",
         sourceDocumentId: event.params.voteId as string,
         before: event.data?.before.exists

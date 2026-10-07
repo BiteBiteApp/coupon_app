@@ -24,6 +24,7 @@ class _RatingAdminUsersPagedViewState extends State<RatingAdminUsersPagedView> {
   late PagedQueryController<RatingAdminUserRecord> _controller;
   String _activeCriteriaLabel = 'View All';
   int _usersGeneration = 0;
+  AdminUserVerificationStatus? _verification;
 
   @override
   void initState() {
@@ -38,6 +39,24 @@ class _RatingAdminUsersPagedViewState extends State<RatingAdminUsersPagedView> {
     );
     _controller.addListener(_handleControllerChanged);
     _controller.loadInitial();
+    _loadVerificationStatus();
+  }
+
+  Future<void> _loadVerificationStatus() async {
+    try {
+      final status = await _service.verifyUserDirectory('status');
+      if (mounted) setState(() => _verification = status);
+    } catch (_) {
+      if (mounted) setState(() => _verification = null);
+    }
+  }
+
+  Future<void> _verifyDirectory() async {
+    await showDialog<void>(context: context, builder: (_) =>
+        _UserDirectoryVerificationDialog(service: _service));
+    if (!mounted) return;
+    await _loadVerificationStatus();
+    if (mounted) await _controller.refreshCurrentPage();
   }
 
   void _handleControllerChanged() {
@@ -120,7 +139,20 @@ class _RatingAdminUsersPagedViewState extends State<RatingAdminUsersPagedView> {
     await _submit();
   }
 
-  Future<void> _showDetails(RatingAdminUserRecord user) async {
+  Future<void> _showDetails(RatingAdminUserRecord cached) async {
+    RatingAdminUserRecord? user;
+    try {
+      user = await _service.loadUserDetails(cached.uid);
+    } catch (_) {
+      if (mounted) _showMessage('User details could not be checked. Try again.');
+      return;
+    }
+    if (!mounted) return;
+    if (user == null) {
+      _showMessage('No indexed match is available. This does not prove the person does not exist.');
+      await _controller.refreshCurrentPage();
+      return;
+    }
     final claimed = user.claimedRestaurantNames.isEmpty
         ? null
         : '${user.claimedRestaurantNames.join(', ')}'
@@ -140,10 +172,11 @@ class _RatingAdminUsersPagedViewState extends State<RatingAdminUsersPagedView> {
       if (user.activityTags.isNotEmpty)
         'Activity: ${user.activityTags.join(', ')}',
     ];
+    final title = user.displayName;
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(user.displayName),
+        title: Text(title),
         content: SingleChildScrollView(child: Text(lines.join('\n'))),
         actions: <Widget>[
           TextButton(
@@ -233,6 +266,21 @@ class _RatingAdminUsersPagedViewState extends State<RatingAdminUsersPagedView> {
             ],
           ),
           const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                key: const ValueKey('verify-user-directory'),
+                onPressed: _verifyDirectory,
+                icon: const Icon(Icons.fact_check_outlined),
+                label: const Text('Verify / Resume User Directory'),
+              ),
+              Text(_verification?.summary ?? 'Verification status unavailable.'),
+            ],
+          ),
+          const Text('Indexed information may be stale. Verification runs only while requested.'),
           Semantics(
             liveRegion: true,
             label: 'Active user results: $_activeCriteriaLabel',
@@ -311,9 +359,12 @@ class _RatingAdminUsersPagedViewState extends State<RatingAdminUsersPagedView> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return LayoutBuilder(builder: (context, constraints) => Column(
       children: <Widget>[
-        _controls(),
+        ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: constraints.maxHeight * .5),
+          child: SingleChildScrollView(child: _controls()),
+        ),
         Expanded(
           child: PagedDirectoryView<RatingAdminUserRecord>(
             key: ValueKey<PagedQueryController<RatingAdminUserRecord>>(
@@ -325,7 +376,7 @@ class _RatingAdminUsersPagedViewState extends State<RatingAdminUsersPagedView> {
             emptyBuilder: (context) => const Center(
               child: Padding(
                 padding: EdgeInsets.all(16),
-                child: Text('No matching user records found.'),
+                child: Text('No indexed match found. This does not prove the person does not exist. Verify / Resume User Directory to check for missed records.'),
               ),
             ),
             errorBuilder: (context, error, retry) => Center(
@@ -348,8 +399,94 @@ class _RatingAdminUsersPagedViewState extends State<RatingAdminUsersPagedView> {
           ),
         ),
       ],
-    );
+    ));
   }
+}
+
+class _UserDirectoryVerificationDialog extends StatefulWidget {
+  const _UserDirectoryVerificationDialog({required this.service});
+  final RatingAdminPeoplePagingService service;
+  @override
+  State<_UserDirectoryVerificationDialog> createState() => _UserDirectoryVerificationDialogState();
+}
+
+class _UserDirectoryVerificationDialogState extends State<_UserDirectoryVerificationDialog> {
+  AdminUserVerificationStatus? _status;
+  bool _running = false;
+  bool _requesting = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final status = await widget.service.verifyUserDirectory('status');
+      if (mounted) setState(() => _status = status);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    }
+  }
+
+  Future<void> _run() async {
+    if (_requesting) return;
+    setState(() { _running = true; _requesting = true; _error = null; });
+    try {
+      var status = await widget.service.verifyUserDirectory('start');
+      while (mounted && _running) {
+        setState(() => _status = status);
+        if (status.status != 'pending') break;
+        status = await widget.service.verifyUserDirectory('continue', current: status);
+        // Give Close/Pause a chance between bounded network requests.
+        await Future<void>.delayed(Duration.zero);
+      }
+      if (mounted) {
+        if (!_running && status.status == 'pending') {
+          status = await widget.service.verifyUserDirectory('pause', current: status);
+        }
+        if (mounted) setState(() => _status = status);
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() { _running = false; _requesting = false; });
+    }
+  }
+
+  @override
+  void dispose() {
+    _running = false; // At most the in-flight atomic batch may finish.
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Verify User Directory'),
+    content: SingleChildScrollView(child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Checks source and indexed records in small batches. Closing stops requests from this window; saved progress can be resumed. Other Admin windows may continue the same pass.'),
+        const SizedBox(height: 12),
+        if (_running) const LinearProgressIndicator(),
+        Text(_running ? 'Verification running…' : (_status?.summary ?? 'Loading verification status…')),
+        if (_status != null) Text('${_status!.phase == 'discovering' ? 'Discovering records' : 'Reconciling records'} · ${_status!.examined} examined · ${_status!.steps} batches'),
+        if (_status?.lastCompletedAt != null)
+          Text('Last completed pass: ${_status!.lastCompletedAt!.toLocal()}'),
+        if (_error != null) Text(_error!),
+        const Text('A completed pass is not a guarantee that all users are current right now.'),
+      ],
+    )),
+    actions: [
+      if (_running) TextButton(onPressed: () => setState(() => _running = false), child: const Text('Pause'))
+      else FilledButton(onPressed: _requesting ? null : _run,
+          child: Text(_status?.status == 'complete' || _status?.status == 'notStarted' ? 'Verify' : 'Resume')),
+      TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+    ],
+  );
 }
 
 class RatingAdminUserPointsPagedView extends StatefulWidget {

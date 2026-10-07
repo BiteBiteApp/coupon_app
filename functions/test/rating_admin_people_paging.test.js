@@ -179,8 +179,8 @@ async function resolveClaimedLogicalPage(initialRequest, handlerContext) {
     assert.equal(result.hasNext, true);
     assert.equal(typeof result.nextCursor, "string");
     currentRequest = request(initialRequest.criteria, {
-      direction: "forward",
-      cursor: result.nextCursor,
+      direction: initialRequest.criteria.mode !== "claimedRestaurant" && initialRequest.direction === "backward" ? "backward" : "forward",
+      cursor: initialRequest.criteria.mode !== "claimedRestaurant" && initialRequest.direction === "backward" ? result.previousCursor : result.nextCursor,
       clientRequestId: `claimed-continuation-${continuation}`,
     });
   }
@@ -373,7 +373,7 @@ test("all handlers reject wrong protocol, direction, integers, IDs, and cursor s
   }
 });
 
-test("Users View All pages 125 directory records with exact stable navigation", async () => {
+test("Users View All pages 125 directory records with stable navigation and fence-safe unknown totals", async () => {
   const users = Array.from({length: 125}, (_, index) => user(index));
   const database = new FakeDatabase({
     [adminUserDirectoryCollection]: users,
@@ -392,7 +392,7 @@ test("Users View All pages 125 directory records with exact stable navigation", 
     context(database),
   );
   assert.deepEqual([first.items.length, second.items.length, third.items.length], [50, 50, 25]);
-  assert.deepEqual(first.total, {state: "exact", value: 125});
+  assert.deepEqual(first.total, {state: "unknown"});
   assert.deepEqual([first.currentPageNumber, second.currentPageNumber, third.currentPageNumber], [1, 2, 3]);
   assert.equal(new Set([...first.items, ...second.items, ...third.items].map((item) => item.uid)).size, 125);
   assert.equal(third.hasNext, false);
@@ -401,13 +401,11 @@ test("Users View All pages 125 directory records with exact stable navigation", 
     context(database),
   );
   assert.deepEqual(previous.items.map((item) => item.uid), second.items.map((item) => item.uid));
-  const last = await searchRatingAdminUsersPageHandler(
-    request({mode: "viewAll"}, {direction: "last"}),
-    context(database),
-  );
-  assert.deepEqual(last.items.map((item) => item.uid), third.items.map((item) => item.uid));
+  assert.equal(first.capabilities.last, false);
+  await assert.rejects(searchRatingAdminUsersPageHandler(
+    request({mode: "viewAll"}, {direction: "last"}), context(database)), {code: "invalid-argument"});
   const directoryQueries = database.queries.filter((query) => query.collectionPath === adminUserDirectoryCollection);
-  assert.ok(directoryQueries.every((query) => query.limit <= 51));
+  assert.ok(directoryQueries.every((query) => query.limit <= ratingAdminPeoplePostFilterReadBudget));
   assert.ok(database.gets.every((paths) => paths.every((value) => !value.includes("source_summaries"))));
 });
 
@@ -447,13 +445,13 @@ test("email and phone modes normalize exact equality without substring behavior"
     context(database),
   );
   assert.deepEqual(email.items.map((item) => item.uid), ["user-001", "user-002"]);
-  assert.equal(email.total.value, 2);
+  assert.deepEqual(email.total, {state: "unknown"});
   const phone = await searchRatingAdminUsersPageHandler(
     request({mode: "phone", value: "352-555-0100"}),
     context(database),
   );
   assert.deepEqual(phone.items.map((item) => item.uid), ["user-001", "user-002"]);
-  assert.equal(phone.total.value, 2);
+  assert.deepEqual(phone.total, {state: "unknown"});
   assert.ok(database.counts.every((count) => count.filters.length === 1));
 });
 
@@ -950,4 +948,68 @@ test("unsupported search values and ledger identities fail before reads", async 
     /identity is invalid/,
   );
   assert.equal(database.queries.length, 0);
+});
+
+test("authoritative deletion fences exclude retained users in every Users search mode", async () => {
+  const row = user(1, {displayName: "Synthetic Person", email: "person@example.test", phone: "+13525550001", isOwner: true});
+  const database = new FakeDatabase({[adminUserDirectoryCollection]: [row],
+    [adminUserClaimedRestaurantCollection]: [claim("cafe", row.id, "Synthetic Cafe")],
+    private_account_deletions: [{id: row.id, data: {state: "requested"}}]});
+  for (const criteria of [{mode: "viewAll"}, {mode: "uid", value: row.id}, {mode: "displayName", value: "synthetic"},
+    {mode: "displayName", value: "synthetic per"}, {mode: "email", value: "person@example.test"},
+    {mode: "phone", value: "+13525550001"}, {mode: "claimedRestaurant", value: "synthetic"}]) {
+    const result = await searchRatingAdminUsersPageHandler(request(criteria), context(database));
+    assert.deepEqual(result.items, [], criteria.mode); assert.equal(result.hasNext, false);
+  }
+  database.getDocuments = async paths => {if (paths.some(path => path.startsWith("private_account_deletions/"))) throw Error("fence read failed"); return [row];};
+  await assert.rejects(searchRatingAdminUsersPageHandler(request({mode: "uid", value: row.id}), context(database)));
+});
+
+test("fenced windows advance in bounded requests without treating an empty window as absence", async () => {
+  const rows = Array.from({length: 551}, (_, i) => user(i, {displayName: `Synthetic Person ${String(i).padStart(4, "0")}`}));
+  const database = new FakeDatabase({[adminUserDirectoryCollection]: rows,
+    private_account_deletions: rows.slice(0, 500).map(row => ({id: row.id, data: {state: "complete"}}))});
+  for (const criteria of [{mode: "viewAll"}, {mode: "displayName", value: "synthetic per"}]) {
+    const first = await searchRatingAdminUsersPageHandler(request(criteria), context(database));
+    assert.equal(first.items.length, 0); assert.equal(first.preparation.state, "preparing"); assert.equal(first.currentPageNumber, 1);
+    const visible = await searchRatingAdminUsersPageHandler(request(criteria, {direction: "forward", cursor: first.nextCursor}), context(database));
+    assert.equal(visible.items.length, 50); assert.equal(visible.currentPageNumber, 1); assert.equal(visible.items[0].uid, rows[500].id);
+    const last = await searchRatingAdminUsersPageHandler(request(criteria, {direction: "forward", cursor: visible.nextCursor}), context(database));
+    assert.equal(last.items.length, 1); assert.equal(last.currentPageNumber, 2);
+    const previous = await searchRatingAdminUsersPageHandler(request(criteria, {direction: "backward", cursor: last.previousCursor}), context(database));
+    assert.deepEqual(previous.items.map(row => row.uid), visible.items.map(row => row.uid));
+  }
+  assert(database.queries.every(query => query.limit <= 500)); assert(database.gets.every(paths => paths.length <= 50));
+});
+
+test("exact supported UID including whitespace is never aliased by Users search", async () => {
+  const exact = user(1, {uid: " exact "}), alias = user(2, {uid: "exact"});
+  const database = new FakeDatabase({[adminUserDirectoryCollection]: [exact, alias]});
+  const result = await searchRatingAdminUsersPageHandler(request({mode: "uid", value: " exact "}), context(database));
+  assert.deepEqual(result.items.map(row => row.uid), [" exact "]);
+  for (const value of ["bad/uid", "x\u0000", "..", "x".repeat(129)]) await assert.rejects(searchRatingAdminUsersPageHandler(request({mode: "uid", value}), context(database)));
+});
+
+test("static fenced tails never expose a false Next; bounded lookahead finds a later visible successor", async () => {
+  for (const laterVisible of [false, true]) {
+    const rows = Array.from({length: laterVisible ? 1001 : 1000}, (_, i) => user(i, {
+      displayName: `Synthetic Person ${String(i).padStart(4, "0")}`, email: "shared@example.test", phone: "+13525550001", normalizedPhone: "+13525550001"}));
+    const database = new FakeDatabase({[adminUserDirectoryCollection]: rows,
+      private_account_deletions: rows.slice(1, 1000).map(row => ({id: row.id, data: {state: "complete"}}))});
+    for (const criteria of [{mode: "viewAll"}, {mode: "displayName", value: "synthetic"}, {mode: "displayName", value: "synthetic per"},
+      {mode: "email", value: "shared@example.test"}, {mode: "phone", value: "+13525550001"}]) {
+      const {page: first, responses} = await resolveClaimedLogicalPage(request(criteria), context(database));
+      assert.equal(responses[0].preparation.state, "preparing");
+      assert.equal(first.items.length, 1); assert.equal(first.items[0].uid, rows[0].id);
+      assert.equal(first.hasNext, laterVisible);
+      if (laterVisible) {
+        const {page: next} = await resolveClaimedLogicalPage(request(criteria, {direction: "forward", cursor: first.nextCursor}), context(database));
+        assert.equal(next.items.length, 1); assert.equal(next.items[0].uid, rows[1000].id);
+        assert.equal(next.currentPageNumber, 2); assert.equal(next.hasNext, false);
+        const {page: previous} = await resolveClaimedLogicalPage(request(criteria, {direction: "backward", cursor: next.previousCursor}), context(database));
+        assert.equal(previous.items[0].uid, rows[0].id);
+      }
+    }
+    assert(database.queries.every(query => query.limit <= 500));
+  }
 });

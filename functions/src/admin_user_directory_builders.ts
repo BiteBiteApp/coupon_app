@@ -3,6 +3,8 @@ import {
   normalizeSearchName,
 } from "./search_normalization.js";
 import {
+  exactAdminUserUid,
+  exactAdminUserSourceId,
   adminUserClaimedRestaurantVersion,
   adminUserDirectoryVersion,
   adminUserSourceKinds,
@@ -134,26 +136,31 @@ export function effectiveAdminUserSourceUid(
   if (data === null) {
     return null;
   }
+  // Only missing/null attribution permits the intentional fallback. A present
+  // malformed field must not become a different identity via trimming/fallback.
+  const identity = (field: string, fallback?: unknown): string | null =>
+    data[field] === undefined || data[field] === null
+      ? exactAdminUserUid(fallback) : exactAdminUserUid(data[field]);
   switch (sourceKind) {
     case "restaurantAccount":
-      return readString(data.uid) ?? readString(sourceDocumentId);
+      return identity("uid", sourceDocumentId);
     case "userProfile":
     case "publicReviewerProfile":
-      return readString(data.userId) ?? readString(sourceDocumentId);
+      return identity("userId", sourceDocumentId);
     case "biteScoreRestaurant":
-      return readString(data.ownerUserId);
+      return identity("ownerUserId");
     case "restaurantClaimRequest":
-      return readString(data.requesterUserId);
+      return identity("requesterUserId");
     case "dishReview":
     case "reviewFeedbackVote":
-      return readString(data.userId);
+      return identity("userId");
     case "reviewReport":
     case "restaurantReport":
     case "dishReport":
     case "duplicateRestaurantReport":
-      return readString(data.reportingUserId);
+      return identity("reportingUserId");
     case "dishEditProposal":
-      return readString(data.userId) ?? readString(data.createdByUserId);
+      return identity("userId", data.createdByUserId);
   }
 }
 
@@ -389,7 +396,7 @@ export function buildAdminUserSourceSummary(value: {
   latestActivityAt?: Date | null;
   now: Date;
 }): AdminUserSourceSummary | null {
-  const uid = readString(value.uid);
+  const uid = exactAdminUserUid(value.uid);
   const representative = value.representative;
   if (
     uid === null ||
@@ -583,7 +590,7 @@ export function buildAdminUserDirectoryDocument(value: {
   summaries: readonly AdminUserSourceSummary[];
   now: Date;
 }): AdminUserDirectoryDocument | null {
-  const uid = readString(value.uid);
+  const uid = exactAdminUserUid(value.uid);
   if (uid === null) {
     return null;
   }
@@ -597,17 +604,18 @@ export function buildAdminUserDirectoryDocument(value: {
   const publicProfile = byKind.get("publicReviewerProfile");
   const claim = byKind.get("restaurantClaimRequest");
 
+  const identityLabel = uid.trim().length === 0 ? "Unnamed user" : uid;
   const displayName = lastDefined([
     account?.displayName,
     profile?.displayName,
     publicProfile?.displayName,
     claim?.displayName,
-  ]) ?? uid;
+  ]) ?? identityLabel;
   const displayNameFields = normalizedNameFields(displayName);
-  const userPointsDisplayName =
-    publicProfile?.userPointsDisplayName ??
-    profile?.userPointsDisplayName ??
-    uid;
+  const userPointsDisplayName = lastDefined([
+    profile?.userPointsDisplayName,
+    publicProfile?.userPointsDisplayName,
+  ]) ?? identityLabel;
   const userPointsNameFields = normalizedNameFields(userPointsDisplayName);
   const displayEmail = lastDefined([
     account?.displayEmail,
@@ -708,7 +716,7 @@ export function buildAdminUserClaimedRestaurantDocument(value: {
   source: AdminUserSourceData | null;
   now: Date;
 }): AdminUserClaimedRestaurantDocument | null {
-  const sourceRestaurantId = readString(value.sourceRestaurantId);
+  const sourceRestaurantId = exactAdminUserSourceId(value.sourceRestaurantId);
   const source = value.source;
   const isActive = source === null
     ? null
@@ -720,7 +728,7 @@ export function buildAdminUserClaimedRestaurantDocument(value: {
   ) {
     return null;
   }
-  const ownerUid = readString(source.ownerUserId);
+  const ownerUid = exactAdminUserUid(source.ownerUserId);
   const displayRestaurantName = firstString(source, [
     "name",
     "restaurantName",

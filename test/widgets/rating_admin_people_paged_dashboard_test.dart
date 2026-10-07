@@ -154,7 +154,125 @@ Future<void> selectPointsSort(
   await tester.pumpAndSettle();
 }
 
+Map<String, Object?> verificationStatus({String status = 'notStarted', int steps = 0}) => {
+  'schemaVersion': 1, 'passId': 'pass', 'revision': 'revision-$steps',
+  'status': status, 'phase': 'discovering', 'examined': steps * 5, 'steps': steps,
+  'lastCompletedAtMillis': status == 'complete' ? 1 : null,
+};
+
 void main() {
+  testWidgets('manual verification closes safely and resumes the same durable pass', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 1000);
+    addTearDown(tester.view.reset);
+    final batch = Completer<Object?>();
+    final actions = <String>[];
+    var saved = verificationStatus();
+    var continues = 0;
+    final service = RatingAdminPeoplePagingService(functionsBoundary: (name, request) async {
+      if (name != 'verifyAdminUserDirectory') return page(items: const []);
+      final action = request['action'] as String;
+      actions.add(action);
+      if (action == 'start') saved = verificationStatus(status: 'pending', steps: continues);
+      if (action == 'continue') {
+        expect(request['passId'], 'pass');
+        continues++;
+        if (continues == 1) return batch.future;
+        saved = verificationStatus(status: 'complete', steps: continues);
+      }
+      return saved;
+    });
+    await tester.pumpWidget(host(RatingAdminUsersPagedView(service: service)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('does not prove the person does not exist'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('verify-user-directory')));
+    await tester.tap(find.byKey(const ValueKey('verify-user-directory')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Verify'));
+    await tester.pump();
+    expect(continues, 1);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    saved = verificationStatus(status: 'pending', steps: 1);
+    batch.complete(saved);
+    await tester.pumpAndSettle();
+    expect(continues, 1, reason: 'closing sends no subsequent background requests');
+    await tester.tap(find.byKey(const ValueKey('verify-user-directory')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Resume'));
+    await tester.pumpAndSettle();
+    expect(continues, 2);
+    expect(find.textContaining('Recovery pass completed at'), findsOneWidget);
+    expect(find.textContaining('not a guarantee'), findsOneWidget);
+    expect(actions.where((action) => action == 'start').length, 2);
+  });
+
+  testWidgets('manual pause waits for atomic batch then saves paused state; failed run stays resumable', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 1000);
+    addTearDown(tester.view.reset);
+    final batch = Completer<Object?>();
+    var continues = 0;
+    var pauses = 0;
+    var saved = verificationStatus();
+    final service = RatingAdminPeoplePagingService(functionsBoundary: (name, request) async {
+      if (name != 'verifyAdminUserDirectory') return page(items: const []);
+      switch (request['action']) {
+        case 'start': saved = verificationStatus(status: 'pending', steps: continues);
+        case 'continue':
+          continues++;
+          if (continues == 1) return batch.future;
+          saved = verificationStatus(status: 'failed', steps: continues);
+        case 'pause':
+          pauses++;
+          expect(request['revision'], 'revision-1');
+          saved = verificationStatus(status: 'paused', steps: 1);
+      }
+      return saved;
+    });
+    await tester.pumpWidget(host(RatingAdminUsersPagedView(service: service)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('verify-user-directory')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Verify'));
+    await tester.pump();
+    await tester.tap(find.text('Pause'));
+    expect(pauses, 0);
+    batch.complete(verificationStatus(status: 'pending', steps: 1));
+    await tester.pumpAndSettle();
+    expect(pauses, 1);
+    expect(continues, 1);
+    expect(find.text('Resume'), findsOneWidget);
+    await tester.tap(find.text('Resume'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Verification failed. Saved progress can be resumed.'), findsOneWidget);
+    expect(find.text('Resume'), findsOneWidget);
+  });
+
+  testWidgets('details rechecks exact UID and never opens retained cached identity after exclusion', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 1000);
+    addTearDown(tester.view.reset);
+    var excluded = false;
+    final service = RatingAdminPeoplePagingService(functionsBoundary: (name, request) async {
+      if (name == 'verifyAdminUserDirectory') return verificationStatus();
+      final criteria = request['criteria'] as Map;
+      if (criteria['mode'] == 'uid') {
+        expect(criteria['value'], ' exact ');
+        excluded = true;
+      }
+      return page(items: excluded ? const [] : [user(' exact ', 'Cached Person')]);
+    });
+    await tester.pumpWidget(host(RatingAdminUsersPagedView(service: service)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('View user details'));
+    await tester.pumpAndSettle();
+    expect(excluded, isTrue);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('Cached Person'), findsNothing);
+    expect(find.textContaining('does not prove'), findsWidgets);
+  });
+
   test('migrated production paths contain only paged callable loaders', () {
     final widgetSource = File(
       'lib/widgets/rating_admin_people_paged_dashboard.dart',
@@ -220,6 +338,7 @@ void main() {
       final calls = <Map<String, Object?>>[];
       final service = RatingAdminPeoplePagingService(
         functionsBoundary: (name, request) async {
+          if (name == 'verifyAdminUserDirectory') return Future<Object?>.value(verificationStatus());
           expect(name, 'searchRatingAdminUsersPage');
           calls.add(request);
           return switch (request['direction']) {
@@ -298,6 +417,7 @@ void main() {
       final criteria = <Map<String, Object?>>[];
       final service = RatingAdminPeoplePagingService(
         functionsBoundary: (name, request) async {
+          if (name == 'verifyAdminUserDirectory') return Future<Object?>.value(verificationStatus());
           criteria.add(Map<String, Object?>.from(request['criteria']! as Map));
           return page(
             items: <Object?>[
@@ -356,6 +476,7 @@ void main() {
       var displayCalls = 0;
       final service = RatingAdminPeoplePagingService(
         functionsBoundary: (name, request) {
+          if (name == 'verifyAdminUserDirectory') return Future<Object?>.value(verificationStatus());
           final criteria = request['criteria']! as Map;
           if (criteria['mode'] == 'viewAll') {
             return Future<Object?>.value(
@@ -407,6 +528,7 @@ void main() {
       var continuationCalls = 0;
       final service = RatingAdminPeoplePagingService(
         functionsBoundary: (name, request) async {
+          if (name == 'verifyAdminUserDirectory') return Future<Object?>.value(verificationStatus());
           expect(name, 'searchRatingAdminUsersPage');
           final criteria = request['criteria']! as Map;
           if (criteria['mode'] == 'viewAll') {
@@ -492,6 +614,7 @@ void main() {
     var claimedCalls = 0;
     final service = RatingAdminPeoplePagingService(
       functionsBoundary: (name, request) async {
+          if (name == 'verifyAdminUserDirectory') return Future<Object?>.value(verificationStatus());
         expect(name, 'searchRatingAdminUsersPage');
         final criteria = request['criteria']! as Map;
         if (criteria['mode'] == 'viewAll') {
@@ -538,6 +661,7 @@ void main() {
     var oldFollowCalls = 0;
     final service = RatingAdminPeoplePagingService(
       functionsBoundary: (name, request) {
+          if (name == 'verifyAdminUserDirectory') return Future<Object?>.value(verificationStatus());
         expect(name, 'searchRatingAdminUsersPage');
         final criteria = request['criteria']! as Map;
         if (criteria['mode'] == 'viewAll') {
@@ -606,6 +730,7 @@ void main() {
     var followCalls = 0;
     final service = RatingAdminPeoplePagingService(
       functionsBoundary: (name, request) {
+          if (name == 'verifyAdminUserDirectory') return Future<Object?>.value(verificationStatus());
         final criteria = request['criteria']! as Map;
         if (criteria['mode'] == 'viewAll') {
           return Future<Object?>.value(
@@ -661,6 +786,7 @@ void main() {
     addTearDown(tester.view.reset);
     final service = RatingAdminPeoplePagingService(
       functionsBoundary: (name, request) async {
+          if (name == 'verifyAdminUserDirectory') return Future<Object?>.value(verificationStatus());
         return page(items: <Object?>[user('exact-action-uid', 'Action User')]);
       },
     );
@@ -694,6 +820,7 @@ void main() {
     var calls = 0;
     final service = RatingAdminPeoplePagingService(
       functionsBoundary: (name, request) async {
+          if (name == 'verifyAdminUserDirectory') return Future<Object?>.value(verificationStatus());
         calls += 1;
         if (calls == 1) throw StateError('bounded failure');
         return page(items: <Object?>[user('retry-user', 'Retry User')]);
@@ -714,6 +841,7 @@ void main() {
       final calls = <Map<String, Object?>>[];
       final service = RatingAdminPeoplePagingService(
         functionsBoundary: (name, request) async {
+          if (name == 'verifyAdminUserDirectory') return Future<Object?>.value(verificationStatus());
           if (name != 'listRatingAdminUserPointsPage') {
             return page(items: const <Object?>[]);
           }
@@ -793,6 +921,7 @@ void main() {
       final ledgerCalls = <Map<String, Object?>>[];
       final service = RatingAdminPeoplePagingService(
         functionsBoundary: (name, request) async {
+          if (name == 'verifyAdminUserDirectory') return Future<Object?>.value(verificationStatus());
           if (name == 'listRatingAdminUserPointsPage') {
             return page(items: <Object?>[points('user-a', 'Points A', 5)]);
           }
@@ -883,6 +1012,7 @@ void main() {
       var ledgerCalls = 0;
       final service = RatingAdminPeoplePagingService(
         functionsBoundary: (name, request) async {
+          if (name == 'verifyAdminUserDirectory') return Future<Object?>.value(verificationStatus());
           if (name == 'listRatingAdminUserPointsPage') {
             pointsCalls += 1;
             if (pointsCalls == 1) throw StateError('points failure');
@@ -921,6 +1051,7 @@ void main() {
       final b = Completer<Object?>();
       final service = RatingAdminPeoplePagingService(
         functionsBoundary: (name, request) {
+          if (name == 'verifyAdminUserDirectory') return Future<Object?>.value(verificationStatus());
           if (name == 'listRatingAdminUserPointsPage') {
             return Future<Object?>.value(
               page(
@@ -962,6 +1093,7 @@ void main() {
     (tester) async {
       final service = RatingAdminPeoplePagingService(
         functionsBoundary: (name, request) async {
+          if (name == 'verifyAdminUserDirectory') return Future<Object?>.value(verificationStatus());
           if (name == 'searchRatingAdminUsersPage') {
             return page(
               items: <Object?>[

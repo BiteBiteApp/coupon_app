@@ -111,6 +111,57 @@ PagedRequest _request(
 );
 
 void main() {
+  test('View All candidate remains pending until fenced-tail exhaustion proves no Next', () async {
+    var calls = 0;
+    final service = RatingAdminPeoplePagingService(functionsBoundary: (name, request) async {
+      calls++;
+      if (calls == 1) {
+        return _usersPage(items: [_user()], hasNext: true, nextCursor: 'tail-1', preparationState: 'preparing');
+      }
+      if (calls == 2) {
+        return _usersPage(hasNext: true, nextCursor: 'tail-2', preparationState: 'preparing');
+      }
+      return _usersPage(preparationState: 'ready');
+    });
+    final result = await service.loadLogicalUsersPage(_request({'mode': 'viewAll'}), canContinue: () => true);
+    expect(calls, 3); expect(result.items.single.uid, 'exact-user-id'); expect(result.hasNext, isFalse);
+  });
+
+  test('manual service forwards only version, action and durable revision; failure stays truthful', () async {
+    final calls = <Map<String, Object?>>[];
+    final service = RatingAdminPeoplePagingService(functionsBoundary: (name, request) async {
+      expect(name, 'verifyAdminUserDirectory');
+      calls.add(request);
+      return {'schemaVersion': 1, 'status': 'failed', 'phase': 'reconciling',
+        'passId': 'pass', 'revision': 'rev', 'examined': 8, 'steps': 2,
+        'lastCompletedAtMillis': 123};
+    });
+    final state = await service.verifyUserDirectory('status');
+    expect(state.summary, contains('failed'));
+    expect(state.lastCompletedAt!.millisecondsSinceEpoch, 123);
+    await service.verifyUserDirectory('continue', current: state);
+    expect(calls.last, {'schemaVersion': 1, 'action': 'continue', 'passId': 'pass', 'revision': 'rev'});
+  });
+
+  test('nonclaimed fenced-window continuation retains direction and logical page', () async {
+    for (final direction in [PageDirection.first, PageDirection.backward]) {
+      var calls = 0;
+      final service = RatingAdminPeoplePagingService(functionsBoundary: (name, request) async {
+        calls++;
+        if (calls == 1) {
+          return _usersPage(hasNext: true, nextCursor: 'forward', hasPrevious: true,
+            previousCursor: 'backward', preparationState: 'preparing');
+        }
+        expect(request['direction'], direction == PageDirection.backward ? 'backward' : 'forward');
+        expect(request['cursor'], direction == PageDirection.backward ? 'backward' : 'forward');
+        return _usersPage(items: [_user()]);
+      });
+      final result = await service.loadLogicalUsersPage(_request({'mode': 'viewAll'}, direction: direction,
+        cursor: direction == PageDirection.backward ? 'previous' : null), canContinue: () => true);
+      expect(calls, 2); expect(result.items.single.uid, 'exact-user-id');
+    }
+  });
+
   test('uses the exact three callable names and strict request maps', () async {
     final calls = <(String, Map<String, Object?>)>[];
     final service = RatingAdminPeoplePagingService(
@@ -318,7 +369,7 @@ void main() {
     expect(guardChecks, 2);
   });
 
-  test('criteria builders trim values and preserve the six explicit modes', () {
+  test('criteria builders preserve exact UID and trim nonidentity search values', () {
     expect(
       RatingAdminPeoplePagingService.usersCriteria(
         mode: RatingAdminUserSearchMode.viewAll,
@@ -331,7 +382,7 @@ void main() {
           mode: mode,
           value: '  value  ',
         ),
-        <String, Object?>{'mode': mode.wireName, 'value': 'value'},
+        <String, Object?>{'mode': mode.wireName, 'value': mode == RatingAdminUserSearchMode.uid ? '  value  ' : 'value'},
       );
     }
     expect(
