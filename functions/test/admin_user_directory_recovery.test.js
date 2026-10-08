@@ -87,16 +87,17 @@ test("candidate deletion or mutation before finalization restarts instead of pub
   }
 });
 
-test("scanned invalid row becomes valid and insertion behind cursor: event invalidates generation", async () => {
+test("scanned invalid row becomes valid: event folds current source without restarting pending scan", async () => {
   const initial = {};
   for (let i = 0; i < 12; i++) initial[`dish_reviews/r-${String(i).padStart(2, "0")}`] = {userId: "u"};
   const db = new Database(initial);
   await m.reconcileAdminUserSource(db, "dishReview", "u", now);
   const beforeGeneration = db.records.get(m.adminUserWorkPath("u", "dishReview")).generation;
-  db.records.set("dish_reviews/r-00", review()); db.records.set("dish_reviews/a-new", review());
+  db.records.set("dish_reviews/r-00", review());
   await m.handleAdminUserSourceWrite(db, {sourceKind: "dishReview", sourceDocumentId: "r-00", before: {userId: "u"}, after: review(), now, eventId: "change"});
-  assert.notEqual(db.records.get(m.adminUserWorkPath("u", "dishReview")).generation, beforeGeneration);
-  await finish(db); assert.equal(db.records.get(row("u")).activityReviews, true);
+  assert.equal(db.records.get(m.adminUserWorkPath("u", "dishReview")).generation, beforeGeneration);
+  assert.equal(db.records.get(m.adminUserWorkPath("u", "dishReview")).state, "complete");
+  assert.equal(db.records.get(row("u")).activityReviews, true);
 });
 
 test("two workers and reversed duplicate events converge from current source without point writes", async () => {

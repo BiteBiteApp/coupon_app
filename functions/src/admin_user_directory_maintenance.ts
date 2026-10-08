@@ -312,7 +312,7 @@ export function deleteFencedAdminUser(transaction: AdminUserDirectoryTransaction
 /** Read registration first; caller applies all returned writes only after reads. */
 export async function prepareAdminUserWork(transaction: AdminUserDirectoryTransaction,
   scope: {uid: string; sourceKind: AdminUserSourceKind} | {restaurantId: string}, now: Date,
-  options: {verificationId?: string; eventId?: string; invalidate?: boolean; fencedUids?: Set<string>} = {},
+  options: {verificationId?: string; eventId?: string; invalidate?: boolean; fencedUids?: Set<string>; eventSourceDocumentId?: string} = {},
 ): Promise<() => void> {
   const relationship = "restaurantId" in scope;
   const path = relationship ? adminUserRelationshipWorkPath(scope.restaurantId) : adminUserWorkPath(scope.uid, scope.sourceKind);
@@ -322,6 +322,17 @@ export async function prepareAdminUserWork(transaction: AdminUserDirectoryTransa
     return () => deleteFencedAdminUser(transaction, scope.uid);
   }
   const old = parseAdminUserWork(await transaction.getDocument(path));
+  // Fold an event's current source atomically with registration, before a
+  // competing worker can finish this pending scan. Delayed payloads/IDs never
+  // reset its cursor. Existing selected hashes remain invalidating witnesses.
+  if (!relationship && old?.state === "pending" && options.eventSourceDocumentId) {
+    const work = {...old};
+    consider(work, await transaction.getDocument(
+      `${adminUserSourceConfigurations[scope.sourceKind].collectionPath}/${options.eventSourceDocumentId}`));
+    if (work.bestId === old.bestId && work.bestHash === old.bestHash &&
+        work.activityId === old.activityId && work.activityHash === old.activityHash && work.activityMillis === old.activityMillis) return () => undefined;
+    return () => setAdminUserProgress(transaction, path, {...work, updatedAt: now});
+  }
   if (old && ((options.verificationId && old.verificationId === options.verificationId) ||
       (options.eventId && old.lastEventId === options.eventId))) return () => undefined;
   if (old?.state === "pending" && !options.invalidate && !options.verificationId) return () => undefined;
@@ -423,7 +434,7 @@ async function publishAdminUserSource(transaction: AdminUserDirectoryTransaction
 }
 
 /** One transaction/page. Progress and final publication serialize on the work
- * document; event invalidation replaces the generation/cursor in that same doc.
+ * document; current-event candidates merge into that same pending work.
  * This is an eventual pass, not a source-wide atomic snapshot. */
 export async function advanceAdminUserSource(transaction: AdminUserDirectoryTransaction,
   stored: AdminUserWork, now: Date): Promise<AdminUserSourceReconciliationResult> {
@@ -541,6 +552,37 @@ export type AdminUserSourceWrite = Readonly<{
   eventId?: string;
 }>;
 
+export const adminUserEventMaximumSteps = 20;
+export const adminUserEventAdmissionMillis = 3_000;
+export class AdminUserDirectoryEventPendingError extends Error {
+  constructor() { super("Admin Users event maintenance is unfinished; retry required."); }
+}
+
+/** Resume only the current durable work; never register a new generation when
+ * another worker has completed between burst steps. All reads/publication and
+ * deletion-fence checks remain in the existing transaction boundary. */
+async function advanceAdminUserEventSource(database: AdminUserDirectoryDatabase,
+  sourceKind: AdminUserSourceKind, uid: string, sourceDocumentId: string, now: Date,
+): Promise<AdminUserSourceReconciliationResult> {
+  return database.runTransaction(async tx => {
+    const stored = parseAdminUserWork(await tx.getDocument(adminUserWorkPath(uid, sourceKind)));
+    if (!stored) {
+      if (!await tx.getDocument(accountDeletionPath(uid))) throw new Error("Missing People event work.");
+      deleteFencedAdminUser(tx, uid);
+      return {state: "complete", uid, sourceKind, sourcePresent: false, summaryWritten: false,
+        summaryDeleted: true, directoryWritten: false, directoryDeleted: true};
+    }
+    const work = {...stored};
+    if (work.state === "pending") {
+      // Never use delayed event payloads as candidates. Do not replace hashes
+      // for equal representative IDs or unchanged/decreased selected activity:
+      // final current-witness checks must still detect mutations and rescan.
+      consider(work, await tx.getDocument(`${adminUserSourceConfigurations[sourceKind].collectionPath}/${sourceDocumentId}`));
+    }
+    return advanceAdminUserSource(tx, work, now);
+  });
+}
+
 /** Only missing/null owners prove absence. Malformed present values still need repair. */
 export function hasAdminUserRestaurantOwnerValue(source: AdminUserSourceData | null): boolean {
   return source?.ownerUserId !== undefined && source?.ownerUserId !== null;
@@ -549,7 +591,14 @@ export function hasAdminUserRestaurantOwnerValue(source: AdminUserSourceData | n
 export async function handleAdminUserSourceWrite(
   database: AdminUserDirectoryDatabase,
   write: AdminUserSourceWrite,
+  execution: {monotonicNow?: () => number} = {},
 ): Promise<readonly AdminUserSourceReconciliationResult[]> {
+  // Real Firestore IDs are segments. Permanently malformed event parameters
+  // have no valid maintenance scope and must not request repeated delivery.
+  if (typeof write.sourceDocumentId !== "string" || !write.sourceDocumentId ||
+      write.sourceDocumentId.includes("/") || [".", ".."].includes(write.sourceDocumentId)) return Object.freeze([]);
+  const clock = execution.monotonicNow ?? (() => performance.now());
+  const started = clock();
   const sourceDocumentId = requireDocumentSegment(
     write.sourceDocumentId,
     "Admin user source document ID",
@@ -567,7 +616,8 @@ export async function handleAdminUserSourceWrite(
   }
   await database.runTransaction(async tx => {
     const writes: (() => void)[] = [];
-    for (const uid of affectedUids) writes.push(await prepareAdminUserWork(tx, {uid, sourceKind: write.sourceKind}, write.now, {invalidate: true, eventId: write.eventId}));
+    for (const uid of affectedUids) writes.push(await prepareAdminUserWork(tx, {uid, sourceKind: write.sourceKind}, write.now,
+      {invalidate: true, eventId: write.eventId, eventSourceDocumentId: sourceDocumentId}));
     if (write.sourceKind === "biteScoreRestaurant" &&
         [write.before, write.after].some(hasAdminUserRestaurantOwnerValue)) {
       writes.push(await prepareAdminUserWork(tx, {restaurantId: sourceDocumentId}, write.now, {invalidate: true, eventId: write.eventId}));
@@ -581,20 +631,26 @@ export async function handleAdminUserSourceWrite(
       if (work) setAdminUserProgress(tx, adminUserRelationshipWorkPath(sourceDocumentId), {...work, state: "complete", updatedAt: write.now});
     });
   }
-  const results: AdminUserSourceReconciliationResult[] = [];
-  for (const uid of affectedUids) {
-    results.push(
-      await reconcileAdminUserSource(
-        database,
-        write.sourceKind,
-        uid,
-        write.now,
-        adminUserSourceConfigurations[write.sourceKind].documentIdFallback
-          ? sourceDocumentId
-          : undefined,
-      ),
-    );
+  const results: AdminUserSourceReconciliationResult[] = [...affectedUids].map(uid => ({
+    state: "pending", uid, sourceKind: write.sourceKind,
+    summaryWritten: false, summaryDeleted: false, directoryWritten: false, directoryDeleted: false,
+  }));
+  let steps = 0;
+  // Admit sequential rounds so both sides of an ownership transfer advance,
+  // even when the first transaction uses the elapsed budget. One initial
+  // round is guaranteed; elapsed admission never cancels an in-flight step.
+  while (results.some(result => result.state === "pending")) {
+    const pending = results.flatMap((result, index) => result.state === "pending" ? [index] : []);
+    if (steps + pending.length > adminUserEventMaximumSteps ||
+        (steps > 0 && clock() - started >= adminUserEventAdmissionMillis)) break;
+    for (const index of pending) {
+      results[index] = await advanceAdminUserEventSource(database, write.sourceKind, results[index].uid, sourceDocumentId, write.now);
+      steps++;
+    }
   }
+  // A saved checkpoint is not completion. The actual retry-enabled exported
+  // wrapper awaits this promise and propagates rejection to event delivery.
+  if (results.some(result => result.state === "pending")) throw new AdminUserDirectoryEventPendingError();
   return Object.freeze(results);
 }
 

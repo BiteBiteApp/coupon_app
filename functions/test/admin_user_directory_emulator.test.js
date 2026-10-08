@@ -133,13 +133,12 @@ if (!enabled) {
     for (let i = 0; i < 12; i++) batch.set(db.doc(`dish_reviews/r-${i.toString().padStart(2, "0")}`), review("old"));
     await batch.commit();
     await m.reconcileAdminUserSource(adapter, "dishReview", "old", now);
-    const oldGeneration = (await db.doc(c.adminUserWorkPath("old", "dishReview")).get()).get("generation");
     await db.doc("dish_reviews/r-00").set(review("new"));
     await Promise.all([
       m.reconcileAdminUserSource(adapter, "dishReview", "old", now),
       index.maintainAdminUserDirectoryFromDishReview.run(event("reviewId", "r-00", review("old"), review("new"), "transfer")),
     ]);
-    assert.notEqual((await db.doc(c.adminUserWorkPath("old", "dishReview")).get()).get("generation"), oldGeneration);
+    assert.equal((await db.doc(c.adminUserWorkPath("old", "dishReview")).get()).get("state"), "complete");
     await complete();
     assert.equal((await db.doc(c.adminUserDirectoryDocumentPath("new")).get()).exists, true);
     assert.equal((await db.doc(c.adminUserDirectoryDocumentPath("old")).get()).exists, true, "surviving contribution remains");
