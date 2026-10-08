@@ -541,6 +541,11 @@ export type AdminUserSourceWrite = Readonly<{
   eventId?: string;
 }>;
 
+/** Only missing/null owners prove absence. Malformed present values still need repair. */
+export function hasAdminUserRestaurantOwnerValue(source: AdminUserSourceData | null): boolean {
+  return source?.ownerUserId !== undefined && source?.ownerUserId !== null;
+}
+
 export async function handleAdminUserSourceWrite(
   database: AdminUserDirectoryDatabase,
   write: AdminUserSourceWrite,
@@ -563,7 +568,10 @@ export async function handleAdminUserSourceWrite(
   await database.runTransaction(async tx => {
     const writes: (() => void)[] = [];
     for (const uid of affectedUids) writes.push(await prepareAdminUserWork(tx, {uid, sourceKind: write.sourceKind}, write.now, {invalidate: true, eventId: write.eventId}));
-    if (write.sourceKind === "biteScoreRestaurant") writes.push(await prepareAdminUserWork(tx, {restaurantId: sourceDocumentId}, write.now, {invalidate: true, eventId: write.eventId}));
+    if (write.sourceKind === "biteScoreRestaurant" &&
+        [write.before, write.after].some(hasAdminUserRestaurantOwnerValue)) {
+      writes.push(await prepareAdminUserWork(tx, {restaurantId: sourceDocumentId}, write.now, {invalidate: true, eventId: write.eventId}));
+    }
     writes.forEach(apply => apply());
   });
   if (write.sourceKind === "biteScoreRestaurant") {

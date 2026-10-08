@@ -458,7 +458,7 @@ class _UserDirectoryVerificationDialogState extends State<_UserDirectoryVerifica
 
   @override
   void dispose() {
-    _running = false; // At most the in-flight atomic batch may finish.
+    _running = false; // One in-flight request may finish its bounded atomic steps.
     super.dispose();
   }
 
@@ -469,7 +469,7 @@ class _UserDirectoryVerificationDialogState extends State<_UserDirectoryVerifica
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Checks source and indexed records in small batches. Closing stops requests from this window; saved progress can be resumed. Other Admin windows may continue the same pass.'),
+        const Text('Checks source and indexed records in small batches. Closing stops new requests from this window; one in-flight request may finish its bounded steps. Saved progress can be resumed. Other Admin windows may continue the same pass.'),
         const SizedBox(height: 12),
         if (_running) const LinearProgressIndicator(),
         Text(_running ? 'Verification running…' : (_status?.summary ?? 'Loading verification status…')),

@@ -20,7 +20,11 @@ async function finish(db, kind = "dishReview", uid = "u") {
   assert.fail("progress did not terminate");
 }
 async function request(db, action, state, time = now) {
-  return verify(db, {schemaVersion: 1, action, ...(state ? {passId: state.passId, revision: state.revision} : {})}, time);
+  // These regressions exercise atomic-step interleavings. Expire the admission
+  // budget after one step; separate efficiency tests exercise full bursts.
+  let tick = 0;
+  return verify(db, {schemaVersion: 1, action, ...(state ? {passId: state.passId, revision: state.revision} : {})}, time,
+    {monotonicNow: () => tick++ * 3000});
 }
 async function finishVerification(db, state) {
   state ??= await request(db, "start");

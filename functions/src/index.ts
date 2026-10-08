@@ -2720,7 +2720,8 @@ export const listRatingAdminInviteHistoryPage = onCall(
 
 export const verifyAdminUserDirectory = onCall({timeoutSeconds: 60}, async (request) => {
   requireAdminInviteAccess(request);
-  return verifyAdminUserDirectoryHandler(adminUserDirectoryDatabase, request.data);
+  return verifyAdminUserDirectoryHandler(adminUserDirectoryDatabase, request.data, undefined,
+    {assertAccess: () => { requireAdminInviteAccess(request); }});
 });
 
 export const searchRatingAdminUsersPage = onCall(

@@ -161,7 +161,7 @@ Map<String, Object?> verificationStatus({String status = 'notStarted', int steps
 };
 
 void main() {
-  testWidgets('manual verification closes safely and resumes the same durable pass', (tester) async {
+  testWidgets('manual verification closes during a bounded burst and resumes the same durable pass', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(800, 1000);
     addTearDown(tester.view.reset);
@@ -173,12 +173,12 @@ void main() {
       if (name != 'verifyAdminUserDirectory') return page(items: const []);
       final action = request['action'] as String;
       actions.add(action);
-      if (action == 'start') saved = verificationStatus(status: 'pending', steps: continues);
+      if (action == 'start') saved = verificationStatus(status: 'pending', steps: continues * 20);
       if (action == 'continue') {
         expect(request['passId'], 'pass');
         continues++;
         if (continues == 1) return batch.future;
-        saved = verificationStatus(status: 'complete', steps: continues);
+        saved = verificationStatus(status: 'complete', steps: continues * 20);
       }
       return saved;
     });
@@ -188,12 +188,13 @@ void main() {
     await tester.ensureVisible(find.byKey(const ValueKey('verify-user-directory')));
     await tester.tap(find.byKey(const ValueKey('verify-user-directory')));
     await tester.pumpAndSettle();
+    expect(find.textContaining('one in-flight request may finish its bounded steps'), findsOneWidget);
     await tester.tap(find.text('Verify'));
     await tester.pump();
     expect(continues, 1);
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
-    saved = verificationStatus(status: 'pending', steps: 1);
+    saved = verificationStatus(status: 'pending', steps: 20);
     batch.complete(saved);
     await tester.pumpAndSettle();
     expect(continues, 1, reason: 'closing sends no subsequent background requests');
@@ -202,12 +203,13 @@ void main() {
     await tester.tap(find.text('Resume'));
     await tester.pumpAndSettle();
     expect(continues, 2);
+    expect(find.textContaining('40 batches'), findsOneWidget);
     expect(find.textContaining('Recovery pass completed at'), findsOneWidget);
     expect(find.textContaining('not a guarantee'), findsOneWidget);
     expect(actions.where((action) => action == 'start').length, 2);
   });
 
-  testWidgets('manual pause waits for atomic batch then saves paused state; failed run stays resumable', (tester) async {
+  testWidgets('manual pause waits for bounded burst then saves its latest revision; failed run stays resumable', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(800, 1000);
     addTearDown(tester.view.reset);
@@ -218,15 +220,15 @@ void main() {
     final service = RatingAdminPeoplePagingService(functionsBoundary: (name, request) async {
       if (name != 'verifyAdminUserDirectory') return page(items: const []);
       switch (request['action']) {
-        case 'start': saved = verificationStatus(status: 'pending', steps: continues);
+        case 'start': saved = verificationStatus(status: 'pending', steps: continues * 20);
         case 'continue':
           continues++;
           if (continues == 1) return batch.future;
-          saved = verificationStatus(status: 'failed', steps: continues);
+          saved = verificationStatus(status: 'failed', steps: continues * 20);
         case 'pause':
           pauses++;
-          expect(request['revision'], 'revision-1');
-          saved = verificationStatus(status: 'paused', steps: 1);
+          expect(request['revision'], 'revision-20');
+          saved = verificationStatus(status: 'paused', steps: 20);
       }
       return saved;
     });
@@ -238,7 +240,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Pause'));
     expect(pauses, 0);
-    batch.complete(verificationStatus(status: 'pending', steps: 1));
+    batch.complete(verificationStatus(status: 'pending', steps: 20));
     await tester.pumpAndSettle();
     expect(pauses, 1);
     expect(continues, 1);

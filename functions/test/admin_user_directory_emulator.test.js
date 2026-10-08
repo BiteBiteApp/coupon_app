@@ -109,8 +109,11 @@ if (!enabled) {
     let state = await call("start"), passId = state.passId;
     state = await call("continue", state);
     const [a, b] = await Promise.all([call("continue", state), call("continue", state)]);
-    assert.equal(a.revision, b.revision); assert.equal(a.steps, state.steps + 1);
-    state = await call("pause", a); assert.equal(state.status, "paused");
+    const latest = await call("status");
+    assert.equal(latest.steps, Math.max(a.steps, b.steps));
+    assert(latest.steps > state.steps && latest.steps <= state.steps + recovery.adminUserVerificationMaximumSteps,
+      "duplicate concurrent request cannot adopt another burst's revision or add its own steps");
+    state = await call("pause", latest); assert.equal(state.status, "paused");
     assert.equal((await call("continue", state)).steps, state.steps);
     const updated = (await db.doc(recovery.adminUserVerificationPath).get()).get("updatedAt");
     await call("status"); assert((await db.doc(recovery.adminUserVerificationPath).get()).get("updatedAt").isEqual(updated));
@@ -168,6 +171,9 @@ if (!enabled) {
 
   test("actual manual wrapper persists failure without losing cursor and resumes after transient query failure", async () => {
     await db.doc("user_profiles/missed").set(profile("missed"));
+    const batch = db.batch();
+    for (let i = 0; i < 40; i++) batch.set(db.doc(`user_profiles/extra-${i}`), profile(`extra-${i}`));
+    await batch.commit(); // Enough real work for a checkpoint before the injected failing burst.
     let state = await call("start"); state = await call("continue", state);
     const checkpoint = (await db.doc(recovery.adminUserVerificationPath).get()).data();
     const original = db.runTransaction;

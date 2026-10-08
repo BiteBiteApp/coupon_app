@@ -1,19 +1,21 @@
 import {randomUUID} from "node:crypto";
 import {HttpsError} from "firebase-functions/v2/https";
 import {
-  adminUserClaimedRestaurantCollection, adminUserDirectoryCollection,
+  adminUserClaimedRestaurantCollection, adminUserDirectoryCollection, adminUserDirectoryVersion,
   adminUserSourceKinds, adminUserSourceSummaryCollection, exactAdminUserUid,
   isAdminUserSourceKind, requireAdminUserProgressSize, type AdminUserSourceKind,
 } from "./admin_user_directory_contract.js";
 import {effectiveAdminUserSourceUid, readAdminUserDate} from "./admin_user_directory_builders.js";
 import {
-  advanceAdminUserSource, adminUserScanPageSize, adminUserSourceConfigurations,
+  advanceAdminUserSource, adminUserScanPageSize, adminUserSourceConfigurations, hasAdminUserRestaurantOwnerValue,
   parseAdminUserWork, prepareAdminUserWork, reconcileAdminUserClaimedRestaurantInTransaction,
   setAdminUserProgress,
   type AdminUserDirectoryDatabase, type AdminUserDirectoryTransaction,
 } from "./admin_user_directory_maintenance.js";
 
 export const adminUserVerificationPath = `${adminUserSourceSummaryCollection}/auverify_v1`;
+export const adminUserVerificationMaximumSteps = 20;
+export const adminUserVerificationAdmissionMillis = 3_000;
 const version = "bitestar.admin-user-verification.v1";
 type Verification = {
   verificationVersion: string;
@@ -57,7 +59,7 @@ function status(state: Verification | null): Readonly<Record<string, unknown>> {
     updatedAtMillis: state?.updatedAt.getTime() ?? null};
 }
 
-/** One foreground request advances one atomic bounded discovery/work page.
+/** One atomic bounded discovery/work page within a foreground request.
  * The control document serializes concurrent Admin requests with that page's
  * progress. No lease, scheduler, source rewrite or background loop is needed. */
 async function step(tx: AdminUserDirectoryTransaction, state: Verification, now: Date): Promise<Verification> {
@@ -80,8 +82,16 @@ async function step(tx: AdminUserDirectoryTransaction, state: Verification, now:
     for (const row of rows) {
       if (family.kind) {
         person(effectiveAdminUserSourceUid(family.kind, row.id, row.data), family.kind);
-        if (family.kind === "biteScoreRestaurant") restaurant(row.id);
-      } else if (family.collection === adminUserDirectoryCollection) person(row.id);
+        if (family.kind === "biteScoreRestaurant" && hasAdminUserRestaurantOwnerValue(row.data)) restaurant(row.id);
+      } else if (family.collection === adminUserDirectoryCollection) {
+        // Hints only: full source, summary and relationship censuses remain authoritative.
+        const kinds = row.data.sourceKinds;
+        if (row.data.directoryVersion === adminUserDirectoryVersion && row.data.uid === row.id &&
+            Array.isArray(kinds) && kinds.length > 0 && kinds.length <= adminUserSourceKinds.length &&
+            kinds.every(isAdminUserSourceKind)) {
+          for (const kind of kinds) person(row.id, kind);
+        } else person(row.id); // Unknown/inconsistent metadata keeps the conservative all-kind repair.
+      }
       else if (family.collection === adminUserSourceSummaryCollection) {
         if (isAdminUserSourceKind(row.data.sourceKind)) person(row.data.uid, row.data.sourceKind);
       } else {restaurant(row.data.sourceRestaurantId); person(row.data.ownerUid, "biteScoreRestaurant");}
@@ -119,23 +129,20 @@ async function step(tx: AdminUserDirectoryTransaction, state: Verification, now:
   return next;
 }
 
-export async function verifyAdminUserDirectoryHandler(database: AdminUserDirectoryDatabase,
-  raw: unknown, now = new Date()): Promise<Readonly<Record<string, unknown>>> {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new HttpsError("invalid-argument", "Invalid verification request.");
-  const request = raw as Record<string, unknown>;
-  if (request.schemaVersion !== 1 || !["status", "start", "continue", "pause"].includes(String(request.action)) ||
-      Object.keys(request).some(key => !["schemaVersion", "action", "passId", "revision"].includes(key)) ||
-      ((request.action === "continue" || request.action === "pause") &&
-        (typeof request.passId !== "string" || typeof request.revision !== "string"))) {
-    throw new HttpsError("invalid-argument", "Invalid verification request.");
-  }
+type VerificationRequest = Record<string, unknown>;
+type AtomicResult = {state: Verification | null; advanced: boolean};
+
+/** Commits one step and reports whether THIS request advanced, never a competing caller. */
+async function atomicRequest(database: AdminUserDirectoryDatabase,
+  request: VerificationRequest, now: Date): Promise<AtomicResult> {
   let attempted: Verification | null = null;
   try {
     return await database.runTransaction(async tx => {
       const current = readState((await tx.getDocument(adminUserVerificationPath))?.data);
-      attempted = current;
-      if (request.action === "status") return status(current);
+      attempted = null; // A retry must not retain an earlier attempt's revision.
+      if (request.action === "status") return {state: current, advanced: false};
       let next = current;
+      let advanced = false;
       if (request.action === "start") {
         next = !current || current.status === "complete" ? {
           verificationVersion: version, passId: randomUUID(), revision: randomUUID(), status: "pending",
@@ -143,28 +150,59 @@ export async function verifyAdminUserDirectoryHandler(database: AdminUserDirecto
           lastCompletedAt: current?.lastCompletedAt ?? null,
         } : {...current, status: "pending", revision: randomUUID(), updatedAt: now};
       } else if (!current || request.passId !== current.passId || request.revision !== current.revision) {
-        return status(current); // Duplicate/stale concurrent request: no extra work.
+        return {state: current, advanced: false};
       } else if (request.action === "pause") {
-        if (current.status === "complete") return status(current);
+        if (current.status === "complete") return {state: current, advanced: false};
         next = {...current, status: "paused", revision: randomUUID(), updatedAt: now};
-      } else if (current.status === "pending") next = await step(tx, current, now);
+      } else if (current.status === "pending") {
+        attempted = current;
+        next = await step(tx, current, now);
+        advanced = true;
+      } else return {state: current, advanced: false};
       if (next) setAdminUserProgress(tx, adminUserVerificationPath, next);
-      return status(next);
+      return {state: next, advanced};
     });
   } catch (error) {
-    // Preserve cursor/progress. Never overwrite a newer concurrent batch/pause.
+    // Earlier burst steps stay committed; never overwrite a newer batch/pause.
     const failed = attempted as Verification | null;
-    if (request.action === "continue" && failed) {
+    if (failed) {
       try {
         return await database.runTransaction(async tx => {
           const current = readState((await tx.getDocument(adminUserVerificationPath))?.data);
-          if (current?.passId !== failed.passId || current.revision !== failed.revision) return status(current);
+          if (current?.passId !== failed.passId || current.revision !== failed.revision) return {state: current, advanced: false};
           const next = {...current, status: "failed" as const, revision: randomUUID(), updatedAt: now};
           setAdminUserProgress(tx, adminUserVerificationPath, next);
-          return status(next);
+          return {state: next, advanced: false};
         });
       } catch { /* A failed status write must not acknowledge successful work. */ }
     }
     throw error;
+  }
+}
+
+export async function verifyAdminUserDirectoryHandler(database: AdminUserDirectoryDatabase,
+  raw: unknown, now: Date | (() => Date) = () => new Date(),
+  execution: {monotonicNow?: () => number; assertAccess?: () => void} = {},
+): Promise<Readonly<Record<string, unknown>>> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new HttpsError("invalid-argument", "Invalid verification request.");
+  let request = raw as VerificationRequest;
+  if (request.schemaVersion !== 1 || !["status", "start", "continue", "pause"].includes(String(request.action)) ||
+      Object.keys(request).some(key => !["schemaVersion", "action", "passId", "revision"].includes(key)) ||
+      ((request.action === "continue" || request.action === "pause") &&
+        (typeof request.passId !== "string" || typeof request.revision !== "string"))) {
+    throw new HttpsError("invalid-argument", "Invalid verification request.");
+  }
+  const clock = execution.monotonicNow ?? (() => performance.now());
+  const started = clock();
+  for (let count = 0; ; count++) {
+    // The callable supplies the existing authorization boundary. A rejection stops
+    // before the next transaction; request-auth is not a live token-revocation feed.
+    execution.assertAccess?.();
+    const result = await atomicRequest(database, request, typeof now === "function" ? now() : now);
+    if (request.action !== "continue" || !result.advanced || result.state?.status !== "pending" ||
+        count + 1 >= adminUserVerificationMaximumSteps || clock() - started >= adminUserVerificationAdmissionMillis) {
+      return status(result.state);
+    }
+    request = {...request, passId: result.state.passId, revision: result.state.revision};
   }
 }
