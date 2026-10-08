@@ -591,6 +591,7 @@ test("compiled trigger metadata uses exact private paths and background event ty
 test("actual Firebase export metadata enables retry for only the intended triggers", () => {
   const metadata = loadActualCompiledEventTriggerMetadata();
   const expectedRetryEnabled = [
+    ...Object.keys(expectedAdminUserDirectoryTriggers),
     ...searchIndexRetryEnabledTriggers,
     ...preexistingRetryEnabledTriggers,
     ...customerBiteSaverRetryEnabledTriggers,

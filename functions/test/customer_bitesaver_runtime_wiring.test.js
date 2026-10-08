@@ -95,6 +95,39 @@ const adminSupportRuntimeSecrets = Object.freeze({
   searchAdminLinkRestaurantsPage: [
     "SEARCH_PAGINATION_CURSOR_KEY", "GOOGLE_MAPS_API_KEY",
   ],
+  searchRatingAdminUsersPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+  listRatingAdminDestructiveOperationsPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+});
+
+// Already committed at the task's starting HEAD; retain the historical fixture.
+const adminUserDirectoryRetryExports = new Set([
+  "maintainAdminUserDirectoryFromRestaurantAccount",
+  "maintainAdminUserDirectoryFromUserProfile",
+  "maintainAdminUserDirectoryFromPublicReviewerProfile",
+  "maintainAdminUserDirectoryFromBiteScoreRestaurant",
+  "maintainAdminUserDirectoryFromRestaurantClaimRequest",
+  "maintainAdminUserDirectoryFromDishReview",
+  "maintainAdminUserDirectoryFromReviewReport",
+  "maintainAdminUserDirectoryFromRestaurantReport",
+  "maintainAdminUserDirectoryFromDishReport",
+  "maintainAdminUserDirectoryFromDuplicateRestaurantReport",
+  "maintainAdminUserDirectoryFromDishEditProposal",
+  "maintainAdminUserDirectoryFromReviewFeedbackVote",
+]);
+const explicitAdminRuntimeExports = new Set([
+  "searchAdminLinkRestaurantsPage", "listCouponAdminInviteHistoryPage",
+  "listRatingAdminDirectoryPage", "listRatingAdminInviteHistoryPage",
+  "listRatingAdminDestructiveOperationsPage",
+]);
+const explicitAdminRuntimeOptions = Object.freeze({
+  availableMemoryMb: 256, timeoutSeconds: 60, minInstances: 0,
+  ingressSettings: "ALLOW_ALL", concurrency: 80, cpu: 1,
+});
+const verifierRuntimeMetadata = Object.freeze({
+  availableMemoryMb: null, timeoutSeconds: 60, minInstances: null,
+  maxInstances: 10, ingressSettings: null, concurrency: null,
+  serviceAccountEmail: null, vpc: null, platform: "gcfv2",
+  region: ["us-central1"], labels: {}, callableTrigger: {},
 });
 
 function expectedSecrets(exportName) {
@@ -438,17 +471,18 @@ test("approved runtime isolation and proposal schedule preserve the complete exp
   // Admin, search, background, and scheduled runtime configuration.
   assert.deepEqual(
     Object.keys(metadata).sort(),
-    [...Object.keys(protectedMetadata), ...Object.keys(deviceCallableFactories), ...Object.keys(biteScoreMetadata), "requestAccountDeletion", "getAccountDeletionStatus", "processAccountDeletionRequests", "cleanupAccountDeletionFinalizedImage"]
+    [...Object.keys(protectedMetadata), ...Object.keys(deviceCallableFactories), ...Object.keys(biteScoreMetadata), "requestAccountDeletion", "getAccountDeletionStatus", "processAccountDeletionRequests", "cleanupAccountDeletionFinalizedImage", "verifyAdminUserDirectory"]
       .filter((name) => !retiredCallableExports.has(name))
       .sort(),
   );
+  assert.deepEqual(metadata.verifyAdminUserDirectory, verifierRuntimeMetadata);
   for (const name of retiredCallableExports) {
     assert.equal(Object.hasOwn(metadata, name), false, name);
   }
   for (const [name, endpoint] of Object.entries(protectedMetadata)) {
     if (retiredCallableExports.has(name)) continue;
     // Retain the original snapshot: only explicitly approved Browse and
-    // Admin-support identities and the accepted proposal schedule spelling differ.
+    // Admin-support options, directory retry, and proposal schedule spelling differ.
     // Every other metadata field, including
     // payment, invocation policy and secret bindings, must still match exactly.
     const serviceAccountEmail = browseRuntimeExports.has(name)
@@ -460,6 +494,10 @@ test("approved runtime isolation and proposal schedule preserve the complete exp
       ...endpoint,
       ...(name === "processProximityPushRequest" ? {timeoutSeconds: 60} : {}),
       ...(serviceAccountEmail !== undefined ? {serviceAccountEmail} : {}),
+      ...(explicitAdminRuntimeExports.has(name) ? explicitAdminRuntimeOptions : {}),
+      ...(adminUserDirectoryRetryExports.has(name) ? {
+        eventTrigger: {...endpoint.eventTrigger, retry: true},
+      } : {}),
       ...(["processDishProposalResolutionWork", "processRatingDestructiveOperationWork"].includes(name) ? {
         scheduleTrigger: {
           ...endpoint.scheduleTrigger,
@@ -524,7 +562,7 @@ test("exactly thirteen Browse, Saved, Menu and guest exports share the dedicated
   );
 });
 
-test("exactly nine Admin-support callables pin their identity with exact per-function secret bindings", () => {
+test("exactly eleven Admin-support callables pin their identity with exact per-function secret bindings", () => {
   const metadata = loadActualCompiledMetadata();
   assert.deepEqual(
     Object.entries(metadata)
@@ -538,6 +576,7 @@ test("exactly nine Admin-support callables pin their identity with exact per-fun
     assert.deepEqual(metadata[name], {
       ...protectedMetadata[name],
       serviceAccountEmail: adminSupportRuntimeServiceAccount,
+      ...(explicitAdminRuntimeExports.has(name) ? explicitAdminRuntimeOptions : {}),
     }, name);
     assert.deepEqual(metadata[name].callableTrigger, {}, name);
     assert.deepEqual(
@@ -546,6 +585,41 @@ test("exactly nine Admin-support callables pin their identity with exact per-fun
       name,
     );
   }
+});
+
+test("actual Users reader rejects non-Admin access before resolving its cursor secret", () => {
+  const indexPath = path.resolve(__dirname, "../lib/index.js");
+  const script = `
+    const assert = require("node:assert/strict");
+    require("node:net").Socket.prototype.connect = () => {throw Error("Network forbidden");};
+    const Module = require("node:module"), original = Module._load, resolutions = [];
+    Module._load = function(name, ...args) {
+      const loaded = original.call(this, name, ...args);
+      if (name !== "firebase-functions/params") return loaded;
+      return {...loaded, defineSecret(key) {
+        const param = loaded.defineSecret(key);
+        param.value = () => {resolutions.push(key); assert.equal(key, "SEARCH_PAGINATION_CURSOR_KEY"); return "A".repeat(43);};
+        return param;
+      }};
+    };
+    const reader = require(${JSON.stringify(indexPath)}).searchRatingAdminUsersPage;
+    Module._load = original;
+    assert.equal(reader.__trigger.serviceAccountEmail, ${JSON.stringify(adminSupportRuntimeServiceAccount)});
+    assert.deepEqual(reader.__trigger.regions, ["us-central1"]);
+    assert.deepEqual(reader.__trigger.secrets.map(secret => secret.name), ["SEARCH_PAGINATION_CURSOR_KEY"]);
+    (async () => {
+      for (const auth of [undefined, {uid:"ordinary",token:{email:"ordinary@example.invalid"}},
+        {uid:"bad/uid",token:{email:"schuyler.cole@gmail.com"}},
+        {uid:"anonymous",token:{email:"schuyler.cole@gmail.com",firebase:{sign_in_provider:"anonymous"}}}]) {
+        await assert.rejects(reader.run({auth,data:{}}), error => error.code === "permission-denied");
+        assert.deepEqual(resolutions, []);
+      }
+      await assert.rejects(reader.run({auth:{uid:"synthetic-admin",token:{email:"schuyler.cole@gmail.com"}},data:{}}),
+        error => error.code === "invalid-argument");
+      assert.deepEqual(resolutions, ["SEARCH_PAGINATION_CURSOR_KEY"]);
+    })().catch(error => {console.error(error);process.exitCode=1;});
+  `;
+  execFileSync(process.execPath, ["-e", script], {encoding: "utf8"});
 });
 
 test("device callables pin separate runtime identities with otherwise unchanged metadata", () => {

@@ -53,6 +53,33 @@
       "collectionGroup": "admin_user_directory",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "displayNamePrefixTokens", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "normalizedDisplayName", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admin_user_directory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "normalizedEmail", "order": "ASCENDING" },
+        { "fieldPath": "normalizedDisplayName", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admin_user_directory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "normalizedPhone", "order": "ASCENDING" },
+        { "fieldPath": "normalizedDisplayName", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admin_user_directory",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "includedInUserPointsDirectory", "order": "ASCENDING" },
         { "fieldPath": "contributionPoints", "order": "DESCENDING" },
         { "fieldPath": "normalizedUserPointsDisplayName", "order": "ASCENDING" }

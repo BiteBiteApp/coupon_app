@@ -79,6 +79,27 @@ const REQUIRED_INDEX_CONTRACT = [
     [...ascending("normalizedPhone", "normalizedDisplayName")],
   ),
   requiredIndex(
+    "people.display-name-search-backward",
+    "P2",
+    ["functions/src/rating_admin_people_paging.ts"],
+    "admin_user_directory",
+    [contains("displayNamePrefixTokens"), ...descending("normalizedDisplayName", "__name__")],
+  ),
+  requiredIndex(
+    "people.email-search-backward",
+    "P2",
+    ["functions/src/rating_admin_people_paging.ts"],
+    "admin_user_directory",
+    [...ascending("normalizedEmail"), ...descending("normalizedDisplayName", "__name__")],
+  ),
+  requiredIndex(
+    "people.phone-search-backward",
+    "P2",
+    ["functions/src/rating_admin_people_paging.ts"],
+    "admin_user_directory",
+    [...ascending("normalizedPhone"), ...descending("normalizedDisplayName", "__name__")],
+  ),
+  requiredIndex(
     "people.points-descending",
     "P2",
     ["functions/src/rating_admin_people_paging.ts"],
@@ -1026,6 +1047,46 @@ const indexSignature = (index) =>
     )
     .join(",")}`;
 
+// Firebase CLI treats omitted apiScope as ANY_API and appends __name__ in
+// the last ordered field's direction. Compare effective definitions too.
+const effectiveIndex = (index) => ({
+  collectionGroup: index.collectionGroup,
+  queryScope: index.queryScope,
+  apiScope: index.apiScope ?? "ANY_API",
+  fields: index.fields.at(-1).fieldPath === "__name__" ? index.fields : [
+    ...index.fields,
+    {fieldPath: "__name__", order: [...index.fields].reverse().find((field) => field.order)?.order ?? "ASCENDING"},
+  ],
+});
+const backwardPeopleIds = new Set([
+  "people.display-name-search-backward", "people.email-search-backward", "people.phone-search-backward",
+]);
+
+test("Users Previous queries match each effective reverse index exactly once", () => {
+  const {Firestore, FieldPath} = require("@google-cloud/firestore");
+  const database = new Firestore({projectId: "demo-admin-users-index-contract"});
+  const indexes = loadIndexConfiguration().indexes.map(effectiveIndex);
+  assert.equal(new Set(indexes.map((index) => JSON.stringify(index))).size, indexes.length,
+    "no duplicate-equivalent indexes, including implicit API scope/document ordering");
+  for (const field of ["displayNamePrefixTokens", "normalizedEmail", "normalizedPhone"]) {
+    const array = field === "displayNamePrefixTokens";
+    const wire = database.collection("admin_user_directory")
+      .where(field, array ? "array-contains" : "==", "synthetic")
+      .orderBy("normalizedDisplayName", "asc").orderBy(FieldPath.documentId(), "asc")
+      .endBefore("synthetic", database.doc("admin_user_directory/synthetic"))
+      .limitToLast(50).toProto().structuredQuery; // Serialization only; no get/RPC.
+    assert.deepEqual(wire.orderBy, [
+      {field: {fieldPath: "normalizedDisplayName"}, direction: "DESCENDING"},
+      {field: {fieldPath: "__name__"}, direction: "DESCENDING"},
+    ]);
+    assert.equal(wire.where.fieldFilter.field.fieldPath, field);
+    assert.equal(wire.where.fieldFilter.op, array ? "ARRAY_CONTAINS" : "EQUAL");
+    const expected = {collectionGroup: "admin_user_directory", queryScope: "COLLECTION", apiScope: "ANY_API",
+      fields: [array ? contains(field) : ascending(field)[0], ...descending("normalizedDisplayName", "__name__")]};
+    assert.equal(indexes.filter((index) => JSON.stringify(index) === JSON.stringify(expected)).length, 1, field);
+  }
+});
+
 test("Firestore composite indexes exactly match the current production query contract", () => {
   const configuration = loadIndexConfiguration();
   const expectedIndexes = REQUIRED_INDEX_CONTRACT.map(
@@ -1054,14 +1115,14 @@ test("Firestore composite index contract is unique, scoped, and structurally val
 
   assert.equal(new Set(signatures).size, signatures.length);
   assert.equal(new Set(contractIds).size, contractIds.length);
-  assert.equal(configuration.indexes.length, 102);
+  assert.equal(configuration.indexes.length, 105);
   assert.equal(
     REQUIRED_INDEX_CONTRACT.filter(({ phase }) => phase === "LEGACY").length,
     2,
   );
   assert.equal(
     REQUIRED_INDEX_CONTRACT.filter(({ phase }) => phase === "P2").length,
-    62,
+    65,
   );
   assert.equal(
     REQUIRED_INDEX_CONTRACT.filter(({ phase }) => phase === "LATER").length,
@@ -1089,10 +1150,16 @@ test("Firestore composite index contract is unique, scoped, and structurally val
     for (const [position, field] of index.fields.entries()) {
       if (field.fieldPath === "__name__") {
         assert.equal(position, index.fields.length - 1, "document identity is the final order field");
-        assert.equal(field.order, "ASCENDING");
-        assert.ok(["BITESCORE_STAGE_1", "BITESCORE_STAGE_2"].includes(
-          REQUIRED_INDEX_CONTRACT.find((contract) => indexSignature(contract) === indexSignature(index))?.phase),
-        "only the explicit BiteScore contracts introduce document-ID ordering");
+        const contract = REQUIRED_INDEX_CONTRACT.find((contract) => indexSignature(contract) === indexSignature(index));
+        if (backwardPeopleIds.has(contract?.id)) {
+          assert.equal(field.order, "DESCENDING");
+          assert.equal(index.collectionGroup, "admin_user_directory");
+          assert.equal(contract.phase, "P2");
+        } else {
+          assert.equal(field.order, "ASCENDING");
+          assert.ok(["BITESCORE_STAGE_1", "BITESCORE_STAGE_2"].includes(contract?.phase),
+            "only the explicit BiteScore contracts introduce other document-ID ordering");
+        }
       }
       assert.equal(
         Number(Object.hasOwn(field, "order")) +

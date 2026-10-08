@@ -2725,7 +2725,7 @@ export const verifyAdminUserDirectory = onCall({timeoutSeconds: 60}, async (requ
 });
 
 export const searchRatingAdminUsersPage = onCall(
-  { secrets: [searchPaginationCursorKey] },
+  { serviceAccount: adminSupportRuntimeServiceAccount, secrets: [searchPaginationCursorKey] },
   async (request) => {
     const admin = requireAdminInviteAccess(request);
     return searchRatingAdminUsersPageHandler(request.data, {
