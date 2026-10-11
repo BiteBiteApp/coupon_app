@@ -1,3 +1,4 @@
+import 'account_provider_service.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -116,6 +117,7 @@ class CustomerSessionService {
   }
 
   static Future<void> signOutToSignedOut() async {
+    AccountProviderService.cancelCurrentOperation();
     resetBootstrapState();
     await _auth.signOut();
   }

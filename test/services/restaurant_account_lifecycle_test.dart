@@ -760,6 +760,9 @@ void main() {
         find.widgetWithText(TextField, 'Password'),
         'correct horse battery staple',
       );
+      await tester.ensureVisible(
+        find.widgetWithText(ElevatedButton, 'Sign In'),
+      );
       await tester.tap(find.widgetWithText(ElevatedButton, 'Sign In'));
       await tester.pumpAndSettle();
 
@@ -768,6 +771,61 @@ void main() {
       expect(find.text('Signed in successfully.'), findsOneWidget);
       expect(find.textContaining('failed'), findsNothing);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  test(
+    'email refresh cannot substitute another account or write its profile',
+    () async {
+      final original = _TestUser(uid: 'A');
+      final switched = _TestUser(uid: 'B');
+      await expectLater(
+        RestaurantAuthService.authenticateWithEmail(
+          isLoginMode: true,
+          signIn: () async => original,
+          register: () async => throw StateError('No registration fallback'),
+          refreshUser: (_) async => switched,
+          isCurrent: (user) => user.uid == original.uid,
+          syncExistingRestaurantAccount: (_) async =>
+              fail('stale account sync'),
+          upsertUserProfile: (_) async => fail('stale profile write'),
+        ),
+        throwsA(
+          isA<FirebaseAuthException>().having(
+            (e) => e.code,
+            'code',
+            'flow-cancelled',
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'sign-out during restaurant synchronization prevents profile completion',
+    () async {
+      final user = _TestUser();
+      var current = true;
+      await expectLater(
+        RestaurantAuthService.authenticateWithEmail(
+          isLoginMode: true,
+          signIn: () async => user,
+          register: () async => throw StateError('No registration fallback'),
+          refreshUser: (_) async => user,
+          isCurrent: (_) => current,
+          syncExistingRestaurantAccount: (_) async {
+            current = false;
+          },
+          upsertUserProfile: (_) async => fail('profile write after sign-out'),
+        ),
+        throwsA(
+          isA<FirebaseAuthException>().having(
+            (e) => e.code,
+            'code',
+            'flow-cancelled',
+          ),
+        ),
+      );
     },
   );
 
@@ -799,7 +857,10 @@ void main() {
         productionSources['lib/screens/restaurant_auth_screen.dart']!;
     expect(authService, contains('signInWithGoogleUsing('));
     expect(authService, contains('signInWithPhoneUsing('));
-    expect(authScreen, contains('RestaurantAuthService.authenticateWithEmail'));
+    expect(
+      authScreen,
+      contains('RestaurantAuthService.signInOrCreateWithEmail'),
+    );
     expect(authScreen, contains('buildNoApprovedAccountsScreen(user)'));
   });
 

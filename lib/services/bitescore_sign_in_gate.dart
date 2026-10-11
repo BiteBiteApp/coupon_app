@@ -4,9 +4,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../screens/customer_account_screen.dart';
+import 'account_provider_service.dart';
 import 'customer_auth_service.dart';
 
 class BiteScoreSignInGate {
+  @visibleForTesting
+  static Widget signInRouteForTesting({
+    required Stream<User?> users,
+    required Widget child,
+  }) =>
+      _SignInReturnRoute(canReturn: _canUserWrite, users: users, child: child);
   static const String loginRequiredMessage = 'Please sign in to continue';
   static const String emailVerificationRequiredMessage =
       'Please verify your email first';
@@ -52,15 +59,15 @@ class BiteScoreSignInGate {
 
     _showAuthSnackBar(context, message: message);
 
-    await Navigator.of(context).push(
-      MaterialPageRoute(
+    final completed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) =>
             _SignInReturnRoute(canReturn: BiteScoreSignInGate._canUserWrite),
         fullscreenDialog: true,
       ),
     );
 
-    return canCurrentUserWrite;
+    return completed == true && canCurrentUserWrite;
   }
 
   static Future<bool> ensureSignedInForFavorites(
@@ -75,8 +82,8 @@ class BiteScoreSignInGate {
 
     _showAuthSnackBar(context, message: message);
 
-    await Navigator.of(context).push(
-      MaterialPageRoute(
+    final completed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) => _SignInReturnRoute(
           canReturn: BiteScoreSignInGate._canUserSaveFavorites,
         ),
@@ -84,7 +91,7 @@ class BiteScoreSignInGate {
       ),
     );
 
-    return canCurrentUserSaveFavorites;
+    return completed == true && canCurrentUserSaveFavorites;
   }
 
   static void _showAuthSnackBar(
@@ -152,8 +159,10 @@ class BiteScoreSignInGate {
 
 class _SignInReturnRoute extends StatefulWidget {
   final bool Function(User? user) canReturn;
+  final Stream<User?>? users;
+  final Widget? child;
 
-  const _SignInReturnRoute({required this.canReturn});
+  const _SignInReturnRoute({required this.canReturn, this.users, this.child});
 
   @override
   State<_SignInReturnRoute> createState() => _SignInReturnRouteState();
@@ -162,32 +171,55 @@ class _SignInReturnRoute extends StatefulWidget {
 class _SignInReturnRouteState extends State<_SignInReturnRoute> {
   bool _hasReturnedAfterSignIn = false;
   late final StreamSubscription<User?> _authSubscription;
+  User? _latestUser;
 
   @override
   void initState() {
     super.initState();
-    _authSubscription = FirebaseAuth.instance.userChanges().listen(
-      _returnAfterSignIn,
-    );
+    _authSubscription = (widget.users ?? FirebaseAuth.instance.userChanges())
+        .listen((user) {
+          _latestUser = user;
+          _returnAfterSignIn(user);
+        });
+    AccountProviderService.activity.addListener(_associationFinished);
   }
 
   @override
   void dispose() {
     _authSubscription.cancel();
+    AccountProviderService.activity.removeListener(_associationFinished);
     super.dispose();
   }
 
+  void _associationFinished() {
+    if (!AccountProviderService.activity.value &&
+        AccountProviderService.lastOperationSucceeded) {
+      _returnAfterSignIn(_latestUser);
+    }
+  }
+
   void _returnAfterSignIn(User? user) {
-    if (_hasReturnedAfterSignIn || !widget.canReturn(user)) {
+    if (AccountProviderService.activity.value ||
+        _hasReturnedAfterSignIn ||
+        !widget.canReturn(user)) {
       return;
     }
 
     _hasReturnedAfterSignIn = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && Navigator.of(context).canPop()) {
+      if (!mounted) return;
+      if (AccountProviderService.activity.value ||
+          !widget.canReturn(_latestUser) ||
+          _latestUser?.uid != user?.uid) {
+        _hasReturnedAfterSignIn = false;
+        return;
+      }
+      if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop(true);
       }
     });
+    // Profile completion may arrive between frames without a widget rebuild.
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   @override
@@ -201,7 +233,7 @@ class _SignInReturnRouteState extends State<_SignInReturnRoute> {
         ),
         title: const Text('Sign in'),
       ),
-      body: const CustomerAccountScreen(),
+      body: widget.child ?? const CustomerAccountScreen(),
     );
   }
 }

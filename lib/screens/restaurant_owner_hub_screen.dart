@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/app_mode_state_service.dart';
+import '../services/account_provider_service.dart';
 import '../widgets/admin_content_insets.dart';
 import 'bitescore_owner_screen.dart';
 import 'main_navigation_screen.dart';
@@ -32,6 +33,7 @@ class RestaurantOwnerHubScreen extends StatelessWidget {
   }
 
   Future<void> _signOut(BuildContext context) async {
+    AccountProviderService.cancelCurrentOperation();
     await FirebaseAuth.instance.signOut();
     if (!context.mounted) {
       return;

@@ -61,6 +61,137 @@ void main() {
     await DemoRedemptionStore.resetForTesting();
   });
 
+  testWidgets('bounded Account keeps email focus through keyboard resize', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final harness = _Harness(signed: false);
+    addTearDown(harness.dispose);
+    CustomerBiteSaverRuntime.testEnabled = true;
+    CustomerBiteSaverRuntime.testComposition = harness.composition;
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: rootNavigatorKey,
+        home: const MainNavigationScreen(
+          initialIndex: 2,
+          initializePlatformServices: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final email = find.byWidgetPredicate(
+      (w) => w is TextField && w.decoration?.labelText == 'Email',
+    );
+    await tester.ensureVisible(email);
+    await tester.tap(email);
+    await tester.pump();
+    final editable = find.descendant(
+      of: email,
+      matching: find.byType(EditableText),
+    );
+    final state = tester.state<EditableTextState>(editable);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 400);
+    await tester.pumpAndSettle();
+    expect(tester.state<EditableTextState>(editable), same(state));
+    expect(state.widget.focusNode.hasFocus, isTrue);
+    tester.testTextInput.enterText('visual-check@example.test');
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(email).controller!.text,
+      'visual-check@example.test',
+    );
+    expect(
+      find.byType(MainNavigationScreen, skipOffstage: false),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    // A newly mounted Account must subscribe again and receive current auth.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) =>
+              harness.composition.buildAccount(context, 'guest'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Sign In'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+    'bounded Account auth transitions keep one shell and current Admin visibility',
+    (tester) async {
+      tester.view.physicalSize = const Size(1000, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final harness = _Harness(signed: false);
+      addTearDown(harness.dispose);
+      CustomerBiteSaverRuntime.testEnabled = true;
+      CustomerBiteSaverRuntime.testComposition = harness.composition;
+      String realm() => mainNavigationAuthRealmForUser(harness.user);
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: rootNavigatorKey,
+          home: MainNavigationScreen(
+            initialIndex: 2,
+            initializePlatformServices: false,
+            testCustomerAuthRealmProvider: realm,
+            testCustomerAuthRealmChanges: harness.changes.stream.map(
+              mainNavigationAuthRealmForUser,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sign In'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Please enter both email and password.'),
+        findsOneWidget,
+      );
+      expect(find.text('Sign In'), findsOneWidget);
+      for (final user in <User?>[
+        _User('admin', email: 'schuyler.cole@gmail.com'),
+        _User('ordinary'),
+        null,
+      ]) {
+        harness.user = user;
+        harness.changes.add(user);
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(MainNavigationScreen, skipOffstage: false),
+          findsOneWidget,
+        );
+        expect(rootNavigatorKey.currentState!.canPop(), isFalse);
+        expect(
+          find.text('Admin Workspace'),
+          user?.uid == 'admin' ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.text('Sign In'),
+          user == null ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.text('Sign Out'),
+          user == null ? findsNothing : findsOneWidget,
+        );
+        // Repeated same-user notifications must not reset the mounted Account.
+        final accountState = tester.state(find.byType(CustomerAccountScreen));
+        harness.changes.add(user);
+        await tester.pumpAndSettle();
+        expect(
+          tester.state(find.byType(CustomerAccountScreen)),
+          same(accountState),
+        );
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets('actual CouponApp factory stays default off', (tester) async {
     expect(CustomerBiteSaverRuntime.isEnabled, isFalse);
     late BuildContext context;
@@ -1401,7 +1532,7 @@ final class _Harness {
 }
 
 final class _User implements User {
-  _User(this.uid);
+  _User(this.uid, {this.email = 'fixture@example.test'});
   @override
   final String uid;
   @override
@@ -1409,7 +1540,7 @@ final class _User implements User {
   @override
   String? get displayName => 'Fixture Customer';
   @override
-  String? get email => 'fixture@example.test';
+  final String? email;
   @override
   bool get emailVerified => true;
   @override

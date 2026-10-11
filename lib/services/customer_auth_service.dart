@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'account_provider_service.dart';
+
 class CustomerAuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -18,179 +20,74 @@ class CustomerAuthService {
     return hasPasswordProvider && !user.emailVerified;
   }
 
-  static Future<User?> signInOrLinkWithGoogle() async {
-    if (kIsWeb) {
-      return _signInOrLinkWithGoogleWeb();
-    } else {
-      return _signInOrLinkWithGoogleNative();
-    }
+  static Future<User?> signInOrLinkWithGoogle({
+    ConfirmAccountPassword? confirmPassword,
+    bool Function()? isActive,
+  }) async {
+    return AccountProviderService.instance.signInWithGoogle(
+      linkGuest: true,
+      confirmPassword: confirmPassword,
+      isActive: isActive,
+      onAuthenticated: (user, isCurrent) => _finalizeSignedInCustomerSession(
+        signedInUser: user,
+        isOperationCurrent: isCurrent,
+      ),
+    );
   }
 
   static Future<User?> createAccountWithEmailPassword({
     required String email,
     required String password,
-  }) async {
-    final currentUser = _auth.currentUser;
-    final trimmedEmail = email.trim();
-
-    if (currentUser != null && currentUser.isAnonymous) {
-      final credential = EmailAuthProvider.credential(
-        email: trimmedEmail,
-        password: password,
-      );
-
-      try {
-        final linkedCredential = await currentUser.linkWithCredential(
-          credential,
-        );
-        final linkedUser = linkedCredential.user;
-
-        await _sendEmailVerificationIfNeeded(linkedUser);
-
-        await _finalizeSignedInCustomerSession(signedInUser: linkedUser);
-
-        return linkedUser;
-      } on FirebaseAuthException catch (e) {
-        if (e.code == 'credential-already-in-use' ||
-            e.code == 'email-already-in-use') {
-          final signedInCredential = await _auth.signInWithEmailAndPassword(
-            email: trimmedEmail,
-            password: password,
-          );
-
-          await _sendEmailVerificationIfNeeded(signedInCredential.user);
-
-          await _finalizeSignedInCustomerSession(
-            signedInUser: signedInCredential.user,
-          );
-
-          return signedInCredential.user;
-        }
-        rethrow;
-      }
-    }
-
-    final createdCredential = await _auth.createUserWithEmailAndPassword(
-      email: trimmedEmail,
-      password: password,
-    );
-
-    await _sendEmailVerificationIfNeeded(createdCredential.user);
-
-    await _finalizeSignedInCustomerSession(
-      signedInUser: createdCredential.user,
-    );
-
-    return createdCredential.user;
-  }
+    ConfirmGoogleAccount? confirmGoogle,
+    bool Function()? isActive,
+  }) => _authenticateWithEmail(
+    email: email,
+    password: password,
+    register: true,
+    confirmGoogle: confirmGoogle,
+    isActive: isActive,
+  );
 
   static Future<User?> signInWithEmailPassword({
     required String email,
     required String password,
-  }) async {
-    final signedInCredential = await _auth.signInWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
+    ConfirmGoogleAccount? confirmGoogle,
+    bool Function()? isActive,
+  }) => _authenticateWithEmail(
+    email: email,
+    password: password,
+    register: false,
+    confirmGoogle: confirmGoogle,
+    isActive: isActive,
+  );
 
-    await _finalizeSignedInCustomerSession(
-      signedInUser: signedInCredential.user,
-    );
-
-    return signedInCredential.user;
-  }
+  static Future<User?> _authenticateWithEmail({
+    required String email,
+    required String password,
+    required bool register,
+    ConfirmGoogleAccount? confirmGoogle,
+    bool Function()? isActive,
+  }) => AccountProviderService.instance.authenticateWithEmail(
+    email: email,
+    password: password,
+    register: register,
+    linkGuest: true,
+    confirmGoogle: confirmGoogle,
+    isActive: isActive,
+    onAuthenticated: (user, isCurrent) async {
+      if (register && isCurrent()) await _sendEmailVerificationIfNeeded(user);
+      if (!isCurrent()) return;
+      await _finalizeSignedInCustomerSession(
+        signedInUser: user,
+        isOperationCurrent: isCurrent,
+      );
+    },
+  );
 
   static Future<User?> signInOrLinkWithPhoneCredential(
     PhoneAuthCredential credential,
   ) async {
-    final currentUser = _auth.currentUser;
-
-    if (currentUser != null && currentUser.isAnonymous) {
-      try {
-        final linkedCredential = await currentUser.linkWithCredential(
-          credential,
-        );
-        final linkedUser = linkedCredential.user;
-
-        await _finalizeSignedInCustomerSession(signedInUser: linkedUser);
-
-        return linkedUser;
-      } on FirebaseAuthException catch (e) {
-        if (e.code == 'credential-already-in-use' ||
-            e.code == 'provider-already-linked') {
-          final signedInCredential = await _auth.signInWithCredential(
-            credential,
-          );
-
-          await _finalizeSignedInCustomerSession(
-            signedInUser: signedInCredential.user,
-          );
-
-          return signedInCredential.user;
-        }
-        rethrow;
-      }
-    }
-
-    final signedInCredential = await _auth.signInWithCredential(credential);
-
-    await _finalizeSignedInCustomerSession(
-      signedInUser: signedInCredential.user,
-    );
-
-    return signedInCredential.user;
-  }
-
-  static Future<User?> _signInOrLinkWithGoogleWeb() async {
-    final provider = GoogleAuthProvider();
-    final currentUser = _auth.currentUser;
-
-    if (currentUser != null && currentUser.isAnonymous) {
-      try {
-        final linkedCredential = await currentUser.linkWithPopup(provider);
-        final linkedUser = linkedCredential.user;
-
-        await _finalizeSignedInCustomerSession(signedInUser: linkedUser);
-
-        return linkedUser;
-      } on FirebaseAuthException catch (e) {
-        if (e.code == 'credential-already-in-use' ||
-            e.code == 'provider-already-linked') {
-          final signedInCredential = await _auth.signInWithPopup(provider);
-
-          await _finalizeSignedInCustomerSession(
-            signedInUser: signedInCredential.user,
-          );
-
-          return signedInCredential.user;
-        }
-        rethrow;
-      }
-    }
-
-    final credential = await _auth.signInWithPopup(provider);
-
-    await _finalizeSignedInCustomerSession(signedInUser: credential.user);
-
-    return credential.user;
-  }
-
-  static Future<User?> _signInOrLinkWithGoogleNative() async {
-    final GoogleSignIn googleSignIn = GoogleSignIn.instance;
-
-    await googleSignIn.initialize(serverClientId: webServerClientId);
-
-    final GoogleSignInAccount googleUser = await googleSignIn.authenticate();
-    final googleAuth = googleUser.authentication;
-
-    if (googleAuth.idToken == null) {
-      throw Exception('Google sign-in did not return an ID token.');
-    }
-
-    final credential = GoogleAuthProvider.credential(
-      idToken: googleAuth.idToken,
-    );
-
+    AccountProviderService.requireNoPendingOperation();
     final currentUser = _auth.currentUser;
 
     if (currentUser != null && currentUser.isAnonymous) {
@@ -230,6 +127,7 @@ class CustomerAuthService {
   }
 
   static Future<void> signOutCustomer() async {
+    AccountProviderService.cancelCurrentOperation();
     if (!kIsWeb) {
       try {
         await GoogleSignIn.instance.signOut();
@@ -244,6 +142,7 @@ class CustomerAuthService {
 
   static Future<void> _finalizeSignedInCustomerSession({
     required User? signedInUser,
+    bool Function()? isOperationCurrent,
     User? Function()? currentUserForTesting,
     Future<void> Function(User)? upsertProfileForTesting,
     Future<void> Function()? refreshRedemptionsForTesting,
@@ -255,7 +154,10 @@ class CustomerAuthService {
     final currentUser = currentUserForTesting ?? () => _auth.currentUser;
     bool isCurrent() {
       final user = currentUser();
-      return user != null && !user.isAnonymous && user.uid == signedInUser.uid;
+      return isOperationCurrent?.call() != false &&
+          user != null &&
+          !user.isAnonymous &&
+          user.uid == signedInUser.uid;
     }
 
     if (!isCurrent()) return;

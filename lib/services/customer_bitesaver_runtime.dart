@@ -521,7 +521,7 @@ final class CustomerBiteSaverComposition extends ChangeNotifier {
 
   Widget buildAccount(BuildContext context, String authRealm) =>
       CustomerAccountScreen(
-        userStream: _userChanges(),
+        userStreamFactory: _userChanges,
         profileDestinationBuilder: (_, user) {
           final owner = _saved;
           final current = _readAuth();

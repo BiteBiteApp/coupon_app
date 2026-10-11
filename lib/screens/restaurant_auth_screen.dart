@@ -14,6 +14,8 @@ import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_auth_service.dart';
+import '../services/account_provider_service.dart';
+import '../widgets/account_auth_confirmation.dart';
 import '../widgets/phone_auth_sheet.dart';
 import 'bitescore_owner_screen.dart';
 import 'main_navigation_screen.dart';
@@ -85,22 +87,40 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
   String? _lastUsedMethod;
   bool _handledPostVerificationRedirect = false;
   bool _shownPostVerificationFallbackMessage = false;
+  late Stream<User?> _authStateStream;
 
   @override
   void initState() {
     super.initState();
+    _authStateStream =
+        widget.authStateStream ?? FirebaseAuth.instance.userChanges();
     WidgetsBinding.instance.addObserver(this);
+    AccountProviderService.activity.addListener(_associationActivityChanged);
     _loadLastUsedMethod();
+  }
+
+  @override
+  void didUpdateWidget(covariant RestaurantAuthScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.authStateStream != widget.authStateStream) {
+      _authStateStream =
+          widget.authStateStream ?? FirebaseAuth.instance.userChanges();
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    AccountProviderService.activity.removeListener(_associationActivityChanged);
     phoneController.dispose();
     emailController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  void _associationActivityChanged() {
+    if (mounted && !AccountProviderService.activity.value) setState(() {});
   }
 
   @override
@@ -162,9 +182,11 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
   }
 
   Future<void> submit() async {
+    if (isLoading) return;
+    final isActive = captureAccountSignInActivity(context);
     final email = emailController.text.trim();
-    final password = passwordController.text.trim();
-    final confirmPassword = confirmPasswordController.text.trim();
+    final password = passwordController.text;
+    final confirmPassword = confirmPasswordController.text;
 
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -199,24 +221,16 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
               email: email,
               password: password,
             )
-          : await RestaurantAuthService.authenticateWithEmail(
+          : await RestaurantAuthService.signInOrCreateWithEmail(
+              email: email,
+              password: password,
               isLoginMode: isLoginMode,
-              signIn: () async {
-                final credential = await FirebaseAuth.instance
-                    .signInWithEmailAndPassword(
-                      email: email,
-                      password: password,
-                    );
-                return credential.user;
-              },
-              register: () async {
-                final credential = await FirebaseAuth.instance
-                    .createUserWithEmailAndPassword(
-                      email: email,
-                      password: password,
-                    );
-                return credential.user;
-              },
+              isActive: isActive,
+              confirmGoogle: (email) => confirmGoogleForEmail(
+                context,
+                email,
+                forRegistration: !isLoginMode,
+              ),
             );
       if (user != null) {
         await _rememberLastUsedMethod('email');
@@ -234,12 +248,13 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
         ),
       );
     } on FirebaseAuthException catch (e) {
+      if (AccountProviderService.wasCancelled(e)) return;
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            AppErrorText.friendly(
+            AccountProviderService.errorText(
               e,
               fallback: 'Authentication failed. Please try again.',
             ),
@@ -247,12 +262,13 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
         ),
       );
     } catch (error) {
+      if (AccountProviderService.wasCancelled(error)) return;
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            AppErrorText.friendly(
+            AccountProviderService.errorText(
               error,
               fallback: 'Could not complete restaurant sign-in right now.',
             ),
@@ -269,12 +285,21 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
   }
 
   Future<void> continueWithGoogle() async {
+    if (isLoading) return;
+    final isActive = captureAccountSignInActivity(context);
     setState(() {
       isLoading = true;
     });
 
     try {
-      await RestaurantAuthService.signInWithGoogle();
+      final user = await RestaurantAuthService.signInWithGoogle(
+        confirmPassword: (email) =>
+            confirmExistingAccountPassword(context, email),
+        isActive: isActive,
+      );
+      if (!mounted || user?.uid != FirebaseAuth.instance.currentUser?.uid) {
+        return;
+      }
       await _rememberLastUsedMethod('google');
 
       if (!mounted) return;
@@ -283,12 +308,13 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
         const SnackBar(content: Text('Signed in with Google successfully.')),
       );
     } on FirebaseAuthException catch (e) {
+      if (AccountProviderService.wasCancelled(e)) return;
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            AppErrorText.friendly(
+            AccountProviderService.errorText(
               e,
               fallback: 'Google sign-in failed. Please try again.',
             ),
@@ -296,12 +322,13 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
         ),
       );
     } catch (error) {
+      if (AccountProviderService.wasCancelled(error)) return;
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            AppErrorText.friendly(
+            AccountProviderService.errorText(
               error,
               fallback: 'Could not complete Google sign-in right now.',
             ),
@@ -1024,6 +1051,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
     required User user,
     required List<BitescoreRestaurant> ownedRestaurants,
   }) {
+    if (AccountProviderService.activity.value) return null;
     final requestedRestaurantId = _postVerificationBiteScoreRestaurantId;
     if (requestedRestaurantId == null) {
       return null;
@@ -1066,6 +1094,11 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
       final targetRestaurantId = targetRestaurant.id;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) {
+          return;
+        }
+        if (AccountProviderService.activity.value ||
+            FirebaseAuth.instance.currentUser?.uid != user.uid) {
+          _handledPostVerificationRedirect = false;
           return;
         }
         Navigator.of(context).pushReplacement(
@@ -1170,7 +1203,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: widget.authStateStream ?? FirebaseAuth.instance.userChanges(),
+      stream: _authStateStream,
       builder: (context, snapshot) {
         final user = snapshot.data;
 

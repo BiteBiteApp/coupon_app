@@ -9,6 +9,8 @@ import '../services/admin_access_service.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/app_error_text.dart';
 import '../services/customer_auth_service.dart';
+import '../services/account_provider_service.dart';
+import '../widgets/account_auth_confirmation.dart';
 import '../widgets/phone_auth_sheet.dart';
 import 'admin_gate_screen.dart';
 import 'customer_profile_screen.dart';
@@ -20,6 +22,9 @@ typedef CustomerProfileDestinationBuilder =
 class CustomerAccountScreen extends StatefulWidget {
   final bool showAppBar;
   final Stream<User?>? userStream;
+
+  /// Creates a fresh auth subscription for each mounted Account, not each build.
+  final Stream<User?> Function()? userStreamFactory;
   final WidgetBuilder? adminDestinationBuilder;
   final CustomerProfileDestinationBuilder? profileDestinationBuilder;
 
@@ -27,9 +32,10 @@ class CustomerAccountScreen extends StatefulWidget {
     super.key,
     this.showAppBar = false,
     this.userStream,
+    this.userStreamFactory,
     @visibleForTesting this.adminDestinationBuilder,
     this.profileDestinationBuilder,
-  });
+  }) : assert(userStream == null || userStreamFactory == null);
 
   @override
   State<CustomerAccountScreen> createState() => _CustomerAccountScreenState();
@@ -47,11 +53,27 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
   bool isCreateMode = false;
   bool isSubmitting = false;
   String? _lastUsedMethod;
+  late Stream<User?> _userStream;
+
+  Stream<User?> _createUserStream() =>
+      widget.userStream ??
+      widget.userStreamFactory?.call() ??
+      FirebaseAuth.instance.userChanges();
 
   @override
   void initState() {
     super.initState();
+    _userStream = _createUserStream();
     _loadLastUsedMethod();
+  }
+
+  @override
+  void didUpdateWidget(covariant CustomerAccountScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userStream != widget.userStream ||
+        oldWidget.userStreamFactory != widget.userStreamFactory) {
+      _userStream = _createUserStream();
+    }
   }
 
   Future<void> _refreshVerificationStatus() async {
@@ -161,6 +183,10 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
 
     final providers = user.providerData.map((e) => e.providerId).toList();
 
+    if (providers.contains('google.com') && providers.contains('password')) {
+      return 'Google and email/password are set up';
+    }
+
     if (providers.contains('google.com')) {
       return 'Signed in with Google';
     }
@@ -177,13 +203,21 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
   }
 
   Future<void> _handleGoogleSignIn() async {
+    if (isSubmitting) return;
+    final isActive = captureAccountSignInActivity(context);
     setState(() {
       isSubmitting = true;
     });
 
     try {
-      await CustomerAuthService.signInOrLinkWithGoogle();
-      await FirebaseAuth.instance.currentUser?.reload();
+      final user = await CustomerAuthService.signInOrLinkWithGoogle(
+        confirmPassword: (email) =>
+            confirmExistingAccountPassword(context, email),
+        isActive: isActive,
+      );
+      if (!mounted || user?.uid != FirebaseAuth.instance.currentUser?.uid) {
+        return;
+      }
       await _rememberLastUsedMethod('google');
 
       if (!mounted) {
@@ -192,12 +226,13 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
 
       _showSnackBar('Signed in with Google successfully.');
     } catch (error) {
+      if (AccountProviderService.wasCancelled(error)) return;
       if (!mounted) {
         return;
       }
 
       _showSnackBar(
-        AppErrorText.friendly(
+        AccountProviderService.errorText(
           error,
           fallback: 'Could not complete Google sign-in right now.',
         ),
@@ -245,6 +280,8 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
   }
 
   Future<void> _handleEmailAuth() async {
+    if (isSubmitting) return;
+    final isActive = captureAccountSignInActivity(context);
     final email = emailController.text.trim();
     final password = passwordController.text;
     final confirmPassword = confirmPasswordController.text;
@@ -268,15 +305,23 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
         await CustomerAuthService.createAccountWithEmailPassword(
           email: email,
           password: password,
+          confirmGoogle: (email) => confirmGoogleForEmail(
+            context,
+            email,
+            forRegistration: true,
+          ),
+          isActive: isActive,
         );
       } else {
         await CustomerAuthService.signInWithEmailPassword(
           email: email,
           password: password,
+          confirmGoogle: (email) => confirmGoogleForEmail(context, email),
+          isActive: isActive,
         );
       }
 
-      await FirebaseAuth.instance.currentUser?.reload();
+      if (!isActive()) return;
       await _rememberLastUsedMethod('email');
 
       final currentUser = FirebaseAuth.instance.currentUser;
@@ -305,12 +350,13 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
       passwordController.clear();
       confirmPasswordController.clear();
     } on FirebaseAuthException catch (e) {
+      if (AccountProviderService.wasCancelled(e)) return;
       if (!mounted) {
         return;
       }
 
       _showSnackBar(
-        AppErrorText.friendly(
+        AccountProviderService.errorText(
           e,
           fallback: 'Authentication failed. Please try again.',
         ),
@@ -321,7 +367,7 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
       }
 
       _showSnackBar(
-        AppErrorText.friendly(
+        AccountProviderService.errorText(
           error,
           fallback: 'Could not complete sign-in right now.',
         ),
@@ -620,7 +666,7 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   TextField(
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -822,7 +868,7 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: widget.userStream ?? FirebaseAuth.instance.userChanges(),
+      stream: _userStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
