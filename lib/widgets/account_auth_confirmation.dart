@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../services/account_provider_service.dart';
 import '../services/registration_diagnostics.dart';
+import 'password_field.dart';
 import 'google_confirmation_button_stub.dart'
     if (dart.library.js_interop) 'google_confirmation_button_web.dart';
 
@@ -60,11 +61,8 @@ class _AccountPasswordDialogState extends State<_AccountPasswordDialog> {
             'If you use another sign-in method, cancel and sign in with that method first.',
           ),
           const SizedBox(height: 16),
-          TextField(
+          PasswordField(
             controller: _password,
-            obscureText: true,
-            autocorrect: false,
-            enableSuggestions: false,
             autofillHints: const [AutofillHints.password],
             decoration: const InputDecoration(labelText: 'BiteStar password'),
           ),

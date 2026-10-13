@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../services/account_deletion_service.dart';
 import '../services/customer_auth_service.dart';
+import '../widgets/password_field.dart';
 import '../widgets/phone_auth_sheet.dart';
 
 typedef DeletionReauthenticate =
@@ -92,9 +93,8 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirm your password'),
-        content: TextField(
+        content: PasswordField(
           controller: controller,
-          obscureText: true,
           autofocus: true,
           decoration: const InputDecoration(labelText: 'Password'),
         ),
@@ -329,9 +329,8 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(labelText: 'Email'),
                   ),
-                  TextField(
+                  PasswordField(
                     controller: _password,
-                    obscureText: true,
                     decoration: const InputDecoration(labelText: 'Password'),
                   ),
                   FilledButton(

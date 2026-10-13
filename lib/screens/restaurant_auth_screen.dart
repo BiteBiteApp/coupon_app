@@ -15,6 +15,8 @@ import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_auth_service.dart';
 import '../services/account_provider_service.dart';
+import '../widgets/password_recovery_dialog.dart';
+import '../widgets/password_field.dart';
 import '../widgets/account_auth_confirmation.dart';
 import '../widgets/phone_auth_sheet.dart';
 import 'bitescore_owner_screen.dart';
@@ -623,9 +625,9 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                           ),
                         ),
                         const SizedBox(height: 16),
-                        TextField(
+                        PasswordField(
+                          key: ValueKey(isLoginMode),
                           controller: passwordController,
-                          obscureText: true,
                           decoration: const InputDecoration(
                             labelText: 'Password',
                             border: OutlineInputBorder(),
@@ -633,15 +635,27 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                         ),
                         if (!isLoginMode) ...[
                           const SizedBox(height: 16),
-                          TextField(
+                          PasswordField(
                             controller: confirmPasswordController,
-                            obscureText: true,
                             decoration: const InputDecoration(
                               labelText: 'Confirm Password',
                               border: OutlineInputBorder(),
                             ),
                           ),
                         ],
+                        if (isLoginMode)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: isLoading
+                                  ? null
+                                  : () => showPasswordRecoveryDialog(
+                                      context,
+                                      initialEmail: emailController.text,
+                                    ),
+                              child: const Text('Forgot password?'),
+                            ),
+                          ),
                         const SizedBox(height: 20),
                         SizedBox(
                           width: double.infinity,

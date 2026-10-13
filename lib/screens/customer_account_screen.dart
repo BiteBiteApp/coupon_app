@@ -10,6 +10,8 @@ import '../services/app_mode_state_service.dart';
 import '../services/app_error_text.dart';
 import '../services/customer_auth_service.dart';
 import '../services/account_provider_service.dart';
+import '../widgets/password_recovery_dialog.dart';
+import '../widgets/password_field.dart';
 import '../widgets/account_auth_confirmation.dart';
 import '../widgets/phone_auth_sheet.dart';
 import 'admin_gate_screen.dart';
@@ -676,9 +678,9 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
+                  PasswordField(
+                    key: ValueKey(isCreateMode),
                     controller: passwordController,
-                    obscureText: true,
                     decoration: const InputDecoration(
                       labelText: 'Password',
                       border: OutlineInputBorder(),
@@ -686,15 +688,27 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
                   ),
                   if (isCreateMode) ...[
                     const SizedBox(height: 12),
-                    TextField(
+                    PasswordField(
                       controller: confirmPasswordController,
-                      obscureText: true,
                       decoration: const InputDecoration(
                         labelText: 'Confirm Password',
                         border: OutlineInputBorder(),
                       ),
                     ),
                   ],
+                  if (!isCreateMode)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: isSubmitting
+                            ? null
+                            : () => showPasswordRecoveryDialog(
+                                context,
+                                initialEmail: emailController.text,
+                              ),
+                        child: const Text('Forgot password?'),
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,

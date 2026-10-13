@@ -45,6 +45,34 @@ class AccountProviderService {
   final Future<AuthCredential> Function() _googleCredential;
   final ExistingGooglePasswordLink? _passwordLink;
   _ProviderOperation? _active;
+  bool _passwordResetPending = false;
+
+  static bool isPasswordResetEmailValid(String email) =>
+      RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email.trim());
+
+  /// Uses Firebase's configured email action handler without changing the
+  /// current session, providers or account data. A request is not delivery proof.
+  Future<void> sendPasswordResetEmail(String email) async {
+    if (!isPasswordResetEmailValid(email)) {
+      throw FirebaseAuthException(code: 'invalid-email');
+    }
+    if (_passwordResetPending) {
+      throw FirebaseAuthException(code: 'too-many-requests');
+    }
+    _passwordResetPending = true;
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (error) {
+      // Match the generic accepted response even when enumeration protection
+      // is unavailable. Never disclose whether an address/account can reset.
+      if (error.code != 'user-not-found' && error.code != 'user-disabled') {
+        rethrow;
+      }
+    } finally {
+      _passwordResetPending = false;
+    }
+  }
+
   static Future<void>? _googleInitialization;
   static Future<void> initializeGoogle() =>
       _googleInitialization ??= GoogleSignIn.instance.initialize(

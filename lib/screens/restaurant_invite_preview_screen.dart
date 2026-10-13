@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../widgets/password_field.dart';
 import '../services/app_error_text.dart';
 import '../services/restaurant_invite_service.dart';
 import '../services/restaurant_auth_service.dart';
@@ -429,17 +430,15 @@ class _RestaurantInvitePreviewScreenState
           decoration: const InputDecoration(labelText: 'Email'),
         ),
         const SizedBox(height: 12),
-        TextField(
+        PasswordField(
           controller: _passwordController,
-          obscureText: true,
           textInputAction: TextInputAction.next,
           autofillHints: const [AutofillHints.newPassword],
           decoration: const InputDecoration(labelText: 'Password'),
         ),
         const SizedBox(height: 12),
-        TextField(
+        PasswordField(
           controller: _confirmPasswordController,
-          obscureText: true,
           textInputAction: TextInputAction.done,
           autofillHints: const [AutofillHints.newPassword],
           decoration: const InputDecoration(labelText: 'Confirm password'),
