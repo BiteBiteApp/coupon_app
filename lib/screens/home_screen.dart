@@ -3817,6 +3817,7 @@ class BiteSaverHomeDealBubble extends StatelessWidget {
   final double rectangularBodyLeadingInset;
   final double? bubbleCenterX;
   final bool showBubble;
+  final double contentHeight;
 
   const BiteSaverHomeDealBubble({
     super.key,
@@ -3827,6 +3828,7 @@ class BiteSaverHomeDealBubble extends StatelessWidget {
     this.rectangularBodyLeadingInset = 0,
     this.bubbleCenterX,
     this.showBubble = false,
+    this.contentHeight = bodyHeight,
   });
 
   @override
@@ -3834,11 +3836,14 @@ class BiteSaverHomeDealBubble extends StatelessWidget {
     final safeBodyLeadingInset = rectangularBodyLeadingInset < 0
         ? 0.0
         : rectangularBodyLeadingInset;
-    final bannerHeight = showBubble ? bubbleDiameter : bodyHeight;
+    final bannerHeight = showBubble
+        ? contentHeight + (bubbleDiameter - bodyHeight)
+        : contentHeight;
     final clipper = BiteSaverHomeDealBubbleClipper(
       rectangularBodyLeadingInset: safeBodyLeadingInset,
       bubbleCenterX: bubbleCenterX,
       showBubble: showBubble,
+      contentHeight: contentHeight,
     );
 
     return CustomPaint(
@@ -3933,11 +3938,13 @@ class BiteSaverHomeDealBubbleClipper extends CustomClipper<Path> {
   final double rectangularBodyLeadingInset;
   final double? bubbleCenterX;
   final bool showBubble;
+  final double contentHeight;
 
   const BiteSaverHomeDealBubbleClipper({
     this.rectangularBodyLeadingInset = 0,
     this.bubbleCenterX,
     this.showBubble = false,
+    this.contentHeight = BiteSaverHomeDealBubble.bodyHeight,
   });
 
   @override
@@ -3946,13 +3953,11 @@ class BiteSaverHomeDealBubbleClipper extends CustomClipper<Path> {
     final height = size.height;
     final left = rectangularBodyLeadingInset.clamp(0.0, width).toDouble();
     final right = width;
-    final bodyTop = showBubble
-        ? (height - BiteSaverHomeDealBubble.bodyHeight) / 2
-        : 0.0;
-    final bodyBottom = showBubble
-        ? bodyTop + BiteSaverHomeDealBubble.bodyHeight
-        : height;
-    final bodyRadius = (bodyBottom - bodyTop) / 2;
+    final bodyTop = showBubble ? (height - contentHeight) / 2 : 0.0;
+    final bodyBottom = showBubble ? bodyTop + contentHeight : height;
+    final bodyRadius = ((bodyBottom - bodyTop) / 2)
+        .clamp(0.0, BiteSaverHomeDealBubble.bodyHeight / 2)
+        .toDouble();
     final bodyPath = Path()
       ..addRRect(
         RRect.fromLTRBR(
@@ -3968,7 +3973,7 @@ class BiteSaverHomeDealBubbleClipper extends CustomClipper<Path> {
       return bodyPath;
     }
 
-    final circleRadius = height / 2;
+    final circleRadius = (height / 2).clamp(0.0, (right - left) / 2).toDouble();
     final centerX = (bubbleCenterX ?? width * bubbleCenterFraction)
         .clamp(left + circleRadius, right - circleRadius)
         .toDouble();
@@ -3988,7 +3993,8 @@ class BiteSaverHomeDealBubbleClipper extends CustomClipper<Path> {
     return rectangularBodyLeadingInset !=
             oldClipper.rectangularBodyLeadingInset ||
         bubbleCenterX != oldClipper.bubbleCenterX ||
-        showBubble != oldClipper.showBubble;
+        showBubble != oldClipper.showBubble ||
+        contentHeight != oldClipper.contentHeight;
   }
 }
 
@@ -4022,7 +4028,8 @@ class _BiteSaverHomeDealBubbleBorderPainter extends CustomPainter {
         clipper.rectangularBodyLeadingInset !=
             oldDelegate.clipper.rectangularBodyLeadingInset ||
         clipper.bubbleCenterX != oldDelegate.clipper.bubbleCenterX ||
-        clipper.showBubble != oldDelegate.clipper.showBubble;
+        clipper.showBubble != oldDelegate.clipper.showBubble ||
+        clipper.contentHeight != oldDelegate.clipper.contentHeight;
   }
 }
 

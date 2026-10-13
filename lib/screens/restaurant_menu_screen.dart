@@ -626,7 +626,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   }
 
   Widget _buildEmptyState() {
-    return const Center(
+    return Center(
       child: Padding(
         padding: EdgeInsets.all(24),
         child: Column(
@@ -635,7 +635,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             Icon(Icons.menu_book_outlined, color: Color(0xFFD08A2D), size: 38),
             SizedBox(height: 12),
             Text(
-              'Menu not available yet.',
+              widget.mode == AppMode.biteSaver
+                  ? 'No menu yet'
+                  : 'Menu not available yet.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: BiteSaverColors.ink,

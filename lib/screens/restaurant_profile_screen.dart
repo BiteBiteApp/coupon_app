@@ -23,6 +23,10 @@ import '../services/restaurant_menu_service.dart';
 import '../widgets/bitesaver_colors.dart';
 import '../widgets/bitesaver_report_dialog.dart';
 import '../widgets/bitesaver_restaurant_images.dart';
+import '../widgets/bitesaver_specials_board.dart';
+import '../widgets/bitesaver_profile_deal_card.dart';
+import 'bitesaver_photo_viewer.dart';
+import 'main_navigation_screen.dart';
 import '../widgets/clickable_phone_text.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import 'coupon_detail_screen.dart';
@@ -41,6 +45,8 @@ typedef CustomerBiteSaverProfileOfferOpener =
     Future<void> Function(BuildContext context, CustomerBiteSaverOffer offer);
 typedef CustomerBiteSaverProfileMenuOpener =
     Future<void> Function(BuildContext context);
+typedef CustomerBiteSaverProfileViewOpener =
+    Future<void> Function(BuildContext context, WidgetBuilder builder);
 typedef PublicRestaurantReportPrompt =
     Future<BiteSaverReportResult?> Function(BuildContext context);
 typedef PublicRestaurantReportSubmitter = BiteSaverReportSubmitter;
@@ -61,6 +67,7 @@ class RestaurantProfileScreen extends StatefulWidget {
   final CustomerBiteSaverBrowseAccess? boundedAccess;
   final CustomerBiteSaverProfileOfferOpener? openBoundedOffer;
   final CustomerBiteSaverProfileMenuOpener? openBoundedMenu;
+  final CustomerBiteSaverProfileViewOpener? openBoundedView;
 
   const RestaurantProfileScreen({
     super.key,
@@ -77,6 +84,7 @@ class RestaurantProfileScreen extends StatefulWidget {
        boundedSession = null,
        boundedSavedCoordinator = null,
        boundedAccess = null,
+       openBoundedView = null,
        openBoundedOffer = null,
        openBoundedMenu = null;
 
@@ -87,6 +95,7 @@ class RestaurantProfileScreen extends StatefulWidget {
     required CustomerBiteSaverBrowseAccess access,
     required this.openBoundedOffer,
     required this.openBoundedMenu,
+    required this.openBoundedView,
     @visibleForTesting this.promptForReport,
     @visibleForTesting this.submitReport,
   }) : publicProfile = null,
@@ -123,6 +132,7 @@ class RestaurantProfileScreen extends StatefulWidget {
        boundedSession = null,
        boundedSavedCoordinator = savedCoordinator,
        boundedAccess = null,
+       openBoundedView = null,
        loadFavorite = null,
        refreshRestaurant = null,
        loadProjectionData = null,
@@ -143,6 +153,7 @@ class RestaurantProfileScreen extends StatefulWidget {
        boundedRestaurant = profile.restaurant,
        boundedSession = null,
        boundedAccess = null,
+       openBoundedView = null,
        loadFavorite = null,
        refreshRestaurant = null,
        loadProjectionData = null,
@@ -160,6 +171,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   bool _isFavoriteRestaurant = false;
   bool _isSavingFavoriteRestaurant = false;
   bool _showRestaurantInfo = false;
+  bool _showMoreCoupons = false;
   bool _isSubmittingReport = false;
   bool _isOpeningBoundedMenu = false;
   bool _isCustomerRestaurantAvailabilityResolved = false;
@@ -441,27 +453,6 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     return parts.join(' - ');
   }
 
-  String _couponSubtitle(Coupon coupon) {
-    final parts = <String>[
-      coupon.shortExpiresLabel.trim(),
-      coupon.usageRule.trim(),
-    ].where((part) => part.isNotEmpty).toList();
-    return parts.isEmpty ? 'Coupon details unavailable' : parts.join(' - ');
-  }
-
-  String _boundedOfferSubtitle(CustomerBiteSaverOffer offer) {
-    final presentation = CustomerBiteSaverOfferPresentation.fromOffer(offer);
-    final parts = <String>[
-      if (presentation.availabilityLabel != null)
-        presentation.availabilityLabel!,
-      if (presentation.scheduleLabel != null) presentation.scheduleLabel!,
-      if (presentation.expiresLabel != null)
-        'Expires ${presentation.expiresLabel!}',
-      if (presentation.usageLabel != null) presentation.usageLabel!,
-    ];
-    return parts.isEmpty ? presentation.offerTypeLabel : parts.join(' · ');
-  }
-
   Restaurant _withSafeDistanceLabel(Restaurant freshRestaurant) {
     if (!_isFallbackDistanceLabel(freshRestaurant.distance) ||
         _isFallbackDistanceLabel(restaurant.distance)) {
@@ -730,12 +721,86 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     );
   }
 
-  void _openSpecials(BuildContext context) {
-    if (widget.boundedRestaurant != null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => RestaurantSpecialsScreen(restaurant: restaurant),
-      ),
+  Future<void> _openProfileView(
+    BuildContext context,
+    WidgetBuilder builder,
+  ) async {
+    final opener = widget.openBoundedView;
+    if (widget.boundedSession != null) {
+      if (opener == null || _currentBrowseRestaurant == null) return;
+      await opener(context, builder);
+      return;
+    }
+    await pushMainNavigationPrivateRoute<void>(
+      context,
+      parentBinding: MainNavigationAuthBoundOverlayScope.maybeOf(context),
+      builder: builder,
+    );
+  }
+
+  Future<void> _openPhoto(
+    BuildContext context,
+    String imageUrl,
+    String title,
+  ) => _openProfileView(
+    context,
+    (_) => BiteSaverPhotoViewer(title: title, imageUrl: imageUrl),
+  );
+
+  bool get _hasMoreProfileOffers {
+    final current = _currentBrowseRestaurant;
+    if (current != null) {
+      return widget.boundedSession!.offerPageRequiresRestart(
+            current.restaurantId,
+          ) ||
+          (_offerPager?.pageEnvelope == null
+              ? current.hasMoreOffers
+              : _offerPager!.hasNext);
+    }
+    return widget.publicProfile?.cursor != null;
+  }
+
+  Future<({List<CustomerBiteSaverOffer> offers, bool hasMore})>
+  _loadBoardOffers() async {
+    if (widget.boundedSession != null) {
+      if (_currentBrowseRestaurant == null) {
+        throw const CustomerBiteSaverFreshSearchRequiredException();
+      }
+      await _loadMoreOffers();
+      if (_currentBrowseRestaurant == null) {
+        throw const CustomerBiteSaverFreshSearchRequiredException();
+      }
+      final error = _offerError ?? _offerPager?.error;
+      if (error != null) throw error;
+    } else {
+      await widget.publicProfile!.loadMore();
+      if (widget.publicProfile!.error != null) {
+        throw widget.publicProfile!.error!;
+      }
+    }
+    return (
+      offers: _boundedOffers ?? const <CustomerBiteSaverOffer>[],
+      hasMore: _hasMoreProfileOffers,
+    );
+  }
+
+  Future<void> _openSpecials(BuildContext context) async {
+    final offers = _boundedOffers;
+    await _openProfileView(
+      context,
+      (_) => offers == null
+          ? RestaurantSpecialsScreen(restaurant: restaurant)
+          : RestaurantSpecialsScreen.fromCustomerBiteSaver(
+              restaurant: restaurant,
+              offers: offers,
+              hasMoreOffers: _hasMoreProfileOffers,
+              loadMoreOffers:
+                  widget.boundedSession != null || widget.publicProfile != null
+                  ? _loadBoardOffers
+                  : null,
+              openImage: (imageContext, url) =>
+                  _openPhoto(imageContext, url, '${restaurant.name} special'),
+            ),
     );
   }
 
@@ -1035,14 +1100,26 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
         borderRadius: BorderRadius.circular(18),
         child: AspectRatio(
           aspectRatio: 1.08,
-          child: BiteSaverRestaurantImage(
-            imageUrl: imageUrl,
-            fit: BoxFit.cover,
-            semanticLabel: '${restaurant.name} restaurant image',
-            loadingBuilder: (context) =>
-                const ColoredBox(color: BiteSaverColors.imageFallback),
-            emptyBuilder: buildFallback,
-            errorBuilder: buildFallback,
+          child: Semantics(
+            button: BiteSaverRestaurantPlaceholderImages.hasRealImage(imageUrl),
+            label: BiteSaverRestaurantPlaceholderImages.hasRealImage(imageUrl)
+                ? 'Enlarge ${restaurant.name} photograph'
+                : 'No restaurant photograph yet',
+            child: InkWell(
+              key: const ValueKey('profile-main-photo'),
+              onTap: BiteSaverRestaurantPlaceholderImages.hasRealImage(imageUrl)
+                  ? () => _openPhoto(context, imageUrl!, restaurant.name)
+                  : null,
+              child: BiteSaverRestaurantImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                semanticLabel: '${restaurant.name} restaurant image',
+                loadingBuilder: (context) =>
+                    const ColoredBox(color: BiteSaverColors.imageFallback),
+                emptyBuilder: buildFallback,
+                errorBuilder: buildFallback,
+              ),
+            ),
           ),
         ),
       ),
@@ -1076,90 +1153,80 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     );
   }
 
-  Widget _buildSpecialsCallout() {
-    return _biteSaverRaisedSurface(
-      borderRadius: BorderRadius.circular(18),
-      innerMargin: const EdgeInsets.all(1.2),
-      shadowStrength: 0.62,
+  Widget _buildSpecialsBoard() {
+    final offers = _boundedOffers;
+    final specials = DailySpecial.visibleSpecialsAt(
+      restaurant.dailySpecials,
+      DateTime.now(),
+    );
+    return Semantics(
+      button: true,
+      label: "View ${restaurant.name} Daily Specials board",
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            _openSpecials(context);
-          },
-          borderRadius: BorderRadius.circular(18),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-            decoration: BoxDecoration(
-              color: BiteSaverColors.surface,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFC9CDD2), width: 1.2),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: BiteSaverColors.secondaryBackground,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFF2B46B)),
-                  ),
-                  child: const Icon(
-                    Icons.local_fire_department_outlined,
-                    color: Color(0xFFC95F17),
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Today's Specials",
-                        style: TextStyle(
-                          color: Color(0xFF244E73),
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                          height: 1.05,
+          key: const ValueKey('profile-specials-board'),
+          onTap: () => _openSpecials(context),
+          borderRadius: BorderRadius.circular(22),
+          child: BiteSaverSpecialsBoard(
+            restaurantName: restaurant.name,
+            emptyMessage: _hasMoreProfileOffers
+                ? 'View More for additional offers and specials.'
+                : 'No specials posted right now.',
+            entries: offers == null
+                ? [
+                    for (final special in specials)
+                      BiteSaverLegacySpecialsEntry(special: special),
+                  ]
+                : [
+                    for (final offer in offers)
+                      if (offer.offerType ==
+                          CustomerBiteSaverOfferType.dailySpecial)
+                        BiteSaverSpecialsEntry.fromOffer(
+                          offer: offer,
+                          onTap: widget.openBoundedOffer == null
+                              ? null
+                              : () => widget.openBoundedOffer!(context, offer),
+                          onImageTap: () => _openPhoto(
+                            context,
+                            offer.imageUrl!,
+                            '${restaurant.name} special',
+                          ),
                         ),
-                      ),
-                      Container(
-                        width: 116,
-                        height: 2.5,
-                        margin: const EdgeInsets.only(top: 5, bottom: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(
-                            0xFFFF8A3D,
-                          ).withValues(alpha: 0.78),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
-                      const Text(
-                        "See what's on the board",
-                        style: TextStyle(
-                          color: Color(0xFF315A46),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          height: 1.15,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.chevron_right,
-                  color: BiteSaverColors.orangeDark,
-                  size: 22,
-                ),
-              ],
-            ),
+                  ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _openProfileCoupon(Coupon coupon) async {
+    if (widget.boundedRestaurant != null) {
+      final offer = _boundedOffers
+          ?.where((offer) => offer.offerId.value == coupon.id)
+          .firstOrNull;
+      if (offer != null && widget.openBoundedOffer != null) {
+        await widget.openBoundedOffer!(context, offer);
+      }
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            CouponDetailScreen(coupon: coupon, restaurant: restaurant),
+      ),
+    );
+  }
+
+  Future<void> _expandCoupons() async {
+    setState(() => _showMoreCoupons = true);
+    if (_currentBrowseRestaurant?.hasMoreOffers == true &&
+        _offerPager == null) {
+      await _loadMoreOffers();
+    } else if (widget.publicProfile?.cursor != null &&
+        !widget.publicProfile!.loading) {
+      await widget.publicProfile!.loadMore();
+    }
   }
 
   Widget _buildExpandableInfoTile({
@@ -1168,6 +1235,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     required ValueChanged<bool> onExpansionChanged,
     required Widget child,
     bool compact = false,
+    bool inlineContent = true,
   }) {
     return _biteSaverRaisedSurface(
       borderRadius: BorderRadius.circular(18),
@@ -1180,50 +1248,53 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
           children: [
             InkWell(
               onTap: () => onExpansionChanged(!isExpanded),
-              child: SizedBox(
-                height: compact ? 40 : 56,
-                width: double.infinity,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: BiteSaverColors.orangeDark,
-                        fontSize: compact ? 13 : 14,
-                        fontWeight: FontWeight.w700,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: compact ? 40 : 56),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: BiteSaverColors.orangeDark,
+                            fontSize: compact ? 13 : 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
-                    ),
-                    Positioned(
-                      right: compact ? 8 : 14,
-                      child: AnimatedRotation(
+                      AnimatedRotation(
                         turns: isExpanded ? 0.5 : 0,
                         duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOut,
                         child: const Icon(
                           Icons.expand_more,
                           size: 20,
                           color: BiteSaverColors.orangeDark,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-            AnimatedCrossFade(
-              firstChild: const SizedBox(width: double.infinity),
-              secondChild: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                child: Align(alignment: Alignment.centerLeft, child: child),
+            if (inlineContent)
+              AnimatedCrossFade(
+                firstChild: const SizedBox(width: double.infinity),
+                secondChild: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                  child: Align(alignment: Alignment.centerLeft, child: child),
+                ),
+                crossFadeState: isExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 200),
+                sizeCurve: Curves.easeOut,
               ),
-              crossFadeState: isExpanded
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-              duration: const Duration(milliseconds: 200),
-              sizeCurve: Curves.easeOut,
-            ),
           ],
         ),
       ),
@@ -1237,118 +1308,117 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       onExpansionChanged: (expanded) =>
           setState(() => _showRestaurantInfo = expanded),
       compact: compact,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (hasBio) ...[
-            const Text(
-              'About',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            Text(restaurant.bio!, style: const TextStyle(fontSize: 14)),
-            const SizedBox(height: 14),
-          ],
-          InkWell(
-            onTap: () {
-              _openMenu(context);
-            },
-            borderRadius: BorderRadius.circular(8),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 2),
-              child: Text(
-                'Menu',
-                style: TextStyle(
-                  color: Color(0xFF2563EB),
-                  decoration: TextDecoration.underline,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          const Text(
-            'Hours',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          if (weeklyHours.isEmpty)
-            const Text('Hours not set')
-          else
-            for (final dayHours in groupedWeeklyHours)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 78,
-                      child: Text(
-                        '${dayHours.dayRangeLabel}:',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    Expanded(child: Text(dayHours.summaryLabel)),
-                  ],
-                ),
-              ),
-          const SizedBox(height: 14),
-          const Text(
-            'Details',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          if (hasStreetAddress) ...[
-            InkWell(
-              onTap: () {
-                _getDirections(context);
-              },
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text(
-                  'Address: ${restaurant.streetAddress!}',
-                  style: TextStyle(
-                    color: ClickablePhoneText.linkColor,
-                    decoration: TextDecoration.underline,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-          ],
-          Text('City: ${restaurant.city}'),
-          const SizedBox(height: 6),
-          Text('ZIP: ${restaurant.zipCode}'),
-          if (hasPhone) ...[
-            const SizedBox(height: 6),
-            ClickablePhoneText(phone: restaurant.phone, prefix: 'Phone: '),
-          ],
-          if (hasWebsite) ...[
-            const SizedBox(height: 6),
-            InkWell(
-              onTap: () {
-                _openWebsite(context);
-              },
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text(
-                  'Website: ${restaurant.website!}',
-                  style: const TextStyle(
-                    color: Color(0xFF2563EB),
-                    decoration: TextDecoration.underline,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
+      inlineContent: !compact,
+      child: compact
+          ? const SizedBox.shrink()
+          : _buildRestaurantInformationContent(),
     );
   }
+
+  Widget _buildRestaurantInformationContent() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (hasBio) ...[
+        const Text(
+          'About',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        Text(restaurant.bio!, style: const TextStyle(fontSize: 14)),
+        const SizedBox(height: 14),
+      ],
+      const Text(
+        'Hours',
+        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 6),
+      if (weeklyHours.isEmpty)
+        const Text('Hours not set')
+      else
+        for (final dayHours in groupedWeeklyHours)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 78,
+                  child: Text(
+                    '${dayHours.dayRangeLabel}:',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Expanded(child: Text(dayHours.summaryLabel)),
+              ],
+            ),
+          ),
+      const SizedBox(height: 14),
+      const Text(
+        'Details',
+        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 6),
+      if (hasStreetAddress) ...[
+        InkWell(
+          onTap: () {
+            _getDirections(context);
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Text(
+              'Address: ${restaurant.streetAddress!}',
+              style: TextStyle(
+                color: ClickablePhoneText.linkColor,
+                decoration: TextDecoration.underline,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+      ],
+      Text('City: ${restaurant.city}'),
+      const SizedBox(height: 6),
+      Text('ZIP: ${restaurant.zipCode}'),
+      TextButton(
+        key: const ValueKey('profile-menu-information'),
+        onPressed: () => _openMenu(context),
+        child: const Text(
+          'Menu',
+          style: TextStyle(
+            color: Color(0xFF2563EB),
+            decoration: TextDecoration.underline,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+      if (hasPhone) ...[
+        const SizedBox(height: 6),
+        ClickablePhoneText(phone: restaurant.phone, prefix: 'Phone: '),
+      ],
+      if (hasWebsite) ...[
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: () {
+            _openWebsite(context);
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Text(
+              'Website: ${restaurant.website!}',
+              style: const TextStyle(
+                color: Color(0xFF2563EB),
+                decoration: TextDecoration.underline,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ],
+  );
 
   Color _modeAccentColor(AppMode selectedMode) {
     return selectedMode == AppMode.biteScore
@@ -1712,6 +1782,24 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                   )
                   .toList();
 
+        final couponOffers = _boundedOffers
+            ?.where(
+              (offer) => offer.offerType == CustomerBiteSaverOfferType.coupon,
+            )
+            .map((offer) => offer.offerId.value)
+            .toSet();
+        final coupons = couponOffers == null
+            ? activeCoupons
+            : activeCoupons
+                  .where((coupon) => couponOffers.contains(coupon.id))
+                  .toList(growable: false);
+        final visibleCoupons = _showMoreCoupons ? coupons : coupons.take(1);
+        final canExpand =
+            coupons.length > 1 ||
+            _currentBrowseRestaurant?.hasMoreOffers == true ||
+            widget.publicProfile?.cursor != null ||
+            _offerPager != null;
+
         return Scaffold(
           backgroundColor: BiteSaverColors.pageBackground,
           appBar: AppBar(
@@ -1815,44 +1903,83 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                           ],
                         ),
                         const SizedBox(height: 14),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 44,
-                              child: _buildRestaurantProfileImage(),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              flex: 56,
-                              child: _buildCompactProfileActions(),
-                            ),
-                          ],
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                flex: 44,
+                                child: _buildRestaurantProfileImage(),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                flex: 56,
+                                child: _buildCompactProfileActions(),
+                              ),
+                            ],
+                          ),
                         ),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: _isSubmittingReport
-                                ? null
-                                : _reportRestaurant,
-                            style: TextButton.styleFrom(
-                              foregroundColor: BiteSaverColors.mutedInk,
-                              padding: EdgeInsets.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            icon: const Icon(Icons.flag_outlined, size: 16),
-                            label: const Text('Report'),
+                        IntrinsicHeight(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Flexible(
+                                child: TextButton(
+                                  key: const ValueKey('profile-menu-main'),
+                                  onPressed: () => _openMenu(context),
+                                  style: TextButton.styleFrom(
+                                    minimumSize: const Size(48, 48),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                    alignment: Alignment.centerLeft,
+                                  ),
+                                  child: const Text(
+                                    'Menu',
+                                    style: TextStyle(
+                                      color: Color(0xFF2563EB),
+                                      decoration: TextDecoration.underline,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Flexible(
+                                child: TextButton.icon(
+                                  onPressed: _isSubmittingReport
+                                      ? null
+                                      : _reportRestaurant,
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: BiteSaverColors.mutedInk,
+                                    minimumSize: const Size(48, 48),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                    alignment: Alignment.centerRight,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.flag_outlined,
+                                    size: 16,
+                                  ),
+                                  label: const Text('Report'),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 20),
-                        if (widget.boundedRestaurant == null) ...[
-                          _buildSpecialsCallout(),
+                        if (_showRestaurantInfo) ...[
+                          _biteSaverRaisedSurface(
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: _buildRestaurantInformationContent(),
+                            ),
+                          ),
                           const SizedBox(height: 18),
                         ],
-                        Text(
-                          widget.boundedRestaurant == null
-                              ? 'Available Coupons'
-                              : 'Available Offers',
+                        const Text(
+                          'Available Coupons',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -1860,195 +1987,35 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        if (activeCoupons.isEmpty)
-                          _biteSaverRaisedSurface(
-                            shadowStrength: 0.68,
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(14),
-                              child: Text(
-                                widget.boundedRestaurant == null
-                                    ? 'No available coupons right now.'
-                                    : 'No available offers right now.',
-                                style: TextStyle(
-                                  color: BiteSaverColors.secondaryText,
-                                ),
-                              ),
-                            ),
+                        if (coupons.isEmpty)
+                          Text(
+                            _hasMoreProfileOffers
+                                ? 'View More for additional offers.'
+                                : 'No available coupons right now.',
                           )
                         else
-                          Column(
-                            children: activeCoupons.map((coupon) {
-                              final isProximity = coupon.isProximityOnly;
-                              final boundedOffer = _boundedOffers
-                                  ?.where(
-                                    (offer) => offer.offerId.value == coupon.id,
-                                  )
-                                  .firstOrNull;
-                              final isDailySpecial =
-                                  boundedOffer?.offerType ==
-                                  CustomerBiteSaverOfferType.dailySpecial;
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: _biteSaverRaisedSurface(
-                                  shadowStrength: 0.74,
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: ListTile(
-                                      leading:
-                                          coupon.imageUrl != null &&
-                                              coupon.imageUrl!.trim().isNotEmpty
-                                          ? ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              child: Image.network(
-                                                coupon.imageUrl!,
-                                                width: 52,
-                                                height: 52,
-                                                fit: BoxFit.cover,
-                                                errorBuilder:
-                                                    (
-                                                      context,
-                                                      error,
-                                                      stackTrace,
-                                                    ) => Container(
-                                                      width: 52,
-                                                      height: 52,
-                                                      color: BiteSaverColors
-                                                          .imageFallback,
-                                                      child: const Icon(
-                                                        Icons.local_offer,
-                                                        color: Color(
-                                                          0xFFB7542D,
-                                                        ),
-                                                      ),
-                                                    ),
-                                              ),
-                                            )
-                                          : null,
-                                      title: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          if (boundedOffer != null)
-                                            Container(
-                                              margin: const EdgeInsets.only(
-                                                bottom: 6,
-                                              ),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 4,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: isDailySpecial
-                                                    ? BiteSaverColors.blue
-                                                    : BiteSaverColors
-                                                          .orangeDark,
-                                                borderRadius:
-                                                    BorderRadius.circular(999),
-                                              ),
-                                              child: Text(
-                                                isDailySpecial
-                                                    ? 'Daily Special'
-                                                    : 'Coupon',
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          if (isProximity)
-                                            Container(
-                                              margin: const EdgeInsets.only(
-                                                bottom: 6,
-                                              ),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 4,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.deepOrange,
-                                                borderRadius:
-                                                    BorderRadius.circular(999),
-                                              ),
-                                              child: const Text(
-                                                'Proximity Deal',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          Text(
-                                            _displayText(
-                                              coupon.title,
-                                              'Untitled coupon',
-                                            ),
-                                            style: const TextStyle(
-                                              color: BiteSaverColors.ink,
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      subtitle: Text(
-                                        boundedOffer != null
-                                            ? _boundedOfferSubtitle(
-                                                boundedOffer,
-                                              )
-                                            : isProximity
-                                            ? '${_couponSubtitle(coupon)} - Unlocked nearby'
-                                            : (coupon.couponCode == null
-                                                  ? _couponSubtitle(coupon)
-                                                  : '${_couponSubtitle(coupon)} - Code: ${coupon.couponCode}'),
-                                        style: const TextStyle(
-                                          color: BiteSaverColors.secondaryText,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      trailing: const Icon(
-                                        Icons.chevron_right,
-                                        color: BiteSaverColors.orangeDark,
-                                      ),
-                                      onTap: () async {
-                                        final bounded =
-                                            widget.boundedRestaurant;
-                                        final boundedOpener =
-                                            widget.openBoundedOffer;
-                                        if (bounded != null &&
-                                            boundedOpener != null) {
-                                          if (boundedOffer != null) {
-                                            await boundedOpener(
-                                              context,
-                                              boundedOffer,
-                                            );
-                                          }
-                                          return;
-                                        }
-                                        await Navigator.push(
-                                          context,
-                                          MaterialPageRoute<void>(
-                                            builder: (context) =>
-                                                CouponDetailScreen(
-                                                  coupon: coupon,
-                                                  restaurant: restaurant,
-                                                ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
+                          for (final coupon in visibleCoupons)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: BiteSaverProfileDealCard(
+                                key: ValueKey('profile-coupon-${coupon.id}'),
+                                title: _displayText(
+                                  coupon.title,
+                                  'Untitled coupon',
                                 ),
-                              );
-                            }).toList(),
+                                imageUrl: coupon.imageUrl,
+                                onTap: () => _openProfileCoupon(coupon),
+                              ),
+                            ),
+                        if (!_showMoreCoupons && canExpand)
+                          TextButton(
+                            onPressed: _expandCoupons,
+                            child: const Text('View More'),
                           ),
-                        if (widget.boundedSession != null)
+                        if (_showMoreCoupons && widget.boundedSession != null)
                           _buildBrowseOfferContinuation(),
-                        if (widget.publicProfile?.cursor != null)
+                        if (_showMoreCoupons &&
+                            widget.publicProfile?.cursor != null)
                           TextButton(
                             onPressed: widget.publicProfile!.loading
                                 ? null
@@ -2063,6 +2030,8 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                           const Text(
                             'Could not load more offers. Please try again.',
                           ),
+                        const SizedBox(height: 18),
+                        _buildSpecialsBoard(),
                       ],
                     ),
                   ),

@@ -186,7 +186,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Menu not available yet.'), findsOneWidget);
+    expect(find.text('No menu yet'), findsOneWidget);
 
     empty = false;
     await tester.pumpWidget(

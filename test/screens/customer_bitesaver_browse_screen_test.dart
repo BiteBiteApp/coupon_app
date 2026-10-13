@@ -17,6 +17,10 @@ import 'package:coupon_app/screens/home_screen.dart';
 import 'package:coupon_app/screens/main_navigation_screen.dart';
 import 'package:coupon_app/screens/restaurant_menu_screen.dart';
 import 'package:coupon_app/screens/restaurant_profile_screen.dart';
+import 'package:coupon_app/screens/bitesaver_photo_viewer.dart';
+import 'package:coupon_app/screens/restaurant_specials_screen.dart';
+import 'package:coupon_app/widgets/bitesaver_profile_deal_card.dart';
+import 'package:coupon_app/widgets/bitesaver_specials_board.dart';
 import 'package:coupon_app/services/app_mode_state_service.dart';
 import 'package:coupon_app/services/customer_bitesaver_guest_usage_store.dart';
 import 'package:coupon_app/services/customer_bitesaver_device_use_service.dart';
@@ -1733,9 +1737,9 @@ void main() {
       await tester.tap(find.text('Fixture Café 😀'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Available Offers'), findsOneWidget);
+      expect(find.text('Available Coupons'), findsOneWidget);
       expect(find.text('Fixture Daily Special'), findsOneWidget);
-      expect(find.text('Daily Special'), findsOneWidget);
+      expect(find.text("Today's Specials"), findsOneWidget);
       expect(
         find.textContaining('Tue, Thu · 11:00 AM–2:00 PM'),
         findsOneWidget,
@@ -1786,6 +1790,8 @@ void main() {
           find.byType(RestaurantProfileScreen),
         );
         final other = profile.boundedRestaurant!.offers[1];
+        await tester.tap(find.text('View More'));
+        await tester.pumpAndSettle();
         await tester.tap(find.text(other.title));
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
@@ -1793,7 +1799,8 @@ void main() {
           find.byType(CouponDetailScreen),
         );
         expect(detail.boundedOffer!.offerId, other.offerId);
-        expect(detail.boundedOffer!.offerOccurrence, other.offerOccurrence);
+        final currentOther = harness.coordinator.currentAcceptedOfferSelectionFor(profile.boundedRestaurant!.restaurantId, other.offerId)!;
+        expect(detail.boundedOffer!.offerOccurrence, currentOther.offer.offerOccurrence);
         expect(
           detail.boundedRestaurant!.restaurantId,
           profile.boundedRestaurant!.restaurantId,
@@ -1828,8 +1835,8 @@ void main() {
     await tester.tap(find.text('Fixture Café 😀'));
     await tester.pumpAndSettle();
     expect(transport.offerPageCalls, 0);
-    expect(find.text('More offers'), findsOneWidget);
-    await tester.tap(find.text('More offers'));
+    expect(find.text('View More'), findsOneWidget);
+    await tester.tap(find.text('View More'));
     await tester.pumpAndSettle();
     expect(find.text('Additional Deal 3'), findsOneWidget);
     await tester.tap(find.text('More offers'));
@@ -1886,7 +1893,7 @@ void main() {
       await _pumpBrowseReady(tester, transport);
       await tester.tap(find.text('Fixture Café 😀'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('More offers'));
+      await tester.tap(find.text('View More'));
       await tester.pumpAndSettle();
       expect(find.text('Fixture Coupon 1'), findsOneWidget);
       expect(find.text('Retry offers'), findsOneWidget);
@@ -1920,8 +1927,10 @@ void main() {
       )!;
       await tester.tap(find.text('Fixture Café 😀'));
       await tester.pumpAndSettle();
-      expect(find.text('Additional Deal 3'), findsOneWidget);
+      expect(find.text('Additional Deal 3'), findsNothing);
       expect(harness.transport.offerPageCalls, 1);
+      await tester.tap(find.text('View More'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('More offers'));
       await tester.pumpAndSettle();
       await tester.binding.handlePopRoute();
@@ -1978,9 +1987,9 @@ void main() {
           find.byType(RestaurantProfileScreen),
         );
         final continuation = tester
-            .widget<TextButton>(find.widgetWithText(TextButton, 'More offers'))
+            .widget<TextButton>(find.widgetWithText(TextButton, 'View More'))
             .onPressed!;
-        await tester.tap(find.text('More offers'));
+        await tester.tap(find.text('View More'));
         await _pumpUntil(tester, () => delayedResponse != null);
         if (invalidation == 'auth') {
           await harness.coordinator.updateAuth(
@@ -2019,6 +2028,409 @@ void main() {
       },
     );
   }
+
+  for (final hasMenu in <bool>[false, true]) {
+    for (final expandedEntry in <bool>[false, true]) {
+      testWidgets(
+        'profile polish exact Menu entry information=$expandedEntry content=$hasMenu',
+        (tester) async {
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = const Size(900, 1800);
+          addTearDown(tester.view.reset);
+          final requested = <String>[];
+          final transport = _BrowseFixtureTransport(
+            duplicateRestaurantLabels: true,
+            menuResponder: (request, response) async {
+              requested.add(request['restaurantId']! as String);
+              return hasMenu
+                  ? response
+                  : <String, Object?>{
+                      ...response,
+                      'state': 'absent',
+                      'entries': <Object?>[],
+                    };
+            },
+          );
+          final harness = _BrowseHarness(transport: transport);
+          await tester.pumpWidget(
+            _productionBrowseApp(
+              harness,
+              const CustomerBiteSaverBrowseDestinationHandler(),
+            ),
+          );
+          await _pumpBrowseReady(tester, transport);
+          await tester.tap(find.text('Fixture Café 😀').first);
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('profile-menu-main')),
+            findsOneWidget,
+          );
+          if (expandedEntry) {
+            final mainMenuBefore = tester.getTopLeft(find.byKey(const ValueKey('profile-menu-main')));
+            await tester.tap(find.text('Restaurant Information'));
+            await tester.pumpAndSettle();
+            expect(tester.getTopLeft(find.byKey(const ValueKey('profile-menu-main'))), mainMenuBefore);
+          }
+          final entry = find.byKey(
+            ValueKey(
+              expandedEntry ? 'profile-menu-information' : 'profile-menu-main',
+            ),
+          );
+          await tester.ensureVisible(entry);
+          await tester.tap(entry);
+          await tester.pumpAndSettle();
+          expect(requested, <String>[transport.firstRestaurantId]);
+          expect(
+            find.text(hasMenu ? 'Fixture menu item' : 'No menu yet'),
+            findsOneWidget,
+          );
+          expect(transport.redemptionCalls, 0);
+          expect(harness.deviceUse.stages, isEmpty);
+        },
+      );
+    }
+  }
+
+  for (final withImage in <bool>[false, true]) {
+    testWidgets(
+      'profile polish compact one coupon image=$withImage preserves detail and expansion',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(900, 1800);
+        addTearDown(tester.view.reset);
+        final transport = _BrowseFixtureTransport(
+          firstOfferOverrides: <String, Object?>{
+            'imageUrl': withImage
+                ? 'https://images.example.test/exact-coupon.png'
+                : null,
+            'expiresText': 'Oct 31, 2026',
+          },
+        );
+        final harness = _BrowseHarness(transport: transport);
+        await tester.pumpWidget(
+          _productionBrowseApp(
+            harness,
+            const CustomerBiteSaverBrowseDestinationHandler(),
+          ),
+        );
+        await _pumpBrowseReady(tester, transport);
+        await tester.tap(find.text('Fixture Café 😀'));
+        await tester.pumpAndSettle();
+        final card = find.byKey(
+          ValueKey('profile-coupon-${transport.firstOfferId}'),
+        );
+        expect(find.byType(BiteSaverProfileDealCard), findsOneWidget);
+        expect(find.text('Fixture Coupon 2'), findsNothing);
+        final image = find.descendant(of: card, matching: find.byType(Image));
+        expect(image, withImage ? findsOneWidget : findsNothing);
+        expect(tester.getSize(card).height, lessThan(withImage ? 115 : 75));
+        expect(find.textContaining('Expires'), findsNothing);
+        await tester.tap(find.text('Fixture Coupon 1'));
+        await tester.pumpAndSettle();
+        final detail = tester.widget<CouponDetailScreen>(
+          find.byType(CouponDetailScreen),
+        );
+        expect(detail.boundedOffer!.offerId.value, transport.firstOfferId);
+        expect(
+          detail.boundedOffer!.imageUrl,
+          withImage ? 'https://images.example.test/exact-coupon.png' : null,
+        );
+        expect(
+          find.byKey(BiteSaverCouponDetailInfoSection.expiresKey),
+          findsOneWidget,
+        );
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('View More'));
+        await tester.pumpAndSettle();
+        expect(find.text('Fixture Coupon 2'), findsOneWidget);
+        expect(find.text('Additional Deal 3'), findsOneWidget);
+        expect(transport.offerPageCalls, 1);
+        expect(transport.redemptionCalls, 0);
+        expect(harness.deviceUse.stages, isEmpty);
+      },
+    );
+  }
+
+  testWidgets(
+    'profile polish photo viewer keeps exact URL and retires with search',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1800);
+      addTearDown(tester.view.reset);
+      final transport = _BrowseFixtureTransport(
+        firstRestaurantOverrides: const <String, Object?>{
+          'imageUrl': 'https://images.example.test/exact-restaurant.png',
+        },
+      );
+      final harness = _BrowseHarness(transport: transport);
+      await tester.pumpWidget(
+        _productionBrowseApp(
+          harness,
+          const CustomerBiteSaverBrowseDestinationHandler(),
+        ),
+      );
+      await _pumpBrowseReady(tester, transport);
+      await tester.tap(find.text('Fixture Café 😀'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('profile-main-photo')));
+      await tester.pumpAndSettle();
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+      expect(
+        tester
+            .widget<BiteSaverPhotoViewer>(find.byType(BiteSaverPhotoViewer))
+            .imageUrl,
+        'https://images.example.test/exact-restaurant.png',
+      );
+      await harness.coordinator.freshSearch(harness.coordinator.criteria!);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(BiteSaverPhotoViewer), findsNothing);
+      expect(find.byType(RestaurantProfileScreen), findsNothing);
+      expect(transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'profile polish placeholder is not presented as a restaurant photograph',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1800);
+      addTearDown(tester.view.reset);
+      final harness = _BrowseHarness(
+        transport: _BrowseFixtureTransport(
+          firstRestaurantOverrides: const <String, Object?>{'imageUrl': null},
+        ),
+      );
+      await tester.pumpWidget(
+        _productionBrowseApp(
+          harness,
+          const CustomerBiteSaverBrowseDestinationHandler(),
+        ),
+      );
+      await _pumpBrowseReady(tester, harness.transport);
+      await tester.tap(find.text('Fixture Café 😀'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<InkWell>(find.byKey(const ValueKey('profile-main-photo')))
+            .onTap,
+        isNull,
+      );
+      expect(find.byType(BiteSaverPhotoViewer), findsNothing);
+      expect(harness.transport.redemptionCalls, 0);
+    },
+  );
+
+  testWidgets(
+    'profile polish specials board reuses artwork and enlarges accepted special image',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1800);
+      addTearDown(tester.view.reset);
+      final transport = _BrowseFixtureTransport(
+        firstOfferIsDailySpecial: true,
+        firstOfferOverrides: const <String, Object?>{
+          'imageUrl': 'https://images.example.test/exact-special.png',
+        },
+      );
+      final harness = _BrowseHarness(transport: transport);
+      await tester.pumpWidget(
+        _productionBrowseApp(
+          harness,
+          const CustomerBiteSaverBrowseDestinationHandler(),
+        ),
+      );
+      await _pumpBrowseReady(tester, transport);
+      await tester.tap(find.text('Fixture Café 😀'));
+      await tester.pumpAndSettle();
+      final coupon = find.byType(BiteSaverProfileDealCard).first;
+      final board = find.byType(BiteSaverSpecialsBoard);
+      expect(
+        tester.getTopLeft(coupon).dy,
+        lessThan(tester.getTopLeft(board).dy),
+      );
+      await tester.tap(find.text("Today's Specials"));
+      await tester.pumpAndSettle();
+      final larger = tester.widget<RestaurantSpecialsScreen>(
+        find.byType(RestaurantSpecialsScreen),
+      );
+      expect(larger.restaurant.name, 'Fixture Café 😀');
+      expect(larger.restaurant.accountDocumentId, isNull);
+      expect(
+        larger.boundedOffers!
+            .where(
+              (offer) =>
+                  offer.offerType == CustomerBiteSaverOfferType.dailySpecial,
+            )
+            .single
+            .offerId
+            .value,
+        transport.firstOfferId,
+      );
+      expect(find.text('Fixture Daily Special'), findsOneWidget);
+      expect(find.text('Use Coupon'), findsNothing);
+      final specialImage = find.descendant(
+        of: find.byType(BiteSaverSpecialsEntry),
+        matching: find.byType(Image),
+      );
+      expect(specialImage, findsOneWidget);
+    await tester.tap(find.byKey(ValueKey('special-image-${transport.firstOfferId}')));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<BiteSaverPhotoViewer>(find.byType(BiteSaverPhotoViewer))
+            .imageUrl,
+        'https://images.example.test/exact-special.png',
+      );
+      await harness.coordinator.updateAuth(
+        const CustomerBiteSaverAuthSnapshot.signed('replacement-user'),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(BiteSaverPhotoViewer), findsNothing);
+      expect(find.byType(RestaurantSpecialsScreen), findsNothing);
+      expect(transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'profile polish empty specials board and larger view are explicit',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1800);
+      addTearDown(tester.view.reset);
+      final harness = _BrowseHarness(
+        transport: _BrowseFixtureTransport(
+          firstRestaurantOverrides: const <String, Object?>{
+            'hasMoreOffers': false,
+            'usableOfferCount': 2,
+            'offerCountState': 'current',
+          },
+        ),
+      );
+      await tester.pumpWidget(
+        _productionBrowseApp(
+          harness,
+          const CustomerBiteSaverBrowseDestinationHandler(),
+        ),
+      );
+      await _pumpBrowseReady(tester, harness.transport);
+      await tester.tap(find.text('Fixture Café 😀'));
+      await tester.pumpAndSettle();
+      expect(find.text('No specials posted right now.'), findsOneWidget);
+      await tester.tap(find.text("Today's Specials"));
+      await tester.pumpAndSettle();
+      expect(find.byType(RestaurantSpecialsScreen), findsOneWidget);
+      expect(find.text('No specials posted right now.'), findsOneWidget);
+      expect(find.text('Use Coupon'), findsNothing);
+      expect(harness.transport.redemptionCalls, 0);
+    },
+  );
+
+  for (final size in <Size>[const Size(320, 640), const Size(640, 360)]) {
+    testWidgets('profile polish narrow large text stays readable at $size', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1800);
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final harness = _BrowseHarness(
+        transport: _BrowseFixtureTransport(firstOfferIsDailySpecial: true),
+      );
+      await tester.pumpWidget(
+        _productionBrowseApp(
+          harness,
+          const CustomerBiteSaverBrowseDestinationHandler(),
+        ),
+      );
+      await _pumpBrowseReady(tester, harness.transport);
+      await tester.ensureVisible(find.text('Fixture Café 😀'));
+      await tester.tap(find.text('Fixture Café 😀'));
+      await tester.pumpAndSettle();
+      tester.view.physicalSize = size;
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      await tester.pumpAndSettle();
+      final photoBottom = tester.getRect(find.byKey(const ValueKey('profile-main-photo'))).bottom;
+      final menuTop = tester.getRect(find.byKey(const ValueKey('profile-menu-main'))).top;
+      expect(menuTop - photoBottom, lessThan(5));
+      final board = find.byKey(const ValueKey('profile-specials-board'));
+      await tester.ensureVisible(board);
+      await tester.pumpAndSettle();
+      expect(find.text('Fixture Daily Special'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      final coupon = tester.widget<BiteSaverProfileDealCard>(
+        find.byType(BiteSaverProfileDealCard).first,
+      );
+      expect(coupon.title, 'Fixture Coupon 2');
+    });
+  }
+
+  testWidgets(
+    'profile polish enlarged board continues through the shared bounded pager',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1800);
+      addTearDown(tester.view.reset);
+      final transport = _BrowseFixtureTransport(
+        offerResponder: (request, response) async {
+          final result = _copyMap(response);
+          final offers = (result['offers']! as List).map(_copyMap).toList();
+          if (request['cursor'] == null) {
+            offers.last.addAll(<String, Object?>{
+              'offerType': 'dailySpecial',
+              'title': 'Paged Special 3',
+              'usageRule': null,
+              'usagePolicy': null,
+              'availabilityMode': 'todayOnly',
+              'allDay': true,
+              'redemptionPolicyLabel': null,
+            });
+          }
+          result['offers'] = offers;
+          return result;
+        },
+      );
+      final harness = _BrowseHarness(transport: transport);
+      await tester.pumpWidget(
+        _productionBrowseApp(
+          harness,
+          const CustomerBiteSaverBrowseDestinationHandler(),
+        ),
+      );
+      await _pumpBrowseReady(tester, transport);
+      await tester.tap(find.text('Fixture Café 😀'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('View More for additional offers and specials.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text("Today's Specials"));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('More offers may include Daily Specials.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('More offers'));
+      await tester.pumpAndSettle();
+      expect(find.text('Paged Special 3'), findsOneWidget);
+      expect(transport.offerCursors, <String?>[null]);
+      await tester.tap(find.text('More offers'));
+      await tester.pumpAndSettle();
+      expect(find.text('More offers'), findsNothing);
+      expect(find.text('Paged Special 3'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('Paged Special 3'), findsOneWidget);
+      expect(find.text('Fixture Coupon 2'), findsNothing);
+      expect(transport.offerCursors, <String?>[null, 'bsc1.offer-next']);
+      expect(transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
+    },
+  );
 
   testWidgets('retained profile revalidates offer action after resume', (
     tester,
@@ -2345,13 +2757,11 @@ void main() {
       await tester.tap(find.text('Restaurant Information'));
       await tester.pumpAndSettle();
       expect(harness.transport.menuPageCalls, 0);
-      final menuLink = tester.widget<InkWell>(
-        find
-            .ancestor(of: find.text('Menu'), matching: find.byType(InkWell))
-            .last,
+      final menuButton = tester.widget<TextButton>(
+        find.byKey(const ValueKey('profile-menu-main')),
       );
-      menuLink.onTap!();
-      menuLink.onTap!();
+      menuButton.onPressed!();
+      menuButton.onPressed!();
       await tester.pumpAndSettle();
 
       expect(find.byType(RestaurantMenuScreen), findsOneWidget);
@@ -2367,7 +2777,7 @@ void main() {
         tester.state(find.byType(RestaurantProfileScreen)),
         same(profileState),
       );
-      expect(find.text('Menu'), findsOneWidget);
+      expect(find.byKey(const ValueKey('profile-menu-main')), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
       expect(
@@ -2406,7 +2816,7 @@ void main() {
     await tester.tap(find.text('Restaurant Information'));
     await tester.pumpAndSettle();
     expect(harness.transport.menuPageCalls, 0);
-    await tester.tap(find.text('Menu'));
+    await tester.tap(find.byKey(const ValueKey('profile-menu-main')));
     await tester.pumpAndSettle();
     expect(find.byType(RestaurantMenuScreen), findsOneWidget);
     expect(find.text('Fixture menu item'), findsOneWidget);
@@ -2458,7 +2868,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Restaurant Information'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Menu'));
+    await tester.tap(find.byKey(const ValueKey('profile-menu-main')));
     await _pumpUntil(
       tester,
       () => find.byType(RestaurantMenuScreen).evaluate().isNotEmpty,
@@ -2527,7 +2937,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Restaurant Information'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Menu'));
+    await tester.tap(find.byKey(const ValueKey('profile-menu-main')));
     await tester.pumpAndSettle();
     final menuState = tester.state(find.byType(RestaurantMenuScreen));
     final thumbnail = find.byWidgetPredicate(
@@ -2628,7 +3038,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Restaurant Information'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Menu'));
+    await tester.tap(find.byKey(const ValueKey('profile-menu-main')));
     await tester.pumpAndSettle();
 
     final thumbnail = find.byWidgetPredicate(
@@ -4650,7 +5060,7 @@ Future<void> _openFixtureMenuViewer(
   await tester.pumpAndSettle();
   await tester.tap(find.text('Restaurant Information'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Menu'));
+  await tester.tap(find.byKey(const ValueKey('profile-menu-main')));
   await tester.pumpAndSettle();
   final thumbnail = find.byWidgetPredicate(
     (widget) =>
@@ -4882,6 +5292,7 @@ typedef _BrowseOfferResponder =
 
 final class _BrowseFixtureTransport {
   _BrowseFixtureTransport({
+    this.duplicateRestaurantLabels = false,
     this.startsPreparing = false,
     this.expireFirstPreparation = false,
     this.zeroPartialFirst = false,
@@ -4893,6 +5304,7 @@ final class _BrowseFixtureTransport {
     this.nonProgressSecondOfferPage = false,
     this.firstOfferIsDailySpecial = false,
     this.firstOfferOverrides = const <String, Object?>{},
+    this.firstRestaurantOverrides = const <String, Object?>{},
     this.restaurantPageCount = 1,
     this.startResponder,
     this.menuResponder,
@@ -4906,6 +5318,7 @@ final class _BrowseFixtureTransport {
        );
 
   final Map<String, Object?> fixture;
+  final bool duplicateRestaurantLabels;
   final bool startsPreparing;
   final bool expireFirstPreparation;
   final bool zeroPartialFirst;
@@ -4917,6 +5330,7 @@ final class _BrowseFixtureTransport {
   final bool nonProgressSecondOfferPage;
   final bool firstOfferIsDailySpecial;
   final Map<String, Object?> firstOfferOverrides;
+  final Map<String, Object?> firstRestaurantOverrides;
   final int restaurantPageCount;
   final _BrowseStartResponder? startResponder;
   final _BrowseMenuResponder? menuResponder;
@@ -5154,7 +5568,7 @@ final class _BrowseFixtureTransport {
     restaurant['restaurantId'] = index == 0
         ? firstRestaurantId
         : _opaqueId('bsr_', index);
-    restaurant['displayName'] = index == 0
+    restaurant['displayName'] = index == 0 || (duplicateRestaurantLabels && index == 1)
         ? 'Fixture Café 😀'
         : 'Lazy Fixture Restaurant ${index + 1}';
     restaurant['catalogBindingAvailable'] = index == 0;
@@ -5179,6 +5593,7 @@ final class _BrowseFixtureTransport {
       restaurant['hasMoreOffers'] = true;
       restaurant['usableOfferCount'] = null;
       restaurant['offerCountState'] = 'unknown';
+      restaurant.addAll(firstRestaurantOverrides);
     } else {
       restaurant['offers'] = const <Object?>[];
       restaurant['hasMoreOffers'] = false;

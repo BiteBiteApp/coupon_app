@@ -436,7 +436,7 @@ void main() {
 
       await tester.tap(find.text('Restaurant Information'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Menu'));
+      await tester.tap(find.byKey(const ValueKey('profile-menu-information')));
       await tester.pumpAndSettle();
       expect(find.byType(RestaurantMenuScreen), findsOneWidget);
       expect(find.text('Saved Menu Item'), findsOneWidget);
@@ -494,7 +494,7 @@ void main() {
 
       await tester.tap(find.text('Restaurant Information'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Menu'));
+      await tester.tap(find.byKey(const ValueKey('profile-menu-information')));
       await tester.pumpAndSettle();
       expect(find.byType(RestaurantMenuScreen), findsOneWidget);
       expect(find.text('Saved Menu Item'), findsOneWidget);

@@ -52,6 +52,14 @@ final class CustomerBiteSaverBrowseDestinationHandler {
         restaurant: selection.restaurant,
         session: selection.session,
         access: selection.access,
+        openBoundedView: (viewContext, builder) async {
+          _requireCurrent(selection);
+          await _pushCurrentDestination(
+            viewContext,
+            selection: selection,
+            builder: builder,
+          );
+        },
         openBoundedOffer: (profileContext, offer) async {
           _requireCurrent(selection);
           final current = selection.session.currentAcceptedOfferSelectionFor(

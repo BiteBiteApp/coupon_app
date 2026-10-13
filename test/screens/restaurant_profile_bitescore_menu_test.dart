@@ -2,6 +2,7 @@ import 'package:coupon_app/models/restaurant.dart';
 import 'package:coupon_app/screens/restaurant_menu_screen.dart';
 import 'package:coupon_app/screens/restaurant_profile_screen.dart';
 import 'package:coupon_app/services/app_mode_state_service.dart';
+import 'package:coupon_app/widgets/bitesaver_report_dialog.dart';
 import 'package:coupon_app/services/customer_bitescore_reads.dart';
 import 'package:coupon_app/services/customer_bitescore_runtime.dart';
 import 'package:coupon_app/services/restaurant_account_service.dart';
@@ -88,6 +89,66 @@ void main() {
     },
   );
 
+  testWidgets(
+    'profile report row preserves restaurant identity reason and note',
+    (tester) async {
+      final reports = <Map<String, Object?>>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RestaurantProfileScreen(
+            restaurant: _restaurant(),
+            loadFavorite: (_) async => false,
+            refreshRestaurant: (_) async => null,
+            promptForReport: (_) async => const BiteSaverReportResult(
+              reason: 'Incorrect information',
+              note: 'Local test only',
+            ),
+            submitReport:
+                ({
+                  required reportType,
+                  restaurantId,
+                  couponId,
+                  restaurantName,
+                  couponTitle,
+                  required reason,
+                  note,
+                }) async {
+                  reports.add(<String, Object?>{
+                    'type': reportType,
+                    'id': restaurantId,
+                    'name': restaurantName,
+                    'reason': reason,
+                    'note': note,
+                    'couponId': couponId,
+                  });
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final menu = find.byKey(const ValueKey('profile-menu-main'));
+      final report = find.widgetWithText(TextButton, 'Report');
+      expect(
+        tester.getCenter(menu).dy,
+        closeTo(tester.getCenter(report).dy, 1),
+      );
+      expect(tester.getCenter(menu).dx, lessThan(tester.getCenter(report).dx));
+      await tester.tap(report);
+      await tester.pumpAndSettle();
+      expect(reports, <Map<String, Object?>>[
+        {
+          'type': 'restaurant',
+          'id': 'account',
+          'name': _restaurant().name,
+          'reason': 'Incorrect information',
+          'note': 'Local test only',
+          'couponId': null,
+        },
+      ]);
+      expect(find.text('Thanks — we’ll review this.'), findsOneWidget);
+    },
+  );
+
   test('own BiteSaver menu retains its existing account source', () async {
     final route = await RestaurantMenuService.resolveBiteSaverPublicMenuRoute(
       uid: 'account',
@@ -155,8 +216,8 @@ Future<void> _openMenu(WidgetTester tester) async {
   await tester.ensureVisible(find.text('Restaurant Information'));
   await tester.tap(find.text('Restaurant Information'));
   await tester.pumpAndSettle();
-  await tester.ensureVisible(find.text('Menu'));
-  await tester.tap(find.text('Menu'));
+  await tester.ensureVisible(find.byKey(const ValueKey('profile-menu-main')));
+  await tester.tap(find.byKey(const ValueKey('profile-menu-main')));
   await tester.pumpAndSettle();
 }
 
