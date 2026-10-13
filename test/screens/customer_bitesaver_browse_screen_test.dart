@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show Tristate;
 
 import 'package:coupon_app/models/coupon.dart';
 import 'package:coupon_app/models/demo_redemption_store.dart';
@@ -1790,7 +1791,7 @@ void main() {
           find.byType(RestaurantProfileScreen),
         );
         final other = profile.boundedRestaurant!.offers[1];
-        await tester.tap(find.text('View More'));
+        await tester.tap(find.text('View More Coupons'));
         await tester.pumpAndSettle();
         await tester.tap(find.text(other.title));
         await tester.pumpAndSettle();
@@ -1835,8 +1836,8 @@ void main() {
     await tester.tap(find.text('Fixture Café 😀'));
     await tester.pumpAndSettle();
     expect(transport.offerPageCalls, 0);
-    expect(find.text('View More'), findsOneWidget);
-    await tester.tap(find.text('View More'));
+    expect(find.text('View More Coupons'), findsOneWidget);
+    await tester.tap(find.text('View More Coupons'));
     await tester.pumpAndSettle();
     expect(find.text('Additional Deal 3'), findsOneWidget);
     await tester.tap(find.text('More offers'));
@@ -1893,7 +1894,7 @@ void main() {
       await _pumpBrowseReady(tester, transport);
       await tester.tap(find.text('Fixture Café 😀'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('View More'));
+      await tester.tap(find.text('View More Coupons'));
       await tester.pumpAndSettle();
       expect(find.text('Fixture Coupon 1'), findsOneWidget);
       expect(find.text('Retry offers'), findsOneWidget);
@@ -1929,7 +1930,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Additional Deal 3'), findsNothing);
       expect(harness.transport.offerPageCalls, 1);
-      await tester.tap(find.text('View More'));
+      await tester.tap(find.text('View More Coupons'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('More offers'));
       await tester.pumpAndSettle();
@@ -1987,9 +1988,9 @@ void main() {
           find.byType(RestaurantProfileScreen),
         );
         final continuation = tester
-            .widget<TextButton>(find.widgetWithText(TextButton, 'View More'))
+            .widget<TextButton>(find.byKey(const ValueKey('profile-coupon-expansion')))
             .onPressed!;
-        await tester.tap(find.text('View More'));
+        await tester.tap(find.text('View More Coupons'));
         await _pumpUntil(tester, () => delayedResponse != null);
         if (invalidation == 'auth') {
           await harness.coordinator.updateAuth(
@@ -2091,6 +2092,197 @@ void main() {
     }
   }
 
+  testWidgets(
+    'feed correction guest paging refreshes next restaurant bubble sequence',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 2200);
+      addTearDown(tester.view.reset);
+      final seed = _BrowseFixtureTransport();
+      final page = _map(seed._responses['restaurantPage']);
+      final restaurant = _map((page['restaurants'] as List).first);
+      final special = _copyMap((restaurant['offers'] as List).first)
+        ..addAll({
+          'offerId': 'bso_${'Z' * 43}',
+          'offerOccurrence': 'bsoc1.${'Z' * 80}',
+          'title': 'Neighbor special',
+          'offerType': 'dailySpecial',
+          'usageRule': null,
+          'usagePolicy': null,
+          'redemptionPolicyLabel': null,
+          'availabilityMode': 'todayOnly',
+          'allDay': true,
+        });
+      final transport = _BrowseFixtureTransport(
+        secondRestaurantOffers: [special],
+      );
+      final harness = _BrowseHarness(transport: transport);
+      final actions = <CustomerBiteSaverBrowseSelection>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: harness.screen(
+            onAction: (context, selection) async {
+              actions.add(selection);
+              return const CustomerBiteSaverBrowseActionResult();
+            },
+          ),
+        ),
+      );
+      await _pumpBrowseReady(tester, transport);
+      final next = find.byKey(ValueKey('bounded-offer-bso_${'Z' * 43}'));
+      double expected(int index) => BiteSaverDealFeedGeometry.centerFor(
+        index,
+        tester.getSize(next).width,
+      );
+      expect(
+        tester.widget<BiteSaverHomeDealBubble>(next).bubbleCenterX,
+        expected(2),
+      );
+      final expand = find.byKey(
+        ValueKey('bounded-offer-expand-${transport.firstRestaurantId}'),
+      );
+      await tester.ensureVisible(expand);
+      await tester.tap(expand);
+      await tester.pumpAndSettle();
+      expect(transport.offerPageCalls, 1);
+      expect(
+        tester.widget<BiteSaverHomeDealBubble>(next).bubbleCenterX,
+        expected(3),
+      );
+      final more = find.byKey(
+        ValueKey('bounded-offer-load-more-${transport.firstRestaurantId}'),
+      );
+      await tester.ensureVisible(more);
+      await tester.tap(more);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<BiteSaverHomeDealBubble>(next).bubbleCenterX,
+        expected(4),
+      );
+      await tester.ensureVisible(next);
+      await tester.tap(next);
+      await tester.pumpAndSettle();
+      expect(actions.single.offer!.title, 'Neighbor special');
+      expect(
+        actions.single.offer!.offerType,
+        CustomerBiteSaverOfferType.dailySpecial,
+      );
+      expect(transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final count in [0, 1, 2]) {
+    testWidgets(
+      'profile correction $count loaded coupons has exact toggle state',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(900, 1800);
+        addTearDown(tester.view.reset);
+        final transport = _BrowseFixtureTransport();
+        final originals =
+            (((transport._responses['restaurantPage'] as Map)['restaurants']
+                            as List)
+                        .first
+                    as Map)['offers']
+                as List;
+        final offers = originals.take(count).toList();
+        final configured = _BrowseFixtureTransport(
+          firstRestaurantOverrides: {
+            'offers': offers,
+            'hasMoreOffers': false,
+            'usableOfferCount': count,
+            'offerCountState': 'current',
+          },
+        );
+        final harness = _BrowseHarness(transport: configured);
+        await tester.pumpWidget(
+          _productionBrowseApp(
+            harness,
+            const CustomerBiteSaverBrowseDestinationHandler(),
+          ),
+        );
+        await _pumpBrowseReady(tester, configured);
+        await tester.tap(find.text('Fixture Café 😀'));
+        await tester.pumpAndSettle();
+        final toggle = find.byKey(const ValueKey('profile-coupon-expansion'));
+        expect(
+          find.byType(BiteSaverProfileDealCard),
+          count == 0 ? findsNothing : findsOneWidget,
+        );
+        expect(toggle, count <= 1 ? findsNothing : findsOneWidget);
+        if (count == 2) {
+          for (var cycle = 0; cycle < 3; cycle++) {
+            expect(find.text('View More Coupons'), findsOneWidget);
+            expect(
+              find.descendant(
+                of: toggle,
+                matching: find.byIcon(Icons.expand_more),
+              ),
+              findsOneWidget,
+            );
+            expect(
+              tester
+                  .getSemantics(
+                    find.byKey(
+                      const ValueKey('profile-coupon-expansion-semantics'),
+                    ),
+                  )
+                  .getSemanticsData()
+                  .flagsCollection
+                  .isExpanded,
+              Tristate.isFalse,
+            );
+            await tester.tap(toggle);
+            await tester.pumpAndSettle();
+            expect(find.byType(BiteSaverProfileDealCard), findsNWidgets(2));
+            expect(find.text('Show Fewer Coupons'), findsOneWidget);
+            expect(
+              find.descendant(
+                of: toggle,
+                matching: find.byIcon(Icons.expand_less),
+              ),
+              findsOneWidget,
+            );
+            expect(
+              tester
+                  .getSemantics(
+                    find.byKey(
+                      const ValueKey('profile-coupon-expansion-semantics'),
+                    ),
+                  )
+                  .getSemanticsData()
+                  .flagsCollection
+                  .isExpanded,
+              Tristate.isTrue,
+            );
+            await tester.tap(toggle);
+            await tester.pumpAndSettle();
+            expect(find.byType(BiteSaverProfileDealCard), findsOneWidget);
+          }
+        }
+        for (final card in tester.widgetList<BiteSaverProfileDealCard>(
+          find.byType(BiteSaverProfileDealCard),
+        )) {
+          final bubble = tester.widget<BiteSaverHomeDealBubble>(
+            find.descendant(
+              of: find.byWidget(card),
+              matching: find.byType(BiteSaverHomeDealBubble),
+            ),
+          );
+          expect(bubble.showBubble, isFalse);
+        }
+        expect(configured.offerPageCalls, 0);
+        expect(configured.redemptionCalls, 0);
+        expect(harness.deviceUse.stages, isEmpty);
+        expect(tester.takeException(), isNull);
+        semantics.dispose();
+      },
+    );
+  }
   for (final withImage in <bool>[false, true]) {
     testWidgets(
       'profile polish compact one coupon image=$withImage preserves detail and expansion',
@@ -2141,11 +2333,23 @@ void main() {
         );
         await tester.pageBack();
         await tester.pumpAndSettle();
-        await tester.tap(find.text('View More'));
+        await tester.tap(find.text('View More Coupons'));
         await tester.pumpAndSettle();
         expect(find.text('Fixture Coupon 2'), findsOneWidget);
         expect(find.text('Additional Deal 3'), findsOneWidget);
         expect(transport.offerPageCalls, 1);
+        for (var cycle = 0; cycle < 2; cycle++) {
+          await tester.tap(find.text('Show Fewer Coupons'));
+          await tester.pumpAndSettle();
+          expect(find.text('Fixture Coupon 2'), findsNothing);
+          await tester.tap(find.text('View More Coupons'));
+          await tester.pumpAndSettle();
+          expect(find.text('Fixture Coupon 2'), findsOneWidget);
+          expect(transport.offerPageCalls, 1);
+        }
+        await tester.tap(find.text('Fixture Coupon 2'));
+        await tester.pumpAndSettle();
+        expect(tester.widget<CouponDetailScreen>(find.byType(CouponDetailScreen)).boundedOffer!.title, 'Fixture Coupon 2');
         expect(transport.redemptionCalls, 0);
         expect(harness.deviceUse.stages, isEmpty);
       },
@@ -5305,6 +5509,7 @@ final class _BrowseFixtureTransport {
     this.firstOfferIsDailySpecial = false,
     this.firstOfferOverrides = const <String, Object?>{},
     this.firstRestaurantOverrides = const <String, Object?>{},
+    this.secondRestaurantOffers = const <Object?>[],
     this.restaurantPageCount = 1,
     this.startResponder,
     this.menuResponder,
@@ -5331,6 +5536,7 @@ final class _BrowseFixtureTransport {
   final bool firstOfferIsDailySpecial;
   final Map<String, Object?> firstOfferOverrides;
   final Map<String, Object?> firstRestaurantOverrides;
+  final List<Object?> secondRestaurantOffers;
   final int restaurantPageCount;
   final _BrowseStartResponder? startResponder;
   final _BrowseMenuResponder? menuResponder;
@@ -5595,9 +5801,9 @@ final class _BrowseFixtureTransport {
       restaurant['offerCountState'] = 'unknown';
       restaurant.addAll(firstRestaurantOverrides);
     } else {
-      restaurant['offers'] = const <Object?>[];
+      restaurant['offers'] = index == 1 ? secondRestaurantOffers : const <Object?>[];
       restaurant['hasMoreOffers'] = false;
-      restaurant['usableOfferCount'] = 0;
+      restaurant['usableOfferCount'] = index == 1 ? secondRestaurantOffers.length : 0;
       restaurant['offerCountState'] = 'current';
     }
     return restaurant;

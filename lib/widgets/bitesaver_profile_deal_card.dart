@@ -9,7 +9,7 @@ import '../screens/home_screen.dart' show BiteSaverHomeDealBubble;
 import 'bitesaver_colors.dart';
 import 'bitesaver_restaurant_images.dart';
 
-/// Reuses the approved Home coupon/special bubble, allowing readable titles.
+/// Compact profile coupon; board specials retain their approved decoration.
 class BiteSaverProfileDealCard extends StatelessWidget {
   final String title;
   final String? imageUrl;
@@ -52,7 +52,7 @@ class BiteSaverProfileDealCard extends StatelessWidget {
           button: onTap != null,
           child: BiteSaverHomeDealBubble(
             contentHeight: height,
-            showBubble: true,
+            showBubble: isSpecial,
             onTap: onTap,
             backgroundColor: isSpecial
                 ? BiteSaverColors.secondaryBackground

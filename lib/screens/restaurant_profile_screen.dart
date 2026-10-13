@@ -172,6 +172,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   bool _isSavingFavoriteRestaurant = false;
   bool _showRestaurantInfo = false;
   bool _showMoreCoupons = false;
+  bool _hasExpandedCoupons = false;
   bool _isSubmittingReport = false;
   bool _isOpeningBoundedMenu = false;
   bool _isCustomerRestaurantAvailabilityResolved = false;
@@ -1219,11 +1220,18 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   }
 
   Future<void> _expandCoupons() async {
+    if (_showMoreCoupons) {
+      setState(() => _showMoreCoupons = false);
+      return;
+    }
+    final firstExpansion = !_hasExpandedCoupons;
+    _hasExpandedCoupons = true;
     setState(() => _showMoreCoupons = true);
     if (_currentBrowseRestaurant?.hasMoreOffers == true &&
         _offerPager == null) {
       await _loadMoreOffers();
     } else if (widget.publicProfile?.cursor != null &&
+        firstExpansion &&
         !widget.publicProfile!.loading) {
       await widget.publicProfile!.loadMore();
     }
@@ -1794,11 +1802,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                   .where((coupon) => couponOffers.contains(coupon.id))
                   .toList(growable: false);
         final visibleCoupons = _showMoreCoupons ? coupons : coupons.take(1);
-        final canExpand =
-            coupons.length > 1 ||
-            _currentBrowseRestaurant?.hasMoreOffers == true ||
-            widget.publicProfile?.cursor != null ||
-            _offerPager != null;
+        final canExpand = coupons.length > 1 || _hasMoreProfileOffers;
 
         return Scaffold(
           backgroundColor: BiteSaverColors.pageBackground,
@@ -2007,10 +2011,28 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                 onTap: () => _openProfileCoupon(coupon),
                               ),
                             ),
-                        if (!_showMoreCoupons && canExpand)
-                          TextButton(
-                            onPressed: _expandCoupons,
-                            child: const Text('View More'),
+                        if (canExpand)
+                          MergeSemantics(
+                            key: const ValueKey(
+                              'profile-coupon-expansion-semantics',
+                            ),
+                            child: Semantics(
+                              expanded: _showMoreCoupons,
+                              child: TextButton.icon(
+                                key: const ValueKey('profile-coupon-expansion'),
+                                onPressed: _expandCoupons,
+                                icon: Icon(
+                                  _showMoreCoupons
+                                      ? Icons.expand_less
+                                      : Icons.expand_more,
+                                ),
+                                label: Text(
+                                  _showMoreCoupons
+                                      ? 'Show Fewer Coupons'
+                                      : 'View More Coupons',
+                                ),
+                              ),
+                            ),
                           ),
                         if (_showMoreCoupons && widget.boundedSession != null)
                           _buildBrowseOfferContinuation(),

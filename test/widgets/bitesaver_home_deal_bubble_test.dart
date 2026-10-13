@@ -178,47 +178,131 @@ void main() {
       expect(path.contains(const Offset(bodyInset + 1, bodyTop + 1)), isFalse);
     });
 
-    test('stagger alternates far left and right while nesting vertically', () {
-      final offset = BiteSaverHomeDealBubbleStagger.horizontalOffsetFor(
-        availableWidth: 420,
-        compact: false,
-      );
-      final compactOffset = BiteSaverHomeDealBubbleStagger.horizontalOffsetFor(
-        availableWidth: 240,
-        compact: true,
-      );
-
-      expect(BiteSaverHomeDealBubbleStagger.isLeftPosition(0), isTrue);
-      expect(BiteSaverHomeDealBubbleStagger.isLeftPosition(1), isFalse);
-      expect(BiteSaverHomeDealBubbleStagger.isLeftPosition(2), isTrue);
-      expect(BiteSaverHomeDealBubbleStagger.isLeftPosition(3), isFalse);
-      expect(offset, greaterThan(55));
-      expect(offset, lessThanOrEqualTo(420 * 0.28));
-      expect(compactOffset, lessThan(offset));
-      expect(
-        BiteSaverHomeDealBubbleStagger.topFor(index: 1, compact: false),
-        BiteSaverHomeDealBubbleStagger.visibleShapeHeight +
-            BiteSaverHomeDealBubbleStagger.bubbleGap,
-      );
-      expect(
-        BiteSaverHomeDealBubbleStagger.topFor(index: 1, compact: true),
-        BiteSaverHomeDealBubbleStagger.visibleShapeHeight +
-            BiteSaverHomeDealBubbleStagger.bubbleGap,
-      );
-      expect(
-        BiteSaverHomeDealBubbleStagger.regularStep,
-        BiteSaverHomeDealBubbleStagger.compactStep,
-      );
-      expect(
-        BiteSaverHomeDealBubbleStagger.stackHeightFor(
-          itemCount: 4,
-          compact: false,
-        ),
-        BiteSaverHomeDealBubble.minHeight +
-            (BiteSaverHomeDealBubbleStagger.visibleShapeHeight +
-                    BiteSaverHomeDealBubbleStagger.bubbleGap) *
-                3,
-      );
-    });
+    for (final width in [100.0, 180.0, 320.0, 430.0, 640.0]) {
+      for (final scale in [1.0, 2.0]) {
+        testWidgets(
+          'real stacked coupon/special contours clear at $width scale $scale',
+          (tester) async {
+            tester.view.devicePixelRatio = 1;
+            tester.view.physicalSize = Size(width, 900);
+            addTearDown(tester.view.reset);
+            final opened = <int>[];
+            await tester.pumpWidget(
+              MaterialApp(
+                home: MediaQuery(
+                  data: MediaQueryData(
+                    size: Size(width, 900),
+                    textScaler: TextScaler.linear(scale),
+                  ),
+                  child: Scaffold(
+                    body: SingleChildScrollView(
+                      child: BiteSaverDealFeedStack(
+                        itemCount: 24,
+                        itemBuilder: (context, index, centerX) =>
+                            BiteSaverHomeDealBubble(
+                              key: ValueKey('stacked-$index'),
+                              showBubble: true,
+                              bubbleCenterX: centerX,
+                              onTap: () => opened.add(index),
+                              backgroundColor: index.isEven
+                                  ? const Color(0xFFF8FCF2)
+                                  : BiteSaverColors.secondaryBackground,
+                              borderColor: index.isEven
+                                  ? const Color(0xFFB9D99E)
+                                  : BiteSaverColors.borderStrong,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  index.isEven
+                                      ? 'Coupon $index'
+                                      : 'Daily Special $index',
+                                ),
+                              ),
+                            ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            final bubbles = find.byType(BiteSaverHomeDealBubble);
+            expect(bubbles, findsNWidgets(24));
+            final paths = <Path>[];
+            final centers = <Offset>[];
+            for (var index = 0; index < 24; index++) {
+              final finder = find.byKey(ValueKey('stacked-$index'));
+              final widget = tester.widget<BiteSaverHomeDealBubble>(finder);
+              final rect = tester.getRect(finder);
+              final clipper = BiteSaverHomeDealBubbleClipper(
+                showBubble: true,
+                bubbleCenterX: widget.bubbleCenterX,
+              );
+              paths.add(clipper.getClip(rect.size).shift(rect.topLeft));
+              centers.add(rect.topLeft + Offset(widget.bubbleCenterX!, 25));
+              expect(rect.left, greaterThanOrEqualTo(0));
+              expect(rect.right + .75, lessThanOrEqualTo(width));
+              final label = find.descendant(
+                of: finder,
+                matching: find.byType(Text),
+              );
+              final labelRect = tester.getRect(label);
+              expect(labelRect.top, greaterThanOrEqualTo(rect.top + 5));
+              expect(labelRect.bottom, lessThanOrEqualTo(rect.top + 45));
+              if (index > 0) {
+                final previous = tester.getRect(
+                  find.byKey(ValueKey('stacked-${index - 1}')),
+                );
+                final delta = rect.top - previous.top;
+                if (width >= 110) {
+                  expect(delta, 48);
+                  expect((centers[index].dx - centers[index - 1].dx).abs(), 56);
+                  // Include the .75px border; full circles stay horizontally clear.
+                  expect(
+                    (centers[index].dx - centers[index - 1].dx).abs() -
+                        50 -
+                        .75,
+                    greaterThanOrEqualTo(5),
+                  );
+                  expect(rect.top - (previous.top + 45) - .75, greaterThan(0));
+                  expect(rect.top + 5 - previous.bottom - .75, greaterThan(0));
+                } else {
+                  expect(delta, 53);
+                  expect(rect.top - previous.bottom - .75, greaterThan(0));
+                }
+              }
+            }
+            // Compare actual full silhouettes, not just isolated horizontal offsets.
+            for (var i = 0; i < paths.length; i++) {
+              for (var j = i + 1; j < paths.length; j++) {
+                expect(
+                  Path.combine(
+                    PathOperation.intersect,
+                    paths[i],
+                    paths[j],
+                  ).computeMetrics(),
+                  isEmpty,
+                  reason: 'stacked contours $i/$j at $width',
+                );
+              }
+            }
+            if (width >= 110) {
+              final shifts = [
+                for (var i = 1; i < centers.length; i++)
+                  centers[i].dx - centers[i - 1].dx,
+              ];
+              expect(shifts.any((dx) => dx > 0), isTrue);
+              expect(shifts.any((dx) => dx < 0), isTrue);
+              expect(
+                centers.first.dx,
+                27,
+              ); // 1px tile inset plus safe center 26.
+            }
+            await tester.tap(find.text('Coupon 0'));
+            expect(opened, [0]);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
   });
 }

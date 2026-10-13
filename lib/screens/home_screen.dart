@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:io' show Platform;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -2800,76 +2801,13 @@ class _HomeScreenState extends State<HomeScreen> {
     Restaurant restaurant, {
     required bool compact,
   }) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableWidth = constraints.maxWidth;
-        final horizontalOffset =
-            BiteSaverHomeDealBubbleStagger.horizontalOffsetFor(
-              availableWidth: availableWidth,
-              compact: compact,
-            );
-        final showBubble = items.length > 1;
-
-        return SizedBox(
-          height: BiteSaverHomeDealBubbleStagger.stackHeightFor(
-            itemCount: items.length,
-            compact: compact,
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              for (var index = 0; index < items.length; index += 1)
-                _buildStaggeredPromoPreviewPosition(
-                  item: items[index],
-                  restaurant: restaurant,
-                  index: index,
-                  compact: compact,
-                  availableWidth: availableWidth,
-                  horizontalOffset: horizontalOffset,
-                  showBubble: showBubble,
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildStaggeredPromoPreviewPosition({
-    required _RestaurantPromoItem item,
-    required Restaurant restaurant,
-    required int index,
-    required bool compact,
-    required double availableWidth,
-    required double horizontalOffset,
-    required bool showBubble,
-  }) {
-    final shiftsBubbleLeft = BiteSaverHomeDealBubbleStagger.isLeftPosition(
-      index,
-    );
-    final bodyLeadingInset = showBubble && shiftsBubbleLeft
-        ? horizontalOffset
-        : 0.0;
-    final positionedLeft = showBubble && shiftsBubbleLeft
-        ? -horizontalOffset
-        : 0.0;
-    final bubbleCenterX = showBubble && shiftsBubbleLeft
-        ? availableWidth * BiteSaverHomeDealBubbleClipper.bubbleCenterFraction
-        : null;
-
-    return Positioned(
-      top: BiteSaverHomeDealBubbleStagger.topFor(
-        index: index,
-        compact: compact,
-      ),
-      left: positionedLeft,
-      width: availableWidth + bodyLeadingInset,
-      child: _buildPromoPreview(
-        item,
+    return BiteSaverDealFeedStack(
+      itemCount: items.length,
+      itemBuilder: (context, index, centerX) => _buildPromoPreview(
+        items[index],
         restaurant,
-        rectangularBodyLeadingInset: bodyLeadingInset,
-        bubbleCenterX: bubbleCenterX,
-        showBubble: showBubble,
+        bubbleCenterX: centerX,
+        showBubble: true,
       ),
     );
   }
@@ -3877,59 +3815,103 @@ class BiteSaverHomeDealBubble extends StatelessWidget {
   }
 }
 
-class BiteSaverHomeDealBubbleStagger {
-  const BiteSaverHomeDealBubbleStagger._();
+/// Positions full circular bubbles with clearance, including at reversals.
+class BiteSaverDealFeedGeometry {
+  static const double outlineAllowance = 1;
+  static const double horizontalClearance = 6;
+  static const double bodyClearance = 3;
+  static const double diameter = BiteSaverHomeDealBubble.bubbleDiameter;
+  static const double protrusion =
+      (diameter - BiteSaverHomeDealBubble.bodyHeight) / 2;
+  // Bodies remain clear of both neighboring circular protrusions. Bubble
+  // bounding boxes can share vertical space because their X ranges are disjoint.
+  static const double verticalStep =
+      BiteSaverHomeDealBubble.bodyHeight + protrusion + bodyClearance;
 
-  static const double bubbleGap = 1;
-  static const double visibleShapeHeight =
-      BiteSaverHomeDealBubble.bubbleDiameter;
-  static const double regularStep = visibleShapeHeight + bubbleGap;
-  static const double compactStep = visibleShapeHeight + bubbleGap;
-  static const double regularOffsetFraction = 0.16;
-  static const double compactOffsetFraction = 0.16;
-  static const double regularMinOffset = 36;
-  static const double compactMinOffset = 28;
-  static const double regularMaxOffset = 64;
-  static const double compactMaxOffset = 64;
-
-  static bool isLeftPosition(int index) => index.isEven;
-
-  static double topFor({required int index, required bool compact}) {
-    final safeIndex = index < 0 ? 0 : index;
-    final verticalStep = compact ? compactStep : regularStep;
-    return safeIndex * verticalStep;
+  static double centerFor(int index, double width) {
+    final radius = diameter / 2;
+    final minimum = radius + outlineAllowance;
+    final travel = math.max(0.0, width - 2 * minimum);
+    final steps = (travel / (diameter + horizontalClearance)).floor();
+    if (steps == 0) return width / 2;
+    final phase = math.max(0, index) % (2 * steps);
+    final slot = phase <= steps ? phase : 2 * steps - phase;
+    return minimum + slot * (diameter + horizontalClearance);
   }
 
-  static double stackHeightFor({
-    required int itemCount,
-    required bool compact,
-  }) {
-    if (itemCount <= 0) {
-      return 0;
-    }
+  static double stepFor(double width) =>
+      width >= 2 * (diameter + outlineAllowance) + horizontalClearance
+      ? verticalStep
+      : diameter + bodyClearance;
+}
 
-    return BiteSaverHomeDealBubble.minHeight +
-        topFor(index: itemCount - 1, compact: compact);
-  }
+/// Actual compact stack shared by coupon and special cards in the deals feed.
+class BiteSaverDealFeedStack extends StatelessWidget {
+  final int itemCount;
+  final int startIndex;
+  final Widget Function(BuildContext, int, double) itemBuilder;
+  const BiteSaverDealFeedStack({
+    super.key,
+    required this.itemCount,
+    required this.itemBuilder,
+    this.startIndex = 0,
+  });
 
-  static double horizontalOffsetFor({
-    required double availableWidth,
-    required bool compact,
-  }) {
-    if (availableWidth <= 0) {
-      return 0;
-    }
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      if (itemCount == 0) return const SizedBox.shrink();
+      return Column(
+        children: [
+          for (var index = 0; index < itemCount; index++)
+            BiteSaverDealFeedTile(
+              index: startIndex + index,
+              isLast: index == itemCount - 1,
+              itemBuilder: (context, centerX) =>
+                  itemBuilder(context, index, centerX),
+            ),
+        ],
+      );
+    },
+  );
+}
 
-    final fraction = compact ? compactOffsetFraction : regularOffsetFraction;
-    final minOffset = compact ? compactMinOffset : regularMinOffset;
-    final maxOffset = compact ? compactMaxOffset : regularMaxOffset;
-    final maxSafeOffset = availableWidth * 0.28;
-
-    return (availableWidth * fraction)
-        .clamp(minOffset, maxOffset)
-        .clamp(0.0, maxSafeOffset)
-        .toDouble();
-  }
+/// Also used by the lazy, bounded expanded list, retaining its virtualization.
+class BiteSaverDealFeedTile extends StatelessWidget {
+  final int index;
+  final bool isLast;
+  final Widget Function(BuildContext, double) itemBuilder;
+  const BiteSaverDealFeedTile({
+    super.key,
+    required this.index,
+    required this.isLast,
+    required this.itemBuilder,
+  });
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final width = math.max(0.0, constraints.maxWidth - 2);
+      return SizedBox(
+        height: isLast
+            ? BiteSaverDealFeedGeometry.diameter + 2
+            : BiteSaverDealFeedGeometry.stepFor(width),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: 1,
+              right: 1,
+              top: 1,
+              child: itemBuilder(
+                context,
+                BiteSaverDealFeedGeometry.centerFor(index, width),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 class BiteSaverHomeDealBubbleClipper extends CustomClipper<Path> {

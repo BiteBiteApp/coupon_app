@@ -17,7 +17,8 @@ import '../services/customer_load_more_controller.dart';
 import '../services/shared_location_state_service.dart';
 import '../widgets/bitesaver_colors.dart';
 import '../widgets/bitesaver_restaurant_images.dart';
-import 'home_screen.dart' show BiteSaverHomeDealBubble;
+import 'home_screen.dart'
+    show BiteSaverHomeDealBubble, BiteSaverDealFeedStack, BiteSaverDealFeedTile;
 
 typedef CustomerBiteSaverTimeContextProvider =
     Future<CustomerBiteSaverTimeContext> Function();
@@ -1910,6 +1911,24 @@ class _CustomerBiteSaverBrowseScreenState
           ),
         ),
     ];
+    final offerStarts = <int>[];
+    var displayedOffers = 0;
+    for (final restaurant in restaurants) {
+      offerStarts.add(displayedOffers);
+      if (_expandedRestaurants.contains(restaurant.restaurantId.value)) {
+        displayedOffers += {
+          for (final offer in restaurant.offers) offer.offerId.value,
+          for (final offer
+              in widget.coordinator
+                      .offerPagerFor(restaurant.restaurantId)
+                      ?.items ??
+                  const <CustomerBiteSaverOffer>[])
+            offer.offerId.value,
+        }.length;
+      } else {
+        displayedOffers += restaurant.offers.take(2).length;
+      }
+    }
     return SliverList.builder(
       itemCount: prefix.length + restaurants.length + suffix.length,
       itemBuilder: (context, index) {
@@ -1924,6 +1943,7 @@ class _CustomerBiteSaverBrowseScreenState
           key: ValueKey<String>('bounded-restaurant-$id'),
           restaurant: restaurant,
           restaurantIndex: restaurantIndex,
+          offerStartIndex: offerStarts[restaurantIndex],
           coordinator: widget.coordinator,
           expanded: _expandedRestaurants.contains(id),
           interactive: active,
@@ -1934,6 +1954,9 @@ class _CustomerBiteSaverBrowseScreenState
                 _expandedRestaurants.remove(id);
               }
             });
+          },
+          onOffersChanged: () {
+            if (mounted) setState(() {});
           },
           onRestaurantFavorite: _toggleRestaurantFavorite,
           onOfferFavorite: _toggleOfferFavorite,
@@ -2054,11 +2077,13 @@ class _BoundedRestaurantCard extends StatefulWidget {
     super.key,
     required this.restaurant,
     required this.restaurantIndex,
+    required this.offerStartIndex,
     required this.coordinator,
     required this.expanded,
     required this.interactive,
     required this.pendingFavoriteIds,
     required this.onToggleExpanded,
+    required this.onOffersChanged,
     required this.onRestaurantFavorite,
     required this.onOfferFavorite,
     required this.onAction,
@@ -2066,11 +2091,13 @@ class _BoundedRestaurantCard extends StatefulWidget {
 
   final CustomerBiteSaverRestaurant restaurant;
   final int restaurantIndex;
+  final int offerStartIndex;
   final CustomerBiteSaverSearchCoordinator coordinator;
   final bool expanded;
   final bool interactive;
   final Set<String> pendingFavoriteIds;
   final VoidCallback onToggleExpanded;
+  final VoidCallback onOffersChanged;
   final Future<void> Function(CustomerBiteSaverRestaurant restaurant)
   onRestaurantFavorite;
   final Future<void> Function(CustomerBiteSaverOffer offer) onOfferFavorite;
@@ -2129,7 +2156,10 @@ class _BoundedRestaurantCardState extends State<_BoundedRestaurantCard> {
   }
 
   void _handlePagerChange() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+      widget.onOffersChanged();
+    }
   }
 
   CustomerBiteSaverRestaurant? get _currentRestaurant => widget.coordinator
@@ -2194,7 +2224,10 @@ class _BoundedRestaurantCardState extends State<_BoundedRestaurantCard> {
     } catch (error) {
       if (mounted) _localOfferError = error;
     } finally {
-      if (mounted) setState(() => _loadingOffers = false);
+      if (mounted) {
+        setState(() => _loadingOffers = false);
+        widget.onOffersChanged();
+      }
     }
   }
 
@@ -2374,28 +2407,13 @@ class _BoundedRestaurantCardState extends State<_BoundedRestaurantCard> {
                   ),
                 ),
                 if (!widget.expanded)
-                  for (final offer in preview.take(2))
-                    Padding(
-                      padding: const EdgeInsets.only(top: 5),
-                      child: _OfferRow(
-                        offer: offer,
-                        availability: interactive
-                            ? widget.coordinator.effectiveOfferAvailability(
-                                offer.offerId,
-                              )
-                            : null,
-                        favoriteState: widget.coordinator.offerFavoriteState(
-                          offer.offerId,
-                        ),
-                        showFavorite: widget.coordinator.auth.isSigned,
-                        favoritePending: widget.pendingFavoriteIds.contains(
-                          offer.offerId.value,
-                        ),
-                        interactive: interactive,
-                        onFavorite: () => widget.onOfferFavorite(offer),
-                        onTap: () => _openOffer(offer),
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 5),
+                    child: _buildOfferStack(
+                      preview.take(2).toList(),
+                      interactive,
                     ),
+                  ),
                 if (widget.expanded) _buildExpandedOffers(),
                 if (canExpand)
                   Align(
@@ -2423,6 +2441,38 @@ class _BoundedRestaurantCardState extends State<_BoundedRestaurantCard> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildOfferStack(
+    List<CustomerBiteSaverOffer> offers,
+    bool interactive,
+  ) {
+    return BiteSaverDealFeedStack(
+      startIndex: widget.offerStartIndex,
+      itemCount: offers.length,
+      itemBuilder: (context, index, centerX) =>
+          _buildOfferRow(offers[index], interactive, centerX),
+    );
+  }
+
+  Widget _buildOfferRow(
+    CustomerBiteSaverOffer offer,
+    bool interactive,
+    double centerX,
+  ) {
+    return _OfferRow(
+      offer: offer,
+      bubbleCenterX: centerX,
+      availability: interactive
+          ? widget.coordinator.effectiveOfferAvailability(offer.offerId)
+          : null,
+      favoriteState: widget.coordinator.offerFavoriteState(offer.offerId),
+      showFavorite: widget.coordinator.auth.isSigned,
+      favoritePending: widget.pendingFavoriteIds.contains(offer.offerId.value),
+      interactive: interactive,
+      onFavorite: () => widget.onOfferFavorite(offer),
+      onTap: () => _openOffer(offer),
     );
   }
 
@@ -2459,30 +2509,12 @@ class _BoundedRestaurantCardState extends State<_BoundedRestaurantCard> {
                 primary: false,
                 padding: const EdgeInsets.only(top: 5),
                 itemCount: offers.length,
-                itemBuilder: (context, index) {
-                  final offer = offers[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 5),
-                    child: _OfferRow(
-                      offer: offer,
-                      availability: interactive
-                          ? widget.coordinator.effectiveOfferAvailability(
-                              offer.offerId,
-                            )
-                          : null,
-                      favoriteState: widget.coordinator.offerFavoriteState(
-                        offer.offerId,
-                      ),
-                      showFavorite: widget.coordinator.auth.isSigned,
-                      favoritePending: widget.pendingFavoriteIds.contains(
-                        offer.offerId.value,
-                      ),
-                      interactive: interactive,
-                      onFavorite: () => widget.onOfferFavorite(offer),
-                      onTap: () => _openOffer(offer),
-                    ),
-                  );
-                },
+                itemBuilder: (context, index) => BiteSaverDealFeedTile(
+                  index: widget.offerStartIndex + index,
+                  isLast: index == offers.length - 1,
+                  itemBuilder: (context, centerX) =>
+                      _buildOfferRow(offers[index], interactive, centerX),
+                ),
               ),
             ),
           ),
@@ -2514,6 +2546,7 @@ class _BoundedRestaurantCardState extends State<_BoundedRestaurantCard> {
 class _OfferRow extends StatelessWidget {
   const _OfferRow({
     required this.offer,
+    required this.bubbleCenterX,
     required this.availability,
     required this.favoriteState,
     required this.showFavorite,
@@ -2524,6 +2557,7 @@ class _OfferRow extends StatelessWidget {
   });
 
   final CustomerBiteSaverOffer offer;
+  final double bubbleCenterX;
   final CustomerBiteSaverEffectiveOfferAvailability? availability;
   final CustomerBiteSaverFavoriteState favoriteState;
   final bool showFavorite;
@@ -2547,6 +2581,8 @@ class _OfferRow extends StatelessWidget {
         : offer.availabilityReason;
     return BiteSaverHomeDealBubble(
       key: ValueKey<String>('bounded-offer-${offer.offerId.value}'),
+      showBubble: true,
+      bubbleCenterX: bubbleCenterX,
       onTap: interactive ? onTap : null,
       backgroundColor: isSpecial
           ? BiteSaverColors.secondaryBackground
