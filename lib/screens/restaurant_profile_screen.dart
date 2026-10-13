@@ -13,6 +13,7 @@ import '../services/bitesaver_report_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/customer_bitesaver_search_coordinator.dart';
+import '../services/customer_load_more_controller.dart';
 import '../services/customer_bitesaver_public_profile.dart';
 import '../services/customer_bitesaver_saved_coordinator.dart';
 import '../services/customer_bitescore_reads.dart';
@@ -167,15 +168,143 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   AppMode? _pressedMode;
   late Restaurant _restaurant;
 
-  Restaurant get restaurant => widget.publicProfile == null
-      ? _restaurant
-      : _customerBiteSaverRestaurantView(
-          widget.publicProfile!.restaurant!,
-          offers: widget.publicProfile!.offers,
-          hideDistance: true,
-        );
-  List<CustomerBiteSaverOffer>? get _boundedOffers =>
-      widget.publicProfile?.offers ?? widget.boundedRestaurant?.offers;
+  CustomerLoadMoreController<CustomerBiteSaverOffer>? _offerPager;
+  bool _loadingOffers = false;
+  Object? _offerError;
+
+  CustomerBiteSaverRestaurant? get _currentBrowseRestaurant {
+    final session = widget.boundedSession;
+    final access = widget.boundedAccess;
+    if (session == null ||
+        access == null ||
+        !session.isBrowseAccessCurrent(access)) {
+      return null;
+    }
+    return session.currentAcceptedRestaurantFor(
+      widget.boundedRestaurant!.restaurantId,
+    );
+  }
+
+  Restaurant get restaurant {
+    final publicProfile = widget.publicProfile;
+    if (publicProfile != null) {
+      return _customerBiteSaverRestaurantView(
+        publicProfile.restaurant!,
+        offers: publicProfile.offers,
+        hideDistance: true,
+      );
+    }
+    final current = _currentBrowseRestaurant;
+    return current == null
+        ? _restaurant
+        : _customerBiteSaverRestaurantView(current, offers: _boundedOffers);
+  }
+
+  List<CustomerBiteSaverOffer>? get _boundedOffers {
+    final current = _currentBrowseRestaurant;
+    if (current == null) {
+      return widget.publicProfile?.offers ?? widget.boundedRestaurant?.offers;
+    }
+    // Keep server order and replace repeated IDs in place, as Home does.
+    final offers = <String, CustomerBiteSaverOffer>{
+      for (final offer in current.offers) offer.offerId.value: offer,
+      for (final offer
+          in _offerPager?.items ?? const <CustomerBiteSaverOffer>[])
+        offer.offerId.value: offer,
+    };
+    return offers.values.toList(growable: false);
+  }
+
+  void _bindOfferPager() {
+    final current = _currentBrowseRestaurant;
+    final pager = current == null
+        ? null
+        : widget.boundedSession!.offerPagerFor(current.restaurantId);
+    if (identical(pager, _offerPager)) return;
+    _offerPager?.removeListener(_offersChanged);
+    _offerPager = pager;
+    pager?.addListener(_offersChanged);
+  }
+
+  void _browseChanged() {
+    _bindOfferPager();
+    _offersChanged();
+  }
+
+  void _offersChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadMoreOffers() async {
+    final current = _currentBrowseRestaurant;
+    if (current == null || _loadingOffers || _offerPager?.isLoading == true) {
+      return;
+    }
+    final session = widget.boundedSession!;
+    setState(() {
+      _loadingOffers = true;
+      _offerError = null;
+    });
+    try {
+      final pager = session.offerPagerFor(current.restaurantId);
+      if (pager == null ||
+          session.offerPageRequiresRestart(current.restaurantId)) {
+        await session.loadOffers(current.restaurantId);
+      } else if (pager.hasRetry) {
+        await pager.retry();
+      } else if (pager.pageEnvelope == null) {
+        await pager.loadInitial();
+      } else {
+        await pager.loadMore();
+      }
+    } catch (error) {
+      if (mounted) _offerError = error;
+    } finally {
+      if (mounted) {
+        _bindOfferPager();
+        setState(() => _loadingOffers = false);
+      }
+    }
+  }
+
+  Widget _buildBrowseOfferContinuation() {
+    final current = _currentBrowseRestaurant;
+    if (current == null) return const SizedBox.shrink();
+    final pager = _offerPager;
+    final loading = _loadingOffers || pager?.isLoading == true;
+    final error = _offerError ?? pager?.error;
+    final restart = widget.boundedSession!.offerPageRequiresRestart(
+      current.restaurantId,
+    );
+    final hasMore =
+        restart ||
+        (pager?.pageEnvelope == null ? current.hasMoreOffers : pager!.hasNext);
+    return Column(
+      children: <Widget>[
+        if (error != null)
+          const Text('Could not load more offers. Please try again.'),
+        if (loading || error != null || hasMore)
+          TextButton(
+            onPressed: loading ? null : _loadMoreOffers,
+            child: Text(
+              loading
+                  ? 'Loading offers…'
+                  : error != null
+                  ? 'Retry offers'
+                  : 'More offers',
+            ),
+          ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    widget.boundedSession?.removeListener(_browseChanged);
+    _offerPager?.removeListener(_offersChanged);
+    // The search coordinator owns the shared pager and its accepted results.
+    super.dispose();
+  }
 
   String _displayText(String value, String fallback) {
     final trimmed = value.trim();
@@ -186,6 +315,8 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   void initState() {
     super.initState();
     _restaurant = widget.restaurant;
+    widget.boundedSession?.addListener(_browseChanged);
+    _bindOfferPager();
     final boundedRestaurant = widget.boundedRestaurant;
     if (boundedRestaurant != null) {
       _isCustomerRestaurantAvailabilityResolved = true;
@@ -1915,6 +2046,8 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                               );
                             }).toList(),
                           ),
+                        if (widget.boundedSession != null)
+                          _buildBrowseOfferContinuation(),
                         if (widget.publicProfile?.cursor != null)
                           TextButton(
                             onPressed: widget.publicProfile!.loading

@@ -53,12 +53,11 @@ final class CustomerBiteSaverBrowseDestinationHandler {
         session: selection.session,
         access: selection.access,
         openBoundedOffer: (profileContext, offer) async {
-          final current = selection.session
-              .currentAcceptedOfferSelectionForAccess(
-                selection.access,
-                selection.restaurant.restaurantId,
-                offer.offerId,
-              );
+          _requireCurrent(selection);
+          final current = selection.session.currentAcceptedOfferSelectionFor(
+            selection.restaurant.restaurantId,
+            offer.offerId,
+          );
           if (current == null ||
               current.offer.offerOccurrence != offer.offerOccurrence) {
             throw const CustomerBiteSaverFreshSearchRequiredException();
@@ -69,7 +68,6 @@ final class CustomerBiteSaverBrowseDestinationHandler {
               restaurant: current.restaurant,
               offer: current.offer,
               session: selection.session,
-              access: selection.access,
             ),
           );
         },
@@ -142,8 +140,8 @@ final class CustomerBiteSaverBrowseDestinationHandler {
         session: selection.session,
         access: selection.access,
         openBoundedRestaurant: (detailContext) async {
-          final current = selection.session.currentAcceptedRestaurantForAccess(
-            selection.access,
+          _requireCurrent(selection);
+          final current = selection.session.currentAcceptedRestaurantFor(
             selection.restaurant.restaurantId,
           );
           if (current == null) {
@@ -154,7 +152,6 @@ final class CustomerBiteSaverBrowseDestinationHandler {
             CustomerBiteSaverBrowseSelection.restaurantProfile(
               restaurant: current,
               session: selection.session,
-              access: selection.access,
             ),
           );
         },
