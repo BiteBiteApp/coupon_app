@@ -14,6 +14,7 @@ import '../models/coupon.dart';
 import '../models/daily_special.dart';
 import '../models/demo_redemption_store.dart';
 import '../models/restaurant.dart';
+import '../models/bitesaver_cuisine.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_sign_in_gate.dart';
@@ -1227,7 +1228,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return _normalizeRestaurantSearchText(restaurant.name).contains(query) ||
         _normalizeRestaurantSearchText(restaurant.city).contains(query) ||
         _normalizeRestaurantSearchText(restaurant.zipCode).contains(query) ||
-        _normalizeRestaurantSearchText(restaurant.bio ?? '').contains(query);
+        _normalizeRestaurantSearchText(restaurant.bio ?? '').contains(query) ||
+        BiteSaverCuisine.matches(restaurant.cuisineTags, query);
   }
 
   bool matchesGeneralSearch(Restaurant restaurant, Coupon coupon) {

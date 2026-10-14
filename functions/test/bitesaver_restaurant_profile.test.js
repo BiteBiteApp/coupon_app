@@ -3763,3 +3763,38 @@ test("Functions entry point registers the exact lifecycle callables with narrow 
     /function geocodeBiteSaverRestaurantAddress[\s\S]*?getGeocodingApiKey: \(\) => googleMapsApiKey\.value\(\)/,
   );
 });
+
+test('cuisine owner save binds exact identity, preserves omissions, clears and retries', async () => {
+  const store = new AtomicAccountStore();
+  const initial = trustedAccount({cuisineTags:['Thai'], privateUnknown:{keep:42}, businessHours:fullBusinessHours()});
+  store.seed(ownerId, initial);
+  store.seed(otherOwnerId, trustedAccount({uid:otherOwnerId,cuisineTags:['Italian']}));
+  const harness=profileHarness(store);
+  const request=sectionRequestData('basicInformation',{profile:{...basicInformationProfile(),cuisineTags:[' Barbecue ','barbecue','Southern']}});
+  const first=await saveBiteSaverRestaurantProfileHandler(callableRequest(ownerAuth(),request),harness.dependencies);
+  assert.equal(first.documentId,ownerId);
+  assert.deepEqual(store.get(ownerId).cuisineTags,['Barbecue','Southern']);
+  for(const field of ['uid','restaurantName','email','businessHours','privateUnknown','locationVersion']) assert.deepEqual(store.get(ownerId)[field],initial[field],field);
+  assert.deepEqual(store.get(otherOwnerId).cuisineTags,['Italian']);
+  await saveBiteSaverRestaurantProfileHandler(callableRequest(ownerAuth(),request),harness.dependencies);
+  assert.equal(store.writeDecisions.length,1);
+  await assert.rejects(saveBiteSaverRestaurantProfileHandler(callableRequest(ownerAuth(),{...request,profile:{...request.profile,cuisineTags:['Thai']}}),harness.dependencies),expectHttpsError('failed-precondition'));
+  const omitted=sectionRequestData('basicInformation',{requestId:'omit-cuisine',expectedProfileVersion:first.profileVersion});
+  const second=await saveBiteSaverRestaurantProfileHandler(callableRequest(ownerAuth(),omitted),harness.dependencies);
+  assert.deepEqual(store.get(ownerId).cuisineTags,['Barbecue','Southern']);
+  const clear={...omitted,requestId:'clear-cuisine',expectedProfileVersion:second.profileVersion,profile:{...omitted.profile,cuisineTags:[]}};
+  await saveBiteSaverRestaurantProfileHandler(callableRequest(ownerAuth(),clear),harness.dependencies);
+  assert.deepEqual(store.get(ownerId).cuisineTags,[]);
+  assert.equal(harness.geocodeCalls.length,0);
+});
+
+test('cuisine write denies unauthenticated, anonymous, cross-owner and malformed input', async () => {
+  const store=new AtomicAccountStore(); store.seed(ownerId,trustedAccount({uid:otherOwnerId}));
+  const harness=profileHarness(store);
+  const data=sectionRequestData('basicInformation',{profile:{...basicInformationProfile(),cuisineTags:['BBQ']}});
+  for(const auth of [null,anonymousAuth(),ownerAuth()]) await assert.rejects(saveBiteSaverRestaurantProfileHandler(callableRequest(auth,data),harness.dependencies));
+  store.seed(ownerId,trustedAccount());
+  await assert.rejects(saveBiteSaverRestaurantProfileHandler(callableRequest(ownerAuth(),{...data,documentId:otherOwnerId}),harness.dependencies),expectHttpsError('invalid-argument'));
+  for(const cuisineTags of [null,'BBQ',[1],['a'.repeat(101)],Array(33).fill('Thai'),['Thai\nprivate']]) await assert.rejects(saveBiteSaverRestaurantProfileHandler(callableRequest(ownerAuth(),{...data,profile:{...data.profile,cuisineTags}}),harness.dependencies),expectHttpsError('invalid-argument'));
+  assert.equal(store.writeDecisions.length,0);
+});

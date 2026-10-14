@@ -1,3 +1,4 @@
+import {normalizeBiteSaverCuisines} from "./bitesaver_cuisine.js";
 import { createHash } from "node:crypto";
 import { HttpsError } from "firebase-functions/v2/https";
 import {
@@ -40,7 +41,7 @@ const allowedProfileKeys = new Set([
   "mainImageUrl",
   "businessHours",
 ]);
-const allowedBasicInformationProfileKeys = new Set([
+const requiredBasicInformationProfileKeys = new Set([
   "streetAddress",
   "city",
   "state",
@@ -49,6 +50,7 @@ const allowedBasicInformationProfileKeys = new Set([
   "website",
   "bio",
 ]);
+const allowedBasicInformationProfileKeys = new Set([...requiredBasicInformationProfileKeys, "cuisineTags"]);
 const allowedBusinessHoursProfileKeys = new Set(["businessHours"]);
 const allowedMainImageProfileKeys = new Set(["mainImageUrl"]);
 const allowedReviewRequestKeys = new Set([
@@ -142,6 +144,7 @@ export type BiteSaverBasicInformationProfile =
     phone: string;
     website: string | null;
     bio: string | null;
+    cuisineTags?: readonly string[];
   };
 
 export type BiteSaverSectionProfile =
@@ -559,8 +562,13 @@ function normalizedBasicInformationProfile(
     invalidArgument("Profile must be an object.");
   }
   requireExactKeys(value, allowedBasicInformationProfileKeys, "Profile");
-  requireAllKeys(value, allowedBasicInformationProfileKeys, "Profile");
+  requireAllKeys(value, requiredBasicInformationProfileKeys, "Profile");
 
+  let cuisineTags: readonly string[] | undefined;
+  if (hasOwn(value, "cuisineTags")) {
+    try { cuisineTags = normalizeBiteSaverCuisines(value.cuisineTags); }
+    catch (error) { invalidArgument((error as Error).message); }
+  }
   const phone = requiredText(value.phone, {
     label: "Phone",
     maximumLength: maximumPhoneLength,
@@ -594,6 +602,7 @@ function normalizedBasicInformationProfile(
     phone,
     website,
     bio,
+    ...(cuisineTags === undefined ? {} : {cuisineTags}),
   };
 }
 
@@ -891,7 +900,7 @@ function createSectionProfileRequestFingerprint(
   const profile = request.profile;
   const expectedProfileKeys =
     updateSection === "basicInformation"
-      ? allowedBasicInformationProfileKeys
+      ? new Set([...requiredBasicInformationProfileKeys, ...(hasOwn(profile, "cuisineTags") ? ["cuisineTags"] : [])])
       : updateSection === "businessHours"
         ? allowedBusinessHoursProfileKeys
         : allowedMainImageProfileKeys;
@@ -984,6 +993,14 @@ function createSectionProfileRequestFingerprint(
       "profile.bio.value",
       bio ?? "",
     );
+    // Preserve pre-cuisine receipts exactly when the optional field is omitted.
+    if (hasOwn(profile, "cuisineTags")) {
+      const cuisines = normalizeBiteSaverCuisines(profile.cuisineTags);
+      if (JSON.stringify(cuisines) !== JSON.stringify(profile.cuisineTags)) {
+        throw new TypeError("A normalized BiteSaver profile request is required.");
+      }
+      components.push("profile.cuisineTags", JSON.stringify(cuisines));
+    }
   } else if (updateSection === "businessHours") {
     const businessHours = normalizedFingerprintBusinessHours(
       profile.businessHours,
@@ -1627,6 +1644,7 @@ function concurrentStateKey(snapshot: BiteSaverAccountSnapshot): string {
     readString(data.phone),
     readString(data.website),
     readString(data.bio),
+    JSON.stringify(data.cuisineTags ?? null),
     readString(data.mainImageUrl),
     JSON.stringify(data.businessHours ?? null),
     data.couponApplicationSubmitted === true,
@@ -1796,6 +1814,9 @@ function sectionProfileWriteData(
   write.phone = request.profile.phone;
   write.website = request.profile.website;
   write.bio = request.profile.bio;
+  if (request.profile.cuisineTags !== undefined) {
+    write.cuisineTags = request.profile.cuisineTags;
+  }
 
   if (geocoded !== null) {
     write.formattedAddress = geocoded.formattedAddress;

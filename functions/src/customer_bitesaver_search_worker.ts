@@ -1,3 +1,4 @@
+import {publicBiteSaverCuisines} from "./bitesaver_cuisine.js";
 import { createHash, randomBytes } from "node:crypto";
 import {
   createCustomerBiteSaverMembershipFingerprint,
@@ -21,6 +22,7 @@ import {
 } from "./customer_bitesaver_search_contract.js";
 import {
   customerBiteSaverMatchValuesContain,
+  customerBiteSaverRestaurantMatches,
   customerBiteSaverSearchMatchValues,
   compareCustomerBiteSaverFirestoreUtf8,
   dartUtf16FirestoreBytesOrderKey,
@@ -734,6 +736,8 @@ function parentSafeSnapshot(
       ? data.businessHours.slice(0, 7)
       : Object.freeze([]),
     bio: optionalString("bio"),
+    ...(Object.prototype.hasOwnProperty.call(data, "cuisineTags")
+      ? {cuisineTags: publicBiteSaverCuisines(data.cuisineTags)} : {}),
     biteScoreCatalogRestaurantId:
       optionalString("biteScoreCatalogRestaurantId"),
     biteSaverCatalogBindingId: optionalString("biteSaverCatalogBindingId"),
@@ -788,14 +792,9 @@ function buildRestaurantCandidate(
       restaurantState: data.state,
       restaurantZipCode: data.zipCode,
     });
-    parentMatches = customerBiteSaverMatchValuesContain(
+    parentMatches = customerBiteSaverRestaurantMatches(
       session.criteria.normalizedSearchQuery,
-      customerBiteSaverSearchMatchValues([
-        displayName,
-        data.city,
-        data.zipCode,
-        data.bio,
-      ]),
+      safeSnapshot,
     );
   } catch {
     return null;
@@ -1265,14 +1264,9 @@ function parseCandidate(
       restaurantState: safeSnapshot.state,
       restaurantZipCode: safeSnapshot.zipCode,
     }) ? 0 : 1;
-    parentMatches = customerBiteSaverMatchValuesContain(
+    parentMatches = customerBiteSaverRestaurantMatches(
       session.criteria.normalizedSearchQuery,
-      customerBiteSaverSearchMatchValues([
-        safeSnapshot.displayName,
-        safeSnapshot.city,
-        safeSnapshot.zipCode,
-        safeSnapshot.bio,
-      ]),
+      safeSnapshot,
     );
     expectedDisplayNameOrderKey = lowercaseDisplayNameOrderKey(
       safeSnapshot.displayName as string,

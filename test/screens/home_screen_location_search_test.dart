@@ -125,6 +125,42 @@ void main() {
     return tester.state(find.byType(HomeScreen));
   }
 
+  testWidgets(
+    'saved cuisines participate in existing Home search without partial aliases',
+    (tester) async {
+      final state = await pumpHome(tester, geocoder: (_) async => []);
+      const cafe = Restaurant(
+        documentId: 'owner-account',
+        coupons: [],
+        name: 'Ordinary Cafe',
+        distance: '',
+        city: 'Orlando',
+        state: 'FL',
+        zipCode: '32801',
+        cuisineTags: ['Barbecue', 'American'],
+      );
+      const coupon = Coupon(
+        id: 'lunch',
+        restaurant: 'Ordinary Cafe',
+        title: 'Lunch deal',
+        distance: '',
+        usageRule: 'Unlimited',
+      );
+      for (final query in ['BBQ', ' barbecue ', 'Ordinary Cafe']) {
+        state.generalSearchQuery = query;
+        expect(state.matchesGeneralSearch(cafe, coupon), isTrue, reason: query);
+      }
+      for (final query in ['can', 'BBQish', 'Thai']) {
+        state.generalSearchQuery = query;
+        expect(
+          state.matchesGeneralSearch(cafe, coupon),
+          isFalse,
+          reason: query,
+        );
+      }
+    },
+  );
+
   testWidgets('older success cannot replace a newer successful center', (
     tester,
   ) async {

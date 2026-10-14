@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/restaurant.dart';
+import '../models/bitesaver_cuisine.dart';
 
 typedef BiteSaverCallableInvoker =
     Future<Object?> Function(String callableName, Map<String, dynamic> payload);
@@ -79,6 +80,7 @@ class BiteSaverBasicInformationProfileInput
   final String phone;
   final String website;
   final String bio;
+  final List<String>? cuisineTags;
 
   const BiteSaverBasicInformationProfileInput({
     required this.streetAddress,
@@ -88,6 +90,7 @@ class BiteSaverBasicInformationProfileInput
     required this.phone,
     required this.website,
     required this.bio,
+    this.cuisineTags,
   });
 
   @override
@@ -100,6 +103,8 @@ class BiteSaverBasicInformationProfileInput
       'phone': _normalizeSingleLine(phone),
       'website': _normalizeOptionalSingleLine(website),
       'bio': _normalizeOptionalMultiline(bio),
+      if (cuisineTags != null)
+        'cuisineTags': BiteSaverCuisine.normalize(cuisineTags!),
     };
   }
 }

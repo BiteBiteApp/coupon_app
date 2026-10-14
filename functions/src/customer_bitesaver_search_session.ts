@@ -1,3 +1,4 @@
+import {normalizeBiteSaverCuisines} from "./bitesaver_cuisine.js";
 import {getCustomerRestaurantMedia, type CustomerRestaurantMedia} from "./bitesaver_customer_media.js";
 import {
   startCustomerBiteSaverProfileUseContext,
@@ -94,6 +95,7 @@ import {
 import {
   customerBiteSaverMatchValuesContain,
   customerBiteSaverSearchMatchValues,
+  customerBiteSaverRestaurantMatches,
   compareCustomerBiteSaverFirestoreUtf8,
   dartUtf16FirestoreBytesCursorValue,
   dartUtf16FirestoreBytesOrderKey,
@@ -2139,7 +2141,12 @@ function accountIdOrderKeyCursorValue(value: unknown): string | null {
 function parsePrivateSafeRestaurantSnapshot(
   value: unknown,
 ): Readonly<Record<string, unknown>> | null {
-  if (!hasExactRecordKeys(value, privateSafeRestaurantSnapshotKeys)) {
+  const hasCuisines = value !== null && typeof value === "object" &&
+    Object.prototype.hasOwnProperty.call(value, "cuisineTags");
+  const keys = hasCuisines
+    ? [...privateSafeRestaurantSnapshotKeys, "cuisineTags"].sort()
+    : privateSafeRestaurantSnapshotKeys;
+  if (!hasExactRecordKeys(value, keys)) {
     return null;
   }
   if (
@@ -2162,6 +2169,12 @@ function parsePrivateSafeRestaurantSnapshot(
     (value.businessHours.length !== 0 && value.businessHours.length !== 7)
   ) {
     return null;
+  }
+  let cuisineTags: readonly string[] | undefined;
+  if (hasCuisines) {
+    try { cuisineTags = normalizeBiteSaverCuisines(value.cuisineTags); }
+    catch { return null; }
+    if (JSON.stringify(cuisineTags) !== JSON.stringify(value.cuisineTags)) return null;
   }
   const seenDays = new Set<string>();
   const businessHours = value.businessHours.map((entry) => {
@@ -2203,6 +2216,7 @@ function parsePrivateSafeRestaurantSnapshot(
     website: value.website,
     businessHours: Object.freeze(businessHours),
     bio: value.bio,
+    ...(cuisineTags === undefined ? {} : {cuisineTags}),
     biteScoreCatalogRestaurantId: value.biteScoreCatalogRestaurantId,
     biteSaverCatalogBindingId: value.biteSaverCatalogBindingId,
   });
@@ -3207,14 +3221,9 @@ function currentParentFromRaw(value: {
     restaurantState: projection.state,
     restaurantZipCode: projection.zipCode,
   });
-  const parentMatches = customerBiteSaverMatchValuesContain(
+  const parentMatches = customerBiteSaverRestaurantMatches(
     value.session.criteria.normalizedSearchQuery,
-    customerBiteSaverSearchMatchValues([
-      projection.displayName,
-      projection.city,
-      projection.zipCode,
-      projection.bio,
-    ]),
+    projection,
   );
   if (
     distanceMiles > value.session.criteria.radiusMiles ||

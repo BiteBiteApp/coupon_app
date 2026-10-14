@@ -13150,3 +13150,33 @@ for (const profileFirst of [true, false]) test(`genuine profile and Browse share
   }
   assert.equal([...database.documents.values()].filter(d=>d.role==='deviceCouponUsage').length,1);
 });
+
+test('cuisine-only worker matches survive public restaurant and offer-page revalidation', async () => {
+  for (const [cuisineTags, searchText, expected] of [
+    [['Barbecue'], 'BBQ', 1], [['BBQ'], 'barbecue', 1],
+    [['American'], 'can', 0], [[], 'BBQ', 0], [[], 'Ordinary Cafe', 1],
+  ]) {
+    const {database, context, response: started} = await startSession(undefined, {request: {searchText}});
+    const accountId = 'cuisine-owner';
+    const restaurant = rawRestaurant(1, {restaurantName: 'Ordinary Cafe', cuisineTags});
+    const coupon = rawCoupon(1);
+    const parent = buildBiteSaverRestaurantIndex({sourceDocumentId: accountId, source: restaurant, identityKeyV1, now: new Date(nowMs)});
+    const offer = buildBiteSaverCouponOfferIndex({restaurantAccountId: accountId, sourceDocumentId: 'lunch', offer: coupon, restaurant, identityKeyV1, now: new Date(nowMs)});
+    database.documents.set(`restaurant_accounts/${accountId}`, restaurant);
+    database.documents.set(`restaurant_accounts/${accountId}/coupons/lunch`, coupon);
+    database.documents.set(`${restaurantSearchIndexCollection}/${parent.indexDocumentId}`, parent);
+    database.documents.set(`${biteSaverOfferIndexCollection}/${offer.indexDocumentId}`, offer);
+    await advanceStatusWorkerUntil(database, context, started, session => session.state === 'ready');
+    const page = await getCustomerBiteSaverSearchPageHandler(pageRequest(started), context);
+    assert.equal(page.restaurants.length, expected, searchText);
+    assertNoPrivateCanaries(page);
+    if (expected) {
+      const result = page.restaurants[0];
+      assert.equal(result.restaurantId, customerBiteSaverOpaqueRestaurantId(identityKeyV1, accountId));
+      assert.equal(Object.hasOwn(result, 'cuisineTags'), false);
+      const offers = await getCustomerBiteSaverOfferPageHandler(offerPageRequest(started, result.restaurantId), context);
+      assert.equal(offers.offers.length, 1);
+      assertNoPrivateCanaries(offers);
+    }
+  }
+});

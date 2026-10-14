@@ -1,3 +1,4 @@
+import {publicBiteSaverCuisines} from "./bitesaver_cuisine.js";
 import {managedSpecialForPublication, publicOwnerGallery, readOwnerMedia} from "./bitesaver_owner_media.js";
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
@@ -716,6 +717,8 @@ function biteSaverPublicProfileProjection(
     ...(phone === null ? {} : { phone }),
     ...(website === null ? {} : { website }),
     ...(bio === null ? {} : { bio }),
+    ...(Object.prototype.hasOwnProperty.call(data, "cuisineTags")
+      ? {cuisineTags: publicBiteSaverCuisines(data.cuisineTags)} : {}),
     ...(primaryImageUrl === null ? {} : { primaryImageUrl }),
     ...(businessHours === null ? {} : { businessHours }),
     ...(formattedAddress === null ? {} : { formattedAddress }),
@@ -1696,6 +1699,7 @@ const biteSaverRestaurantCatalogContributionFields = Object.freeze([
   "phone",
   "website",
   "bio",
+  "cuisineTags",
   "primaryImageUrl",
   "businessHours",
   "formattedAddress",

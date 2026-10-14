@@ -13,6 +13,7 @@ import '../models/daily_special.dart';
 import '../models/local_coupon_store.dart';
 import '../models/local_restaurant_profile_store.dart';
 import '../models/restaurant.dart';
+import '../models/bitesaver_cuisine.dart';
 import '../services/app_error_text.dart';
 import '../services/bitesaver_image_upload_service.dart';
 import '../services/bitesaver_restaurant_lifecycle_service.dart';
@@ -279,6 +280,7 @@ class _RestaurantCreateCouponScreenState
   final TextEditingController streetAddressController = TextEditingController();
   final TextEditingController websiteController = TextEditingController();
   final TextEditingController bioController = TextEditingController();
+  final TextEditingController cuisineController = TextEditingController();
   final TextEditingController titleController = TextEditingController();
   final TextEditingController couponCodeController = TextEditingController();
   final TextEditingController couponDetailsController = TextEditingController();
@@ -656,6 +658,7 @@ class _RestaurantCreateCouponScreenState
     phoneController.clear();
     websiteController.clear();
     bioController.clear();
+    cuisineController.clear();
     requestedRestaurantNameController.clear();
 
     businessHours = RestaurantBusinessHours.defaultWeek();
@@ -843,6 +846,7 @@ class _RestaurantCreateCouponScreenState
       streetAddressController: streetAddressController.text,
       websiteController: websiteController.text,
       bioController: bioController.text,
+      cuisineController: cuisineController.text,
     };
     _initialProfileBusinessHours = [
       for (final entry in businessHours) entry.copyWith(),
@@ -1364,6 +1368,7 @@ class _RestaurantCreateCouponScreenState
     streetAddressController.dispose();
     websiteController.dispose();
     bioController.dispose();
+    cuisineController.dispose();
     titleController.dispose();
     couponCodeController.dispose();
     couponDetailsController.dispose();
@@ -1698,6 +1703,7 @@ class _RestaurantCreateCouponScreenState
       phone: phoneController.text,
       website: websiteController.text,
       bio: bioController.text,
+      cuisineTags: BiteSaverCuisine.parse(cuisineController.text),
     );
   }
 
@@ -2098,6 +2104,9 @@ class _RestaurantCreateCouponScreenState
             (data[Restaurant.fieldWebsite] as String?)?.trim() ?? '';
         bioController.text =
             (data[Restaurant.fieldBio] as String?)?.trim() ?? '';
+        cuisineController.text = BiteSaverCuisine.fromStored(
+          data[Restaurant.fieldCuisineTags],
+        ).join(', ');
         final storedImageUrl =
             (data[Restaurant.fieldMainImageUrl] as String?)?.trim() ?? '';
         restaurantImageUrl = storedImageUrl.isEmpty ? null : storedImageUrl;
@@ -2750,6 +2759,11 @@ class _RestaurantCreateCouponScreenState
       return 'Please complete the required profile fields: street, city, state, ZIP, and phone.';
     }
 
+    try {
+      BiteSaverCuisine.parse(cuisineController.text);
+    } on FormatException catch (error) {
+      return error.message;
+    }
     return null;
   }
 
@@ -3189,6 +3203,7 @@ class _RestaurantCreateCouponScreenState
       streetAddressController: streetAddressController.text,
       websiteController: websiteController.text,
       bioController: bioController.text,
+      cuisineController: cuisineController.text,
     };
     final request = BiteSaverProfileSaveRequest.ownerBasicInformationUpdate(
       profile: _basicInformationProfileInput(),
@@ -3202,6 +3217,11 @@ class _RestaurantCreateCouponScreenState
       successMessage: 'Restaurant profile saved.',
       reconcile: (authoritativeRestaurant) {
         final authoritativeTextValues = <TextEditingController, String>{
+          cuisineController: authoritativeRestaurant == null
+              ? BiteSaverCuisine.parse(
+                  submittedTextValues[cuisineController]!,
+                ).join(', ')
+              : authoritativeRestaurant.cuisineTags.join(', '),
           cityController:
               authoritativeRestaurant?.city ??
               submittedTextValues[cityController]!,
@@ -5415,6 +5435,21 @@ class _RestaurantCreateCouponScreenState
             ),
           ),
         ],
+        const SizedBox(height: 16),
+        TextField(
+          key: const ValueKey('owner-cuisine-field'),
+          controller: cuisineController,
+          maxLength: BiteSaverCuisine.maxInputLength,
+          maxLines: 2,
+          decoration:
+              buildInputDecoration(
+                'Cuisine',
+                'Barbecue, American, Southern',
+              ).copyWith(
+                helperText: 'Separate cuisines with commas.',
+                counterText: '',
+              ),
+        ),
         const SizedBox(height: 16),
         TextField(
           controller: emailController,

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'coupon.dart';
+import 'bitesaver_cuisine.dart';
 import 'daily_special.dart';
 
 class Restaurant {
@@ -28,6 +29,7 @@ class Restaurant {
   static const String legacyFieldStreetAddress = 'address';
   static const String fieldWebsite = 'website';
   static const String fieldBio = 'bio';
+  static const String fieldCuisineTags = 'cuisineTags';
   static const String fieldMainImageUrl = 'mainImageUrl';
   static const String legacyFieldImageUrl = 'imageUrl';
   static const String fieldBusinessHours = 'businessHours';
@@ -58,6 +60,7 @@ class Restaurant {
   final String? streetAddress;
   final String? website;
   final String? bio;
+  final List<String> cuisineTags;
   final String? mainImageUrl;
   final List<RestaurantBusinessHours> businessHours;
   final double? latitude;
@@ -83,6 +86,7 @@ class Restaurant {
     this.streetAddress,
     this.website,
     this.bio,
+    this.cuisineTags = const [],
     this.mainImageUrl,
     this.businessHours = const [],
     this.latitude,
@@ -234,6 +238,7 @@ class Restaurant {
           _readString(data[legacyFieldStreetAddress]),
       website: _readString(data[fieldWebsite]),
       bio: _readString(data[fieldBio]),
+      cuisineTags: BiteSaverCuisine.fromStored(data[fieldCuisineTags]),
       mainImageUrl:
           _readString(data[fieldMainImageUrl]) ??
           _readString(data[legacyFieldImageUrl]),

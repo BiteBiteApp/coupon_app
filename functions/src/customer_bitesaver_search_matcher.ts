@@ -1,3 +1,4 @@
+import {biteSaverCuisineMatches} from "./bitesaver_cuisine.js";
 export const customerBiteSaverNormalizerVersion =
   "bitestar.bitesaver-home-search-normalizer.v1" as const;
 export const customerBiteSaverMatcherVersion =
@@ -85,6 +86,7 @@ export type CustomerBiteSaverRestaurantMatchSource = Readonly<{
   city?: unknown;
   zipCode?: unknown;
   bio?: unknown;
+  cuisineTags?: unknown;
 }>;
 
 export type CustomerBiteSaverCouponMatchSource = Readonly<{
@@ -116,7 +118,7 @@ export function customerBiteSaverRestaurantMatches(
     restaurant.city,
     restaurant.zipCode,
     restaurant.bio,
-  ]);
+  ]) || biteSaverCuisineMatches(normalizedQuery, restaurant.cuisineTags);
 }
 
 export function customerBiteSaverCouponMatches(

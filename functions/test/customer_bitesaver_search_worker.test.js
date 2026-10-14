@@ -2380,3 +2380,28 @@ test("expired fused lease can be taken over and old completion cannot publish", 
   assert.equal(currentSession(database, started.sessionId).state, "ready");
   assert.equal(database.resultWrites, 1);
 });
+
+test('cuisine membership survives bounded worker continuation and excludes partial, private and distant matches', async () => {
+  for (const [cuisines,query,expected] of [[['Barbecue'],'BBQ',1],[['BBQ'],'barbecue',1],[['Thai'],'bbq',0],[[],'bbq',0],[['American'],'can',0],[[],'Ordinary Cafe',1]]) {
+    const database=new InMemoryWorkerDatabase();
+    const started=await seedSearch(database,{searchText:query});
+    const restaurant=rawRestaurant(1,{restaurantName:'Ordinary Cafe',bio:'Neighborhood food',cuisineTags:cuisines,email:'bbq@private.test'});
+    addRestaurantProjection(database,'cuisine-owner',restaurant);
+    addCouponProjection(database,'cuisine-owner','offer',restaurant,rawCoupon(1,{title:'Lunch deal'}));
+    const distant=rawRestaurant(2,{restaurantName:'Far Cafe',cuisineTags:['BBQ'],latitude:35});
+    addRestaurantProjection(database,'distant-owner',distant);
+    const hidden=rawRestaurant(3,{restaurantName:'Hidden Cafe',cuisineTags:['BBQ'],adminHidden:true});
+    addRestaurantProjection(database,'hidden-owner',hidden);
+    const iterations=await driveUntil(database,started.sessionId,session=>session.state!=='preparing');
+    assert.equal(currentSession(database,started.sessionId).state,'ready');
+    const results=documentsInCollection(database,privateCustomerBiteSaverResultCollection);
+    assert.equal(results.length,expected,JSON.stringify({cuisines,query}));
+    if(expected) {
+      assert.equal(results[0].data.authoritativeAccountId,'cuisine-owner');
+      assert.equal(results[0].data.parentMatches,true);
+      assert.deepEqual(results[0].data.safeRestaurantSnapshot.cuisineTags,cuisines);
+      assert.equal(Object.hasOwn(results[0].data.safeRestaurantSnapshot,'email'),false);
+    }
+    assertIterationBounds(database,iterations);
+  }
+});

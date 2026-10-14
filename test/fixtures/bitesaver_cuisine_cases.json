@@ -1,0 +1,17 @@
+[
+  {"cuisines":["Barbecue"],"query":"BBQ","expected":true},
+  {"cuisines":["BBQ"],"query":"barbecue","expected":true},
+  {"cuisines":["Barbeque"],"query":"  BbQ  ","expected":true},
+  {"cuisines":["Korean   BBQ"],"query":"korean barbecue","expected":true},
+  {"cuisines":["Korean Barbecue"],"query":"bbq","expected":true},
+  {"cuisines":["Barbecue"],"query":"bar","expected":false},
+  {"cuisines":["American"],"query":"can","expected":false},
+  {"cuisines":["Thai"],"query":"thai","expected":true},
+  {"cuisines":["Thai"],"query":"hai","expected":false},
+  {"cuisines":["Italian"],"query":"pizza","expected":false},
+  {"cuisines":["American"],"query":"burgers","expected":false},
+  {"cuisines":["BBQish"],"query":"barbecue","expected":false},
+  {"cuisines":["Southern American"],"query":"southern","expected":true},
+  {"cuisines":[],"query":"bbq","expected":false},
+  {"cuisines":["American"],"query":"","expected":false}
+]

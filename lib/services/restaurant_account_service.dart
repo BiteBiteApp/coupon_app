@@ -10,6 +10,7 @@ import '../models/bitesaver_restaurant_media.dart';
 import '../models/coupon.dart';
 import '../models/daily_special.dart';
 import '../models/restaurant.dart';
+import '../models/bitesaver_cuisine.dart';
 import 'bitesaver_image_upload_service.dart';
 import 'customer_bitesaver_service.dart';
 
@@ -674,6 +675,9 @@ class RestaurantAccountService {
       streetAddress: _readString(data[Restaurant.fieldStreetAddress]),
       website: _readString(data[Restaurant.fieldWebsite]),
       bio: _readString(data[Restaurant.fieldBio]),
+      cuisineTags: BiteSaverCuisine.fromStored(
+        data[Restaurant.fieldCuisineTags],
+      ),
       mainImageUrl: _readString(data[projectionPrimaryImageUrlField]),
       businessHours: RestaurantBusinessHours.listFromFirestore(
         data[Restaurant.fieldBusinessHours],

@@ -240,7 +240,9 @@ void main() {
         'phone',
         'website',
         'bio',
+        'cuisineTags',
       });
+      expect(profile['cuisineTags'], isEmpty);
       expect(profile['phone'], '(352) 555-0199');
       expect(profile['website'], '');
       expect(profile['bio'], '');
@@ -268,6 +270,161 @@ void main() {
       expect(requestSequence, 1);
       expect(find.text('Restaurant profile saved.'), findsOneWidget);
       expect(_fieldText(tester, 'Phone Number'), '(352) 555-0199');
+    },
+  );
+
+  testWidgets(
+    'Cuisine edits normalize, retry safely, preserve pending edits and clear',
+    (tester) async {
+      var account = _approvedAccount();
+      final calls = <Map<String, dynamic>>[];
+      final pending = <Completer<Object?>>[];
+      final service = BiteSaverRestaurantLifecycleService(
+        invokeCallable: (_, payload) {
+          calls.add(Map<String, dynamic>.from(payload));
+          final result = Completer<Object?>();
+          pending.add(result);
+          return result.future;
+        },
+      );
+      await _pumpApplicationScreen(
+        tester,
+        lifecycleService: service,
+        loadAccount: (_) async => account,
+      );
+      await _expandSection(tester, 'Basic Restaurant Information');
+      expect(_fieldText(tester, 'Cuisine'), isEmpty);
+      await tester.enterText(
+        _fieldWithLabel('Cuisine'),
+        ' Barbecue, American , barbecue ',
+      );
+      Future<void> startSave() async {
+        final button = find.widgetWithText(
+          ElevatedButton,
+          'Save Basic Information',
+        );
+        await tester.ensureVisible(button);
+        await tester.tap(button);
+        await tester.pump();
+      }
+
+      await startSave();
+      expect((calls.single['profile'] as Map)['cuisineTags'], [
+        'Barbecue',
+        'American',
+      ]);
+      expect(calls.single, isNot(contains('documentId')));
+      pending[0].completeError(
+        const BiteSaverCallableFailure('unavailable', 'retry'),
+      );
+      await tester.pumpAndSettle();
+      expect(_fieldText(tester, 'Cuisine'), ' Barbecue, American , barbecue ');
+      await startSave();
+      expect(calls[1]['requestId'], calls[0]['requestId']);
+      await tester.enterText(_fieldWithLabel('Cuisine'), 'Southern');
+      account = {
+        ...account,
+        'cuisineTags': ['Barbecue', 'American'],
+        'profileVersion': 5,
+      };
+      pending[1].complete({
+        'documentId': 'owner-1',
+        'approvalStatus': 'approved',
+        'profileVersion': 5,
+        'locationVersion': 2,
+      });
+      await tester.pumpAndSettle();
+      expect(_fieldText(tester, 'Cuisine'), 'Southern');
+      await tester.enterText(_fieldWithLabel('Cuisine'), '');
+      await startSave();
+      expect((calls.last['profile'] as Map)['cuisineTags'], isEmpty);
+      account = {...account, 'cuisineTags': <String>[], 'profileVersion': 6};
+      pending.last.complete({
+        'documentId': 'owner-1',
+        'approvalStatus': 'approved',
+        'profileVersion': 6,
+        'locationVersion': 2,
+      });
+      await tester.pumpAndSettle();
+      expect(_fieldText(tester, 'Cuisine'), isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Cuisine loads saved labels and invalid values never invoke writer',
+    (tester) async {
+      var calls = 0;
+      await _pumpApplicationScreen(
+        tester,
+        lifecycleService: BiteSaverRestaurantLifecycleService(
+          invokeCallable: (_, _) async {
+            calls++;
+            throw StateError('Unexpected save');
+          },
+        ),
+        loadAccount: (_) async => {
+          ..._approvedAccount(),
+          'cuisineTags': ['Thai', 'Southern'],
+        },
+      );
+      await _expandSection(tester, 'Basic Restaurant Information');
+      expect(_fieldText(tester, 'Cuisine'), 'Thai, Southern');
+      for (final invalid in ['x' * 101, 'Thai\nfood', '!!!']) {
+        await tester.enterText(_fieldWithLabel('Cuisine'), invalid);
+        await _tapElevatedButton(tester, 'Save Basic Information');
+        expect(calls, 0);
+        expect(_fieldText(tester, 'Cuisine'), invalid);
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Cuisine is usable at 320dp with large text and clears on owner switch',
+    (tester) async {
+      final ownerA = _TestUser(uid: 'owner-a');
+      final ownerB = _TestUser(uid: 'owner-b');
+      User? currentUser = ownerA;
+      final changes = StreamController<User?>.broadcast(sync: true);
+      addTearDown(changes.close);
+      var calls = 0;
+      await _pumpApplicationScreen(
+        tester,
+        lifecycleService: BiteSaverRestaurantLifecycleService(
+          invokeCallable: (_, _) async {
+            calls++;
+            throw StateError('Unexpected save');
+          },
+        ),
+        loadAccount: (uid) async => {
+          ..._approvedAccount(uid: uid),
+          'cuisineTags': [uid == ownerA.uid ? 'Barbecue' : 'Thai'],
+        },
+        testCurrentUser: ownerA,
+        currentUserProvider: () => currentUser,
+        ownerUserChanges: changes.stream,
+      );
+      tester.view.physicalSize = const Size(320, 640);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpAndSettle();
+      await _expandSection(tester, 'Basic Restaurant Information');
+      await tester.ensureVisible(_fieldWithLabel('Cuisine'));
+      await tester.enterText(_fieldWithLabel('Cuisine'), 'Southern');
+      expect(tester.takeException(), isNull);
+      currentUser = ownerB;
+      changes.add(ownerB);
+      await tester.pumpAndSettle();
+      await _ensureSectionExpanded(
+        tester,
+        'Basic Restaurant Information',
+        visibleWhenExpanded: _fieldWithLabel('Cuisine'),
+      );
+      await tester.ensureVisible(_fieldWithLabel('Cuisine'));
+      expect(_fieldText(tester, 'Cuisine'), 'Thai');
+      expect(calls, 0);
+      expect(tester.takeException(), isNull);
     },
   );
 

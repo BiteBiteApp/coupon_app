@@ -6130,3 +6130,29 @@ test("BiteScore projection and generation commit together; duplicate and private
   await reconcileBiteScoreDishIndex(database, "dish-1", now);
   assert.equal(database.records.get(dishGeneration).generation, before + 3);
 });
+
+test('cuisine source edits and removal invalidate restaurant search without rebuilding offers', async () => {
+  const sourcePath = 'restaurant_accounts/account-1';
+  const initial = biteSaverRestaurant({email: 'private@example.test'});
+  const database = new FakeSearchIndexDatabase({[sourcePath]: initial});
+  const indexId = createSearchIndexDocumentId({entityKind: 'restaurant', sourceKind: 'biteSaverRestaurant', sourceDocumentId: 'account-1'});
+  const indexPath = `restaurant_search_index/${indexId}`;
+  const generation = catalogGenerationPath({entityType: 'restaurant', restaurantAccountId: 'account-1'});
+  await reconcileBiteSaverRestaurantIndex(database, 'account-1', now);
+  const initialGeneration = database.records.get(generation.path).generation;
+  let before = initial;
+  for (const [index, cuisineTags] of [['Barbecue'], ['Thai'], []].entries()) {
+    const after = {...before, cuisineTags};
+    database.records.set(sourcePath, after);
+    await handleBiteSaverRestaurantWrite(database, {restaurantAccountId: 'account-1', before, after, sourceEventId: `cuisine-${index}`, now});
+    const projection = database.records.get(indexPath);
+    assert.deepEqual(projection.cuisineTags, cuisineTags);
+    assert.equal(Object.hasOwn(projection, 'email'), false);
+    assert.equal(database.records.get(generation.path).generation, initialGeneration + index + 1);
+    assert.equal(biteSaverOfferParentFingerprint(after), biteSaverOfferParentFingerprint(initial));
+    await handleBiteSaverRestaurantWrite(database, {restaurantAccountId: 'account-1', before, after, sourceEventId: `cuisine-${index}`, now});
+    assert.equal(database.records.get(generation.path).generation, initialGeneration + index + 1);
+    before = after;
+  }
+  assert.equal([...database.records.keys()].some(path => path.startsWith('private_search_index_jobs/')), false);
+});
