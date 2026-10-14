@@ -1,3 +1,4 @@
+import '../models/bitesaver_restaurant_media.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
 import '../models/customer_bitesaver_search.dart';
@@ -175,6 +176,20 @@ final class CustomerBiteSaverService
       throw const CustomerBiteSaverProtocolException();
     }
     return result;
+  }
+
+  Future<BiteSaverRestaurantMedia> getRestaurantMedia(
+    String restaurantId,
+  ) async {
+    final media = await _invoke(restaurantPageCallableName, {
+      'schemaVersion': 1,
+      'kind': 'restaurantMedia',
+      'restaurantId': restaurantId,
+    }, BiteSaverRestaurantMedia.fromJson);
+    if (media.restaurantId != restaurantId) {
+      throw const CustomerBiteSaverProtocolException();
+    }
+    return media;
   }
 
   Future<CustomerBiteSaverPublicProfileResult> getPublicProfile(

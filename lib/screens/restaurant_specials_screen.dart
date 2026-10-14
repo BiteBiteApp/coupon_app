@@ -1,3 +1,7 @@
+import '../models/bitesaver_restaurant_media.dart';
+import '../widgets/bitesaver_board_photo.dart';
+import '../services/customer_bitesaver_service.dart';
+import 'bitesaver_photo_viewer.dart';
 import 'package:flutter/material.dart';
 
 import '../models/daily_special.dart';
@@ -17,6 +21,7 @@ typedef PublicRestaurantSpecialsLoader =
     Future<List<DailySpecial>> Function(String accountDocumentId);
 
 class RestaurantSpecialsScreen extends StatefulWidget {
+  final BiteSaverRestaurantMedia? media;
   final Restaurant restaurant;
   final PublicRestaurantSpecialsLoader? loadSpecials;
   final List<CustomerBiteSaverOffer>? boundedOffers;
@@ -26,6 +31,7 @@ class RestaurantSpecialsScreen extends StatefulWidget {
 
   const RestaurantSpecialsScreen({
     super.key,
+    this.media,
     required this.restaurant,
     @visibleForTesting this.loadSpecials,
   }) : boundedOffers = null,
@@ -35,6 +41,7 @@ class RestaurantSpecialsScreen extends StatefulWidget {
 
   const RestaurantSpecialsScreen.fromCustomerBiteSaver({
     super.key,
+    this.media,
     required this.restaurant,
     required List<CustomerBiteSaverOffer> offers,
     required this.openImage,
@@ -49,6 +56,7 @@ class RestaurantSpecialsScreen extends StatefulWidget {
 }
 
 class _RestaurantSpecialsScreenState extends State<RestaurantSpecialsScreen> {
+  late BiteSaverRestaurantMedia? _media = widget.media;
   late final Future<List<DailySpecial>> _specialsFuture = _loadSpecials();
   late List<CustomerBiteSaverOffer>? _offers = widget.boundedOffers;
   late bool _hasMoreOffers = widget.hasMoreOffers;
@@ -93,6 +101,10 @@ class _RestaurantSpecialsScreenState extends State<RestaurantSpecialsScreen> {
             await RestaurantAccountService.loadCustomerRestaurantProjectionById(
               accountDocumentId,
             );
+        final mediaId = projectionData?['publicRestaurantId'];
+        if (_media == null && mediaId is String) {
+          _media = await CustomerBiteSaverService().getRestaurantMedia(mediaId);
+        }
         specials =
             RestaurantAccountService.customerRestaurantFromProjectionData(
                   projectionData,
@@ -109,7 +121,12 @@ class _RestaurantSpecialsScreenState extends State<RestaurantSpecialsScreen> {
     }
 
     final now = DateTime.now();
-    return DailySpecial.visibleSpecialsAt(specials, now);
+    return DailySpecial.visibleSpecialsAt(
+      specials
+          .where((special) => special.id != 'bitesaver_managed_board')
+          .toList(),
+      now,
+    );
   }
 
   @override
@@ -150,17 +167,48 @@ class _RestaurantSpecialsScreenState extends State<RestaurantSpecialsScreen> {
                     child: CircularProgressIndicator(),
                   ),
                 )
+              else if (snapshot.hasError)
+                const Text(
+                  'Could not load the published Daily Specials. Please reopen this board to retry.',
+                )
               else
                 BiteSaverSpecialsBoard(
                   restaurantName: restaurantName,
                   emptyMessage: _hasMoreOffers
                       ? 'More offers may include Daily Specials.'
                       : 'No specials posted right now.',
-                  entries: _offers != null
+                  entries: _media?.photoBoard == true
+                      ? [
+                          if (_media!.board?.shouldShowPubliclyAt(
+                                    DateTime.now(),
+                                  ) ==
+                                  true &&
+                              _media!.board!.imageUrl != null)
+                            BiteSaverBoardPhoto(
+                              imageUrl: _media!.board!.imageUrl!,
+                              onTap: () => widget.openImage != null
+                                  ? widget.openImage!(
+                                      context,
+                                      _media!.board!.imageUrl!,
+                                    )
+                                  : Navigator.push(
+                                      context,
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => BiteSaverPhotoViewer(
+                                          title:
+                                              '$restaurantName Daily Specials',
+                                          imageUrl: _media!.board!.imageUrl!,
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                        ]
+                      : _offers != null
                       ? [
                           for (final offer in _offers!)
                             if (offer.offerType ==
-                                CustomerBiteSaverOfferType.dailySpecial)
+                                    CustomerBiteSaverOfferType.dailySpecial &&
+                                offer.offerId.value != _media?.boardOfferId)
                               BiteSaverSpecialsEntry.fromOffer(
                                 offer: offer,
                                 onImageTap: widget.openImage == null
@@ -178,7 +226,8 @@ class _RestaurantSpecialsScreenState extends State<RestaurantSpecialsScreen> {
                 ),
               if (_moreError != null)
                 const Text('Could not load more specials. Please try again.'),
-              if (_hasMoreOffers || _moreError != null)
+              if (_media?.photoBoard != true &&
+                  (_hasMoreOffers || _moreError != null))
                 TextButton(
                   onPressed: _loadingMore ? null : _loadMore,
                   child: Text(

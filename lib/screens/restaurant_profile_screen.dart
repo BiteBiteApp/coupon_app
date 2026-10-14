@@ -1,3 +1,6 @@
+import '../models/bitesaver_restaurant_media.dart';
+import '../services/customer_bitesaver_service.dart';
+import '../widgets/bitesaver_board_photo.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -52,6 +55,7 @@ typedef PublicRestaurantReportPrompt =
 typedef PublicRestaurantReportSubmitter = BiteSaverReportSubmitter;
 
 class RestaurantProfileScreen extends StatefulWidget {
+  final Future<BiteSaverRestaurantMedia> Function(String)? loadMedia;
   final Restaurant restaurant;
   final CustomerBiteSaverPublicProfile? publicProfile;
   final PublicRestaurantFavoriteLoader? loadFavorite;
@@ -71,6 +75,7 @@ class RestaurantProfileScreen extends StatefulWidget {
 
   const RestaurantProfileScreen({
     super.key,
+    this.loadMedia,
     required this.restaurant,
     @visibleForTesting this.loadFavorite,
     @visibleForTesting this.refreshRestaurant,
@@ -90,6 +95,7 @@ class RestaurantProfileScreen extends StatefulWidget {
 
   RestaurantProfileScreen.fromCustomerBiteSaver({
     super.key,
+    this.loadMedia,
     required CustomerBiteSaverRestaurant restaurant,
     required CustomerBiteSaverSearchCoordinator session,
     required CustomerBiteSaverBrowseAccess access,
@@ -120,6 +126,7 @@ class RestaurantProfileScreen extends StatefulWidget {
 
   RestaurantProfileScreen.fromCustomerBiteSaverSaved({
     super.key,
+    this.loadMedia,
     required CustomerBiteSaverRestaurant restaurant,
     required CustomerBiteSaverSavedCoordinator savedCoordinator,
     required this.openBoundedMenu,
@@ -141,6 +148,7 @@ class RestaurantProfileScreen extends StatefulWidget {
 
   RestaurantProfileScreen.fromPublicProfile({
     super.key,
+    this.loadMedia,
     required CustomerBiteSaverPublicProfile profile,
     required this.openBoundedOffer,
     required this.openBoundedMenu,
@@ -168,6 +176,10 @@ class RestaurantProfileScreen extends StatefulWidget {
 }
 
 class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
+  BiteSaverRestaurantMedia? _media;
+  String? _mediaRestaurantId;
+  bool _mediaFailed = false;
+  bool _mediaLoading = false;
   bool _isFavoriteRestaurant = false;
   bool _isSavingFavoriteRestaurant = false;
   bool _showRestaurantInfo = false;
@@ -328,6 +340,8 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   void initState() {
     super.initState();
     _restaurant = widget.restaurant;
+    final mediaId = widget.boundedRestaurant?.restaurantId.value;
+    if (mediaId != null) _loadMedia(mediaId);
     widget.boundedSession?.addListener(_browseChanged);
     _bindOfferPager();
     final boundedRestaurant = widget.boundedRestaurant;
@@ -532,6 +546,8 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                     accountDocumentId,
                   ));
           if (projectionData != null) {
+            final mediaId = projectionData['publicRestaurantId'];
+            if (mediaId is String) _loadMedia(mediaId);
             final publicRestaurant =
                 RestaurantAccountService.customerRestaurantFromProjectionData(
                   projectionData,
@@ -739,6 +755,42 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     );
   }
 
+  Future<void> _loadMedia(String id) async {
+    _mediaRestaurantId = id;
+    _mediaLoading = true;
+    try {
+      final media =
+          await (widget.loadMedia ??
+              CustomerBiteSaverService().getRestaurantMedia)(id);
+      if (!mounted || _mediaRestaurantId != id) return;
+      if (media.restaurantId != id) {
+        throw const FormatException('Restaurant photo identity changed.');
+      }
+      setState(() {
+        _media = media;
+        _mediaFailed = false;
+      });
+    } catch (_) {
+      if (mounted && _mediaRestaurantId == id) {
+        setState(() => _mediaFailed = true);
+      }
+    } finally {
+      if (mounted && _mediaRestaurantId == id) {
+        setState(() => _mediaLoading = false);
+      }
+    }
+  }
+
+  Future<void> _openRestaurantPhotos(BuildContext context, String imageUrl) =>
+      _openProfileView(
+        context,
+        (_) => BiteSaverPhotoViewer(
+          title: restaurant.name,
+          imageUrl: imageUrl,
+          additionalImageUrls: _media?.gallery ?? const [],
+        ),
+      );
+
   Future<void> _openPhoto(
     BuildContext context,
     String imageUrl,
@@ -787,12 +839,17 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
 
   Future<void> _openSpecials(BuildContext context) async {
     final offers = _boundedOffers;
+    if (offers == null && _mediaRestaurantId != null && _media == null) {
+      await _loadMedia(_mediaRestaurantId!);
+      if (!context.mounted || _media == null) return;
+    }
     await _openProfileView(
       context,
       (_) => offers == null
-          ? RestaurantSpecialsScreen(restaurant: restaurant)
+          ? RestaurantSpecialsScreen(restaurant: restaurant, media: _media)
           : RestaurantSpecialsScreen.fromCustomerBiteSaver(
               restaurant: restaurant,
+              media: _media,
               offers: offers,
               hasMoreOffers: _hasMoreProfileOffers,
               loadMoreOffers:
@@ -1088,7 +1145,9 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   }
 
   Widget _buildRestaurantProfileImage() {
-    final imageUrl = restaurant.mainImageUrl;
+    final imageUrl = _media == null
+        ? restaurant.mainImageUrl
+        : _media!.gallery.firstOrNull;
     final fallbackAsset = _placeholderImageForRestaurant(restaurant);
     Widget buildFallback(BuildContext context) =>
         Image.asset(fallbackAsset, fit: BoxFit.cover);
@@ -1109,7 +1168,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
             child: InkWell(
               key: const ValueKey('profile-main-photo'),
               onTap: BiteSaverRestaurantPlaceholderImages.hasRealImage(imageUrl)
-                  ? () => _openPhoto(context, imageUrl!, restaurant.name)
+                  ? () => _openRestaurantPhotos(context, imageUrl!)
                   : null,
               child: BiteSaverRestaurantImage(
                 imageUrl: imageUrl,
@@ -1131,6 +1190,13 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (_mediaFailed && _mediaRestaurantId != null)
+          TextButton(
+            onPressed: _mediaLoading
+                ? null
+                : () => _loadMedia(_mediaRestaurantId!),
+            child: const Text('Retry photos and board'),
+          ),
         _buildCompactActionButton(
           icon: Icons.call,
           label: 'Call',
@@ -1157,7 +1223,9 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   Widget _buildSpecialsBoard() {
     final offers = _boundedOffers;
     final specials = DailySpecial.visibleSpecialsAt(
-      restaurant.dailySpecials,
+      restaurant.dailySpecials
+          .where((special) => special.id != 'bitesaver_managed_board')
+          .toList(),
       DateTime.now(),
     );
     return Semantics(
@@ -1174,7 +1242,24 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
             emptyMessage: _hasMoreProfileOffers
                 ? 'View More for additional offers and specials.'
                 : 'No specials posted right now.',
-            entries: offers == null
+            entries:
+                offers == null && _mediaRestaurantId != null && _media == null
+                ? const []
+                : _media?.photoBoard == true
+                ? [
+                    if (_media!.board?.shouldShowPubliclyAt(DateTime.now()) ==
+                            true &&
+                        _media!.board!.imageUrl != null)
+                      BiteSaverBoardPhoto(
+                        imageUrl: _media!.board!.imageUrl!,
+                        onTap: () => _openPhoto(
+                          context,
+                          _media!.board!.imageUrl!,
+                          '${restaurant.name} Daily Specials',
+                        ),
+                      ),
+                  ]
+                : offers == null
                 ? [
                     for (final special in specials)
                       BiteSaverLegacySpecialsEntry(special: special),
@@ -1182,7 +1267,8 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                 : [
                     for (final offer in offers)
                       if (offer.offerType ==
-                          CustomerBiteSaverOfferType.dailySpecial)
+                              CustomerBiteSaverOfferType.dailySpecial &&
+                          offer.offerId.value != _media?.boardOfferId)
                         BiteSaverSpecialsEntry.fromOffer(
                           offer: offer,
                           onTap: widget.openBoundedOffer == null

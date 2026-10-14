@@ -1,3 +1,4 @@
+import {managedSpecialForPublication, publicOwnerGallery, readOwnerMedia} from "./bitesaver_owner_media.js";
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
 import { domainToASCII, domainToUnicode } from "node:url";
@@ -725,6 +726,7 @@ function biteSaverPublicProfileProjection(
 function biteSaverRestaurantPrimaryImageUrl(
   data: SearchIndexSourceData,
 ): string | null {
+  if (data.ownerMedia != null) return publicOwnerGallery(data).map(customerBiteSaverPublicImageUrl).find(url => url !== null) ?? null;
   return publicProfileUrl(
     Object.prototype.hasOwnProperty.call(data, "mainImageUrl")
       ? data.mainImageUrl
@@ -1540,6 +1542,7 @@ export function biteSaverOfferParentFingerprint(
       fingerprintScalar(descriptor.restaurantPrimaryImageUrl),
     ],
     ["restaurantBio", fingerprintScalar(descriptor.restaurantBio)],
+    ...(data.ownerMedia == null ? [] : [["ownerMediaVersion", readOwnerMedia(data).version]]),
     ["searchMatchComplete", parentSearchMatch.complete],
     ["searchMatchValues", parentSearchMatch.values],
   ]);
@@ -2886,6 +2889,10 @@ export function buildBiteSaverDailySpecialOfferIndex(value: {
   if (value.offer === null || value.restaurant === null) {
     return null;
   }
+  const published = managedSpecialForPublication(value.restaurant, value.sourceDocumentId, value.offer);
+  if (published === null) return null;
+  value = {...value, offer: published};
+  if (value.offer === null || value.restaurant === null) return null;
   const parent = biteSaverOfferParentDescriptor(value.restaurant);
   const storedRestaurantId = readString(value.offer.restaurantId);
   const storedOwnerUid = readString(value.offer.ownerUid);

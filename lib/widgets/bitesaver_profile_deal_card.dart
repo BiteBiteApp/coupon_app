@@ -1,3 +1,4 @@
+import '../screens/bitesaver_photo_viewer.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
@@ -160,6 +161,7 @@ class BiteSaverSpecialsEntry extends StatelessWidget {
                 onTap: onImageTap,
                 child: SizedBox(
                   height: 110,
+                  width: double.infinity,
                   child: BiteSaverRestaurantImage(
                     imageUrl: image,
                     fit: BoxFit.contain,
@@ -234,6 +236,29 @@ class BiteSaverLegacySpecialsEntry extends StatelessWidget {
                   title: _displayText(special.title, 'Daily special'),
                   isSpecial: true,
                 ),
+                if (special.imageUrl?.trim().isNotEmpty == true)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: SizedBox(
+                      height: 110,
+                      width: double.infinity,
+                      child: InkWell(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => BiteSaverPhotoViewer(
+                              title: special.title,
+                              imageUrl: special.imageUrl!,
+                            ),
+                          ),
+                        ),
+                        child: BiteSaverRestaurantImage(
+                          imageUrl: special.imageUrl,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                  ),
                 if (details != null && details.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(

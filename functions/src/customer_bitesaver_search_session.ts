@@ -1,3 +1,4 @@
+import {getCustomerRestaurantMedia, type CustomerRestaurantMedia} from "./bitesaver_customer_media.js";
 import {
   startCustomerBiteSaverProfileUseContext,
   authenticateCustomerBiteSaverProfileChallengeAuthority,
@@ -14782,10 +14783,11 @@ async function startGuestRedemption(value: {
 export async function getCustomerBiteSaverSearchPageHandler(
   rawRequest: unknown,
   context: CustomerBiteSaverSessionContext,
-): Promise<CustomerBiteSaverProfileUseContextResult | CustomerBiteSaverPublicProfileResult | CustomerBiteSaverMenuPageResult |
+): Promise<CustomerRestaurantMedia | CustomerBiteSaverProfileUseContextResult | CustomerBiteSaverPublicProfileResult | CustomerBiteSaverMenuPageResult |
   CustomerBiteSaverRestaurantPageResult |
   CustomerBiteSaverSignedResponse<CustomerBiteSaverRestaurantPageResult> |
   CustomerBiteSaverGuestOperationResponse> {
+  if (isPlainRecord(rawRequest) && rawRequest.kind === "restaurantMedia") return getCustomerRestaurantMedia(rawRequest, context);
   if (isPlainRecord(rawRequest) && rawRequest.kind === "publicProfileUse") {
     return startCustomerBiteSaverProfileUseContext(rawRequest, context);
   }

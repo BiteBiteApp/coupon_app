@@ -44,6 +44,7 @@ class DailySpecial {
   final String ownerUid;
   final String title;
   final String? details;
+  final String? imageUrl;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final bool isActive;
@@ -61,6 +62,7 @@ class DailySpecial {
     required this.ownerUid,
     required this.title,
     this.details,
+    this.imageUrl,
     this.createdAt,
     this.updatedAt,
     this.isActive = true,
@@ -217,6 +219,7 @@ class DailySpecial {
     String? ownerUid,
     String? title,
     String? details,
+    String? imageUrl,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isActive,
@@ -234,6 +237,7 @@ class DailySpecial {
       ownerUid: ownerUid ?? this.ownerUid,
       title: title ?? this.title,
       details: details ?? this.details,
+      imageUrl: imageUrl ?? this.imageUrl,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isActive: isActive ?? this.isActive,
@@ -260,6 +264,7 @@ class DailySpecial {
       fieldOwnerUid: sanitized.ownerUid,
       fieldTitle: sanitized.title,
       fieldDetails: sanitized.details,
+      if (sanitized.imageUrl != null) 'imageUrl': sanitized.imageUrl,
       fieldIsActive: sanitized.isActive,
       fieldAvailabilityMode: sanitized.availabilityMode.firestoreValue,
       fieldDaysOfWeek: sanitized.daysOfWeek,
@@ -289,6 +294,7 @@ class DailySpecial {
       details: trimmedDetails == null || trimmedDetails.isEmpty
           ? null
           : trimmedDetails,
+      imageUrl: imageUrl,
       createdAt: createdAt,
       updatedAt: updatedAt,
       isActive: isActive,
@@ -328,6 +334,7 @@ class DailySpecial {
       ownerUid: ownerUid,
       title: title,
       details: _readString(data[fieldDetails]),
+      imageUrl: _readString(data['imageUrl']),
       createdAt: _coerceDateTime(data[fieldCreatedAt]),
       updatedAt: _coerceDateTime(data[fieldUpdatedAt]),
       isActive: _readBool(data[fieldIsActive]) ?? true,

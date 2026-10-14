@@ -1,3 +1,6 @@
+import {createOwnerMediaDependencies} from "./bitesaver_owner_media_runtime.js";
+import {getStorage, getDownloadURL} from "firebase-admin/storage";
+import {saveOwnerMedia, removeOwnerImage} from "./bitesaver_owner_media.js";
 import {verifyAdminUserDirectoryHandler} from "./admin_user_directory_recovery.js";
 import {randomBytes} from "node:crypto";
 import {createDeletionAwareCheckout, queueAccountDeletionSubscription, reserveAccountDeletionCheckoutIntent, requireOwnedAccountDeletionSubscription} from "./account_deletion_billing.js";
@@ -2868,11 +2871,16 @@ export const processRatingDestructiveOperationWork = onSchedule(
   },
 );
 
+const ownerMediaDependencies = createOwnerMediaDependencies(db, getStorage().bucket("coupon-app-29446.firebasestorage.app"), getDownloadURL);
+
+export const removeBiteSaverOwnerImage = onCall(async request => removeOwnerImage(request, ownerMediaDependencies));
+
 export const saveBiteSaverRestaurantProfile = onCall(
   {
     secrets: [googleMapsApiKey],
   },
   async (request) => {
+    if (request.data?.intent === "ownerMediaUpdate") return saveOwnerMedia(request, ownerMediaDependencies);
     return saveBiteSaverRestaurantProfileHandler(request, {
       getAccount: getBiteSaverAccount,
       runAccountTransaction: runBiteSaverAccountTransaction,

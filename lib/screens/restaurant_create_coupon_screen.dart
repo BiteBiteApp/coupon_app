@@ -1,3 +1,4 @@
+import 'bitesaver_media_editor_screen.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -316,6 +317,7 @@ class _RestaurantCreateCouponScreenState
   bool _menuManagementSectionExpanded = false;
   bool _subscriptionBillingSectionExpanded = false;
   bool _dailySpecialsSectionExpanded = false;
+  bool _managedMediaAvailable = false;
   bool _couponManagementSectionExpanded = false;
   bool _customerPreviewSectionExpanded = false;
   bool _couponSubmitAttempted = false;
@@ -679,6 +681,7 @@ class _RestaurantCreateCouponScreenState
     _trialEndsAt = null;
     _subscriptionEndsAt = null;
     _dailySpecials = const [];
+    _managedMediaAvailable = false;
     if (_subscriptionStateRefreshing) {
       _subscriptionStateRefreshing = false;
       widget.onSubscriptionRefreshStateChanged?.call(false);
@@ -2018,6 +2021,7 @@ class _RestaurantCreateCouponScreenState
         loadOwnerIdentity.accountDocumentId,
         data,
       );
+      _managedMediaAvailable = data?['ownerMedia'] is Map;
       if (loadedRestaurant == null) {
         _clearTrustedProfileState();
       } else {
@@ -5487,10 +5491,41 @@ class _RestaurantCreateCouponScreenState
     );
   }
 
+  Future<void> _openMediaEditor(
+    bool photos,
+    _RestaurantOwnerScope scope,
+  ) async {
+    if (!_isCurrentExactOwnerScope(scope)) return;
+    await _pushOwnerScopedPage<void>(
+      expectedOwnerScope: scope,
+      builder: (_) => BiteSaverMediaEditorScreen(
+        ownerUid: scope.identity.uid,
+        photos: photos,
+      ),
+    );
+    if (mounted && _isCurrentExactOwnerScope(scope)) {
+      await _loadSavedProfileAndCoupons();
+    }
+  }
+
+  Widget _mediaManagementButton(bool photos, _RestaurantOwnerScope scope) =>
+      OutlinedButton.icon(
+        onPressed: _hasCouponPostingAccess
+            ? () => _openMediaEditor(photos, scope)
+            : null,
+        icon: Icon(photos ? Icons.photo_library_outlined : Icons.edit_note),
+        label: Text(
+          photos ? 'Manage Restaurant Photos' : 'Manage Daily Specials',
+        ),
+      );
+
   Widget _buildRestaurantImageSection() {
     final renderedOwnerScope = _activeOwnerScope;
     if (renderedOwnerScope == null) {
       return const SizedBox.shrink();
+    }
+    if (_managedMediaAvailable) {
+      return _mediaManagementButton(true, renderedOwnerScope);
     }
     Future<void> pickImageForRenderedOwner() async {
       if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
@@ -5517,6 +5552,7 @@ class _RestaurantCreateCouponScreenState
         });
       },
       children: [
+        _mediaManagementButton(true, renderedOwnerScope),
         _buildImageUploadField(
           title: 'Restaurant image',
           buttonLabel: selectedImage == null && restaurantImageUrl == null
@@ -5714,6 +5750,9 @@ class _RestaurantCreateCouponScreenState
     if (renderedOwnerScope == null) {
       return const SizedBox.shrink();
     }
+    if (_managedMediaAvailable && _dailySpecials.length <= 50) {
+      return _mediaManagementButton(false, renderedOwnerScope);
+    }
     return _buildOwnerExpandableSection(
       title: 'Daily Specials',
       initiallyExpanded: _dailySpecialsSectionExpanded,
@@ -5726,6 +5765,7 @@ class _RestaurantCreateCouponScreenState
         });
       },
       children: [
+        _mediaManagementButton(false, renderedOwnerScope),
         if (!_hasCouponPostingAccess)
           _buildPostingToolLockedMessage(
             message: 'Subscription required to post daily specials.',
