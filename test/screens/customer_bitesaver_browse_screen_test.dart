@@ -2093,7 +2093,7 @@ void main() {
   }
 
   testWidgets(
-    'feed correction guest paging refreshes next restaurant bubble sequence',
+    'per-restaurant bubble origin survives another group paging and collapse',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(900, 2200);
@@ -2136,7 +2136,7 @@ void main() {
       );
       expect(
         tester.widget<BiteSaverHomeDealBubble>(next).bubbleCenterX,
-        expected(2),
+        expected(0),
       );
       final expand = find.byKey(
         ValueKey('bounded-offer-expand-${transport.firstRestaurantId}'),
@@ -2147,7 +2147,7 @@ void main() {
       expect(transport.offerPageCalls, 1);
       expect(
         tester.widget<BiteSaverHomeDealBubble>(next).bubbleCenterX,
-        expected(3),
+        expected(0),
       );
       final more = find.byKey(
         ValueKey('bounded-offer-load-more-${transport.firstRestaurantId}'),
@@ -2157,7 +2157,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.widget<BiteSaverHomeDealBubble>(next).bubbleCenterX,
-        expected(4),
+        expected(0),
       );
       await tester.ensureVisible(next);
       await tester.tap(next);
@@ -2173,6 +2173,245 @@ void main() {
     },
   );
 
+  for (final layout in [
+    (width: 320.0, scale: 2.0),
+    (width: 430.0, scale: 1.0),
+  ]) {
+    testWidgets('Home group collapse and local nesting repeated at $layout', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = Size(layout.width, 1600);
+      tester.platformDispatcher.textScaleFactorTestValue = layout.scale;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final transport = _BrowseFixtureTransport();
+      final harness = _BrowseHarness(transport: transport);
+      final selections = <CustomerBiteSaverBrowseSelection>[];
+      Future<CustomerBiteSaverBrowseActionResult> action(
+        BuildContext context,
+        CustomerBiteSaverBrowseSelection selection,
+      ) async {
+        selections.add(selection);
+        return const CustomerBiteSaverBrowseActionResult();
+      }
+
+      Widget app() => MaterialApp(home: harness.screen(onAction: action));
+      await tester.pumpWidget(app());
+      await _pumpBrowseReady(tester, transport);
+      final toggle = find.byKey(
+        ValueKey('bounded-offer-expand-${transport.firstRestaurantId}'),
+      );
+      Finder icon(bool expanded) => find.descendant(
+        of: toggle,
+        matching: find.byIcon(expanded ? Icons.expand_less : Icons.expand_more),
+      );
+      expect(icon(false), findsOneWidget);
+      expect(find.text('Additional Deal 3'), findsNothing);
+      for (var cycle = 0; cycle < 3; cycle++) {
+        await Scrollable.ensureVisible(tester.element(toggle), alignment: .7);
+        await tester.pump();
+        await tester.tap(icon(false));
+        await tester.pumpAndSettle();
+        expect(icon(true), findsOneWidget);
+        expect(find.text('Additional Deal 3'), findsOneWidget);
+        final loaded = harness.coordinator.offerPagerFor(
+          harness.coordinator.restaurants.first.restaurantId,
+        )!;
+        final loadedIds = loaded.items
+            .map((offer) => offer.offerId.value)
+            .toList();
+        final bubble = find.byKey(
+          ValueKey('bounded-offer-${transport.firstOfferId}'),
+        );
+        expect(
+          tester.widget<BiteSaverHomeDealBubble>(bubble).bubbleCenterX,
+          26,
+        );
+        // A normal parent rebuild must neither collapse nor reopen the group.
+        await tester.pumpWidget(app());
+        await tester.pumpAndSettle();
+        expect(icon(true), findsOneWidget);
+        await Scrollable.ensureVisible(tester.element(toggle), alignment: .7);
+        await tester.pump();
+        await tester.tap(icon(true));
+        await tester.pumpAndSettle();
+        expect(icon(false), findsOneWidget);
+        expect(find.text('Additional Deal 3'), findsNothing);
+        expect(loaded.items.map((offer) => offer.offerId.value), loadedIds);
+        await tester.pumpWidget(app());
+        await tester.pumpAndSettle();
+        expect(icon(false), findsOneWidget);
+        expect(transport.offerPageCalls, 1);
+      }
+      await Scrollable.ensureVisible(tester.element(toggle), alignment: .7);
+      await tester.pump();
+      await tester.tap(icon(false));
+      await tester.pumpAndSettle();
+      final more = find.byKey(
+        ValueKey('bounded-offer-load-more-${transport.firstRestaurantId}'),
+      );
+      await Scrollable.ensureVisible(tester.element(more), alignment: .7);
+      await tester.pump();
+      await tester.tap(more);
+      await tester.pumpAndSettle();
+      final pager = harness.coordinator.offerPagerFor(
+        harness.coordinator.restaurants.first.restaurantId,
+      )!;
+      final loadedIds = pager.items
+          .map((offer) => offer.offerId.value)
+          .toList();
+      expect(
+        pager.items.any((offer) => offer.title == 'Additional Deal 4'),
+        isTrue,
+      );
+      await Scrollable.ensureVisible(tester.element(toggle), alignment: .7);
+      await tester.pump();
+      await tester.tap(icon(true));
+      await tester.pumpAndSettle();
+      expect(find.text('Additional Deal 4'), findsNothing);
+      await tester.tap(icon(false));
+      await tester.pumpAndSettle();
+      expect(transport.offerPageCalls, 2);
+      expect(pager.items.map((offer) => offer.offerId.value), loadedIds);
+      // Scroll the bounded inner list to the distinct fourth offer.
+      final fourth = find.byKey(
+        ValueKey('bounded-offer-${transport._opaqueId('bso_', 4)}'),
+      );
+      await Scrollable.ensureVisible(tester.element(fourth), alignment: .7);
+      await tester.pump();
+      await tester.tap(fourth);
+      await tester.pumpAndSettle();
+      expect(selections.single.offer!.title, 'Additional Deal 4');
+      expect(
+        selections.single.restaurant.restaurantId.value,
+        transport.firstRestaurantId,
+      );
+      expect(transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('Home collapse survives a late bounded offer page completion', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1800);
+    addTearDown(tester.view.reset);
+    final release = Completer<void>();
+    addTearDown(() {
+      if (!release.isCompleted) release.complete();
+    });
+    final transport = _BrowseFixtureTransport(
+      offerResponder: (request, response) async {
+        await release.future;
+        return response;
+      },
+    );
+    final harness = _BrowseHarness(transport: transport);
+    await tester.pumpWidget(
+      MaterialApp(home: harness.screen(onAction: _ignoreAction)),
+    );
+    await _pumpBrowseReady(tester, transport);
+    final toggle = find.byKey(
+      ValueKey('bounded-offer-expand-${transport.firstRestaurantId}'),
+    );
+    await tester.tap(toggle);
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(transport.offerPageCalls, 1);
+    final up = find.descendant(
+      of: toggle,
+      matching: find.byIcon(Icons.expand_less),
+    );
+    await Scrollable.ensureVisible(tester.element(up), alignment: .7);
+    await tester.pump();
+    await tester.tap(up);
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(
+      find.descendant(of: toggle, matching: find.byIcon(Icons.expand_more)),
+      findsOneWidget,
+    );
+    release.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Additional Deal 3'), findsNothing);
+    expect(
+      find.descendant(of: toggle, matching: find.byIcon(Icons.expand_more)),
+      findsOneWidget,
+    );
+    await Scrollable.ensureVisible(tester.element(toggle), alignment: .7);
+    await tester.pump();
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(find.text('Additional Deal 3'), findsOneWidget);
+    expect(transport.offerPageCalls, 1);
+    expect(transport.startCalls, 1);
+    expect(transport.redemptionCalls, 0);
+    expect(harness.deviceUse.stages, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'retained inactive Home group can collapse without reopening access',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 2200);
+      addTearDown(tester.view.reset);
+      final harness = _BrowseHarness();
+      final transport = harness.transport;
+      await tester.pumpWidget(
+        MaterialApp(home: harness.screen(onAction: _ignoreAction)),
+      );
+      await _pumpBrowseReady(tester, transport);
+      final toggle = find.byKey(
+        ValueKey('bounded-offer-expand-${transport.firstRestaurantId}'),
+      );
+      await Scrollable.ensureVisible(tester.element(toggle), alignment: .7);
+      await tester.pump();
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: toggle, matching: find.byIcon(Icons.expand_less)),
+        findsOneWidget,
+      );
+      harness.coordinator.invalidateSearchLocation();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        harness.coordinator.status,
+        CustomerBiteSaverCoordinatorStatus.freshSearchRequired,
+      );
+      final calls = transport.offerPageCalls;
+      final button = tester.widget<TextButton>(toggle);
+      expect(
+        button.onPressed,
+        isNotNull,
+        reason: 'Hiding already displayed content is presentation-only',
+      );
+      await Scrollable.ensureVisible(tester.element(toggle), alignment: .7);
+      await tester.pump();
+      await tester.tap(
+        find.descendant(of: toggle, matching: find.byIcon(Icons.expand_less)),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        find.descendant(of: toggle, matching: find.byIcon(Icons.expand_more)),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<TextButton>(toggle).onPressed,
+        isNull,
+        reason: 'Fresh authority is still required to expand/fetch',
+      );
+      expect(
+        harness.coordinator.status,
+        CustomerBiteSaverCoordinatorStatus.freshSearchRequired,
+      );
+      expect(transport.offerPageCalls, calls);
+      expect(transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final count in [0, 1, 2]) {
     testWidgets(
       'profile correction $count loaded coupons has exact toggle state',
