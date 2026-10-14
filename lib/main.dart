@@ -199,6 +199,12 @@ class CouponApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       navigatorKey: rootNavigatorKey,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
+      scrollBehavior: const MaterialScrollBehavior().copyWith(
+        overscroll: false,
+        physics: const ClampingScrollPhysics(
+          parent: RangeMaintainingScrollPhysics(),
+        ),
+      ),
       onGenerateRoute: _onGenerateRoute,
       onGenerateInitialRoutes: _onGenerateInitialRoutes,
       builder: (context, child) {
