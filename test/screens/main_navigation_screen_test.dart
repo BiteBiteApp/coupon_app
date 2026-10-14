@@ -3273,8 +3273,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(restaurantLoads, 3);
 
-      await tester.tap(find.text('Home'));
-      await tester.pump();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(_NavigationRefreshDetail), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
       expect(
         identical(tester.state(find.byType(HomeScreen)), originalHomeState),
         isTrue,
@@ -3529,8 +3532,11 @@ void main() {
       await tester.pump();
       expect(counters.initializations['biteScore-home'], 1);
 
-      AppModeStateService.setMode(AppMode.biteSaver);
-      await tester.pump();
+      // Reverse Home selection, then the native visit, then its detail.
+      for (var i = 0; i < 3; i++) {
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+      }
       expect(
         identical(
           tester.state<_NavigationProbePageState>(
@@ -3643,7 +3649,246 @@ void main() {
   );
 
   testWidgets(
-    'detail Back and detail navigation reuse the root shell and retained Home',
+    'detail destination visit restores the exact coupon route on Back',
+    (tester) async {
+      await tester.pumpWidget(
+        _stateRetentionTestApp(counters: _NavigationProbeCounters()),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('biteSaver-home-open-detail')),
+      );
+      await tester.pumpAndSettle();
+      final detail = tester.state(find.byType(CouponDetailScreen));
+      await tester.tap(find.text('My Profile'));
+      await tester.pumpAndSettle();
+      expect(find.text('account page'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(CouponDetailScreen), findsOneWidget);
+      expect(tester.state(find.byType(CouponDetailScreen)), same(detail));
+    },
+  );
+
+  for (final notification in ['mark', 'confirmed', 'return']) {
+    testWidgets(
+      'write from native Home visit refreshes both retained Homes: $notification',
+      (tester) async {
+        await tester.pumpWidget(
+          _refreshDeliveryTestApp(keyScope: 'history-write'),
+        );
+        final original = tester.state<_RefreshGenerationProbeHomeState>(
+          find.byType(_RefreshGenerationProbeHome),
+        );
+        final navigator = rootNavigatorKey.currentState!;
+        unawaited(
+          navigator.push<void>(
+            MaterialPageRoute(
+              builder: (_) => const Scaffold(
+                body: Text('History detail A'),
+                bottomNavigationBar: PersistentBottomNavigation(
+                  mode: AppMode.biteScore,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Home'));
+        await tester.pumpAndSettle();
+        final visit = tester.state<_RefreshGenerationProbeHomeState>(
+          find.byType(_RefreshGenerationProbeHome),
+        );
+        expect(visit, isNot(same(original)));
+        final returning = mainNavigationController.captureRouteReturnDelivery(
+          navigator: navigator,
+          mode: AppMode.biteScore,
+        );
+        unawaited(
+          navigator
+              .push<bool>(
+                MaterialPageRoute(
+                  builder: (context) {
+                    final delivery = mainNavigationController
+                        .captureHomeRefreshDelivery(
+                          context,
+                          mode: AppMode.biteScore,
+                        );
+                    return Scaffold(
+                      body: FilledButton(
+                        onPressed: () {
+                          if (notification == 'mark') {
+                            mainNavigationController.markHomeRefreshNeeded(
+                              owner: delivery,
+                              navigator: navigator,
+                              mode: AppMode.biteScore,
+                            );
+                          } else if (notification == 'confirmed') {
+                            expect(delivery.confirm(), isTrue);
+                          }
+                          Navigator.of(context).pop(true);
+                        },
+                        child: const Text('Confirm local change'),
+                      ),
+                    );
+                  },
+                ),
+              )
+              .then((changed) {
+                returning.complete(
+                  routeReportedChange:
+                      notification == 'return' && changed == true,
+                );
+              }),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Confirm local change'));
+        await tester.pumpAndSettle();
+        expect(visit.refreshes, 1);
+        expect(original.refreshes, 0);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.text('History detail A'), findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(
+          tester.state<_RefreshGenerationProbeHomeState>(
+            find.byType(_RefreshGenerationProbeHome),
+          ),
+          same(original),
+        );
+        expect(original.refreshes, 1);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(original.refreshes, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final switchAccount in [false, true]) {
+    testWidgets(
+      'late covered detail write ${switchAccount ? 'rejects old auth' : 'refreshes visible Home visit once'}',
+      (tester) async {
+        tester.view.physicalSize = const Size(900, 1400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final changes = StreamController<String>.broadcast(sync: true);
+        addTearDown(changes.close);
+        User user = _NavigationTestUser(
+          email: 'owner-a@example.test',
+          uid: 'owner-a',
+        );
+        final write = Completer<void>();
+        await tester.pumpWidget(
+          _refreshDeliveryTestApp(
+            keyScope: 'late-history-write',
+            authRealmProvider: () => mainNavigationAuthRealmForUser(user),
+            authRealmChanges: changes.stream,
+          ),
+        );
+        final original = tester.state<_RefreshGenerationProbeHomeState>(
+          find.byType(_RefreshGenerationProbeHome),
+        );
+        await _startDelayedMutationHandler(
+          tester,
+          mutationKind: _DelayedMutationKind.dishFavorite,
+          write: write.future,
+          currentUserProvider: () => user,
+        );
+        final detail = tester.state(find.byType(BiteScoreDishDetailScreen));
+        await tester.tap(find.text('Home'));
+        await tester.pumpAndSettle();
+        if (switchAccount) {
+          user = _NavigationTestUser(
+            email: 'owner-b@example.test',
+            uid: 'owner-b',
+          );
+          changes.add(mainNavigationAuthRealmForUser(user));
+          await tester.pumpAndSettle();
+        }
+        final visit = tester.state<_RefreshGenerationProbeHomeState>(
+          find.byType(_RefreshGenerationProbeHome),
+        );
+        write.complete();
+        await _settleAsync(tester);
+        await tester.pumpAndSettle();
+        expect(visit.refreshes, switchAccount ? 0 : 1);
+        expect(original.refreshes, 0);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(
+          tester.state(find.byType(BiteScoreDishDetailScreen)),
+          same(detail),
+        );
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .state<_RefreshGenerationProbeHomeState>(
+                find.byType(_RefreshGenerationProbeHome),
+              )
+              .refreshes,
+          switchAccount ? 0 : 1,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('destination visit leaves incoming QR handling with one shell', (
+    tester,
+  ) async {
+    final incoming = StreamController<String>.broadcast(sync: true);
+    addTearDown(incoming.close);
+    var builds = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: rootNavigatorKey,
+        home: MainNavigationScreen(
+          initializePlatformServices: false,
+          testIncomingRawDeepLinks: incoming.stream,
+          testCustomerDeepLinkBuilder: (link) {
+            builds++;
+            expect(link.restaurantId, 'visit-qr-identity');
+            return const Scaffold(body: Text('QR target'));
+          },
+          testPagesBuilder: (_) => const [
+            Text('QR Home'),
+            Text('QR Hub'),
+            Text('QR Profile'),
+          ],
+        ),
+      ),
+    );
+    unawaited(
+      rootNavigatorKey.currentState!.push<void>(
+        MaterialPageRoute(
+          builder: (_) => const Scaffold(
+            body: Text('QR source detail'),
+            bottomNavigationBar: PersistentBottomNavigation(
+              mode: AppMode.biteSaver,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('My Profile'));
+    await tester.pumpAndSettle();
+    incoming.add('https://go.bitestar.app/r/bitescore/visit-qr-identity');
+    await _settleAsync(tester);
+    await tester.pumpAndSettle();
+    expect(builds, 1);
+    expect(find.text('QR target'), findsOneWidget);
+    expect(
+      find.byType(MainNavigationScreen, skipOffstage: false),
+      findsNWidgets(2),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'detail destination visit retains the original shell and Home for Back',
     (tester) async {
       final counters = _NavigationProbeCounters();
       await tester.pumpWidget(_stateRetentionTestApp(counters: counters));
@@ -3681,15 +3926,20 @@ void main() {
       expect(find.byType(MainNavigationScreen), findsOneWidget);
       expect(
         identical(
-          tester.state(find.byType(MainNavigationScreen)),
+          tester.state(
+            find.byType(MainNavigationScreen, skipOffstage: false).first,
+          ),
           originalShellState,
         ),
         isTrue,
       );
       expect(find.text('account page'), findsOneWidget);
 
-      await tester.tap(find.text('Home'));
-      await tester.pump();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(CouponDetailScreen), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
       expect(
         identical(
           tester.state<_NavigationProbePageState>(
@@ -3835,7 +4085,7 @@ void main() {
   });
 
   testWidgets(
-    'detail selection collapses duplicate shells to the canonical root',
+    'canonical destination reset collapses duplicate shells to the root',
     (tester) async {
       final counters = _NavigationProbeCounters();
       await tester.pumpWidget(_stateRetentionTestApp(counters: counters));
@@ -3881,7 +4131,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('My Profile'));
+      openMainNavigationDestination(
+        tester.element(find.byType(PersistentBottomNavigation).last),
+        mode: AppMode.biteSaver,
+        index: 2,
+      );
       await tester.pumpAndSettle();
       expect(find.byType(MainNavigationScreen), findsOneWidget);
       expect(
@@ -3958,7 +4212,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('My Profile'));
+      openMainNavigationDestination(
+        tester.element(find.byType(PersistentBottomNavigation).last),
+        mode: AppMode.biteScore,
+        index: 2,
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(MainNavigationScreen), findsOneWidget);
@@ -4076,15 +4334,19 @@ void main() {
 
     expect(
       identical(
-        tester.state(find.byType(MainNavigationScreen)),
+        tester.state(
+          find.byType(MainNavigationScreen, skipOffstage: false).first,
+        ),
         originalShellState,
       ),
       isTrue,
     );
     expect(originalHomeState.refreshes, 1);
     expect(find.text('refresh probe Account'), findsOneWidget);
-    await tester.tap(find.text('Home'));
-    await tester.pump();
+    for (var i = 0; i < 3; i++) {
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+    }
     expect(
       identical(
         tester.state<_RefreshGenerationProbeHomeState>(
@@ -4197,7 +4459,7 @@ void main() {
 
       expect(
         find.byType(MainNavigationScreen, skipOffstage: false),
-        findsOneWidget,
+        findsNWidgets(2),
       );
       expect(AppModeStateService.selectedMode.value, AppMode.biteSaver);
       expect(biteScoreHomeState.refreshes, 1);

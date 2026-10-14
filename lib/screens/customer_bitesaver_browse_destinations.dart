@@ -301,6 +301,9 @@ class _CustomerBiteSaverDestinationGuardState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Subscribe to route visibility: Back may reveal this retained route after
+    // its access expired while another destination covered it.
+    ModalRoute.isCurrentOf(context);
     _reconcileOwnership();
   }
 

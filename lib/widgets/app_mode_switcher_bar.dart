@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/app_mode_state_service.dart';
+import '../screens/main_navigation_screen.dart';
 import 'bitesaver_colors.dart';
 
 class AppModeSwitcherBar extends StatefulWidget {
@@ -332,8 +333,7 @@ Widget buildPersistentAppModeSwitcher(
             onModeNavigationRequested(mode);
             return;
           }
-          Navigator.of(context).popUntil((route) => route.isFirst);
-          AppModeStateService.setMode(mode);
+          openMainNavigationDetailDestination(context, mode: mode, index: 0);
         },
       );
     },

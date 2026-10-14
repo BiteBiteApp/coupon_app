@@ -25,7 +25,7 @@ class PersistentBottomNavigation extends StatelessWidget {
   });
 
   void _openDestination(BuildContext context, int index) {
-    openMainNavigationDestination(
+    openMainNavigationDetailDestination(
       context,
       mode: mode,
       index: index,

@@ -242,7 +242,7 @@ class _BiteScoreRestaurantDishesScreenState
   }
 
   void _openModeHome(AppMode mode) {
-    openMainNavigationDestination(
+    openMainNavigationDetailDestination(
       context,
       mode: mode,
       index: 0,

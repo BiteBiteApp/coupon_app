@@ -88,7 +88,10 @@ void main() {
       expect(fallbackBuilds, 1);
       expect(find.byType(MainNavigationScreen), findsOneWidget);
       expect(find.text('fallback biteScore Home'), findsOneWidget);
-      expect(find.text('later detail', skipOffstage: false), findsNothing);
+      expect(find.text('later detail', skipOffstage: false), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('later detail'), findsOneWidget);
     },
   );
 

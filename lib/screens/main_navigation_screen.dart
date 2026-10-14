@@ -124,6 +124,14 @@ class MainNavigationController {
     selectDestination,
     required bool Function(Set<AppMode> refreshHomeModes) refreshHomes,
     required String authRealm,
+    required bool Function(
+      ModalRoute<dynamic> sourceRoute,
+      AppMode mode,
+      int index,
+    )
+    openDestinationVisit,
+    required AppMode Function() currentMode,
+    bool isDestinationVisit = false,
   }) {
     final token = Object();
     final rootContext = _rootContexts.putIfAbsent(
@@ -138,6 +146,9 @@ class MainNavigationController {
         rootContext: rootContext,
         selectDestination: selectDestination,
         refreshHomes: refreshHomes,
+        openDestinationVisit: openDestinationVisit,
+        currentMode: currentMode,
+        isDestinationVisit: isDestinationVisit,
       ),
     );
     return token;
@@ -561,13 +572,41 @@ class MainNavigationController {
     if (rootContext == null || shellRegistration == null) {
       return;
     }
-    _homeRefreshIntents[owner] = _MainNavigationHomeRefreshIntent(
-      navigator: navigator,
-      mode: mode,
-      shellRegistrationToken: shellRegistration.token,
-      rootContext: rootContext,
-      authGeneration: rootContext.authGeneration,
-    );
+    _markRetainedHomeRefreshes(owner, shellRegistration, mode);
+  }
+
+  void _markRetainedHomeRefreshes(
+    Object owner,
+    _MainNavigationRegistration source,
+    AppMode mode, {
+    bool includeSource = true,
+  }) {
+    for (final registration in _registrations) {
+      if (!identical(registration.navigator, source.navigator) ||
+          !identical(registration.rootContext, source.rootContext) ||
+          !registration.route.isActive) {
+        continue;
+      }
+      final isSource = identical(registration, source);
+      if ((isSource && includeSource) ||
+          (!isSource && source.isDestinationVisit)) {
+        _homeRefreshIntents.removeWhere(
+          (_, intent) =>
+              identical(intent.owner, owner) &&
+              identical(intent.shellRegistrationToken, registration.token),
+        );
+        _homeRefreshIntents[Object()] = _MainNavigationHomeRefreshIntent(
+          owner: owner,
+          navigator: registration.navigator,
+          mode: mode,
+          shellRegistrationToken: registration.token,
+          rootContext: registration.rootContext,
+          authGeneration: registration.rootContext.authGeneration,
+          refreshOnReveal: !isSource,
+        );
+      }
+      if (identical(registration, source)) break;
+    }
   }
 
   MainNavigationHomeRefreshDelivery captureHomeRefreshDelivery(
@@ -620,14 +659,34 @@ class MainNavigationController {
       return false;
     }
 
-    _homeRefreshIntents[delivery._owner] = _MainNavigationHomeRefreshIntent(
-      navigator: navigator,
-      mode: delivery._mode,
-      shellRegistrationToken: delivery._shellRegistrationToken!,
-      rootContext: rootContext,
-      authGeneration: rootContext.authGeneration,
+    final sourceShell = _registrations.firstWhere(
+      (registration) =>
+          identical(registration.token, delivery._shellRegistrationToken),
     );
+    _markRetainedHomeRefreshes(delivery._owner, sourceShell, delivery._mode);
     final sourceRoute = delivery._sourceRoute;
+    final visibleShell = _activeShellRegistration(navigator);
+    if (visibleShell?.isDestinationVisit == true &&
+        visibleShell!.route.isCurrent &&
+        !identical(sourceRoute, visibleShell.route)) {
+      // A retained detail's write can finish after the user visits Home. Its
+      // confirmation must reach that visible visit as well as the origin.
+      _markRetainedHomeRefreshes(delivery._owner, visibleShell, delivery._mode);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!visibleShell.route.isCurrent ||
+            !identical(_rootContexts[navigator], rootContext) ||
+            rootContext.authGeneration != delivery._authGeneration) {
+          return;
+        }
+        final batch = _capturePendingHomeRefreshesForRegistration(
+          navigator,
+          visibleShell.token,
+        );
+        if (batch.isNotEmpty && visibleShell.refreshHomes(batch.modes)) {
+          consumePendingHomeRefreshes(batch);
+        }
+      });
+    }
     if (sourceRoute == null || !sourceRoute.isActive) {
       final shellIsCurrent = _registrations.any(
         (registration) =>
@@ -692,6 +751,15 @@ class MainNavigationController {
 
     final routeChangeBelongsToCurrentAuth =
         rootContext.authGeneration == delivery._authGeneration;
+
+    if (routeReportedChange && routeChangeBelongsToCurrentAuth) {
+      _markRetainedHomeRefreshes(
+        delivery,
+        shellRegistration,
+        delivery._mode,
+        includeSource: false,
+      );
+    }
 
     final batch = _capturePendingHomeRefreshesForRegistration(
       delivery._navigator,
@@ -797,6 +865,44 @@ class MainNavigationController {
       return false;
     }
     navigator.popUntil((candidate) => identical(candidate, registration.route));
+    return true;
+  }
+
+  bool visitDestinationFromDetail({
+    required NavigatorState navigator,
+    required ModalRoute<dynamic> sourceRoute,
+    required AppMode mode,
+    required int index,
+    AppMode? refreshHomeMode,
+  }) {
+    final registration = _activeShellRegistration(navigator);
+    if (registration == null || !sourceRoute.isCurrent) return false;
+    if (identical(sourceRoute, registration.route)) {
+      return returnToExistingShell(
+        navigator: navigator,
+        mode: mode,
+        index: index,
+        refreshHomeMode: refreshHomeMode,
+      );
+    }
+    // Refresh the owning Home without changing its destination or disposing
+    // the detail. Its existing route, auth bindings and access guards stay live.
+    final batch = _capturePendingHomeRefreshesForRegistration(
+      navigator,
+      registration.token,
+    );
+    final modes = <AppMode>{...batch.modes, ?refreshHomeMode};
+    if (!registration.refreshHomes(modes)) return false;
+    consumePendingHomeRefreshes(batch);
+    if (!registration.openDestinationVisit(
+      sourceRoute,
+      mode,
+      normalizeMainNavigationIndex(index),
+    )) {
+      return false;
+    }
+    // A visit is an ordinary Navigator route. No detail identifier or builder
+    // is saved for later recreation; removal by an auth/access guard is final.
     return true;
   }
 
@@ -1365,6 +1471,40 @@ void openMainNavigationDestination(
   );
 }
 
+/// Detail controls visit a destination above the current route, so Back can
+/// reveal that exact route while its existing access/auth protections remain.
+void openMainNavigationDetailDestination(
+  BuildContext context, {
+  required AppMode mode,
+  required int index,
+  MainNavigationController? controller,
+  Widget Function(AppMode mode, int index)? fallbackBuilder,
+  AppMode? refreshHomeMode,
+}) {
+  final navigator = Navigator.of(context, rootNavigator: true);
+  final sourceRoute = ModalRoute.of(context);
+  if (sourceRoute != null && !sourceRoute.isCurrent) return;
+  final effectiveController = controller ?? mainNavigationController;
+  if (sourceRoute != null &&
+      effectiveController.visitDestinationFromDetail(
+        navigator: navigator,
+        sourceRoute: sourceRoute,
+        mode: mode,
+        index: index,
+        refreshHomeMode: refreshHomeMode,
+      )) {
+    return;
+  }
+  openMainNavigationDestination(
+    context,
+    mode: mode,
+    index: index,
+    controller: effectiveController,
+    fallbackBuilder: fallbackBuilder,
+    refreshHomeMode: refreshHomeMode,
+  );
+}
+
 class _MainNavigationRegistration {
   final Object token;
   final NavigatorState navigator;
@@ -1373,6 +1513,10 @@ class _MainNavigationRegistration {
   final bool Function(AppMode mode, int index, Set<AppMode> refreshHomeModes)
   selectDestination;
   final bool Function(Set<AppMode> refreshHomeModes) refreshHomes;
+  final bool Function(ModalRoute<dynamic> sourceRoute, AppMode mode, int index)
+  openDestinationVisit;
+  final AppMode Function() currentMode;
+  final bool isDestinationVisit;
 
   const _MainNavigationRegistration({
     required this.token,
@@ -1381,10 +1525,15 @@ class _MainNavigationRegistration {
     required this.rootContext,
     required this.selectDestination,
     required this.refreshHomes,
+    required this.openDestinationVisit,
+    required this.currentMode,
+    required this.isDestinationVisit,
   });
 }
 
 class _MainNavigationHomeRefreshIntent {
+  final Object owner;
+  final bool refreshOnReveal;
   final NavigatorState navigator;
   final AppMode mode;
   final Object shellRegistrationToken;
@@ -1392,6 +1541,8 @@ class _MainNavigationHomeRefreshIntent {
   final int authGeneration;
 
   const _MainNavigationHomeRefreshIntent({
+    required this.owner,
+    required this.refreshOnReveal,
     required this.navigator,
     required this.mode,
     required this.shellRegistrationToken,
@@ -1407,6 +1558,9 @@ class _StartupDeepLinkGuard {
 }
 
 class MainNavigationScreen extends StatefulWidget {
+  /// A native destination visit above a retained detail. Only the original
+  /// shell ingests external links and subscription-return events.
+  final bool isDestinationVisit;
   final AppMode initialMode;
   final int initialIndex;
   final RestaurantCustomerDeepLink? initialCustomerDeepLink;
@@ -1448,6 +1602,7 @@ class MainNavigationScreen extends StatefulWidget {
     super.key,
     this.initialMode = AppMode.biteSaver,
     this.initialIndex = 0,
+    this.isDestinationVisit = false,
     this.initialCustomerDeepLink,
     this.initialInviteDeepLink,
     this.initialDeepLinkRouteName,
@@ -1535,13 +1690,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         ? null
         : _StartupDeepLinkGuard(initialDeepLinkKey);
     _startupDeepLinkGuard = startupGuard;
-    AppModeStateService.setMode(selectedMode);
+    if (!widget.isDestinationVisit) AppModeStateService.setMode(selectedMode);
     AppModeStateService.selectedMode.addListener(_syncSelectedMode);
     _customerAuthRealm = _currentCustomerAuthRealm;
     _listenForCustomerAuthChanges();
-    if (widget.initializePlatformServices ||
-        widget.testIncomingDeepLinks != null ||
-        widget.testIncomingRawDeepLinks != null) {
+    if (!widget.isDestinationVisit &&
+        (widget.initializePlatformServices ||
+            widget.testIncomingDeepLinks != null ||
+            widget.testIncomingRawDeepLinks != null)) {
       _listenForAppLinks();
     }
     if (initialCustomerDeepLink != null) {
@@ -1571,6 +1727,23 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _registerNavigationShell();
+    if (_registeredRoute?.isCurrent == true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _registeredRoute?.isCurrent == true) {
+          final navigator = _registeredNavigator;
+          if (navigator == null) return;
+          final controller = _effectiveNavigationController;
+          final batch = controller._capturePendingHomeRefreshesForRegistration(
+            navigator,
+            _navigationRegistrationToken,
+          );
+          if (batch._intents.values.any((intent) => intent.refreshOnReveal) &&
+              _refreshRootHomes(batch.modes)) {
+            controller.consumePendingHomeRefreshes(batch);
+          }
+        }
+      });
+    }
   }
 
   @override
@@ -1656,6 +1829,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       route: route,
       selectDestination: _selectRootDestination,
       refreshHomes: _refreshRootHomes,
+      openDestinationVisit: _openDestinationVisit,
+      currentMode: () => selectedMode,
+      isDestinationVisit: widget.isDestinationVisit,
       authRealm: _customerAuthRealm,
     );
   }
@@ -1670,6 +1846,55 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     _navigationRegistrationToken = null;
     _registeredNavigator = null;
     _registeredRoute = null;
+  }
+
+  bool _openDestinationVisit(
+    ModalRoute<dynamic> sourceRoute,
+    AppMode mode,
+    int index,
+  ) {
+    final navigator = _registeredNavigator;
+    if (!mounted || navigator == null || !sourceRoute.isCurrent) return false;
+    final previousMode = AppModeStateService.selectedMode.value;
+    final controller = _effectiveNavigationController;
+    final visit = navigator.push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => MainNavigationScreen(
+          initialMode: mode,
+          initialIndex: index,
+          isDestinationVisit: true,
+          navigationController: controller,
+          initializePlatformServices: widget.initializePlatformServices,
+          biteSaverBrowseHomeBuilder: _biteSaverBrowseHomeBuilder,
+          biteSaverSavedAccountBuilder: _biteSaverSavedAccountBuilder,
+          testPagesBuilder: widget.testPagesBuilder,
+          testModeHomeBuilder: widget.testModeHomeBuilder,
+          testCustomerAuthRealmProvider: widget.testCustomerAuthRealmProvider,
+          testCustomerAuthRealmChanges: widget.testCustomerAuthRealmChanges,
+          testRestaurantUserSignedIn: widget.testRestaurantUserSignedIn,
+          testSubscriptionReturnOwnerScopeProvider:
+              widget.testSubscriptionReturnOwnerScopeProvider,
+          testAuthenticatedRestaurantHubBuilder:
+              widget.testAuthenticatedRestaurantHubBuilder,
+        ),
+      ),
+    );
+    AppModeStateService.setMode(mode);
+    unawaited(
+      visit.then((_) {
+        if (sourceRoute.isCurrent) {
+          AppModeStateService.setMode(previousMode);
+        } else {
+          // The source may have retired while covered. Publish the safe visible
+          // shell's mode without resurrecting or rebuilding that detail.
+          final visible = controller._activeShellRegistration(navigator);
+          if (visible?.route.isCurrent == true) {
+            AppModeStateService.setMode(visible!.currentMode());
+          }
+        }
+      }),
+    );
+    return true;
   }
 
   bool _selectRootDestination(
@@ -2304,6 +2529,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (selectedMode == nextMode || !mounted) {
       return;
     }
+    if (_registeredRoute?.isCurrent == false) return;
     _applyPendingHomeRefreshes();
     _rememberDestination(nextMode, 0);
     setState(() {

@@ -540,6 +540,110 @@ void main() {
     harness.dispose();
   });
 
+  for (final visitCase in [
+    'home',
+    'mode',
+    'expired',
+    'signOut',
+    'accountSwitch',
+  ]) {
+    testWidgets('borrowed Browse detail history: $visitCase', (tester) async {
+      tester.view.physicalSize = const Size(1000, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      CustomerBiteSaverRuntime.testEnabled = true;
+      CustomerBiteSaverRuntime.testComposition = harness.composition;
+      SharedLocationStateService.saveTypedLocation(
+        latitude: 28.5383,
+        longitude: -81.3792,
+        label: 'Orlando, FL',
+        searchText: 'Orlando, FL',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: rootNavigatorKey,
+          home: MainNavigationScreen(
+            initializePlatformServices: false,
+            testCustomerAuthRealmProvider: () =>
+                mainNavigationAuthRealmForUser(harness.user),
+            testCustomerAuthRealmChanges: harness.changes.stream.map(
+              mainNavigationAuthRealmForUser,
+            ),
+            testModeHomeBuilder: (mode, generation) =>
+                mode == AppMode.biteSaver && harness.user?.uid == 'owner-a'
+                ? AnimatedBuilder(
+                    animation: harness.composition,
+                    builder: (context, _) => harness.composition.buildBrowse(
+                      context,
+                      generation,
+                      mainNavigationAuthRealmForUser(harness.user),
+                    ),
+                  )
+                : const Scaffold(body: Text('History Score Home')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(harness.starts, hasLength(1));
+      await tester.tap(find.text('Fixture Coupon 1'));
+      await tester.pumpAndSettle();
+      final state = tester.state(find.byType(CouponDetailScreen));
+      final detail = tester.widget<CouponDetailScreen>(
+        find.byType(CouponDetailScreen),
+      );
+      final access = detail.boundedAccess!;
+      if (visitCase == 'mode') {
+        await tester.tap(find.text('BiteScore').first);
+      } else {
+        await tester.tap(find.text('Home'));
+      }
+      await tester.pumpAndSettle();
+      expect(
+        harness.starts,
+        hasLength(1),
+        reason: 'Destination Home must borrow the retained search',
+      );
+      expect(detail.boundedSession!.isBrowseAccessCurrent(access), isTrue);
+      if (visitCase == 'expired') {
+        harness.nowMillis += 24 * 60 * 60 * 1000;
+      } else if (visitCase == 'signOut' || visitCase == 'accountSwitch') {
+        harness.user = visitCase == 'signOut' ? null : _User('owner-b');
+        harness.changes.add(harness.user);
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(CouponDetailScreen, skipOffstage: false),
+          findsNothing,
+        );
+      }
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      if (visitCase == 'home' || visitCase == 'mode') {
+        expect(tester.state(find.byType(CouponDetailScreen)), same(state));
+        expect(detail.boundedSession!.isBrowseAccessCurrent(access), isTrue);
+        expect(
+          tester
+              .widget<CouponDetailScreen>(find.byType(CouponDetailScreen))
+              .boundedOffer!
+              .offerId,
+          detail.boundedOffer!.offerId,
+        );
+        expect(harness.starts, hasLength(1));
+      } else {
+        expect(
+          find.byType(CouponDetailScreen, skipOffstage: false),
+          findsNothing,
+        );
+        expect(find.byType(MainNavigationScreen), findsOneWidget);
+      }
+      expect(harness.device.stages, isEmpty);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      harness.dispose();
+    });
+  }
+
   for (final mode in AppMode.values) {
     testWidgets('${mode.name} late Account gets initial signed auth content', (
       tester,

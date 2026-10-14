@@ -163,6 +163,8 @@ class _CustomerBiteSaverSavedDestinationGuardState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Recheck the existing access contract when a retained route is revealed.
+    ModalRoute.isCurrentOf(context);
     _reconcileOwnership();
   }
 

@@ -1548,8 +1548,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     if (mode == selectedMode) {
       return;
     }
-    Navigator.of(context).popUntil((route) => route.isFirst);
-    AppModeStateService.setMode(mode);
+    openMainNavigationDetailDestination(context, mode: mode, index: 0);
   }
 
   Widget _buildWarmModeSwitcher() {

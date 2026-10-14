@@ -966,6 +966,33 @@ void main() {
     },
   );
 
+  for (final stale in [false, true]) {
+    testWidgets(
+      'Saved detail history rechecks ${stale ? 'stale' : 'valid'} authority on Back',
+      (tester) async {
+        final harness = await _openSavedBackHarness(tester);
+        final state = tester.state(find.byType(CouponDetailScreen));
+        await tester.tap(find.text('Home'));
+        await tester.pumpAndSettle();
+        expect(find.text('Bounded Browse'), findsOneWidget);
+        if (stale) harness.accountCurrent = false;
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        if (stale) {
+          expect(
+            find.byType(CouponDetailScreen, skipOffstage: false),
+            findsNothing,
+          );
+        } else {
+          expect(tester.state(find.byType(CouponDetailScreen)), same(state));
+        }
+        harness.expectNoLegacyUse();
+        expect(harness.device.stages, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final nextRealm in <String>['signed:owner-b', 'guest']) {
     testWidgets(
       'confirmed Saved timer survives $nextRealm offline until original expiry',
@@ -1149,7 +1176,7 @@ final class _SavedBackHarness {
       userId: user.uid,
       api: api,
       favoriteActions: _SavedWrites().actions,
-      isAccountCurrent: (uid) => uid == user.uid,
+      isAccountCurrent: (uid) => accountCurrent && uid == user.uid,
       requestIdGenerator: () =>
           'saved-back-${(++sequence).toString().padLeft(8, '0')}',
       timeContextProvider: () async =>
@@ -1164,6 +1191,7 @@ final class _SavedBackHarness {
   final device = CustomerBiteSaverDeviceUseFixture();
   late final CustomerBiteSaverSavedCoordinator coordinator;
   int nowMillis = _SavedApi.evaluationAtMillis;
+  bool accountCurrent = true;
 
   CustomerBiteSaverRedemptionPresentation? get presentation =>
       coordinator.redemptionPresentationFor(CustomerBiteSaverOfferId(_offerId));
