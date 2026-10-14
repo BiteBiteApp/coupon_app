@@ -6,10 +6,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/bitescore_restaurant.dart';
+import '../models/bitesaver_restaurant_media.dart';
 import '../models/coupon.dart';
 import '../models/daily_special.dart';
 import '../models/restaurant.dart';
 import 'bitesaver_image_upload_service.dart';
+import 'customer_bitesaver_service.dart';
 
 class ResolvedRestaurantAccount {
   final String documentId;
@@ -2385,35 +2387,91 @@ class RestaurantAccountService {
     }
   }
 
-  static Future<List<Restaurant>> loadApprovedRestaurantsWithCoupons() async {
-    final accountsSnapshot = await _customerRestaurantProjectionQuery().get();
+  static Future<List<Restaurant>> loadApprovedRestaurantsWithCoupons({
+    @visibleForTesting
+    Future<List<CustomerRestaurantProjectionDocument>> Function()?
+    projectionLoader,
+    @visibleForTesting Future<List<Coupon>> Function(String)? couponLoader,
+    @visibleForTesting
+    Future<List<DailySpecial>> Function(String)? specialsLoader,
+    @visibleForTesting
+    Future<BiteSaverRestaurantMedia> Function(String)? mediaLoader,
+  }) async {
+    final projections = projectionLoader != null
+        ? await projectionLoader()
+        : (await _customerRestaurantProjectionQuery().get()).docs
+              .map(
+                (doc) => CustomerRestaurantProjectionDocument(
+                  documentId: doc.id,
+                  data: doc.data(),
+                ),
+              )
+              .toList();
 
     final restaurants = <Restaurant>[];
 
-    for (final doc in accountsSnapshot.docs) {
+    for (final doc in projections) {
       try {
-        final projectionData = doc.data();
+        final projectionData = doc.data;
         final publicRestaurant = customerRestaurantFromProjectionData(
           projectionData,
-          projectionDocumentId: doc.id,
+          projectionDocumentId: doc.documentId,
         );
         final accountDocumentId = publicRestaurant?.accountDocumentId;
         if (publicRestaurant == null || accountDocumentId == null) {
           continue;
         }
 
-        final allCoupons = await loadCoupons(accountDocumentId);
+        final allCoupons = await (couponLoader ?? loadCoupons)(
+          accountDocumentId,
+        );
         final coupons = customerVisibleCouponsForProjectionData(
           projectionData,
           allCoupons,
         );
-        final dailySpecials = await loadDailySpecialsForRestaurant(
-          accountDocumentId,
-        );
+        // Owner loaders retain both authoring modes. Only the authoritative
+        // customer response can select which representation is published;
+        // an expired/absent raw board is not proof that manual mode is active.
+        var dailySpecials = const <DailySpecial>[];
+        try {
+          final mediaId = projectionData['publicRestaurantId'];
+          if (mediaId is String) {
+            final media =
+                await (mediaLoader ??
+                    CustomerBiteSaverService().getRestaurantMedia)(mediaId);
+            if (media.restaurantId != mediaId) {
+              throw const FormatException('Restaurant media identity changed.');
+            }
+            if (media.photoBoard) {
+              final board = media.board;
+              if (board != null) {
+                dailySpecials = [
+                  board.copyWith(
+                    id: 'bitesaver_managed_board',
+                    restaurantId: accountDocumentId,
+                    ownerUid: accountDocumentId,
+                  ),
+                ];
+              }
+            } else {
+              dailySpecials =
+                  (await (specialsLoader ?? loadDailySpecialsForRestaurant)(
+                        accountDocumentId,
+                      ))
+                      .where(
+                        (special) => special.id != 'bitesaver_managed_board',
+                      )
+                      .toList(growable: false);
+            }
+          }
+        } catch (_) {
+          // A failed mode lookup must not combine retained representations or
+          // remove unrelated restaurant/coupon results. Refresh retries it.
+        }
         final restaurant = customerRestaurantFromProjectionData(
           projectionData,
           expectedRestaurantId: accountDocumentId,
-          projectionDocumentId: doc.id,
+          projectionDocumentId: doc.documentId,
           coupons: coupons,
           dailySpecials: dailySpecials,
         );
