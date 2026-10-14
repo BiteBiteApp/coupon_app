@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/customer_bitesaver_runtime.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/demo_redemption_store.dart';
 import '../services/app_mode_state_service.dart';
@@ -38,7 +37,7 @@ const List<MainNavigationItem> mainNavigationItems = <MainNavigationItem>[
     icon: Icons.storefront_outlined,
     selectedIcon: Icons.storefront,
   ),
-  (label: 'Account', icon: Icons.person_outline, selectedIcon: Icons.person),
+  (label: 'My Profile', icon: Icons.person_outline, selectedIcon: Icons.person),
 ];
 
 int normalizeMainNavigationIndex(int index) {
@@ -1483,7 +1482,7 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  static const String _onboardingSeenKey = 'first_time_onboarding_seen';
+  final List<LocalHistoryEntry> _destinationHistory = [];
 
   late int selectedIndex;
   late AppMode selectedMode;
@@ -1500,7 +1499,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _subscriptionReturnNavigationRequestGeneration = 0;
   SubscriptionReturnOwnerScope? _subscriptionReturnMessageOwnerScope;
   int _subscriptionReturnMessageGeneration = 0;
-  bool _showOnboarding = false;
   int _deepLinkGeneration = 0;
   _StartupDeepLinkGuard? _startupDeepLinkGuard;
   String? _lastHandledDeepLinkKey;
@@ -1566,9 +1564,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           routeName: widget.initialDeepLinkRouteName,
         );
       });
-    }
-    if (widget.initializePlatformServices) {
-      unawaited(_loadOnboardingState());
     }
   }
 
@@ -1686,6 +1681,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       return false;
     }
     final normalizedIndex = normalizeMainNavigationIndex(index);
+    _rememberDestination(mode, normalizedIndex);
     if (selectedMode != mode ||
         selectedIndex != normalizedIndex ||
         refreshHomeModes.isNotEmpty) {
@@ -1702,6 +1698,30 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
     AppModeStateService.setMode(mode);
     return true;
+  }
+
+  void _rememberDestination(AppMode mode, int index) {
+    if (selectedMode == mode && selectedIndex == index) return;
+    final route = _registeredRoute;
+    if (route == null) return;
+    final previousMode = selectedMode;
+    final previousIndex = selectedIndex;
+    late final LocalHistoryEntry entry;
+    entry = LocalHistoryEntry(
+      impliesAppBarDismissal: false,
+      onRemove: () {
+        _destinationHistory.remove(entry);
+        if (!mounted) return;
+        setState(() {
+          selectedMode = previousMode;
+          selectedIndex = previousIndex;
+          if (previousIndex == 0) _retainedHomeMode = previousMode;
+        });
+        AppModeStateService.setMode(previousMode);
+      },
+    );
+    _destinationHistory.add(entry);
+    route.addLocalHistoryEntry(entry);
   }
 
   bool _refreshRootHomes(Set<AppMode> refreshHomeModes) {
@@ -1819,34 +1839,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       rawLinks: widget.testIncomingRawDeepLinks,
     );
     _schedulePendingSubscriptionReturnNavigation();
-  }
-
-  Future<void> _loadOnboardingState() async {
-    final prefs = await SharedPreferences.getInstance();
-    final hasSeenOnboarding = prefs.getBool(_onboardingSeenKey) ?? false;
-    if (!mounted || hasSeenOnboarding) {
-      return;
-    }
-
-    setState(() {
-      _showOnboarding = true;
-    });
-  }
-
-  Future<void> _dismissOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_onboardingSeenKey, true);
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _showOnboarding = false;
-      selectedIndex = 0;
-      selectedMode = AppMode.biteSaver;
-      _retainedHomeMode = AppMode.biteSaver;
-    });
-    AppModeStateService.setMode(AppMode.biteSaver);
   }
 
   void _handleIncomingDeepLink(Uri? uri) {
@@ -2313,6 +2305,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       return;
     }
     _applyPendingHomeRefreshes();
+    _rememberDestination(nextMode, 0);
     setState(() {
       selectedMode = nextMode;
       selectedIndex = 0;
@@ -2393,6 +2386,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void _selectTab(int index) {
     final normalizedIndex = normalizeMainNavigationIndex(index);
     _applyPendingHomeRefreshes();
+    _rememberDestination(selectedMode, normalizedIndex);
     setState(() {
       selectedIndex = normalizedIndex;
       if (normalizedIndex == 0) {
@@ -2410,7 +2404,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       itemBuilder: (context) => const [
         PopupMenuItem(value: 0, child: Text('Home')),
         PopupMenuItem(value: 1, child: Text('Restaurant Hub')),
-        PopupMenuItem(value: 2, child: Text('Account')),
+        PopupMenuItem(value: 2, child: Text('My Profile')),
       ],
       child: Container(
         width: 38,
@@ -2609,133 +2603,46 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
-  Widget _buildOnboardingOverlay() {
-    return Positioned.fill(
-      child: Material(
-        color: const Color.fromRGBO(31, 26, 22, 0.48),
-        child: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Container(
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      // Local history handles destination Back presses. At the original root,
+      // consume Back; routes and dialogs above the shell keep their own pop.
+      canPop:
+          _destinationHistory.isNotEmpty ||
+          !(_registeredRoute?.isFirst ?? true),
+      child: Scaffold(
+        extendBody: true,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Container(
                 width: double.infinity,
-                constraints: const BoxConstraints(maxWidth: 420),
-                padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFFCF8),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color.fromRGBO(42, 25, 14, 0.18),
-                      blurRadius: 24,
-                      offset: Offset(0, 12),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                color: selectedMode == AppMode.biteScore
+                    ? const Color(0xFFEFF4FA)
+                    : const Color(0xFFFFFEFC),
+                child: Row(
                   children: [
-                    const Text(
-                      'Find dishes worth trying',
-                      style: TextStyle(
-                        color: Color(0xFF1F1A16),
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        height: 1.12,
-                      ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16, right: 4),
+                      child: _buildBiteSaverMenuButton(),
                     ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'See highly rated dishes, find local deals, and save places you want to visit.',
-                      style: TextStyle(
-                        color: Color(0xFF5E564A),
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w500,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    const _OnboardingPoint(
-                      icon: Icons.search,
-                      text: 'Search dishes, restaurants, or cities',
-                    ),
-                    const _OnboardingPoint(
-                      icon: Icons.star_border,
-                      text: 'Use BiteScore to find standout dishes',
-                    ),
-                    const _OnboardingPoint(
-                      icon: Icons.local_offer_outlined,
-                      text: 'Save deals before you go',
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _dismissOnboarding,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFB7613F),
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size.fromHeight(48),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        child: const Text('Got it'),
+                    Expanded(
+                      child: AppModeSwitcherBar(
+                        selectedMode: selectedMode,
+                        onModeSelected: _setMode,
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
+              Expanded(child: _buildCurrentPage()),
+            ],
           ),
         ),
+        bottomNavigationBar: _buildBottomNavigationBar(),
       ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Scaffold(
-          extendBody: true,
-          body: SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                Container(
-                  width: double.infinity,
-                  color: selectedMode == AppMode.biteScore
-                      ? const Color(0xFFEFF4FA)
-                      : const Color(0xFFFFFEFC),
-                  child: Row(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 16, right: 4),
-                        child: _buildBiteSaverMenuButton(),
-                      ),
-                      Expanded(
-                        child: AppModeSwitcherBar(
-                          selectedMode: selectedMode,
-                          onModeSelected: _setMode,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(child: _buildCurrentPage()),
-              ],
-            ),
-          ),
-          bottomNavigationBar: _buildBottomNavigationBar(),
-        ),
-        if (_showOnboarding) _buildOnboardingOverlay(),
-      ],
     );
   }
 }
@@ -2787,45 +2694,6 @@ class _LazyIndexedStackState extends State<_LazyIndexedStack> {
           else
             SizedBox.shrink(key: ValueKey<int>(index)),
       ],
-    );
-  }
-}
-
-class _OnboardingPoint extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _OnboardingPoint({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: const Color(0x1AB7613F),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Icon(icon, size: 16, color: const Color(0xFFB7613F)),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                color: Color(0xFF2B1D14),
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                height: 1.2,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

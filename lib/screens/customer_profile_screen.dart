@@ -39,6 +39,9 @@ typedef CustomerProfileUsernameSaver = Future<void> Function(String username);
 
 class CustomerProfileScreen extends StatefulWidget {
   final User currentUser;
+
+  /// Embedded profiles share the shell route, which must survive sign-out.
+  final bool embedded;
   final User? Function()? testCurrentUserProvider;
   final CustomerProfileDataLoader? testProfileLoader;
   final CustomerProfileBadgeLoader? testLocalExpertBadgesLoader;
@@ -51,6 +54,7 @@ class CustomerProfileScreen extends StatefulWidget {
   const CustomerProfileScreen({
     super.key,
     required this.currentUser,
+    this.embedded = false,
     @visibleForTesting this.testCurrentUserProvider,
     @visibleForTesting this.testProfileLoader,
     @visibleForTesting this.testLocalExpertBadgesLoader,
@@ -63,6 +67,7 @@ class CustomerProfileScreen extends StatefulWidget {
   const CustomerProfileScreen.fromCustomerBiteSaver({
     super.key,
     required this.currentUser,
+    this.embedded = false,
     required CustomerBiteSaverSavedCoordinator savedCoordinator,
     @visibleForTesting this.testCurrentUserProvider,
     @visibleForTesting this.testProfileLoader,
@@ -162,7 +167,13 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               );
     final savedCoordinator = widget.boundedSavedCoordinator;
     if (savedCoordinator != null) {
-      unawaited(savedCoordinator.refreshAll().catchError((_) {}));
+      // The embedded profile can mount while another Saved route is retiring.
+      // Notify their shared coordinator after this frame, not during build.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _isOpeningUserCurrent()) {
+          unawaited(savedCoordinator.refreshAll().catchError((_) {}));
+        }
+      });
     }
     final testBadgeLoader = widget.testLocalExpertBadgesLoader;
     _localExpertBadgesFuture = testBadgeLoader != null
@@ -221,6 +232,13 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       navigator: navigator,
       route: route,
       originatingAuthRealm: mainNavigationAuthRealmForUser(widget.currentUser),
+      preserveRouteOnAuthChange: widget.embedded,
+      onAuthRealmReplaced: widget.embedded
+          ? (_, _) {
+              _authBoundRouteBinding?.retirePrivateOverlays();
+              if (mounted) setState(() {});
+            }
+          : null,
     );
   }
 
@@ -1653,7 +1671,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       );
     }
     final content = Scaffold(
-      appBar: AppBar(title: const Text('My Profile'), centerTitle: true),
+      appBar: widget.embedded
+          ? null
+          : AppBar(title: const Text('My Profile'), centerTitle: true),
       body: FutureBuilder<BiteScoreUserProfileData>(
         future: _profileFuture,
         builder: (context, snapshot) {

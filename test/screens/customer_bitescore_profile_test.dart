@@ -42,6 +42,8 @@ void main() {
   testWidgets('public profile presents bounded pages and authoritative count', (
     tester,
   ) async {
+    CustomerBiteScoreRuntime.testEnabled =
+        false; // Public profile is safe even before app-wide cutover.
     final api = FakeSearchApi((name, request) async {
       if (name.contains('Summary')) return profileSummary();
       if (name.startsWith('start')) return response();
@@ -86,6 +88,7 @@ void main() {
   testWidgets('Local Expert sort issues a new globally prepared query', (
     tester,
   ) async {
+    CustomerBiteScoreRuntime.testEnabled = false;
     final sorts = <String>[];
     final api = FakeSearchApi((name, request) async {
       if (name.startsWith('start')) {

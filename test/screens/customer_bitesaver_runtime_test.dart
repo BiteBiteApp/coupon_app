@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:coupon_app/main.dart';
+import 'package:coupon_app/services/bitescore_service.dart';
 import 'package:coupon_app/models/customer_bitesaver_saved.dart';
 import 'package:coupon_app/services/customer_bitesaver_device_use_service.dart';
 import 'package:coupon_app/models/customer_bitesaver_search.dart';
@@ -167,7 +168,7 @@ void main() {
         );
         expect(rootNavigatorKey.currentState!.canPop(), isFalse);
         expect(
-          find.text('Admin Workspace'),
+          find.text('Administrative Hub'),
           user?.uid == 'admin' ? findsOneWidget : findsNothing,
         );
         expect(
@@ -560,7 +561,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('My Profile'), findsOneWidget);
+      expect(find.byType(CustomerProfileScreen), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(
         tester
@@ -699,8 +700,10 @@ void main() {
         await tester.tap(find.text('Restaurant Information'));
         await tester.pumpAndSettle();
         expect(find.text('Synthetic public fixture'), findsOneWidget);
-        await tester.ensureVisible(find.text('Menu'));
-        await tester.tap(find.text('Menu'));
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('profile-menu-main')),
+        );
+        await tester.tap(find.byKey(const ValueKey('profile-menu-main')));
         await tester.pumpAndSettle();
         expect(find.byType(RestaurantMenuScreen), findsOneWidget);
         expect(harness.device.stages, isEmpty);
@@ -798,9 +801,10 @@ void main() {
       unawaited(rootNavigatorKey.currentState!.pushNamed(route));
       await tester.pumpAndSettle();
       expect(find.byType(RestaurantProfileScreen), findsOneWidget);
-      await tester.ensureVisible(find.text('More offers'));
-      await tester.tap(find.text('More offers'));
+      await tester.ensureVisible(find.text('View More Coupons'));
+      await tester.tap(find.text('View More Coupons'));
       await tester.pumpAndSettle();
+      // The approved first expansion also loads the next public offer page.
       expect(find.text('Continued public coupon'), findsOneWidget);
       expect(find.text('More offers'), findsNothing);
       await tester.ensureVisible(find.text('Fixture Coupon 1'));
@@ -1332,6 +1336,30 @@ final class _Harness {
         clock: () => DateTime.fromMillisecondsSinceEpoch(nowMillis),
         preferences: _Preferences(),
       ),
+      testProfileBuilder: (profileUser, saved) =>
+          CustomerProfileScreen.fromCustomerBiteSaver(
+            embedded: true,
+            currentUser: profileUser,
+            savedCoordinator: saved,
+            testCurrentUserProvider: () => user,
+            testProfileLoader: (_) async => const BiteScoreUserProfileData(
+              publicDisplayName: 'Fixture profile',
+              chosenUsername: 'fixture',
+              fallbackUsername: 'fixture',
+              favoriteRestaurants: [],
+              favoriteSaverRestaurants: [],
+              favoriteDishEntries: [],
+              favoriteCoupons: [],
+              reviews: [],
+              badgeLabel: 'New Reviewer',
+              reviewCount: 0,
+              helpfulVotesReceived: 0,
+              accountAgeDays: 0,
+              moderationFlagCount: 0,
+              contributionPoints: 0,
+            ),
+            testLocalExpertBadgesLoader: (_) async => [],
+          ),
       currentUser: () => user,
       userChanges: () => Stream<User?>.multi((controller) {
         controller.add(user);

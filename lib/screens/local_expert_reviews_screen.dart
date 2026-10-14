@@ -352,7 +352,9 @@ class _LocalExpertReviewsScreenState extends State<LocalExpertReviewsScreen> {
   late final CustomerBiteScoreProfileService _boundedProfiles =
       widget.boundedProfileService ?? CustomerBiteScoreProfileService();
   CustomerBiteScoreSearchController? _boundedReviews;
-  bool get _bounded => CustomerBiteScoreRuntime.isEnabled;
+  bool get _bounded =>
+      widget.boundedProfileService != null ||
+      CustomerBiteScoreRuntime.isEnabled;
   void _onReviewsChanged() {
     if (mounted) setState(() {});
   }

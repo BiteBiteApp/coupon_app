@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/customer_bitescore_profile_service.dart';
 import '../models/local_expert.dart';
 import '../models/local_expert_badge.dart';
 import '../models/local_expert_badge_calculator.dart';
@@ -723,6 +724,7 @@ Future<void> showLocalExpertBadgeDetails(
   LocalExpertBadge badge, {
   String? reviewerUserId,
   String? reviewerDisplayName,
+  CustomerBiteScoreProfileService? boundedProfileService,
 }) {
   final parentContext = context;
   final reviewNavigationRequest =
@@ -771,6 +773,7 @@ Future<void> showLocalExpertBadgeDetails(
                         Navigator.of(parentContext).push(
                           MaterialPageRoute(
                             builder: (_) => LocalExpertReviewsScreen(
+                              boundedProfileService: boundedProfileService,
                               reviewerUserId:
                                   reviewNavigationRequest.reviewerUserId,
                               reviewerDisplayName:

@@ -100,11 +100,77 @@ void main() {
     SharedLocationStateService.resetForTesting();
   });
 
+  testWidgets(
+    'Back restores tab and mode history, deduplicates, and holds root',
+    (tester) async {
+      await tester.pumpWidget(_testApp());
+      await tester.tap(find.text('Restaurant\nHub'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('My Profile'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('My Profile'));
+      await tester.pumpAndSettle();
+      AppModeStateService.setMode(AppMode.biteScore);
+      await tester.pumpAndSettle();
+      expect(find.text('biteScore Home Page'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Account Page'), findsOneWidget);
+      expect(AppModeStateService.selectedMode.value, AppMode.biteSaver);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Restaurant Hub Page'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('biteSaver Home Page'), findsOneWidget);
+      expect(await tester.binding.handlePopRoute(), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.text('biteSaver Home Page'), findsOneWidget);
+      expect(find.text('Find dishes worth trying'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Back dismisses modal and nested route before destination history',
+    (tester) async {
+      await tester.pumpWidget(_testApp());
+      await tester.tap(find.text('My Profile'));
+      await tester.pumpAndSettle();
+      final context = tester.element(find.text('Account Page'));
+      final navigator = Navigator.of(context);
+      unawaited(
+        navigator.push(
+          MaterialPageRoute<void>(
+            builder: (_) => const Scaffold(body: Text('Nested dish')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      unawaited(
+        showDialog<void>(
+          context: tester.element(find.text('Nested dish')),
+          builder: (_) => const AlertDialog(title: Text('Modal')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Modal'), findsNothing);
+      expect(find.text('Nested dish'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Account Page'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('biteSaver Home Page'), findsOneWidget);
+    },
+  );
+
   test('navigation configuration has only the three public destinations', () {
     expect(mainNavigationItems.map((item) => item.label).toList(), <String>[
       'Home',
       'Restaurant\nHub',
-      'Account',
+      'My Profile',
     ]);
     expect(mainNavigationItems.length, 3);
     expect(mainNavigationItems.any((item) => item.label == 'Admin'), isFalse);
@@ -363,7 +429,8 @@ void main() {
           find.byType(MainNavigationScreen, skipOffstage: false),
           findsOneWidget,
         );
-        expect(await rootNavigatorKey.currentState!.maybePop(), isFalse);
+        expect(await rootNavigatorKey.currentState!.maybePop(), isTrue);
+        expect(find.byType(MainNavigationScreen), findsOneWidget);
         await tester.pumpAndSettle();
         expect(
           find.byType(BiteScoreOwnerScreen, skipOffstage: false),
@@ -373,7 +440,7 @@ void main() {
         await tester.pump();
         expect(find.textContaining('late A private data'), findsNothing);
         expect(tester.takeException(), isNull);
-        await tester.tap(find.text('Account'));
+        await tester.tap(find.text('My Profile'));
         await tester.pump();
         final home = tester.state<_RefreshGenerationProbeHomeState>(
           find.byKey(
@@ -525,7 +592,8 @@ void main() {
 
       expect(find.byType(BiteScoreOwnerScreen), findsNothing);
       expect(find.text('biteScore owner-race Home'), findsOneWidget);
-      expect(await rootNavigatorKey.currentState!.maybePop(), isFalse);
+      expect(await rootNavigatorKey.currentState!.maybePop(), isTrue);
+      expect(find.byType(MainNavigationScreen), findsOneWidget);
     },
   );
 
@@ -591,7 +659,8 @@ void main() {
       expect(find.byType(BiteScoreCreateRateScreen), findsNothing);
       expect(find.byType(BiteScoreOwnerScreen), findsNothing);
       expect(find.text('biteScore pending-owner-child Home'), findsOneWidget);
-      expect(await rootNavigatorKey.currentState!.maybePop(), isFalse);
+      expect(await rootNavigatorKey.currentState!.maybePop(), isTrue);
+      expect(find.byType(MainNavigationScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -653,10 +722,7 @@ void main() {
         ),
       );
       accountUsers.add(userA);
-      await tester.pumpAndSettle();
-      expect(find.text('My Profile'), findsOneWidget);
-
-      await tester.tap(find.text('My Profile'));
+      // Replace A before the first profile frame. No A content may mount.
       authRealm = 'signed:B';
       authChanges.add(authRealm);
       accountUsers.add(userB);
@@ -666,7 +732,8 @@ void main() {
       expect(profileBuilds, 0);
       expect(find.byType(CustomerProfileScreen), findsNothing);
       expect(find.byType(CustomerAccountScreen), findsOneWidget);
-      expect(await rootNavigatorKey.currentState!.maybePop(), isFalse);
+      expect(await rootNavigatorKey.currentState!.maybePop(), isTrue);
+      expect(find.byType(MainNavigationScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -1122,7 +1189,7 @@ void main() {
         );
         sourceHomeState.queryController.text = 'retained source query';
 
-        await tester.tap(find.text('Account'));
+        await tester.tap(find.text('My Profile'));
         await tester.pumpAndSettle();
         expect(
           find.text('${runtimeCase.initialMode.name} runtime Account'),
@@ -1266,7 +1333,7 @@ void main() {
               ),
         ),
       );
-      await tester.tap(find.text('Account'));
+      await tester.tap(find.text('My Profile'));
       await tester.pumpAndSettle();
       expect(find.text('biteSaver runtime writer Account'), findsOneWidget);
 
@@ -2410,7 +2477,7 @@ void main() {
 
       expect(parentNotifications, 1);
       expect(home.refreshes, 1);
-      await tester.tap(find.text('Account'));
+      await tester.tap(find.text('My Profile'));
       await tester.pump();
       expect(home.refreshes, 1);
       expect(tester.takeException(), isNull);
@@ -2516,7 +2583,7 @@ void main() {
       await _pumpUntil(tester, () => homeLoads >= 2);
       await tester.pumpAndSettle();
       expect(homeLoads, 2);
-      await tester.tap(find.text('Account').last);
+      await tester.tap(find.text('My Profile').last);
       await tester.pump();
       expect(homeLoads, 2);
       expect(tester.takeException(), isNull);
@@ -3000,9 +3067,9 @@ void main() {
     await tester.pumpWidget(_testApp());
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Restaurant\nHub'), findsOneWidget);
-    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('My Profile'), findsOneWidget);
     expect(find.text('Admin'), findsNothing);
-    await tester.tap(find.text('Account'));
+    await tester.tap(find.text('My Profile'));
     await tester.pump();
     expect(find.text('Account Page'), findsOneWidget);
     expect(find.text('Restaurant Hub Page'), findsNothing);
@@ -3016,7 +3083,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Admin'), findsNothing);
     expect(find.text('Restaurant Hub'), findsOneWidget);
-    await tester.tap(find.text('Account').last);
+    await tester.tap(find.text('My Profile').last);
     await tester.pumpAndSettle();
     expect(find.text('Account Page'), findsOneWidget);
   });
@@ -3202,7 +3269,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Account'));
+      await tester.tap(find.text('My Profile'));
       await tester.pumpAndSettle();
       expect(restaurantLoads, 3);
 
@@ -3358,7 +3425,7 @@ void main() {
         await tester.tap(find.text('Navigation Test Dish').first);
         await tester.pumpAndSettle();
         if (navigationCase.useRootNavigation) {
-          await tester.tap(find.text('Account'));
+          await tester.tap(find.text('My Profile'));
         } else if (navigationCase.useSystemBack) {
           expect(await tester.binding.handlePopRoute(), isTrue);
         } else {
@@ -3378,7 +3445,7 @@ void main() {
           expect(find.text('real BiteScore refresh Account'), findsOneWidget);
         } else {
           expect(find.text('Navigation Test Dish'), findsOneWidget);
-          await tester.tap(find.text('Account'));
+          await tester.tap(find.text('My Profile'));
           await tester.pump();
           expect(homeLoads, navigationCase.expectedLoads);
         }
@@ -3451,7 +3518,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Account'));
+      await tester.tap(find.text('My Profile'));
       await tester.pumpAndSettle();
 
       expect(AppModeStateService.selectedMode.value, AppMode.biteScore);
@@ -3542,7 +3609,7 @@ void main() {
       expect(find.textContaining('late A private result'), findsNothing);
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.text('Account'));
+      await tester.tap(find.text('My Profile'));
       await tester.pump();
       authRealm = 'signed:C';
       authChanges.add(authRealm);
@@ -3609,7 +3676,7 @@ void main() {
         find.byKey(const ValueKey('biteSaver-home-open-detail')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Account'));
+      await tester.tap(find.text('My Profile'));
       await tester.pumpAndSettle();
       expect(find.byType(MainNavigationScreen), findsOneWidget);
       expect(
@@ -3659,6 +3726,8 @@ void main() {
             const Center(child: Text('admin probe Hub')),
             CustomerAccountScreen(
               userStream: Stream<User?>.value(admin),
+              profileDestinationBuilder: (_, _) =>
+                  const Text("Profile content"),
               adminDestinationBuilder: (_) => AdminGateScreen(
                 userStream: Stream<User?>.value(admin),
                 couponAdminBuilder: (_) => const SizedBox.expand(
@@ -3677,9 +3746,9 @@ void main() {
       find.byKey(const ValueKey('biteSaver-admin-home-probe')),
     );
 
-    await tester.tap(find.text('Account'));
+    await tester.tap(find.text('My Profile'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Admin Workspace'));
+    await tester.tap(find.text('Administrative Hub'));
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('integrated-admin-content')),
@@ -3812,7 +3881,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Account'));
+      await tester.tap(find.text('My Profile'));
       await tester.pumpAndSettle();
       expect(find.byType(MainNavigationScreen), findsOneWidget);
       expect(
@@ -3889,7 +3958,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Account'));
+      await tester.tap(find.text('My Profile'));
       await tester.pumpAndSettle();
 
       expect(find.byType(MainNavigationScreen), findsOneWidget);
@@ -3963,7 +4032,7 @@ void main() {
       expect(duplicateHome.refreshes, 1);
       expect(canonicalHome.refreshes, 0);
 
-      await tester.tap(find.text('Account'));
+      await tester.tap(find.text('My Profile'));
       await tester.pumpAndSettle();
       expect(canonicalHome.refreshes, 1);
       expect(find.byType(MainNavigationScreen), findsOneWidget);
@@ -4002,7 +4071,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Open changed BiteScore detail'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Account'));
+    await tester.tap(find.text('My Profile'));
     await tester.pumpAndSettle();
 
     expect(
@@ -4075,7 +4144,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(biteScoreHomeState.refreshes, 0);
 
-      await tester.tap(find.text('Account'));
+      await tester.tap(find.text('My Profile'));
       await tester.pump();
       expect(biteScoreHomeState.refreshes, 1);
       expect(find.text('ignored return refresh Account'), findsOneWidget);
@@ -4170,7 +4239,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Account'));
+    await tester.tap(find.text('My Profile'));
     await tester.pumpAndSettle();
 
     expect(biteScoreHomeState.refreshes, 0);

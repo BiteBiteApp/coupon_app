@@ -16,14 +16,69 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
-  testWidgets('authorized administrator sees Admin Workspace', (tester) async {
+  testWidgets(
+    'verified sign-in opens profile directly with top-right Sign Out',
+    (tester) async {
+      final users = StreamController<User?>();
+      addTearDown(users.close);
+      await tester.pumpWidget(
+        _testApp(users.stream, testSignOut: () async => users.add(null)),
+      );
+      users.add(_user(email: 'person@example.com'));
+      await tester.pumpAndSettle();
+      expect(find.text('Real profile content'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'My Profile'), findsNothing);
+      final signOut = find.widgetWithText(TextButton, 'Sign Out');
+      expect(signOut, findsOneWidget);
+      expect(tester.widget<TextButton>(signOut).onPressed, isNotNull);
+      expect(tester.getCenter(signOut).dx, greaterThan(400));
+      await tester.tap(signOut);
+      await tester.pumpAndSettle();
+      expect(find.text('Real profile content'), findsNothing);
+      expect(find.text('Sign In'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'unverified email reminder and both controls fit narrow large text',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: CustomerAccountScreen(
+            userStream: Stream.value(_UnverifiedUser()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Check your Junk or Spam folder'), findsOneWidget);
+      await tester.ensureVisible(find.text('Resend verification email'));
+      expect(find.text('Resend verification email'), findsOneWidget);
+      await tester.ensureVisible(find.text('Refresh Verification'));
+      expect(find.text('Refresh Verification'), findsOneWidget);
+      expect(find.text('Sign Out'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('authorized administrator sees Administrative Hub', (
+    tester,
+  ) async {
     await tester.pumpWidget(_testApp(Stream<User?>.value(_adminUser())));
     await tester.pumpAndSettle();
 
-    expect(find.text('Admin Workspace'), findsOneWidget);
+    expect(find.text('Administrative Hub'), findsOneWidget);
   });
 
-  testWidgets('authenticated non-admin does not see Admin Workspace', (
+  testWidgets('authenticated non-admin does not see Administrative Hub', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -31,21 +86,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Admin Workspace'), findsNothing);
+    expect(find.text('Administrative Hub'), findsNothing);
   });
 
-  testWidgets('anonymous and signed-out users do not see Admin Workspace', (
+  testWidgets('anonymous and signed-out users do not see Administrative Hub', (
     tester,
   ) async {
     await tester.pumpWidget(
       _testApp(Stream<User?>.value(_user(email: null, isAnonymous: true))),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Admin Workspace'), findsNothing);
+    expect(find.text('Administrative Hub'), findsNothing);
 
     await tester.pumpWidget(_testApp(Stream<User?>.value(null)));
     await tester.pumpAndSettle();
-    expect(find.text('Admin Workspace'), findsNothing);
+    expect(find.text('Administrative Hub'), findsNothing);
   });
 
   testWidgets('loading and auth error states fail closed', (tester) async {
@@ -54,17 +109,17 @@ void main() {
 
     await tester.pumpWidget(_testApp(loadingController.stream));
     await tester.pump();
-    expect(find.text('Admin Workspace'), findsNothing);
+    expect(find.text('Administrative Hub'), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
     await tester.pumpWidget(
       _testApp(Stream<User?>.error(StateError('Injected auth error'))),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Admin Workspace'), findsNothing);
+    expect(find.text('Administrative Hub'), findsNothing);
   });
 
-  testWidgets('Admin Workspace opens the independently enforcing gate', (
+  testWidgets('Administrative Hub opens the independently enforcing gate', (
     tester,
   ) async {
     final nonAdmin = _user(email: 'person@example.com');
@@ -78,7 +133,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Admin Workspace'));
+    await tester.tap(find.text('Administrative Hub'));
     await tester.pumpAndSettle();
 
     expect(find.byType(AdminGateScreen), findsOneWidget);
@@ -86,7 +141,7 @@ void main() {
   });
 
   testWidgets(
-    'Admin Workspace is a full route and returning restores Account',
+    'Administrative Hub is a full route and returning restores Account',
     (tester) async {
       const customerNavigationKey = ValueKey('customer-bottom-navigation');
       final admin = _adminUser();
@@ -96,6 +151,7 @@ void main() {
           home: Scaffold(
             body: CustomerAccountScreen(
               userStream: Stream<User?>.value(admin),
+              profileDestinationBuilder: _stubProfile,
               adminDestinationBuilder: (_) => AdminGateScreen(
                 userStream: Stream<User?>.value(admin),
                 couponAdminBuilder: (_) =>
@@ -114,7 +170,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(customerNavigationKey), findsOneWidget);
-      await tester.tap(find.text('Admin Workspace'));
+      await tester.tap(find.text('Administrative Hub'));
       await tester.pumpAndSettle();
 
       expect(find.byType(AdminGateScreen), findsOneWidget);
@@ -126,7 +182,7 @@ void main() {
 
       expect(find.byType(AdminGateScreen), findsNothing);
       expect(find.byKey(customerNavigationKey), findsOneWidget);
-      expect(find.text('Admin Workspace'), findsOneWidget);
+      expect(find.text('Administrative Hub'), findsOneWidget);
     },
   );
 
@@ -165,6 +221,7 @@ void main() {
               profileOriginUserIds.add(originUser.uid);
               return CustomerProfileScreen(
                 currentUser: originUser,
+                embedded: true,
                 testCurrentUserProvider: () => currentUser,
                 testProfileLoader: (user) {
                   profileLoadUserIds.add(user.uid);
@@ -179,13 +236,11 @@ void main() {
           ),
         );
         accountUsers.add(openingUser);
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.text('My Profile'));
+        await tester.pump();
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));
 
-        expect(profileOriginUserIds, <String>['profile-user-a']);
+        expect(profileOriginUserIds, everyElement('profile-user-a'));
         expect(profileLoadUserIds, <String>['profile-user-a']);
         expect(badgeLoadUserIds, <String>['profile-user-a']);
         expect(find.byType(CustomerProfileScreen), findsOneWidget);
@@ -247,6 +302,7 @@ void main() {
             profileOriginUserIds.add(originUser.uid);
             return CustomerProfileScreen(
               currentUser: originUser,
+              embedded: true,
               testCurrentUserProvider: () => currentUser,
               testProfileLoader: (user) async => _profileData(
                 publicDisplayName: 'Profile A',
@@ -265,9 +321,7 @@ void main() {
       accountUsers.add(openingUser);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('My Profile'));
-      await tester.pumpAndSettle();
-      expect(profileOriginUserIds, <String>['save-user-a']);
+      expect(profileOriginUserIds, everyElement('save-user-a'));
 
       final usernameField = find.byType(TextField);
       expect(usernameField, findsOneWidget);
@@ -342,10 +396,13 @@ BiteScoreUserProfileData _profileData({
 Widget _testApp(
   Stream<User?> userStream, {
   WidgetBuilder? adminDestinationBuilder,
+  Future<void> Function()? testSignOut,
 }) {
   return MaterialApp(
     home: CustomerAccountScreen(
       userStream: userStream,
+      testSignOut: testSignOut,
+      profileDestinationBuilder: _stubProfile,
       adminDestinationBuilder: adminDestinationBuilder,
     ),
   );
@@ -385,4 +442,21 @@ class _TestUser extends Fake implements User {
 
   @override
   List<UserInfo> get providerData => const <UserInfo>[];
+}
+
+Widget _stubProfile(BuildContext context, User user) =>
+    const Center(child: Text('Real profile content'));
+
+class _UnverifiedUser extends _TestUser {
+  _UnverifiedUser()
+    : super(email: 'new@example.com', isAnonymous: false, uid: 'new');
+  @override
+  bool get emailVerified => false;
+  @override
+  List<UserInfo> get providerData => [_PasswordInfo()];
+}
+
+class _PasswordInfo extends Fake implements UserInfo {
+  @override
+  String get providerId => 'password';
 }

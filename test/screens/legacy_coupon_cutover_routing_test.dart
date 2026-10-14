@@ -152,7 +152,6 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('My Profile'));
     await tester.pumpAndSettle();
     expect(find.text('Canonical Saved guest'), findsOneWidget);
     expect(find.byType(CustomerAccountScreen), findsNothing);

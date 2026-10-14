@@ -705,7 +705,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
 
   Widget buildEmailVerificationScreen(User user) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: _screenPadding(context),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 500),
@@ -727,6 +727,12 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                         ? widget.emailVerificationMessage!.trim()
                         : 'A verification email has been sent to ${user.email ?? 'your email address'}. Please verify your email before continuing.',
                     textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Check your Junk or Spam folder',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 20),
                   SizedBox(

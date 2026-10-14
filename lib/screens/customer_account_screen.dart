@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/demo_redemption_store.dart';
-import '../services/admin_access_service.dart';
 import '../services/app_mode_state_service.dart';
+import '../services/admin_access_service.dart';
 import '../services/app_error_text.dart';
 import '../services/customer_auth_service.dart';
 import '../services/account_provider_service.dart';
@@ -28,6 +28,7 @@ class CustomerAccountScreen extends StatefulWidget {
   /// Creates a fresh auth subscription for each mounted Account, not each build.
   final Stream<User?> Function()? userStreamFactory;
   final WidgetBuilder? adminDestinationBuilder;
+  final Future<void> Function()? testSignOut;
   final CustomerProfileDestinationBuilder? profileDestinationBuilder;
 
   const CustomerAccountScreen({
@@ -36,6 +37,7 @@ class CustomerAccountScreen extends StatefulWidget {
     this.userStream,
     this.userStreamFactory,
     @visibleForTesting this.adminDestinationBuilder,
+    @visibleForTesting this.testSignOut,
     this.profileDestinationBuilder,
   }) : assert(userStream == null || userStreamFactory == null);
 
@@ -56,6 +58,7 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
   bool isSubmitting = false;
   String? _lastUsedMethod;
   late Stream<User?> _userStream;
+  String? _canonicalProfileRedirectUserId;
 
   Stream<User?> _createUserStream() =>
       widget.userStream ??
@@ -156,52 +159,6 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
         ),
       );
     }
-  }
-
-  String _customerStatusText(User? user) {
-    if (user == null) {
-      return 'Not signed in';
-    }
-
-    if (user.isAnonymous) {
-      return 'Browsing as guest';
-    }
-
-    if (user.displayName != null && user.displayName!.trim().isNotEmpty) {
-      return user.displayName!;
-    }
-
-    if (user.email != null && user.email!.trim().isNotEmpty) {
-      return user.email!;
-    }
-
-    return 'Signed in';
-  }
-
-  String _providerLabel(User? user) {
-    if (user == null || user.isAnonymous) {
-      return 'Guest';
-    }
-
-    final providers = user.providerData.map((e) => e.providerId).toList();
-
-    if (providers.contains('google.com') && providers.contains('password')) {
-      return 'Google and email/password are set up';
-    }
-
-    if (providers.contains('google.com')) {
-      return 'Signed in with Google';
-    }
-
-    if (providers.contains('password')) {
-      return 'Signed in with email and password';
-    }
-
-    if (providers.contains('phone')) {
-      return 'Signed in with phone';
-    }
-
-    return 'Signed in';
   }
 
   Future<void> _handleGoogleSignIn() async {
@@ -307,11 +264,8 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
         await CustomerAuthService.createAccountWithEmailPassword(
           email: email,
           password: password,
-          confirmGoogle: (email) => confirmGoogleForEmail(
-            context,
-            email,
-            forRegistration: true,
-          ),
+          confirmGoogle: (email) =>
+              confirmGoogleForEmail(context, email, forRegistration: true),
           isActive: isActive,
         );
       } else {
@@ -389,7 +343,8 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
     });
 
     try {
-      await CustomerAuthService.signOutCustomer();
+      await (widget.testSignOut?.call() ??
+          CustomerAuthService.signOutCustomer());
 
       if (!mounted) {
         return;
@@ -550,6 +505,12 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
                 'Please verify ${user.email ?? 'your email address'} before continuing.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.black54, height: 1.35),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Check your Junk or Spam folder',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 18),
               SizedBox(
@@ -751,130 +712,82 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
     );
   }
 
-  Widget _buildSignedInCard(User user) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            CircleAvatar(
-              radius: 32,
-              child: Text(
-                'A',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _customerStatusText(user),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _providerLabel(user),
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.black54),
-            ),
-            if (user.email != null && user.email!.trim().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                user.email!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.black54),
-              ),
+  Widget _buildSignedInProfile(User user) {
+    if (!DemoRedemptionStore.legacyWritesEnabled &&
+        widget.profileDestinationBuilder == null &&
+        !_hasUnverifiedPasswordAccount(user)) {
+      if (_canonicalProfileRedirectUserId != user.uid) {
+        _canonicalProfileRedirectUserId = user.uid;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _canonicalProfileRedirectUserId != user.uid) return;
+          openMainNavigationDestination(
+            context,
+            mode: AppMode.biteSaver,
+            index: 2,
+          );
+        });
+      }
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('My Profile'),
+        actions: [
+          TextButton.icon(
+            onPressed: isSubmitting ? null : _handleSignOut,
+            icon: const Icon(Icons.logout),
+            label: const Text('Sign Out'),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Account options',
+            onSelected: (_) => Navigator.of(
+              context,
+              rootNavigator: true,
+            ).pushNamed(accountDeletionRoute),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'delete', child: Text('Delete Account')),
             ],
-            _buildEmailVerificationBanner(user),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          if (AdminAccessService.isAdminUser(user))
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: OutlinedButton.icon(
                 onPressed: isSubmitting
                     ? null
-                    : () async {
-                        if (!DemoRedemptionStore.legacyWritesEnabled &&
-                            widget.profileDestinationBuilder == null) {
-                          openMainNavigationDestination(
-                            context,
-                            mode: AppMode.biteSaver,
-                            index: 2,
-                          );
-                          return;
-                        }
-                        await pushMainNavigationPrivateRoute<void>(
-                          context,
-                          parentBinding: null,
-                          originatingAuthRealm: mainNavigationAuthRealmForUser(
-                            user,
+                    : () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder:
+                                widget.adminDestinationBuilder ??
+                                (_) => const AdminGateScreen(),
                           ),
-                          builder: (routeContext) =>
-                              widget.profileDestinationBuilder?.call(
-                                routeContext,
-                                user,
-                              ) ??
-                              CustomerProfileScreen(currentUser: user),
                         );
                       },
-                icon: const Icon(
-                  Icons.account_circle,
-                  size: 28,
-                  color: Colors.white,
-                ),
-                label: const Text('My Profile'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  elevation: 1,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                icon: const Icon(Icons.admin_panel_settings_outlined),
+                label: const Text('Administrative Hub'),
               ),
             ),
-            const SizedBox(height: 12),
-            if (AdminAccessService.isAdminUser(user)) ...[
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: isSubmitting
-                      ? null
-                      : () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder:
-                                  widget.adminDestinationBuilder ??
-                                  (_) => const AdminGateScreen(),
-                            ),
-                          );
-                        },
-                  icon: const Icon(Icons.admin_panel_settings_outlined),
-                  label: const Text('Admin Workspace'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+          Expanded(
+            child: _hasUnverifiedPasswordAccount(user)
+                ? SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                    child: _buildEmailVerificationBanner(user),
+                  )
+                : KeyedSubtree(
+                    key: ValueKey(user.uid),
+                    child:
+                        widget.profileDestinationBuilder?.call(context, user) ??
+                        CustomerProfileScreen(
+                          currentUser: user,
+                          embedded: true,
+                        ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: isSubmitting ? null : _handleSignOut,
-                icon: const Icon(Icons.logout),
-                label: Text(isSubmitting ? 'Please wait...' : 'Sign Out'),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -887,7 +800,7 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
             appBar: widget.showAppBar
-                ? AppBar(title: const Text('Account'), centerTitle: true)
+                ? AppBar(title: const Text('My Profile'), centerTitle: true)
                 : null,
             body: const Center(child: CircularProgressIndicator()),
           );
@@ -895,10 +808,12 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
 
         final user = snapshot.data;
         final isGuest = user == null || user.isAnonymous;
+        if (!isGuest) return _buildSignedInProfile(user);
+        _canonicalProfileRedirectUserId = null;
 
         return Scaffold(
           appBar: widget.showAppBar
-              ? AppBar(title: const Text('Account'), centerTitle: true)
+              ? AppBar(title: const Text('My Profile'), centerTitle: true)
               : null,
           body: SafeArea(
             child: LayoutBuilder(
@@ -924,9 +839,7 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
                               ),
                               const SizedBox(height: 16),
                             ],
-                            isGuest
-                                ? _buildGuestCard(user)
-                                : _buildSignedInCard(user),
+                            _buildGuestCard(user),
                             if (user != null)
                               TextButton.icon(
                                 onPressed: () => Navigator.of(

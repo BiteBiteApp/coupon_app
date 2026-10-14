@@ -139,6 +139,7 @@ final class CustomerBiteSaverComposition extends ChangeNotifier {
     Future<CustomerBiteSaverCoordinates> Function()? currentCoordinatesProvider,
     String? clientInstanceId,
     DateTime Function()? clock,
+    @visibleForTesting this.testProfileBuilder,
   }) : _api = api,
        _favoriteService = favoriteService,
        _currentUser = currentUser,
@@ -181,6 +182,12 @@ final class CustomerBiteSaverComposition extends ChangeNotifier {
       userChanges: auth.userChanges,
     );
   }
+
+  final CustomerProfileScreen Function(
+    User user,
+    CustomerBiteSaverSavedCoordinator saved,
+  )?
+  testProfileBuilder;
 
   final CustomerBiteSaverService _api;
   final CustomerBiteSaverFavoriteService _favoriteService;
@@ -533,10 +540,12 @@ final class CustomerBiteSaverComposition extends ChangeNotifier {
               body: Center(child: Text('Please sign in to continue')),
             );
           }
-          return CustomerProfileScreen.fromCustomerBiteSaver(
-            currentUser: user,
-            savedCoordinator: owner,
-          );
+          return testProfileBuilder?.call(user, owner) ??
+              CustomerProfileScreen.fromCustomerBiteSaver(
+                currentUser: user,
+                embedded: true,
+                savedCoordinator: owner,
+              );
         },
       );
 

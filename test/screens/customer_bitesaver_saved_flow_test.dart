@@ -395,9 +395,10 @@ void main() {
             biteSaverSavedAccountBuilder: (context, authRealm) {
               expect(authRealm, 'signed:${user.uid}');
               return CustomerAccountScreen(
-                userStream: Stream<User?>.value(user),
+                userStream: _profileStream(user),
                 profileDestinationBuilder: (context, currentUser) =>
                     CustomerProfileScreen.fromCustomerBiteSaver(
+                      embedded: true,
                       currentUser: currentUser,
                       savedCoordinator: coordinator,
                       testCurrentUserProvider: () => user,
@@ -412,7 +413,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(CustomerAccountScreen), findsOneWidget);
-      await tester.tap(find.text('My Profile'));
+      expect(find.byType(CustomerProfileScreen), findsOneWidget);
       await tester.pumpAndSettle();
 
       expect(api.pageCalls, <CustomerBiteSaverSavedSection>[
@@ -782,9 +783,10 @@ void main() {
                     const Scaffold(body: Text('Bounded Browse')),
             biteSaverSavedAccountBuilder: (context, authRealm) =>
                 CustomerAccountScreen(
-                  userStream: Stream<User?>.value(user),
+                  userStream: _profileStream(user),
                   profileDestinationBuilder: (context, currentUser) =>
                       CustomerProfileScreen.fromCustomerBiteSaver(
+                        embedded: true,
                         currentUser: currentUser,
                         savedCoordinator: coordinator,
                         testCurrentUserProvider: () => user,
@@ -796,7 +798,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('My Profile'));
+      expect(find.byType(CustomerProfileScreen), findsOneWidget);
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Coupons'));
       await tester.tap(find.text('Coupons'));
@@ -912,9 +914,10 @@ void main() {
                     const Scaffold(body: Text('Bounded Browse')),
             biteSaverSavedAccountBuilder: (context, authRealm) =>
                 CustomerAccountScreen(
-                  userStream: Stream<User?>.value(user),
+                  userStream: _profileStream(user),
                   profileDestinationBuilder: (context, currentUser) =>
                       CustomerProfileScreen.fromCustomerBiteSaver(
+                        embedded: true,
                         currentUser: currentUser,
                         savedCoordinator: coordinator,
                         testCurrentUserProvider: () => user,
@@ -926,7 +929,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('My Profile'));
+      expect(find.byType(CustomerProfileScreen), findsOneWidget);
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Coupons'));
       await tester.tap(find.text('Coupons'));
@@ -1010,9 +1013,10 @@ void main() {
                   realm != 'signed:owner-a'
                   ? const Scaffold(body: Text('Replacement account'))
                   : CustomerAccountScreen(
-                      userStream: Stream<User?>.value(user),
+                      userStream: _profileStream(user),
                       profileDestinationBuilder: (_, signedUser) =>
                           CustomerProfileScreen.fromCustomerBiteSaver(
+                            embedded: true,
                             currentUser: signedUser,
                             savedCoordinator: coordinator,
                             testCurrentUserProvider: () => currentUser,
@@ -1024,7 +1028,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text('My Profile'));
+        expect(find.byType(CustomerProfileScreen), findsOneWidget);
         await tester.pumpAndSettle();
         await tester.ensureVisible(find.text('Coupons'));
         await tester.tap(find.text('Coupons'));
@@ -1188,9 +1192,10 @@ Future<_SavedBackHarness> _openSavedBackHarness(WidgetTester tester) async {
         biteSaverBrowseHomeBuilder: (_, _, _) =>
             const Scaffold(body: Text('Bounded Browse')),
         biteSaverSavedAccountBuilder: (_, _) => CustomerAccountScreen(
-          userStream: Stream<User?>.value(harness.user),
+          userStream: _profileStream(harness.user),
           profileDestinationBuilder: (_, user) =>
               CustomerProfileScreen.fromCustomerBiteSaver(
+                embedded: true,
                 currentUser: user,
                 savedCoordinator: harness.coordinator,
                 testCurrentUserProvider: () => harness.user,
@@ -1202,7 +1207,7 @@ Future<_SavedBackHarness> _openSavedBackHarness(WidgetTester tester) async {
     ),
   );
   await tester.pumpAndSettle();
-  await tester.tap(find.text('My Profile'));
+  expect(find.byType(CustomerProfileScreen), findsOneWidget);
   await tester.pumpAndSettle();
   await tester.ensureVisible(find.text('Coupons'));
   await tester.tap(find.text('Coupons'));
@@ -1259,3 +1264,7 @@ Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) async {
   }
   fail('Timed out waiting for the Saved BiteSaver fixture.');
 }
+
+final _profileStreams = Expando<Stream<User?>>();
+Stream<User?> _profileStream(User user) =>
+    _profileStreams[user] ??= Stream<User?>.value(user);

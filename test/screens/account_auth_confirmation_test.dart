@@ -26,6 +26,7 @@ void main() {
         MaterialApp(
           home: CustomerAccountScreen(
             userStream: Stream.value(_User(providers)),
+            profileDestinationBuilder: (_, _) => const SizedBox(),
           ),
         ),
       );

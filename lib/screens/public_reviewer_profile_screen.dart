@@ -9,7 +9,6 @@ import '../services/app_mode_state_service.dart';
 import '../services/bitescore_service.dart';
 import '../services/customer_bitescore_profile_service.dart';
 import '../services/customer_bitescore_reads.dart';
-import '../services/customer_bitescore_runtime.dart';
 import '../services/customer_bitescore_search_service.dart';
 import '../widgets/customer_bitescore_page_status.dart';
 import '../services/local_expert_badge_service.dart';
@@ -68,8 +67,9 @@ class _PublicReviewerProfileScreenState
   late final CustomerBiteScoreProfileService _boundedProfiles =
       widget.boundedProfileService ?? CustomerBiteScoreProfileService();
   CustomerBiteScoreSearchController? _reviews;
-  bool get _bounded =>
-      CustomerBiteScoreRuntime.isEnabled && widget.profileLoader == null;
+  // Public viewing must never fall back to private/raw profile collections.
+  // The established customer endpoints enforce visibility and return public DTOs.
+  bool get _bounded => widget.profileLoader == null;
   void _onReviewsChanged() {
     if (mounted) setState(() {});
   }
@@ -103,9 +103,7 @@ class _PublicReviewerProfileScreenState
       unawaited(_reviews!.loadInitial());
     }
     _profileFuture = profileLoader == null
-        ? (_bounded
-              ? _boundedProfiles.summary(widget.userId)
-              : BiteScoreService.loadPublicReviewerProfileData(widget.userId))
+        ? _boundedProfiles.summary(widget.userId)
         : profileLoader(widget.userId);
     final badgesLoader = widget.badgesLoader;
     _localExpertBadgesFuture = badgesLoader == null
@@ -486,6 +484,7 @@ class _PublicReviewerProfileScreenState
                     onTap: () => showLocalExpertBadgeDetails(
                       context,
                       badge,
+                      boundedProfileService: _bounded ? _boundedProfiles : null,
                       reviewerUserId: profileData.userId,
                       reviewerDisplayName: profileData.publicDisplayName,
                     ),

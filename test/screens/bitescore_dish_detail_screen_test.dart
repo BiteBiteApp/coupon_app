@@ -646,7 +646,7 @@ void main() {
         expect(home.refreshes, succeeds ? 1 : 0);
         expect(tester.takeException(), isNull);
 
-        await tester.tap(find.text('Account').last);
+        await tester.tap(find.text('My Profile').last);
         await tester.pump();
         expect(home.refreshes, succeeds ? 1 : 0);
       },

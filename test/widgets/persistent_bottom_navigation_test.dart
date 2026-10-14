@@ -22,7 +22,7 @@ void main() {
 
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Restaurant\nHub'), findsOneWidget);
-    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('My Profile'), findsOneWidget);
     expect(find.text('Admin'), findsNothing);
   });
 
@@ -57,7 +57,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Account'));
+      await tester.tap(find.text('My Profile'));
       await tester.pumpAndSettle();
 
       expect(capturedMode, AppMode.biteScore);
