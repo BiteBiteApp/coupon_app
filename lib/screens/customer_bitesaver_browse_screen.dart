@@ -16,6 +16,7 @@ import '../services/customer_bitesaver_search_coordinator.dart';
 import '../services/customer_load_more_controller.dart';
 import '../services/shared_location_state_service.dart';
 import '../widgets/bitesaver_colors.dart';
+import '../widgets/search_header_accessibility.dart';
 import '../widgets/bitesaver_restaurant_images.dart';
 import 'home_screen.dart'
     show BiteSaverHomeDealBubble, BiteSaverDealFeedStack, BiteSaverDealFeedTile;
@@ -242,7 +243,8 @@ class _CustomerBiteSaverBrowseScreenState
     super.initState();
     _observedAuthRealmKey = widget.coordinator.auth.realmKey;
     final lifecycle = WidgetsBinding.instance.lifecycleState;
-    _lifecyclePaused = lifecycle != null && lifecycle != AppLifecycleState.resumed;
+    _lifecyclePaused =
+        lifecycle != null && lifecycle != AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
     widget.coordinator.addListener(_handleCoordinatorChanged);
     SharedLocationStateService.changes.addListener(_sharedLocationChanged);
@@ -282,7 +284,8 @@ class _CustomerBiteSaverBrowseScreenState
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
         _lifecyclePaused = true;
-        _locationRefreshOnResume = _locationRefreshOnResume || _pendingSearchSetup != null;
+        _locationRefreshOnResume =
+            _locationRefreshOnResume || _pendingSearchSetup != null;
         _invalidatePendingSearchSetup();
         if (widget.coordinator.status !=
             CustomerBiteSaverCoordinatorStatus.paused) {
@@ -396,7 +399,9 @@ class _CustomerBiteSaverBrowseScreenState
       final savedRadius = preferences.getString(_selectedRadiusPreferenceKey);
       final parsedRadius = _parseRadius(savedRadius);
       if (!mounted || generation != _locationGeneration) return;
-      final radiusChangedAfterPublication = _restored && parsedRadius != null &&
+      final radiusChangedAfterPublication =
+          _restored &&
+          parsedRadius != null &&
           parsedRadius != _selectedRadiusMiles;
       if (parsedRadius != null) _selectedRadiusMiles = parsedRadius;
       final restored =
@@ -405,7 +410,9 @@ class _CustomerBiteSaverBrowseScreenState
                 reverseLookupLocation: _reverseGeocode,
               ));
       if (!mounted || generation != _locationGeneration) return;
-      final alreadyApplied = _restored && identical(_location, restored.state) &&
+      final alreadyApplied =
+          _restored &&
+          identical(_location, restored.state) &&
           !radiusChangedAfterPublication;
       setState(() {
         _restored = true;
@@ -440,13 +447,25 @@ class _CustomerBiteSaverBrowseScreenState
   (double?, double?, bool, String) _confirmedCenterKey() {
     final retained = _retainedSearchCenter;
     if (retained != null) {
-      return (retained.latitude, retained.longitude,
+      return (
+        retained.latitude,
+        retained.longitude,
         retained.locationMode == CustomerBiteSaverLocationMode.current,
-        retained.typedLocation == null ? '' : jsonEncode(retained.typedLocation!.toJson()));
+        retained.typedLocation == null
+            ? ''
+            : jsonEncode(retained.typedLocation!.toJson()),
+      );
     }
-    return (_location.usingCurrentLocation ? _location.currentPosition?.latitude : _location.typedLatitude,
-      _location.usingCurrentLocation ? _location.currentPosition?.longitude : _location.typedLongitude,
-      _location.usingCurrentLocation, _location.usingCurrentLocation ? '' : _canonicalTypedLocation());
+    return (
+      _location.usingCurrentLocation
+          ? _location.currentPosition?.latitude
+          : _location.typedLatitude,
+      _location.usingCurrentLocation
+          ? _location.currentPosition?.longitude
+          : _location.typedLongitude,
+      _location.usingCurrentLocation,
+      _location.usingCurrentLocation ? '' : _canonicalTypedLocation(),
+    );
   }
 
   String _canonicalTypedLocation() {
@@ -460,7 +479,9 @@ class _CustomerBiteSaverBrowseScreenState
   void _sharedLocationChanged() {
     if (!mounted) return;
     final owned = _ownedLocationOperation;
-    final ownSubmission = (_geocoding || _locating) && owned != null &&
+    final ownSubmission =
+        (_geocoding || _locating) &&
+        owned != null &&
         SharedLocationStateService.ownsLocationOperation(owned);
     final before = _confirmedCenterKey();
     if (!ownSubmission && (_geocoding || _locating)) _locationGeneration += 1;
@@ -741,7 +762,9 @@ class _CustomerBiteSaverBrowseScreenState
     });
     try {
       final locations = await SharedLocationStateService.geocodeSearchQuery(
-        query, reuseConfirmed: true, locationGeocoder: widget.locationGeocoder,
+        query,
+        reuseConfirmed: true,
+        locationGeocoder: widget.locationGeocoder,
       );
       if (!_ownsLocationOperation(generation, token)) return;
       if (locations.isEmpty ||
@@ -772,7 +795,8 @@ class _CustomerBiteSaverBrowseScreenState
         _geocoding = false;
         _inputError = AppErrorText.friendly(
           error is TimeoutException
-              ? 'Could not find that location in time. Please try again.' : error,
+              ? 'Could not find that location in time. Please try again.'
+              : error,
           fallback: 'Could not search that city or ZIP.',
         );
       });
@@ -1035,12 +1059,16 @@ class _CustomerBiteSaverBrowseScreenState
                 pinned: true,
                 delegate: _BoundedHomeHeaderDelegate(
                   minExtentHeight: _collapsedHeaderExtent,
-                  maxExtentHeight:
-                      _expandedHeaderExtentFor(
-                        constraints.maxWidth,
-                        MediaQuery.textScalerOf(context),
-                      ) +
-                      _headerFeedbackHeight(context, constraints.maxWidth),
+                  maxExtentHeight: usesAccessibleSearchLayout(context)
+                      ? accessibleSearchHeaderExtent(constraints.maxHeight)
+                      : _expandedHeaderExtentFor(
+                              constraints.maxWidth,
+                              MediaQuery.textScalerOf(context),
+                            ) +
+                            _headerFeedbackHeight(
+                              context,
+                              constraints.maxWidth,
+                            ),
                   builder: (context, expansionT) =>
                       _buildHeader(expansionT: expansionT),
                 ),
@@ -1139,7 +1167,7 @@ class _CustomerBiteSaverBrowseScreenState
 
   Widget _buildHeader({required double expansionT}) {
     final collapsed = expansionT <= 0.12;
-    final statusLine = _headerStatus;
+    final accessible = usesAccessibleSearchLayout(context);
 
     InputDecoration searchDecoration({
       required String hint,
@@ -1196,32 +1224,38 @@ class _CustomerBiteSaverBrowseScreenState
           _locating ? Icons.hourglass_top : Icons.near_me_outlined,
           size: tight ? 17 : 21,
         ),
-        label: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
+        label: accessible
+            ? Text(
                 _locating ? 'Locating...' : 'Use My Current Location',
-                maxLines: 1,
-                textScaler: TextScaler.noScaling,
-                style: TextStyle(fontSize: tight ? 10.3 : 12.2),
+                style: const TextStyle(fontSize: 12.6),
+                textAlign: TextAlign.center,
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _locating ? 'Locating...' : 'Use My Current Location',
+                      maxLines: 1,
+                      textScaler: TextScaler.noScaling,
+                      style: TextStyle(fontSize: tight ? 10.3 : 12.2),
+                    ),
+                  ),
+                  if (!tight)
+                    Text(
+                      'Find restaurants near you',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: tight ? 9.2 : 10.2,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
               ),
-            ),
-            if (!tight)
-              Text(
-                'Find restaurants near you',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: tight ? 9.2 : 10.2,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-          ],
-        ),
         style: ElevatedButton.styleFrom(
           fixedSize: Size.fromHeight(controlHeight),
           backgroundColor: const Color(0xFFE94312),
@@ -1397,6 +1431,28 @@ class _CustomerBiteSaverBrowseScreenState
       );
     }
 
+    if (accessible && !collapsed) {
+      final fieldHeight = accessibleSearchFieldHeight(context);
+      return AccessibleBiteSaverSearchHeader(
+        key: const ValueKey('expanded-accessible'),
+        locationButton: currentLocationButton(
+          true,
+          MediaQuery.textScalerOf(context).scale(12.6) * 2.4 + 20,
+        ),
+        locationField: typedLocationButton(false, fieldHeight),
+        searchField: restaurantSearchField(
+          MediaQuery.sizeOf(context).width < 430,
+          fieldHeight,
+        ),
+        radiusField: radiusDropdown(false, fieldHeight),
+        feedback: Text(
+          _headerStatus,
+          key: const ValueKey<String>('bounded-search-status'),
+          style: _headerStatusStyle(context),
+        ),
+      );
+    }
+
     return Material(
       color: BiteSaverColors.secondaryBackground,
       child: AnimatedSwitcher(
@@ -1412,7 +1468,7 @@ class _CustomerBiteSaverBrowseScreenState
                 key: const ValueKey('collapsed'),
                 padding: const EdgeInsets.fromLTRB(10, 7, 10, 0),
                 child: SizedBox(
-                  height: 44,
+                  height: 48,
                   child: Container(
                     padding: const EdgeInsets.only(left: 13, right: 5),
                     decoration: BoxDecoration(
@@ -1427,40 +1483,9 @@ class _CustomerBiteSaverBrowseScreenState
                         ),
                       ],
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            statusLine.isEmpty
-                                ? 'Find local BiteSaver deals'
-                                : statusLine,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: _inputError == null
-                                  ? BiteSaverColors.ink
-                                  : Theme.of(context).colorScheme.error,
-                              fontSize: 13.4,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: _expandHeader,
-                          visualDensity: VisualDensity.compact,
-                          constraints: const BoxConstraints.tightFor(
-                            width: 34,
-                            height: 34,
-                          ),
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(
-                            Icons.keyboard_arrow_down,
-                            color: Color(0xFFE24A17),
-                            size: 24,
-                          ),
-                          tooltip: 'Expand search',
-                        ),
-                      ],
+                    child: ExpandSearchControl(
+                      onTap: _expandHeader,
+                      color: BiteSaverColors.ink,
                     ),
                   ),
                 ),
@@ -2752,22 +2777,33 @@ class _InlineStatusCard extends StatelessWidget {
       color: const Color(0xFFFFFBF2),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  color: BiteSaverColors.secondaryText,
-                  fontWeight: FontWeight.w600,
-                ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final titleWidget = Text(
+              title,
+              style: const TextStyle(
+                color: BiteSaverColors.secondaryText,
+                fontWeight: FontWeight.w600,
               ),
-            ),
-            TextButton(
+            );
+            final action = TextButton(
               onPressed: () => unawaited(onPressed()),
-              child: Text(actionLabel),
-            ),
-          ],
+              child: Text(actionLabel, textAlign: TextAlign.center),
+            );
+            if (usesAccessibleSearchLayout(context) ||
+                constraints.maxWidth < 360) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [titleWidget, action],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: titleWidget),
+                action,
+              ],
+            );
+          },
         ),
       ),
     );

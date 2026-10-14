@@ -22,6 +22,7 @@ import '../services/bitesaver_location_search.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/shared_location_state_service.dart';
 import '../widgets/bitesaver_colors.dart';
+import '../widgets/search_header_accessibility.dart';
 import '../widgets/bitesaver_restaurant_images.dart';
 import '../widgets/pressable_scale.dart';
 import 'coupon_detail_screen.dart';
@@ -2970,7 +2971,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required double expansionT,
   }) {
     final collapsed = expansionT <= 0.12;
-    final statusLine = compactStatusLine(filteredRestaurants);
+    final accessible = usesAccessibleSearchLayout(context);
 
     InputDecoration searchDecoration({
       required String hint,
@@ -3028,32 +3029,40 @@ class _HomeScreenState extends State<HomeScreen> {
           isGettingLocation ? Icons.hourglass_top : Icons.near_me_outlined,
           size: tight ? 17 : 21,
         ),
-        label: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
+        label: accessible
+            ? Text(
                 isGettingLocation ? 'Locating...' : 'Use My Current Location',
-                maxLines: 1,
-                textScaler: TextScaler.noScaling,
-                style: TextStyle(fontSize: tight ? 10.3 : 12.2),
+                style: const TextStyle(fontSize: 12.6),
+                textAlign: TextAlign.center,
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      isGettingLocation
+                          ? 'Locating...'
+                          : 'Use My Current Location',
+                      maxLines: 1,
+                      textScaler: TextScaler.noScaling,
+                      style: TextStyle(fontSize: tight ? 10.3 : 12.2),
+                    ),
+                  ),
+                  if (!tight)
+                    Text(
+                      'Find restaurants near you',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: tight ? 9.2 : 10.2,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
               ),
-            ),
-            if (!tight)
-              Text(
-                'Find restaurants near you',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: tight ? 9.2 : 10.2,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-          ],
-        ),
         style: ElevatedButton.styleFrom(
           fixedSize: Size.fromHeight(controlHeight),
           backgroundColor: const Color(0xFFE94312),
@@ -3241,6 +3250,23 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    if (accessible && !collapsed) {
+      final fieldHeight = accessibleSearchFieldHeight(context);
+      return AccessibleBiteSaverSearchHeader(
+        key: const ValueKey('expanded-accessible'),
+        locationButton: currentLocationButton(
+          true,
+          MediaQuery.textScalerOf(context).scale(12.6) * 2.4 + 20,
+        ),
+        locationField: typedLocationButton(false, fieldHeight),
+        searchField: restaurantSearchField(
+          MediaQuery.sizeOf(context).width < 430,
+          fieldHeight,
+        ),
+        radiusField: radiusDropdown(false, fieldHeight),
+      );
+    }
+
     return Material(
       color: BiteSaverColors.secondaryBackground,
       child: AnimatedSwitcher(
@@ -3256,7 +3282,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 key: const ValueKey('collapsed'),
                 padding: const EdgeInsets.fromLTRB(10, 7, 10, 0),
                 child: SizedBox(
-                  height: 44,
+                  height: 48,
                   child: Container(
                     padding: const EdgeInsets.only(left: 13, right: 5),
                     decoration: BoxDecoration(
@@ -3271,38 +3297,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            statusLine.isEmpty
-                                ? 'Find local BiteSaver deals'
-                                : statusLine,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: BiteSaverColors.ink,
-                              fontSize: 13.4,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: _expandHeader,
-                          visualDensity: VisualDensity.compact,
-                          constraints: const BoxConstraints.tightFor(
-                            width: 34,
-                            height: 34,
-                          ),
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(
-                            Icons.keyboard_arrow_down,
-                            color: Color(0xFFE24A17),
-                            size: 24,
-                          ),
-                          tooltip: 'Expand search',
-                        ),
-                      ],
+                    child: ExpandSearchControl(
+                      onTap: _expandHeader,
+                      color: BiteSaverColors.ink,
                     ),
                   ),
                 ),
@@ -3621,45 +3618,52 @@ class _HomeScreenState extends State<HomeScreen> {
                   behavior: ScrollConfiguration.of(
                     context,
                   ).copyWith(overscroll: false),
-                  child: CustomScrollView(
-                    controller: _listScrollController,
-                    physics: const ClampingScrollPhysics(),
-                    slivers: [
-                      SliverPersistentHeader(
-                        pinned: true,
-                        delegate: _HomeHeaderDelegate(
-                          minExtentHeight: _collapsedHeaderExtent,
-                          maxExtentHeight: expandedHeaderExtent,
-                          builder: (context, expansionT) => _buildHeader(
-                            allRestaurants: allRestaurants,
-                            filteredRestaurants: filteredRestaurants,
-                            expansionT: expansionT,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => CustomScrollView(
+                      controller: _listScrollController,
+                      physics: const ClampingScrollPhysics(),
+                      slivers: [
+                        SliverPersistentHeader(
+                          pinned: true,
+                          delegate: _HomeHeaderDelegate(
+                            minExtentHeight: _collapsedHeaderExtent,
+                            maxExtentHeight: usesAccessibleSearchLayout(context)
+                                ? accessibleSearchHeaderExtent(
+                                    constraints.maxHeight,
+                                  )
+                                : expandedHeaderExtent,
+                            builder: (context, expansionT) => _buildHeader(
+                              allRestaurants: allRestaurants,
+                              filteredRestaurants: filteredRestaurants,
+                              expansionT: expansionT,
+                            ),
                           ),
                         ),
-                      ),
-                      SliverPadding(
-                        padding: EdgeInsets.fromLTRB(
-                          8,
-                          0,
-                          8,
-                          bottomContentPadding,
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(
+                            8,
+                            0,
+                            8,
+                            bottomContentPadding,
+                          ),
+                          sliver: !_hasLocationOrZipInput
+                              ? _buildGetStartedState(allRestaurants)
+                              : isSearchingLocation
+                              ? _buildLocationSearchPending()
+                              : _typedGeocodeFailed
+                              ? _buildLocationSearchError()
+                              : _restaurantsError != null &&
+                                    _restaurants.isEmpty
+                              ? _buildInlineRestaurantsError()
+                              : _isRestaurantsLoading && _restaurants.isEmpty
+                              ? _buildInlineRestaurantsLoading()
+                              : _buildResultsSliver(
+                                  allRestaurants,
+                                  filteredRestaurants,
+                                ),
                         ),
-                        sliver: !_hasLocationOrZipInput
-                            ? _buildGetStartedState(allRestaurants)
-                            : isSearchingLocation
-                            ? _buildLocationSearchPending()
-                            : _typedGeocodeFailed
-                            ? _buildLocationSearchError()
-                            : _restaurantsError != null && _restaurants.isEmpty
-                            ? _buildInlineRestaurantsError()
-                            : _isRestaurantsLoading && _restaurants.isEmpty
-                            ? _buildInlineRestaurantsLoading()
-                            : _buildResultsSliver(
-                                allRestaurants,
-                                filteredRestaurants,
-                              ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

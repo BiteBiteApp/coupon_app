@@ -4,6 +4,32 @@ import '../services/app_mode_state_service.dart';
 import '../screens/main_navigation_screen.dart';
 import 'bitesaver_colors.dart';
 
+/// Measures both existing labels with the same inherited typography and scaler.
+Size measureAppModeLabels(
+  BuildContext context, {
+  double maxWidth = double.infinity,
+}) {
+  var size = Size.zero;
+  for (final text in ['BiteSaver', 'BiteScore']) {
+    final label = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: DefaultTextStyle.of(context).style.merge(
+          const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+        ),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: maxWidth);
+    size = Size(
+      label.width > size.width ? label.width : size.width,
+      label.height > size.height ? label.height : size.height,
+    );
+    label.dispose();
+  }
+  return size;
+}
+
 class AppModeSwitcherBar extends StatefulWidget {
   final AppMode selectedMode;
   final ValueChanged<AppMode> onModeSelected;
@@ -100,6 +126,11 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
         builder: (context, constraints) {
           final width = constraints.maxWidth;
           final thumbWidth = (width - 4) / 2;
+          final labels = measureAppModeLabels(
+            context,
+            maxWidth: (thumbWidth - 4).clamp(1, double.infinity),
+          );
+          final barHeight = labels.height + 16 > 42 ? labels.height + 16 : 42.0;
           final visualPosition = _dragPosition ?? _selectedPosition;
           final left = 2 + (visualPosition * thumbWidth);
           final isDragging = _dragPosition != null;
@@ -116,7 +147,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
             },
             child: Container(
               width: double.infinity,
-              height: 42,
+              height: barHeight,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   begin: Alignment.centerLeft,

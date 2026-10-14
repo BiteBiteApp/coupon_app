@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:io' show Platform;
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -24,6 +25,7 @@ import '../services/firestore_document_id.dart';
 import '../services/customer_bitescore_search_service.dart';
 import '../services/shared_location_state_service.dart';
 import '../widgets/biterater_theme.dart';
+import '../widgets/search_header_accessibility.dart';
 import 'bitescore_create_rate_screen.dart';
 import 'bitescore_dish_detail_screen.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
@@ -336,7 +338,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     return customerBiteScoreDishCriteria(
       text: dishSearchController.text.trim(),
       locationText: _confirmedLocation.usingTypedSearchLocation
-          ? _confirmedLocation.searchText.trim() : '',
+          ? _confirmedLocation.searchText.trim()
+          : '',
       latitude: center?.latitude,
       longitude: center?.longitude,
       radiusMiles: _radiusMiles(),
@@ -390,7 +393,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         _boundedAuthSubscription = FirebaseAuth.instance
             .authStateChanges()
             .listen((user) {
-              final initialEcho = awaitingInitialNotification &&
+              final initialEcho =
+                  awaitingInitialNotification &&
                   user?.uid == initialUser?.uid &&
                   user?.isAnonymous == initialUser?.isAnonymous &&
                   user?.tenantId == initialUser?.tenantId &&
@@ -734,7 +738,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     if (!mounted) return;
     final owned = _ownedSharedLocationOperation;
     // The submitting operation applies its own accepted state after saving.
-    if ((isSearchingLocation || isGettingLocation) && owned != null &&
+    if ((isSearchingLocation || isGettingLocation) &&
+        owned != null &&
         SharedLocationStateService.ownsLocationOperation(owned)) {
       return;
     }
@@ -877,11 +882,14 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
 
     try {
       final locations = await SharedLocationStateService.geocodeSearchQuery(
-        query, reuseConfirmed: true,
+        query,
+        reuseConfirmed: true,
       );
-      if (locations.isEmpty || !locations.first.latitude.isFinite ||
+      if (locations.isEmpty ||
+          !locations.first.latitude.isFinite ||
           !locations.first.longitude.isFinite ||
-          locations.first.latitude.abs() > 90 || locations.first.longitude.abs() > 180) {
+          locations.first.latitude.abs() > 90 ||
+          locations.first.longitude.abs() > 180) {
         throw Exception('No matching location found.');
       }
 
@@ -1161,6 +1169,16 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     IconData? prefixIcon,
     bool showArrowIcon = true,
   }) {
+    final actionText = TextPainter(
+      text: const TextSpan(
+        text: 'Search',
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final actionWidth = actionText.width + 40 + (showArrowIcon ? 22 : 0);
+    actionText.dispose();
     return Stack(
       alignment: Alignment.centerRight,
       children: [
@@ -1176,7 +1194,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                 contentPadding: EdgeInsets.fromLTRB(
                   12,
                   13,
-                  showArrowIcon ? 156 : 88,
+                  math.max(showArrowIcon ? 156 : 88, actionWidth),
                   13,
                 ),
               ),
@@ -1304,10 +1322,32 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     );
   }
 
+  double get _controlHeight => usesAccessibleSearchLayout(context)
+      ? math.max(48, MediaQuery.textScalerOf(context).scale(12) * 1.4 + 16)
+      : 36;
+  double _controlWidth(String label, double chromeWidth) {
+    final text = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.1,
+        ),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final width = math.max(_homeControlPillWidth, text.width + chromeWidth);
+    text.dispose();
+    return width;
+  }
+
   Widget _buildSortDropdown() {
     return SizedBox(
-      height: 36,
+      height: _controlHeight,
       child: Container(
+        width: usesAccessibleSearchLayout(context) ? double.infinity : null,
         padding: const EdgeInsets.only(left: 12, right: 10),
         alignment: Alignment.center,
         decoration: BoxDecoration(
@@ -1319,7 +1359,10 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           child: DropdownButton<String>(
             value: _normalizeSortOption(selectedSort),
             isDense: true,
-            isExpanded: false,
+            itemHeight: usesAccessibleSearchLayout(context)
+                ? null
+                : kMinInteractiveDimension,
+            isExpanded: usesAccessibleSearchLayout(context),
             padding: EdgeInsets.zero,
             icon: const Icon(Icons.keyboard_arrow_down, size: 18),
             style: const TextStyle(
@@ -1374,10 +1417,6 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     );
   }
 
-  Widget _buildSortControl() {
-    return Align(alignment: Alignment.centerLeft, child: _buildSortDropdown());
-  }
-
   Future<void> _openCategoryFilterSheet() async {
     final selection = await showModalBottomSheet<Set<_BiteScoreCategoryFilter>>(
       context: context,
@@ -1424,8 +1463,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
 
   Widget _buildAddDishButton() {
     return SizedBox(
-      width: _homeControlPillWidth,
-      height: 36,
+      width: _controlWidth('Add Dish', 24),
+      height: _controlHeight,
       child: ElevatedButton(
         onPressed: _openCreateAndRate,
         style:
@@ -1466,8 +1505,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   Widget _buildFilterButton() {
     final hasFilters = _selectedCategoryFilters.isNotEmpty;
     return SizedBox(
-      width: _homeControlPillWidth,
-      height: 36,
+      width: _controlWidth('Filter', 49),
+      height: _controlHeight,
       child: OutlinedButton(
         onPressed: _openCategoryFilterSheet,
         style: OutlinedButton.styleFrom(
@@ -1492,7 +1531,11 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           children: [
             Text(
               'Filter',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.1,
+              ),
             ),
             SizedBox(width: 6),
             Icon(Icons.tune, size: 17),
@@ -1589,29 +1632,37 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             margin: const EdgeInsets.only(bottom: 4),
             color: BiteRaterTheme.lineBlue.withValues(alpha: 0.42),
           ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildSortControl(),
-                        const SizedBox(width: 10),
-                        _buildFilterButton(),
-                      ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (usesAccessibleSearchLayout(context) ||
+                  constraints.maxWidth <
+                      _controlWidth('Highest BiteScore', 40) +
+                          _controlWidth('Filter', 49) +
+                          _controlWidth('Add Dish', 24) +
+                          20) {
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    SizedBox(
+                      width: constraints.maxWidth,
+                      child: _buildSortDropdown(),
                     ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              _buildAddDishButton(),
-            ],
+                    _buildFilterButton(),
+                    _buildAddDishButton(),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  _buildSortDropdown(),
+                  const SizedBox(width: 10),
+                  _buildFilterButton(),
+                  const Spacer(),
+                  _buildAddDishButton(),
+                ],
+              );
+            },
           ),
           if (_selectedCategoryFilters.isNotEmpty) ...[
             const SizedBox(height: 6),
@@ -1622,8 +1673,131 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     );
   }
 
+  Widget _buildRadiusControl({double height = 40, bool fullWidth = false}) {
+    return SizedBox(
+      width: fullWidth ? double.infinity : 116,
+      height: height,
+      child: DropdownButtonFormField<String>(
+        initialValue: selectedRadius,
+        isExpanded: true,
+        decoration: _inputDecoration(hintText: 'Radius').copyWith(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 9,
+          ),
+        ),
+        selectedItemBuilder: (context) => const [
+          Text('1 mi'),
+          Text('3 mi'),
+          Text('5 mi'),
+          Text('10 mi'),
+          Text('15 mi'),
+          Text('20 mi'),
+          Text('30 mi'),
+        ],
+        items: const [
+          DropdownMenuItem(value: '1 mile', child: Text('1 mi')),
+          DropdownMenuItem(value: '3 miles', child: Text('3 mi')),
+          DropdownMenuItem(value: '5 miles', child: Text('5 mi')),
+          DropdownMenuItem(value: '10 miles', child: Text('10 mi')),
+          DropdownMenuItem(value: '15 miles', child: Text('15 mi')),
+          DropdownMenuItem(value: '20 miles', child: Text('20 mi')),
+          DropdownMenuItem(value: '30 miles', child: Text('30 mi')),
+        ],
+        onChanged: (value) {
+          if (value != null) {
+            setState(() {
+              _invalidateLocationOperation();
+              selectedRadius = value;
+            });
+            _saveSelectedRadius(value);
+          }
+        },
+      ),
+    );
+  }
+
   Widget _buildHeader({required double expansionT}) {
     final collapsed = expansionT <= 0.02;
+    if (usesAccessibleSearchLayout(context)) {
+      if (collapsed) {
+        return Material(
+          color: const Color(0xFFFFFCF6),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: ExpandSearchControl(
+              onTap: _expandHeader,
+              color: BiteRaterTheme.grape,
+            ),
+          ),
+        );
+      }
+      final height = accessibleSearchFieldHeight(context);
+      return Material(
+        color: const Color(0xFFFFFCF6),
+        child: Stack(
+          children: [
+            IgnorePointer(
+              ignoring: isSearchingLocation,
+              child: Scrollbar(
+                interactive: false,
+                child: SingleChildScrollView(
+                  key: const PageStorageKey(
+                    'accessible-bitescore-search-header',
+                  ),
+                  primary: false,
+                  physics: const ClampingScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildSearchField(
+                        controller: dishSearchController,
+                        hintText: 'Search dishes or restaurants',
+                        prefixIcon: Icons.restaurant_menu,
+                        onSearch: () => setState(() {}),
+                        showArrowIcon: false,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildSearchField(
+                        controller: locationSearchController,
+                        focusNode: _locationSearchFocusNode,
+                        hintText: 'City or zip code',
+                        prefixIcon: Icons.search,
+                        onSearch: _searchLocation,
+                        showArrowIcon: false,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildLocationActionRow(minHeight: height),
+                      const SizedBox(height: 8),
+                      _buildRadiusControl(height: height, fullWidth: true),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (isSearchingLocation)
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: BiteRaterTheme.cardSurface.withValues(alpha: 0.74),
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: BiteRaterTheme.ocean,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
 
     return Material(
       color: Colors.transparent,
@@ -1738,73 +1912,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                           ),
                                         ),
                                         const SizedBox(width: 10),
-                                        SizedBox(
-                                          width: 116,
-                                          height: 40,
-                                          child: DropdownButtonFormField<String>(
-                                            initialValue: selectedRadius,
-                                            isExpanded: true,
-                                            decoration:
-                                                _inputDecoration(
-                                                  hintText: 'Radius',
-                                                ).copyWith(
-                                                  contentPadding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 12,
-                                                        vertical: 9,
-                                                      ),
-                                                ),
-                                            selectedItemBuilder: (context) =>
-                                                const [
-                                                  Text('1 mi'),
-                                                  Text('3 mi'),
-                                                  Text('5 mi'),
-                                                  Text('10 mi'),
-                                                  Text('15 mi'),
-                                                  Text('20 mi'),
-                                                  Text('30 mi'),
-                                                ],
-                                            items: const [
-                                              DropdownMenuItem(
-                                                value: '1 mile',
-                                                child: Text('1 mi'),
-                                              ),
-                                              DropdownMenuItem(
-                                                value: '3 miles',
-                                                child: Text('3 mi'),
-                                              ),
-                                              DropdownMenuItem(
-                                                value: '5 miles',
-                                                child: Text('5 mi'),
-                                              ),
-                                              DropdownMenuItem(
-                                                value: '10 miles',
-                                                child: Text('10 mi'),
-                                              ),
-                                              DropdownMenuItem(
-                                                value: '15 miles',
-                                                child: Text('15 mi'),
-                                              ),
-                                              DropdownMenuItem(
-                                                value: '20 miles',
-                                                child: Text('20 mi'),
-                                              ),
-                                              DropdownMenuItem(
-                                                value: '30 miles',
-                                                child: Text('30 mi'),
-                                              ),
-                                            ],
-                                            onChanged: (value) {
-                                              if (value != null) {
-                                                setState(() {
-                                                  _invalidateLocationOperation();
-                                                  selectedRadius = value;
-                                                });
-                                                _saveSelectedRadius(value);
-                                              }
-                                            },
-                                          ),
-                                        ),
+                                        _buildRadiusControl(),
                                       ],
                                     ),
                                     const SizedBox(height: 4),
@@ -2112,223 +2220,359 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         .where((item) => item.restaurant.id == entry.restaurant.id)
         .toList();
     const cardRadius = 22.0;
-    const cardHeight = 150.0;
-    const imageWidth = 176.0;
+
     const imageRadius = BorderRadius.horizontal(
       left: Radius.circular(cardRadius),
     );
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BiteRaterTheme.liftedCardOuterDecoration(radius: cardRadius),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(cardRadius),
-        child: Container(
-          height: cardHeight,
-          decoration: BoxDecoration(
-            color: BiteRaterTheme.cardSurface,
-            borderRadius: BorderRadius.circular(cardRadius),
-            border: Border.all(
-              color: BiteRaterTheme.lineBlue.withValues(alpha: 0.68),
-              width: 0.9,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The original fixed card clipped populated results at larger text sizes.
+        // Measure the existing labels; retain the same content and pressable regions.
+        final scoreText = TextPainter(
+          text: TextSpan(
+            text: scorePillLabel,
+            style: DefaultTextStyle.of(context).style.merge(
+              const TextStyle(
+                fontSize: 14,
+                height: 1,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                width: imageWidth,
-                child: _buildDishImageAction(
-                  entry: entry,
-                  borderRadius: imageRadius,
-                  width: imageWidth,
-                  height: cardHeight,
-                  placeholderAssetPath: placeholderAssetPath,
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout();
+        // Give the score its natural width before allocating the thumbnail.
+        // Ordinary cards keep the existing 176px image; constrained cards adapt.
+        final imageWidth =
+            (constraints.maxWidth -
+                    scoreText.width -
+                    20 -
+                    14 -
+                    8 -
+                    6 -
+                    25 -
+                    1.8)
+                .clamp(64, 176)
+                .toDouble();
+        scoreText.dispose();
+        final textWidth = math.max(
+          1.0,
+          constraints.maxWidth - imageWidth - 14 - 8 - 6 - 25 - 1.8,
+        );
+        double labelHeight(
+          String value,
+          TextStyle style,
+          double width, {
+          int? maxLines,
+        }) {
+          final label = TextPainter(
+            text: TextSpan(
+              text: value,
+              style: DefaultTextStyle.of(context).style.merge(style),
+            ),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+            maxLines: maxLines,
+            ellipsis: maxLines == null ? null : '…',
+          )..layout(maxWidth: width);
+          final height = label.height;
+          label.dispose();
+          return height;
+        }
+
+        final restaurantHeight = math.max(
+          50.0,
+          math.max(
+                16.0,
+                labelHeight(
+                  _displayText(entry.restaurant.name, 'Restaurant'),
+                  const TextStyle(
+                    fontSize: 12.6,
+                    height: 1.05,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textWidth,
+                  maxLines: 1,
+                ),
+              ) +
+              3 +
+              labelHeight(
+                _restaurantMetaLabel(entry),
+                const TextStyle(
+                  fontSize: 11.2,
+                  height: 1.08,
+                  fontWeight: FontWeight.w500,
+                ),
+                textWidth,
+                maxLines: 1,
+              ) +
+              15,
+        );
+        final dishHeight =
+            labelHeight(
+              _displayText(entry.dish.name, 'Unnamed dish'),
+              const TextStyle(
+                fontSize: 18,
+                height: 1.06,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+              ),
+              textWidth,
+              maxLines: 2,
+            ) +
+            5 +
+            labelHeight(
+              scorePillLabel,
+              const TextStyle(
+                fontSize: 14,
+                height: 1,
+                fontWeight: FontWeight.w900,
+              ),
+              math.max(1.0, textWidth - 20),
+            ) +
+            8 +
+            2 +
+            labelHeight(
+              '(${entry.aggregate.ratingCount})',
+              const TextStyle(
+                fontSize: 10.5,
+                height: 1,
+                fontWeight: FontWeight.w700,
+              ),
+              textWidth,
+            ) +
+            14;
+        final cardHeight = math.max(
+          150.0,
+          dishHeight + restaurantHeight + 0.5 + 1.8,
+        );
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BiteRaterTheme.liftedCardOuterDecoration(
+            radius: cardRadius,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(cardRadius),
+            child: Container(
+              height: cardHeight,
+              decoration: BoxDecoration(
+                color: BiteRaterTheme.cardSurface,
+                borderRadius: BorderRadius.circular(cardRadius),
+                border: Border.all(
+                  color: BiteRaterTheme.lineBlue.withValues(alpha: 0.68),
+                  width: 0.9,
                 ),
               ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: BiteRaterTheme.pressableSection(
-                        onTap: () => _openDishDetail(entry),
-                        borderRadius: const BorderRadius.only(
-                          topRight: Radius.circular(cardRadius),
-                        ),
-                        pressedScale: 0.965,
-                        restingColor: const Color(0xFFFFFCF6),
-                        pressedColor: const Color(0xFFFFF7EA),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 8, 8, 6),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _displayText(
-                                        entry.dish.name,
-                                        'Unnamed dish',
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: BiteRaterTheme.ink,
-                                        fontSize: 18.0,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 0.0,
-                                        height: 1.06,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 5),
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 9,
-                                              vertical: 3,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: scorePalette.background,
-                                              borderRadius:
-                                                  BorderRadius.circular(999),
-                                              border: Border.all(
-                                                color: scorePalette.border,
-                                              ),
-                                            ),
-                                            child: Text(
-                                              scorePillLabel,
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w900,
-                                                color: scorePalette.foreground,
-                                                height: 1,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            '(${entry.aggregate.ratingCount})',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              fontSize: 10.5,
-                                              color: BiteRaterTheme.mutedInk
-                                                  .withValues(alpha: 0.72),
-                                              fontWeight: FontWeight.w700,
-                                              height: 1,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Icon(
-                                Icons.chevron_right_rounded,
-                                size: 25,
-                                color: BiteRaterTheme.mutedInk.withValues(
-                                  alpha: 0.62,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    width: imageWidth,
+                    child: _buildDishImageAction(
+                      entry: entry,
+                      borderRadius: imageRadius,
+                      width: imageWidth,
+                      height: cardHeight,
+                      placeholderAssetPath: placeholderAssetPath,
                     ),
-                    Container(
-                      height: 0.5,
-                      margin: const EdgeInsets.only(left: 14, right: 10),
-                      color: BiteRaterTheme.lineBlue.withValues(alpha: 0.48),
-                    ),
-                    SizedBox(
-                      height: 50,
-                      child: BiteRaterTheme.pressableSection(
-                        onTap: () => _openRestaurantPage(
-                          restaurant: entry.restaurant,
-                          entries: restaurantEntries,
-                        ),
-                        borderRadius: const BorderRadius.only(
-                          bottomRight: Radius.circular(cardRadius),
-                        ),
-                        restingColor: const Color(0xFFF8FAFC),
-                        pressedScale: 0.99,
-                        pressedColor: const Color(0xFFF1F5FA),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(13, 7, 12, 8),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: BiteRaterTheme.pressableSection(
+                            onTap: () => _openDishDetail(entry),
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(cardRadius),
+                            ),
+                            pressedScale: 0.965,
+                            restingColor: const Color(0xFFFFFCF6),
+                            pressedColor: const Color(0xFFFFF7EA),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(14, 8, 8, 6),
+                              child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  Icon(
-                                    Icons.storefront_outlined,
-                                    size: 16,
-                                    color: BiteRaterTheme.restaurantTitle
-                                        .withValues(alpha: 0.72),
-                                  ),
-                                  const SizedBox(width: 7),
                                   Expanded(
-                                    child: Text(
-                                      _displayText(
-                                        entry.restaurant.name,
-                                        'Restaurant',
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          _displayText(
+                                            entry.dish.name,
+                                            'Unnamed dish',
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: BiteRaterTheme.ink,
+                                            fontSize: 18.0,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 0.0,
+                                            height: 1.06,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 5),
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            children: [
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 9,
+                                                      vertical: 3,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color:
+                                                      scorePalette.background,
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                        999,
+                                                      ),
+                                                  border: Border.all(
+                                                    color: scorePalette.border,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  scorePillLabel,
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w900,
+                                                    color:
+                                                        scorePalette.foreground,
+                                                    height: 1,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                '(${entry.aggregate.ratingCount})',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: 10.5,
+                                                  color: BiteRaterTheme.mutedInk
+                                                      .withValues(alpha: 0.72),
+                                                  fontWeight: FontWeight.w700,
+                                                  height: 1,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 25,
+                                    color: BiteRaterTheme.mutedInk.withValues(
+                                      alpha: 0.62,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          height: 0.5,
+                          margin: const EdgeInsets.only(left: 14, right: 10),
+                          color: BiteRaterTheme.lineBlue.withValues(
+                            alpha: 0.48,
+                          ),
+                        ),
+                        SizedBox(
+                          height: restaurantHeight,
+                          child: BiteRaterTheme.pressableSection(
+                            onTap: () => _openRestaurantPage(
+                              restaurant: entry.restaurant,
+                              entries: restaurantEntries,
+                            ),
+                            borderRadius: const BorderRadius.only(
+                              bottomRight: Radius.circular(cardRadius),
+                            ),
+                            restingColor: const Color(0xFFF8FAFC),
+                            pressedScale: 0.99,
+                            pressedColor: const Color(0xFFF1F5FA),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(13, 7, 12, 8),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.storefront_outlined,
+                                        size: 16,
+                                        color: BiteRaterTheme.restaurantTitle
+                                            .withValues(alpha: 0.72),
                                       ),
+                                      const SizedBox(width: 7),
+                                      Expanded(
+                                        child: Text(
+                                          _displayText(
+                                            entry.restaurant.name,
+                                            'Restaurant',
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: BiteRaterTheme
+                                                .restaurantTitle
+                                                .withValues(alpha: 0.86),
+                                            fontSize: 12.6,
+                                            fontWeight: FontWeight.w700,
+                                            height: 1.05,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 23),
+                                    child: Text(
+                                      _restaurantMetaLabel(entry),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        color: BiteRaterTheme.restaurantTitle
-                                            .withValues(alpha: 0.86),
-                                        fontSize: 12.6,
-                                        fontWeight: FontWeight.w700,
-                                        height: 1.05,
+                                        color: BiteRaterTheme.mutedInk
+                                            .withValues(alpha: 0.78),
+                                        fontSize: 11.2,
+                                        fontWeight: FontWeight.w500,
+                                        height: 1.08,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 3),
-                              Padding(
-                                padding: const EdgeInsets.only(left: 23),
-                                child: Text(
-                                  _restaurantMetaLabel(entry),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: BiteRaterTheme.mutedInk.withValues(
-                                      alpha: 0.78,
-                                    ),
-                                    fontSize: 11.2,
-                                    fontWeight: FontWeight.w500,
-                                    height: 1.08,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -2571,34 +2815,38 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       backgroundColor: BiteRaterTheme.pageBackground,
       body: ScrollConfiguration(
         behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
-        child: CustomScrollView(
-          controller: _listScrollController,
-          physics: const ClampingScrollPhysics(),
-          slivers: [
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _BiteScoreHeaderDelegate(
-                minExtentHeight: _collapsedHeaderExtent,
-                maxExtentHeight: _expandedHeaderExtent,
-                builder: (context, expansionT) =>
-                    _buildHeader(expansionT: expansionT),
+        child: LayoutBuilder(
+          builder: (context, constraints) => CustomScrollView(
+            controller: _listScrollController,
+            physics: const ClampingScrollPhysics(),
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _BiteScoreHeaderDelegate(
+                  minExtentHeight: _collapsedHeaderExtent,
+                  maxExtentHeight: usesAccessibleSearchLayout(context)
+                      ? accessibleSearchHeaderExtent(constraints.maxHeight)
+                      : _expandedHeaderExtent,
+                  builder: (context, expansionT) =>
+                      _buildHeader(expansionT: expansionT),
+                ),
               ),
-            ),
-            if (_hasLocationOrZipInput)
-              SliverToBoxAdapter(child: _buildResultsControlBar()),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
-              sliver: !_hasLocationOrZipInput
-                  ? _buildGetStartedState()
-                  : pendingCriteria
-                  ? _buildInlineLoadingState()
-                  : _loadError != null && _entries.isEmpty
-                  ? _buildInlineErrorState()
-                  : _isLoading && _entries.isEmpty
-                  ? _buildInlineLoadingState()
-                  : _buildResultsSliver(filteredEntries),
-            ),
-          ],
+              if (_hasLocationOrZipInput)
+                SliverToBoxAdapter(child: _buildResultsControlBar()),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
+                sliver: !_hasLocationOrZipInput
+                    ? _buildGetStartedState()
+                    : pendingCriteria
+                    ? _buildInlineLoadingState()
+                    : _loadError != null && _entries.isEmpty
+                    ? _buildInlineErrorState()
+                    : _isLoading && _entries.isEmpty
+                    ? _buildInlineLoadingState()
+                    : _buildResultsSliver(filteredEntries),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2699,7 +2947,10 @@ class _BiteScoreCategoryFilterSheetState
                   top: BorderSide(color: BiteRaterTheme.lineBlue, width: 0.8),
                 ),
               ),
-              child: Row(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                runSpacing: 8,
                 children: [
                   TextButton(
                     onPressed: _draftFilters.isEmpty
@@ -2711,7 +2962,6 @@ class _BiteScoreCategoryFilterSheetState
                           },
                     child: const Text('Clear all'),
                   ),
-                  const Spacer(),
                   FilledButton(
                     onPressed: () => Navigator.of(context).pop(_draftFilters),
                     child: const Text('Apply'),

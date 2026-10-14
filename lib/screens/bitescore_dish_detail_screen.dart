@@ -397,6 +397,7 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
   final BiteScoreDishCategorySaver? testDishCategorySaver;
   final BiteScoreDishFavoriteSaver? testDishFavoriteSaver;
   final BiteScoreMissingDishImageSaver? testMissingDishImageSaver;
+  final Future<List<BitescoreDish>> Function()? testMergeCandidatesLoader;
 
   const BiteScoreDishDetailScreen({
     super.key,
@@ -415,6 +416,7 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
     @visibleForTesting this.testDishCategorySaver,
     @visibleForTesting this.testDishFavoriteSaver,
     @visibleForTesting this.testMissingDishImageSaver,
+    @visibleForTesting this.testMergeCandidatesLoader,
   });
 
   @override
@@ -2953,6 +2955,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       builder: (context) => _DishMergeSuggestionDialog(
         sourceDish: dish,
         restaurant: _currentEntry.restaurant,
+        candidatesLoader: widget.testMergeCandidatesLoader,
       ),
     );
     if (submitted == true && mounted && _isPrivateLeaseCurrent(authLease)) {
@@ -3096,105 +3099,48 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: BiteRaterTheme.cardSurface,
-        borderRadius: BorderRadius.circular(21),
-        border: Border.all(color: BiteRaterTheme.ocean.withValues(alpha: 0.08)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x07000000),
-            blurRadius: 3,
-            offset: Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildSuggestionMenu(BitescoreDish dish) => PopupMenuButton<String>(
+    key: const ValueKey('dish-suggest-edit'),
+    tooltip: 'Suggest an Edit',
+    onSelected: (action) {
+      if (action == 'rename') {
+        _openRenameSuggestionDialog(dish);
+      } else if (action == 'merge') {
+        _openMergeSuggestionDialog(dish);
+      }
+    },
+    itemBuilder: (_) => const [
+      PopupMenuItem(value: 'rename', child: Text('Suggest Rename')),
+      PopupMenuItem(value: 'merge', child: Text('Suggest Merge')),
+    ],
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Suggest dish edits',
-              style: TextStyle(
-                color: BiteRaterTheme.mutedInk.withValues(alpha: 0.86),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+            Icon(Icons.edit_outlined, size: 18, color: BiteRaterTheme.ocean),
+            SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                'Suggest an Edit',
+                style: TextStyle(
+                  color: BiteRaterTheme.ocean,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.underline,
+                ),
               ),
-            ),
-            const SizedBox(height: 3),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                const buttonGap = 5.0;
-                final useSideBySide = constraints.maxWidth >= 220;
-
-                final renameButton = OutlinedButton(
-                  onPressed: () => _openRenameSuggestionDialog(dish),
-                  style:
-                      BiteRaterTheme.outlinedButtonStyle(
-                        accentColor: BiteRaterTheme.ocean,
-                      ).copyWith(
-                        minimumSize: const WidgetStatePropertyAll(Size(0, 38)),
-                        padding: const WidgetStatePropertyAll(
-                          EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                        ),
-                        visualDensity: const VisualDensity(
-                          horizontal: -2,
-                          vertical: -3,
-                        ),
-                      ),
-                  child: const FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text('Suggest Rename', textAlign: TextAlign.center),
-                  ),
-                );
-
-                final mergeButton = OutlinedButton(
-                  onPressed: () => _openMergeSuggestionDialog(dish),
-                  style:
-                      BiteRaterTheme.outlinedButtonStyle(
-                        accentColor: BiteRaterTheme.ocean,
-                      ).copyWith(
-                        minimumSize: const WidgetStatePropertyAll(Size(0, 38)),
-                        padding: const WidgetStatePropertyAll(
-                          EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                        ),
-                        visualDensity: const VisualDensity(
-                          horizontal: -2,
-                          vertical: -3,
-                        ),
-                      ),
-                  child: const FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text('Suggest Merge', textAlign: TextAlign.center),
-                  ),
-                );
-
-                if (!useSideBySide) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      renameButton,
-                      const SizedBox(height: buttonGap),
-                      mergeButton,
-                    ],
-                  );
-                }
-
-                return Row(
-                  children: [
-                    Expanded(child: renameButton),
-                    const SizedBox(width: buttonGap),
-                    Expanded(child: mergeButton),
-                  ],
-                );
-              },
             ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
 
   Widget _buildAverageRatingGrid(DishRatingAggregate aggregate) {
     return LayoutBuilder(
@@ -3615,30 +3561,37 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                     const SizedBox(height: 16),
                                     _buildAverageRatingGrid(detail.aggregate),
                                     const SizedBox(height: 12),
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: TextButton.icon(
-                                        onPressed: _reportDish,
-                                        icon: const Icon(
-                                          Icons.flag_outlined,
-                                          size: 15,
-                                        ),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor:
-                                              BiteRaterTheme.mutedInk,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 4,
-                                            vertical: 4,
+                                    Wrap(
+                                      spacing: 12,
+                                      runSpacing: 4,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      children: [
+                                        if (!_canManageDish)
+                                          _buildSuggestionMenu(currentDish),
+                                        TextButton.icon(
+                                          onPressed: _reportDish,
+                                          icon: const Icon(
+                                            Icons.flag_outlined,
+                                            size: 15,
                                           ),
-                                          minimumSize: Size.zero,
-                                          tapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
+                                          style: TextButton.styleFrom(
+                                            foregroundColor:
+                                                BiteRaterTheme.mutedInk,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 4,
+                                              vertical: 4,
+                                            ),
+                                            minimumSize: const Size(0, 48),
+                                            tapTargetSize:
+                                                MaterialTapTargetSize.padded,
+                                          ),
+                                          label: const Text(
+                                            'Report dish',
+                                            style: TextStyle(fontSize: 12),
+                                          ),
                                         ),
-                                        label: const Text(
-                                          'Report dish',
-                                          style: TextStyle(fontSize: 12),
-                                        ),
-                                      ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -3655,8 +3608,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                   child: const Text('Load more photos'),
                                 ),
                               ),
-                            _buildSuggestionCard(currentDish),
-                            const SizedBox(height: 12),
+                            if (_canManageDish) ...[
+                              _buildSuggestionCard(currentDish),
+                              const SizedBox(height: 12),
+                            ],
                             const Text(
                               'Reviews',
                               style: TextStyle(
@@ -4849,6 +4804,8 @@ class _DishReportDialogState extends State<_DishReportDialog> {
     return AlertDialog(
       title: const Text('Report Dish'),
       content: DropdownButtonFormField<String>(
+        isExpanded: true,
+        itemHeight: null,
         initialValue: _selectedReason,
         hint: const Text('Select a reason'),
         decoration: const InputDecoration(
@@ -4982,12 +4939,14 @@ class _DishRenameSuggestionDialogState
 }
 
 class _DishMergeSuggestionDialog extends StatefulWidget {
+  final Future<List<BitescoreDish>> Function()? candidatesLoader;
   final BitescoreDish sourceDish;
   final BitescoreRestaurant restaurant;
 
   const _DishMergeSuggestionDialog({
     required this.sourceDish,
     required this.restaurant,
+    this.candidatesLoader,
   });
 
   @override
@@ -5005,7 +4964,7 @@ class _DishMergeSuggestionDialogState
   @override
   void initState() {
     super.initState();
-    if (CustomerBiteScoreRuntime.isEnabled) {
+    if (widget.candidatesLoader == null && CustomerBiteScoreRuntime.isEnabled) {
       _candidateSearch = CustomerBiteScoreSearchController(
         criteria: customerBiteScoreDishCriteria(
           restaurantId: widget.restaurant.id,
@@ -5044,9 +5003,9 @@ class _DishMergeSuggestionDialogState
       if (_candidateSearch!.error != null) throw _candidateSearch!.error!;
       return _boundedCandidateDishes();
     }
-    final dishes = await BiteScoreService.loadDishesForRestaurant(
-      widget.restaurant.id,
-    );
+    final dishes =
+        await (widget.candidatesLoader?.call() ??
+            BiteScoreService.loadDishesForRestaurant(widget.restaurant.id));
     return dishes
         .where((dish) => dish.id != widget.sourceDish.id && dish.isActive)
         .toList();
@@ -5126,6 +5085,8 @@ class _DishMergeSuggestionDialogState
           }
 
           final choices = DropdownButtonFormField<String>(
+            isExpanded: true,
+            itemHeight: null,
             initialValue: _selectedDishId,
             decoration: const InputDecoration(
               labelText: 'Merge into',

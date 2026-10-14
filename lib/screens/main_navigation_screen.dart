@@ -11,6 +11,7 @@ import '../services/restaurant_customer_link_service.dart';
 import '../services/restaurant_invite_service.dart';
 import '../services/subscription_return_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
+import '../widgets/bitesaver_colors.dart';
 import '../widgets/admin_content_insets.dart';
 import 'bitescore_home_screen.dart';
 import 'customer_account_screen.dart';
@@ -2633,21 +2634,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         PopupMenuItem(value: 2, child: Text('My Profile')),
       ],
       child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFFBF2),
-          borderRadius: BorderRadius.circular(19),
-          border: Border.all(color: const Color(0xFFEFE1D1)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color.fromRGBO(64, 42, 22, 0.08),
-              blurRadius: 10,
-              offset: Offset(0, 5),
-            ),
-          ],
+        width: 48,
+        height: 48,
+        decoration: const BoxDecoration(
+          color: BiteSaverColors.green,
+          shape: BoxShape.circle,
         ),
-        child: const Icon(Icons.menu, color: Color(0xFF24170F), size: 21),
+        child: const Icon(Icons.menu, color: Colors.black, size: 24),
       ),
     );
   }
@@ -2848,19 +2841,38 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 color: selectedMode == AppMode.biteScore
                     ? const Color(0xFFEFF4FA)
                     : const Color(0xFFFFFEFC),
-                child: Row(
-                  children: [
-                    Padding(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final labels = measureAppModeLabels(context);
+                    // Menu target/padding (68), switcher padding (32), and thumb inset (4).
+                    final needsSeparateRow =
+                        labels.width > (constraints.maxWidth - 104) / 2;
+                    final menu = Padding(
                       padding: const EdgeInsets.only(left: 16, right: 4),
                       child: _buildBiteSaverMenuButton(),
-                    ),
-                    Expanded(
-                      child: AppModeSwitcherBar(
-                        selectedMode: selectedMode,
-                        onModeSelected: _setMode,
-                      ),
-                    ),
-                  ],
+                    );
+                    final switcher = AppModeSwitcherBar(
+                      selectedMode: selectedMode,
+                      onModeSelected: _setMode,
+                    );
+                    return needsSeparateRow
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: menu,
+                              ),
+                              switcher,
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              menu,
+                              Expanded(child: switcher),
+                            ],
+                          );
+                  },
                 ),
               ),
               Expanded(child: _buildCurrentPage()),
