@@ -14,6 +14,8 @@ import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/bitesaver_colors.dart';
 import '../widgets/admin_content_insets.dart';
 import 'about_us_screen.dart';
+import 'privacy_policy_screen.dart';
+import 'terms_of_service_screen.dart';
 import 'bitescore_home_screen.dart';
 import 'customer_account_screen.dart';
 import 'home_screen.dart';
@@ -2627,9 +2629,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     return PopupMenuButton<int>(
       tooltip: 'Menu',
       onSelected: (value) {
-        if (value == 3) {
+        final Widget? informationPage = switch (value) {
+          3 => const AboutUsScreen(),
+          4 => const PrivacyPolicyScreen(),
+          5 => const TermsOfServiceScreen(),
+          _ => null,
+        };
+        if (informationPage != null) {
           Navigator.of(context).push<void>(
-            MaterialPageRoute<void>(builder: (_) => const AboutUsScreen()),
+            MaterialPageRoute<void>(builder: (_) => informationPage),
           );
           return;
         }
@@ -2642,6 +2650,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         PopupMenuItem(value: 1, child: Text('Restaurant Hub')),
         PopupMenuItem(value: 2, child: Text('My Profile')),
         PopupMenuItem(value: 3, child: Text('About Us')),
+        PopupMenuItem(value: 4, child: Text('Privacy Policy')),
+        PopupMenuItem(value: 5, child: Text('Terms of Service')),
       ],
       child: Container(
         width: 48,

@@ -1,4 +1,6 @@
 import 'package:coupon_app/screens/about_us_screen.dart';
+import 'package:coupon_app/screens/privacy_policy_screen.dart';
+import 'package:coupon_app/screens/terms_of_service_screen.dart';
 import 'package:coupon_app/screens/bitescore_dish_detail_screen.dart';
 import 'package:coupon_app/screens/bitescore_restaurant_dishes_screen.dart';
 import 'package:coupon_app/screens/coupon_detail_screen.dart';
@@ -54,19 +56,28 @@ void main() {
             tester.state(find.byType(type, skipOffstage: false)),
             same(detail),
           );
-          final modeBeforeAbout = AppModeStateService.selectedMode.value;
-          await tester.tap(find.byTooltip('Menu'));
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('About Us'));
-          await tester.pumpAndSettle();
-          expect(find.byType(AboutUsScreen), findsOneWidget);
-          expect(
-            tester.state(find.byType(type, skipOffstage: false)),
-            same(detail),
-          );
-          await tester.tap(find.byTooltip('Back'));
-          await tester.pumpAndSettle();
-          expect(AppModeStateService.selectedMode.value, modeBeforeAbout);
+          final modeBeforeInformation = AppModeStateService.selectedMode.value;
+          for (final destination in [
+            (label: 'About Us', type: AboutUsScreen),
+            (label: 'Privacy Policy', type: PrivacyPolicyScreen),
+            (label: 'Terms of Service', type: TermsOfServiceScreen),
+          ]) {
+            await tester.tap(find.byTooltip('Menu'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text(destination.label));
+            await tester.pumpAndSettle();
+            expect(find.byType(destination.type), findsOneWidget);
+            expect(
+              tester.state(find.byType(type, skipOffstage: false)),
+              same(detail),
+            );
+            await tester.tap(find.byTooltip('Back'));
+            await tester.pumpAndSettle();
+            expect(
+              AppModeStateService.selectedMode.value,
+              modeBeforeInformation,
+            );
+          }
           await tester.binding.handlePopRoute();
           await tester.pumpAndSettle();
           expect(tester.state(find.byType(type)), same(detail));

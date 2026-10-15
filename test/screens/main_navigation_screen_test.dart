@@ -10,6 +10,8 @@ import 'package:coupon_app/models/dish_review.dart';
 import 'package:coupon_app/models/restaurant.dart';
 import 'package:coupon_app/main.dart' as bite_app;
 import 'package:coupon_app/screens/about_us_screen.dart';
+import 'package:coupon_app/screens/privacy_policy_screen.dart';
+import 'package:coupon_app/screens/terms_of_service_screen.dart';
 import 'package:coupon_app/screens/bitescore_create_rate_screen.dart';
 import 'package:coupon_app/screens/bitescore_dish_detail_screen.dart';
 import 'package:coupon_app/screens/bitescore_home_screen.dart';
@@ -3154,6 +3156,107 @@ void main() {
         expect(tester.takeException(), isNull);
       }
     });
+  }
+
+  for (final realm in ['guest', 'signed:legal-reader']) {
+    for (final mode in AppMode.values) {
+      for (final document in [
+        (menu: 'Privacy Policy', type: PrivacyPolicyScreen),
+        (menu: 'Terms of Service', type: TermsOfServiceScreen),
+      ]) {
+        testWidgets(
+          '${document.menu} preserves $realm ${mode.name} navigation',
+          (tester) async {
+            final counters = _NavigationProbeCounters();
+            await tester.pumpWidget(
+              _stateRetentionTestApp(
+                counters: counters,
+                authRealmProvider: () => realm,
+                authRealmChanges: const Stream<String>.empty(),
+              ),
+            );
+            AppModeStateService.setMode(mode);
+            await tester.pumpAndSettle();
+            final homeKey = ValueKey('${mode.name}-home-probe');
+            final original = tester.state<_NavigationProbePageState>(
+              find.byKey(homeKey),
+            );
+            await tester.enterText(
+              find.byKey(ValueKey('${mode.name}-home-query')),
+              'pizza near me',
+            );
+            await tester.tap(find.byKey(ValueKey('${mode.name}-home-radius')));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('30 miles').last);
+            await tester.pumpAndSettle();
+            await tester.tap(find.byKey(ValueKey('${mode.name}-home-expand')));
+            await tester.pumpAndSettle();
+            original.scrollController.jumpTo(160);
+            await tester.pumpAndSettle();
+            final scrollOffset = original.scrollController.offset;
+            for (final tab in ['Home', 'Restaurant Hub', 'My Profile']) {
+              await tester.tap(find.byTooltip('Menu'));
+              await tester.pumpAndSettle();
+              expect(find.byType(PopupMenuItem<int>), findsNWidgets(6));
+              expect(find.text('Admin'), findsNothing);
+              await tester.tap(find.widgetWithText(PopupMenuItem<int>, tab));
+              await tester.pumpAndSettle();
+              final tabFinder = tab == 'Home'
+                  ? find.byKey(homeKey)
+                  : find.text(
+                      tab == 'Restaurant Hub' ? 'hub page' : 'account page',
+                    );
+              expect(tabFinder, findsOneWidget);
+              final tabState = tester.state(find.byType(MainNavigationScreen));
+              await tester.tap(find.byTooltip('Menu'));
+              await tester.pumpAndSettle();
+              await tester.tap(find.text(document.menu));
+              await tester.pumpAndSettle();
+              expect(find.byType(document.type), findsOneWidget);
+              expect(
+                find.text('Draft for Owner Review — Not Yet Published'),
+                findsOneWidget,
+              );
+              expect(AppModeStateService.selectedMode.value, mode);
+              if (tab == 'Restaurant Hub') {
+                await tester.binding.handlePopRoute();
+              } else {
+                await tester.tap(find.byTooltip('Back'));
+              }
+              await tester.pumpAndSettle();
+              expect(tabFinder, findsOneWidget);
+              expect(
+                tester.state(find.byType(MainNavigationScreen)),
+                same(tabState),
+              );
+              expect(
+                tester.state(find.byKey(homeKey, skipOffstage: false)),
+                same(original),
+              );
+              expect(original.queryController.text, 'pizza near me');
+              expect(original.radius, '30 miles');
+              expect(original.expanded, isTrue);
+              expect(
+                original.scrollController.offset,
+                closeTo(scrollOffset, .01),
+              );
+              expect(counters.loads['${mode.name}-home'], 1);
+              expect(counters.disposals['${mode.name}-home'], isNull);
+              expect(AppModeStateService.selectedMode.value, mode);
+              expect(original.widget.authRealm, realm);
+              expect(tester.takeException(), isNull);
+            }
+            // The new pages add no entry to the shell's destination history.
+            await tester.binding.handlePopRoute();
+            await tester.pumpAndSettle();
+            expect(find.text('hub page'), findsOneWidget);
+            await tester.binding.handlePopRoute();
+            await tester.pumpAndSettle();
+            expect(find.byKey(homeKey), findsOneWidget);
+          },
+        );
+      }
+    }
   }
 
   testWidgets('obsolete initial index displays Home', (tester) async {
