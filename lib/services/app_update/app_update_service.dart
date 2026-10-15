@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'ios_update_eligibility.dart';
+
 /// Only an obtainable, newer release can enter the reminder policy. Android
 /// build codes are integers, never marketing-version strings. iOS must supply
 /// its own verified eligibility contract before it can produce this value.
@@ -13,11 +15,46 @@ final class AppUpdateRelease {
     required this.build,
     required this.urgent,
     this.inProgress = false,
-  });
-  final int build;
+  }) : iosVersion = null,
+       appleId = null,
+       country = null;
+  const AppUpdateRelease.ios({
+    required this.iosVersion,
+    required this.appleId,
+    required this.country,
+    required this.urgent,
+  }) : build = null,
+       inProgress = false;
+  final int? build;
+  final String? iosVersion;
+  final String? appleId;
+  final String? country;
   final bool urgent;
   final bool inProgress;
-  String get key => 'android:com.colesmart.bitestar:$build';
+  String get key => iosVersion == null
+      ? 'android:com.colesmart.bitestar:$build'
+      : 'ios:com.colesmart.bitestar:$appleId:${canonicalIosVersion(iosVersion)}';
+
+  static AppUpdateRelease? fromIos(Object? value) {
+    if (value is! Map ||
+        value['eligible'] != true ||
+        value['platform'] != 'ios' ||
+        value['bundleId'] != IosUpdateEligibility.bundleId ||
+        value['appleId'] is! String ||
+        !RegExp(r'^[1-9][0-9]{0,17}$').hasMatch(value['appleId'] as String) ||
+        value['urgent'] is! bool ||
+        value['country'] is! String ||
+        !RegExp(r'^[A-Z]{2}$').hasMatch(value['country'] as String) ||
+        compareIosVersions(value['version'], value['installedVersion']) != 1) {
+      return null;
+    }
+    return AppUpdateRelease.ios(
+      iosVersion: canonicalIosVersion(value['version']),
+      appleId: value['appleId'] as String,
+      country: value['country'] as String,
+      urgent: value['urgent'] as bool,
+    );
+  }
 
   static AppUpdateRelease? fromPlatform(Object? value) {
     if (value is! Map ||
@@ -77,14 +114,22 @@ final class StoreAppUpdatePlatform implements AppUpdatePlatform {
   bool get _supported =>
       !kIsWeb &&
       kReleaseMode &&
-      defaultTargetPlatform == TargetPlatform.android;
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   @override
   Future<AppUpdateRelease?> check() async {
-    // Debug/profile, sideloads (also checked natively), TestFlight, iOS without
-    // verified eligibility, desktop and web remain usable. No fake provider.
+    // Unsupported channels remain usable; native evidence also rejects
+    // sideloads, simulator, development and TestFlight installations.
     if (!_supported) return null;
     try {
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        return AppUpdateRelease.fromIos(
+          await IosUpdateEligibility(
+            snapshot: () => channel.invokeMethod<Object?>('snapshot'),
+          ).check().timeout(const Duration(seconds: 5)),
+        );
+      }
       return AppUpdateRelease.fromPlatform(
         await channel
             .invokeMethod<Object?>('check')
@@ -99,9 +144,14 @@ final class StoreAppUpdatePlatform implements AppUpdatePlatform {
   Future<AppUpdateHandoff> open(AppUpdateRelease release) async {
     if (!_supported) return AppUpdateHandoff.failed;
     try {
-      final result = await channel.invokeMethod<String>('open', {
-        'build': release.build,
-      });
+      final ios = defaultTargetPlatform == TargetPlatform.iOS;
+      if (ios != (release.iosVersion != null)) return AppUpdateHandoff.failed;
+      final result = await channel.invokeMethod<String>(
+        'open',
+        ios
+            ? {'appleId': release.appleId, 'country': release.country}
+            : {'build': release.build},
+      );
       return switch (result) {
         'returned' => AppUpdateHandoff.returned,
         'cancelled' => AppUpdateHandoff.cancelled,

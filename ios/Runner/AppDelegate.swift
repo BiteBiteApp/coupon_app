@@ -3,6 +3,7 @@ import UIKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+  private var appUpdateBridge: AppUpdateBridge?
   private var biteSaverDeviceProofBridge: BiteSaverDeviceProofBridge?
 
   override func application(
@@ -14,6 +15,7 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    appUpdateBridge = AppUpdateBridge(binaryMessenger: engineBridge.applicationRegistrar.messenger())
     biteSaverDeviceProofBridge = BiteSaverDeviceProofBridge(
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
     )

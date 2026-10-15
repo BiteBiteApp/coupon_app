@@ -69,6 +69,84 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('iOS store return rechecks; withdrawal releases required gate', (
+    tester,
+  ) async {
+    platform.release = const AppUpdateRelease.ios(
+      iosVersion: '1.10.0',
+      appleId: '123456789',
+      country: 'CA',
+      urgent: true,
+    );
+    final returned = Completer<AppUpdateHandoff>();
+    platform.onOpen = () => returned.future;
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(find.text('Update required'), findsOneWidget);
+    await tester.tap(find.text('Update Now'));
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    returned.complete(AppUpdateHandoff.returned);
+    await tester.pumpAndSettle();
+    expect(platform.opens, 1);
+    expect(
+      find.text('The update has not been installed. You can try again.'),
+      findsOneWidget,
+    );
+    platform.release = null; // policy withdrawn / ineligible / installed target
+    await tester.tap(find.text('Update Now'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(
+      storage.data.keys.any((key) => key.startsWith('app_update.v1.ios:')),
+      false,
+    );
+  });
+
+  testWidgets(
+    'iOS ordinary postpone saves its own release; launch failure fails open',
+    (tester) async {
+      platform.release = const AppUpdateRelease.ios(
+        iosVersion: '1.10.0',
+        appleId: '123456789',
+        country: 'CA',
+        urgent: false,
+      );
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Remind Me Tomorrow'));
+      await tester.pumpAndSettle();
+      final saved = storage
+          .data['app_update.v1.ios:com.colesmart.bitestar:123456789:1.10.0'];
+      expect(jsonDecode(saved!)['count'], 1);
+      expect(
+        storage.data.containsKey(
+          'app_update.v1.android:com.colesmart.bitestar:10',
+        ),
+        false,
+      );
+      await tester.pumpWidget(const SizedBox());
+      now = now.add(const Duration(days: 2));
+      storage.data[AppUpdateOpeningSafety.key] = jsonEncode({
+        'foreground': false,
+        'at': now.subtract(const Duration(minutes: 6)).millisecondsSinceEpoch,
+      });
+      platform.onOpen = () async => AppUpdateHandoff.failed;
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Update Now'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(
+        storage
+            .data['app_update.v1.ios:com.colesmart.bitestar:123456789:1.10.0'],
+        saved,
+      );
+    },
+  );
+
   testWidgets(
     'real dialog postpones once through rebuilds and repeated resume',
     (tester) async {

@@ -1,0 +1,118 @@
+BiteStar iOS update policy — source-only operating notes
+
+Initial state
+  web/app-updates/ios.json is disabled, non-urgent and has no target version.
+  IosUpdateEligibility.configuredAppleId is null, which stops eligibility before
+  any policy/network/native request. This is an explicit missing configuration,
+  not a completed App Store identity verification.
+  No endpoint was published and no update requirement was activated in this run.
+
+Identity prerequisite
+  Obtain numeric Apple ID from the current App Store Connect BiteStar record.
+  Record matching bundle com.colesmart.bitestar and SKU bitestar-ios. Do not use
+  the historical BiteStar Old/BiteSaver record, Team ID, or Firebase app ID.
+  Set configuredAppleId to that verified number as a STRING, update the disabled
+  policy appleId to the same string, adjust the configuration-gap test, requalify
+  affected tests/build, review and checkpoint before store distribution.
+  No private App Store Connect information or credentials go in the JSON/app.
+
+Existing Hosting origin and packaging
+  Default site: projects/coupon-app-29446/sites/coupon-app-29446.
+  Proposed future URL: https://coupon-app-29446.web.app/app-updates/ios.json
+  Verified against the approved Hosting site evidence and a read-only live GET
+  of /.well-known/apple-app-site-association matching the BiteStar application.
+  The new URL is NOT a published policy endpoint. The current fallback may
+  return HTML; the client rejects it.
+  Flutter's normal web build copies web/app-updates/ios.json to
+  build/web/app-updates/ios.json. firebase.json adds exact-path JSON/no-store/
+  nosniff headers only. Existing rewrites/association files remain unchanged.
+  A future separately authorized Hosting publication must preserve the current
+  live site and compiled web artifacts. Do not deploy an arbitrary fresh full
+  build/web tree merely to publish this file. Review the exact publication
+  manifest, target/site and HTTP response first; this run authorizes no deploy.
+
+Future owner-approved release
+  Only after real store qualification, edit the existing JSON with these fields:
+    schemaVersion: integer 1
+    enabled: boolean true
+    bundleId: exact com.colesmart.bitestar
+    appleId: verified numeric Apple ID as a string
+    version: actual PUBLIC Apple marketing version (1–3 numeric components)
+    urgent: boolean false, unless the owner separately approves an urgent release
+    issuedAt: current UTC ISO-8601 timestamp ending Z
+    expiresAt: UTC ISO-8601 timestamp ending Z, after issuedAt, at most 7 days later
+  Do not use CFBundleVersion/build numbers as the public target. Never activate
+  a fictitious higher version or an urgent requirement for the first release.
+  Refresh approved policy timestamps before expiry if the same requirement is
+  still wanted. Expired policies stop prompting. Refreshed timestamps, urgency,
+  storefront and equivalent spelling (1.2 versus 1.2.0) do not reset postponements.
+  Each new canonical public version has its own installation-level history.
+  Publish only with separate owner authorization, then verify exact JSON, HTTPS,
+  no-store headers and actual installed public builds before customer activation.
+
+Disable a mistaken policy
+  Set enabled=false and urgent=false, remove version/issuedAt/expiresAt, and
+  separately authorize publishing that disabled file to the same URL. Existing
+  history stays intact. Rechecks happen before opening the store and after return;
+  no reminder is started on resume. An already visible dialog can use Update Now
+  to recheck and dismiss a withdrawn/expired policy. No polling/background service.
+
+Eligibility and limits
+  Release Flutter builds on real iOS 16+ only. Native code requires a verified
+  production AppTransaction, matching bundle, nonzero appID, matching installed
+  build, and Apple's SHA-384 device-verification check. No receipt refresh prompt.
+  TestFlight/sandbox, simulator/debug, unknown/unsupported channels fail open.
+  Apple Storefront.current supplies the country, converted through Foundation's
+  ISO aliases; phone language/location are never used as a storefront fallback.
+  Public Apple lookup must match exact numeric ID, bundle and target version in
+  that storefront, minimum OS and the exact device marketing token in supportedDevices.
+  ios_store_devices.dart binds verified Xcode 26.5 modelIdentifier/name pairs to
+  observed Apple public lookup tokens; matching is exact after the recorded
+  whitespace/case normalization. No device-family inference. Most iPads, SE/XR
+  variants, future devices and any other unmapped model remain usable without
+  reminders until separately verified mappings are added/retested. See the table
+  for actual coverage. This intentionally conservative compatibility coverage
+  must be checked against intended release devices before activation.
+  Missing/malformed/stale/disabled policy, mismatched identity, unavailable listing,
+  unsupported hardware/OS, timeout/offline and failed handoff never consume history
+  and never create a gate. HTTP redirects, non-JSON and oversized responses reject. Apple lookup's
+  text/javascript MIME is accepted only on the exact HTTPS Apple lookup path
+  and still must decode as JSON; the policy requires application/json.
+  No customer/auth data, receipt, verification nonce or device identifier is sent
+  to the policy endpoint; Apple lookup receives only public app ID and storefront.
+  Apple lookup is public catalog evidence, not a per-customer installation promise.
+  It cannot prove remaining disk space, Screen Time/MDM restrictions, account state
+  at download time, phased-release behavior or every store-side outage. These need
+  real distribution checks. Unknown compatibility is intentionally unsupported.
+  App Store handoff opens Apple's HTTPS product universal link, with browser
+  fallback disabled. A successful URL launch does
+  not mean installation. On return, policy/store/version are checked again. A still
+  eligible unchanged app retains the existing prompt with manual retry, no loop.
+  A failed launch or recheck releases the gate. Real download/return restrictions
+  cannot be qualified from a simulator, mock, or this unsigned build.
+
+Local qualification commands (no deployment or app launch)
+  flutter test test/services/app_update test/widgets/app_update_opening_test.dart
+  flutter analyze lib/services/app_update test/services/app_update test/widgets/app_update_opening_test.dart
+  swiftc ios/Runner/AppUpdateInstallation.swift test/native_app_update/main.swift -o /tmp/bitestar-update-native-tests
+  /tmp/bitestar-update-native-tests
+  flutter build ios --release --no-codesign
+  flutter build ios --simulator --debug
+  flutter build web --no-web-resources-cdn
+
+Separate release qualification
+  Verified Apple ID configured in a reviewed signed build; owner-approved policy
+  publication/activation; real lower/higher public App Store versions; storefront,
+  supported/unsupported OS/device, two 24h postponements, urgency, withdrawal,
+  offline/launch failure, return without installing, actual update/restart,
+  protected auth/link/timer/editor flows and store/account restrictions. Preserve
+  Pixel 10 Pro and do not reinstall a physical device without authorization.
+  Android's real Play-distributed qualification remains outstanding separately.
+
+Official references consulted
+  https://developer.apple.com/documentation/storekit/apptransaction/shared
+  https://developer.apple.com/documentation/storekit/apptransaction/originalappversion
+  https://developer.apple.com/documentation/storekit/appstore/deviceverificationid
+  https://developer.apple.com/documentation/storekit/storefront/current
+  https://developer.apple.com/documentation/storekit/storefront/countrycode
+  https://performance-partners.apple.com/search-api

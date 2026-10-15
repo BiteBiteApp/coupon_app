@@ -21,6 +21,8 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		B51100002E00000100000001 /* AppUpdateBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51100102E00000100000001 /* AppUpdateBridge.swift */; };
+		B51100012E00000100000001 /* AppUpdateInstallation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51100112E00000100000001 /* AppUpdateInstallation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -70,6 +72,8 @@
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C0D3A1102E00000100000001 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 		D04D4598650FD63459070DFA /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "Runner/GoogleService-Info.plist"; sourceTree = "<group>"; };
+		B51100102E00000100000001 /* AppUpdateBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdateBridge.swift; sourceTree = "<group>"; };
+		B51100112E00000100000001 /* AppUpdateInstallation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdateInstallation.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -135,6 +139,8 @@
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
+				B51100102E00000100000001 /* AppUpdateBridge.swift */,
+				B51100112E00000100000001 /* AppUpdateInstallation.swift */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				B17E00112E00000100000001 /* BiteSaverDeviceProofBridge.swift */,
 				B17E00122E00000100000001 /* BiteSaverRecoveryKeyStore.swift */,
@@ -305,6 +311,8 @@
 				B17E00032E00000100000001 /* BiteSaverAppAttestClient.swift in Sources */,
 				B17E00042E00000100000001 /* BiteSaverDeviceProofContract.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
+				B51100002E00000100000001 /* AppUpdateBridge.swift in Sources */,
+				B51100012E00000100000001 /* AppUpdateInstallation.swift in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
