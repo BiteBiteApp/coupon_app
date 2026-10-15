@@ -1,3 +1,5 @@
+import 'services/app_update/app_update_service.dart';
+import 'widgets/app_update_opening.dart';
 import 'screens/account_deletion_screen.dart';
 import 'services/account_deletion_service.dart';
 import 'package:coupon_app/firebase_options.dart';
@@ -52,10 +54,14 @@ class CouponApp extends StatelessWidget {
   final WidgetBuilder? testAccountDeletionBuilder;
   final bool testWrapCelebrationHosts;
   final bool testInitializePlatformServices;
+  final AppUpdateService? testUpdateService;
+  final AppUpdateOpeningSafety? testUpdateSafety;
 
   const CouponApp({
     super.key,
     @visibleForTesting this.testNavigationBuilder,
+    @visibleForTesting this.testUpdateService,
+    @visibleForTesting this.testUpdateSafety,
     @visibleForTesting this.testAccountDeletionBuilder,
     @visibleForTesting this.testCustomerRouteBuilder,
     @visibleForTesting this.testInviteRouteBuilder,
@@ -69,22 +75,29 @@ class CouponApp extends StatelessWidget {
     String? initialDeepLinkRouteName,
   }) {
     final testBuilder = testNavigationBuilder;
-    if (testBuilder != null) {
-      return testBuilder(customerLink, inviteLink);
-    }
-    return MainNavigationScreen(
-      // Forward the app-level test seam without replacing the real factory.
-      // ignore: invalid_use_of_visible_for_testing_member
-      initializePlatformServices: testInitializePlatformServices,
-      biteSaverBrowseHomeBuilder: CustomerBiteSaverRuntime.isEnabled
-          ? CustomerBiteSaverRuntime.buildBrowse
-          : null,
-      biteSaverSavedAccountBuilder: CustomerBiteSaverRuntime.isEnabled
-          ? CustomerBiteSaverRuntime.buildAccount
-          : null,
-      initialCustomerDeepLink: customerLink,
-      initialInviteDeepLink: inviteLink,
-      initialDeepLinkRouteName: initialDeepLinkRouteName,
+    return AppUpdateOpening(
+      service: testUpdateService,
+      safety: testUpdateSafety,
+      enabled:
+          (testInitializePlatformServices || testUpdateService != null) &&
+          customerLink == null &&
+          inviteLink == null,
+      child:
+          testBuilder?.call(customerLink, inviteLink) ??
+          MainNavigationScreen(
+            // Forward the app-level test seam without replacing the real factory.
+            // ignore: invalid_use_of_visible_for_testing_member
+            initializePlatformServices: testInitializePlatformServices,
+            biteSaverBrowseHomeBuilder: CustomerBiteSaverRuntime.isEnabled
+                ? CustomerBiteSaverRuntime.buildBrowse
+                : null,
+            biteSaverSavedAccountBuilder: CustomerBiteSaverRuntime.isEnabled
+                ? CustomerBiteSaverRuntime.buildAccount
+                : null,
+            initialCustomerDeepLink: customerLink,
+            initialInviteDeepLink: inviteLink,
+            initialDeepLinkRouteName: initialDeepLinkRouteName,
+          ),
     );
   }
 
