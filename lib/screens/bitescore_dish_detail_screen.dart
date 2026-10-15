@@ -392,6 +392,8 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
   final CustomerBiteScoreReads? testCustomerReads;
   final BiteScoreDishDetailWriteGate? testWriteGate;
   final BiteScoreDishDetailReviewSaver? testReviewSaver;
+  final Future<bool> Function(DishReview review, String reason)?
+  testReviewReporter;
   final User? Function()? testCurrentUserProvider;
   final bool testSuppressLocalExpertBadgeRecalculation;
   final BiteScoreDishCategorySaver? testDishCategorySaver;
@@ -411,6 +413,7 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
     @visibleForTesting this.testCustomerReads,
     @visibleForTesting this.testWriteGate,
     @visibleForTesting this.testReviewSaver,
+    @visibleForTesting this.testReviewReporter,
     @visibleForTesting this.testCurrentUserProvider,
     @visibleForTesting this.testSuppressLocalExpertBadgeRecalculation = false,
     @visibleForTesting this.testDishCategorySaver,
@@ -490,6 +493,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   String? _boundedImageCursor;
   bool _boundedAppendLoading = false;
   _DishDetailData? _boundedDetail;
+  bool _boundedReviewsLoading = false;
+  bool _boundedImagesLoading = false;
+  Future<void>? _boundedImagesLoad;
+  int? _openingImageGeneration;
+  Object? _boundedReviewsError;
+  Object? _boundedImagesError;
   List<CustomerBiteScoreReviewItem> _boundedReviewItems = [];
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _reviewSectionKey = GlobalKey();
@@ -679,6 +688,15 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
 
   void _refresh() {
     _boundedAppendLoading = false;
+    _boundedDetail = null;
+    _boundedReviewItems = [];
+    _boundedReviewCursor = null;
+    _boundedImageCursor = null;
+    _boundedReviewsLoading = false;
+    _boundedImagesLoading = false;
+    _boundedImagesLoad = null;
+    _boundedReviewsError = null;
+    _boundedImagesError = null;
     final generation = ++_detailLoadGeneration;
     _detailFuture = _loadDetailData(generation);
   }
@@ -814,19 +832,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     final actor = mainNavigationAuthRealmForUser(_currentUser);
     final detail = await _boundedReads.detail('dish', _currentEntry.dish.id);
     var entry = detail.entry!;
-    final reviews = await _boundedReads.reviews(
-      entry.dish.id,
-      sort: _selectedReviewSort,
-      targetReviewId:
-          !_didHandleInitialEditReview && widget.editReviewId != null
-          ? widget.editReviewId
-          : !_didHandleTargetReview
-          ? widget.targetReviewId
-          : null,
-    );
-    final images = await _boundedReads.images(entry.dish.id);
-    if (actor != mainNavigationAuthRealmForUser(_currentUser)) {
-      throw StateError('BiteScore account changed.');
+    if (!mounted ||
+        generation != _detailLoadGeneration ||
+        actor != mainNavigationAuthRealmForUser(_currentUser)) {
+      throw StateError('BiteScore detail request changed.');
     }
     if (detail.canManage) {
       final restaurant = await BiteScoreService.loadRestaurantById(
@@ -841,19 +850,116 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         );
       }
     }
-    if (actor != mainNavigationAuthRealmForUser(_currentUser)) {
-      throw StateError('BiteScore account changed.');
+    if (!mounted ||
+        generation != _detailLoadGeneration ||
+        actor != mainNavigationAuthRealmForUser(_currentUser)) {
+      throw StateError('BiteScore detail request changed.');
     }
-    final data = _boundedData(entry, reviews.items, images.items);
+    final data = _boundedData(entry, const [], const []);
     if (generation == _detailLoadGeneration) {
-      _boundedReviewItems = reviews.items;
-      _boundedReviewCursor = reviews.nextCursor;
-      _boundedImageCursor = images.nextCursor;
       _boundedDetail = data;
       _currentEntry = entry;
       _isFavoriteDish = detail.isFavorite;
+      // Only validated public detail may become visible. Neither secondary page
+      // is a prerequisite for the shell or for the other page.
+      unawaited(_loadBoundedSection(generation, actor, images: false));
+      _boundedImagesLoad = _loadBoundedSection(generation, actor, images: true);
+      unawaited(_boundedImagesLoad);
     }
     return data;
+  }
+
+  Future<void> _loadBoundedSection(
+    int generation,
+    String actor, {
+    required bool images,
+  }) async {
+    bool isCurrent() =>
+        mounted &&
+        generation == _detailLoadGeneration &&
+        actor == mainNavigationAuthRealmForUser(_currentUser);
+    if (!isCurrent()) return;
+    // The initial call happens before the detail future completes; retries
+    // rebuild explicitly through their button callback.
+    if (images) {
+      _boundedImagesLoading = true;
+      _boundedImagesError = null;
+    } else {
+      _boundedReviewsLoading = true;
+      _boundedReviewsError = null;
+    }
+    try {
+      if (images) {
+        final page = await _boundedReads.images(_currentEntry.dish.id);
+        if (!isCurrent()) return;
+        _boundedImageCursor = page.nextCursor;
+        _boundedDetail = _boundedData(
+          _currentEntry,
+          _boundedReviewItems,
+          page.items,
+        );
+      } else {
+        final page = await _boundedReads.reviews(
+          _currentEntry.dish.id,
+          sort: _selectedReviewSort,
+          targetReviewId:
+              !_didHandleInitialEditReview && widget.editReviewId != null
+              ? widget.editReviewId
+              : !_didHandleTargetReview
+              ? widget.targetReviewId
+              : null,
+        );
+        if (!isCurrent()) return;
+        _boundedReviewItems = page.items;
+        _boundedReviewCursor = page.nextCursor;
+        _boundedDetail = _boundedData(
+          _currentEntry,
+          page.items,
+          _boundedDetail!.dishImages,
+        );
+      }
+    } catch (error) {
+      if (!isCurrent()) return;
+      if (images) {
+        _boundedImagesError = error;
+      } else {
+        _boundedReviewsError = error;
+      }
+    } finally {
+      if (isCurrent()) {
+        setState(() {
+          if (images) {
+            _boundedImagesLoading = false;
+          } else {
+            _boundedReviewsLoading = false;
+          }
+        });
+      }
+    }
+  }
+
+  Widget _boundedSectionStatus({required bool images}) {
+    final loading = images ? _boundedImagesLoading : _boundedReviewsLoading;
+    final label = images ? 'photos' : 'reviews';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(loading ? 'Loading $label…' : 'Could not load $label.'),
+        if (!loading)
+          TextButton(
+            onPressed: () => setState(() {
+              final load = _loadBoundedSection(
+                _detailLoadGeneration,
+                mainNavigationAuthRealmForUser(_currentUser),
+                images: images,
+              );
+              if (images) _boundedImagesLoad = load;
+              unawaited(load);
+            }),
+            child: Text('Retry $label'),
+          ),
+      ],
+    );
   }
 
   _DishDetailData _boundedData(
@@ -923,9 +1029,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       _boundedDetail = _boundedData(
         _currentEntry,
         _boundedReviewItems,
-        loadedImages,
+        images ? loadedImages : _boundedDetail!.dishImages,
       );
-      setState(() => _detailFuture = Future.value(_boundedDetail!));
+      setState(() {});
     } catch (error) {
       if (mounted && generation == _detailLoadGeneration) {
         _showSnackBar(
@@ -2079,7 +2185,33 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     required String initialImageUrl,
     String? title,
   }) async {
-    final safeImages = images ?? const <BiteScoreDishImage>[];
+    var safeImages = images ?? const <BiteScoreDishImage>[];
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      final generation = _detailLoadGeneration;
+      if (_openingImageGeneration == generation) return;
+      _openingImageGeneration = generation;
+      final actor = mainNavigationAuthRealmForUser(_currentUser);
+      // A review photo can arrive before the gallery's initial page. Reuse that
+      // request before handing off its photos and cursor to the gallery.
+      try {
+        await _boundedImagesLoad;
+      } finally {
+        if (_openingImageGeneration == generation) {
+          _openingImageGeneration = null;
+        }
+      }
+      if (!mounted ||
+          generation != _detailLoadGeneration ||
+          ModalRoute.of(context)?.isCurrent == false ||
+          actor != mainNavigationAuthRealmForUser(_currentUser)) {
+        return;
+      }
+      if (_boundedImagesError != null) {
+        _showSnackBar('Could not load photos. Retry photos and try again.');
+        return;
+      }
+      safeImages = _boundedDetail?.dishImages ?? safeImages;
+    }
     final imageUrls = safeImages
         .map((image) => image.imageUrl.trim())
         .where((url) => url.isNotEmpty)
@@ -2261,7 +2393,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
 
   Future<void> _reportReview(DishReview review) async {
     final authLease = _authBoundRouteBinding?.captureLease();
-    final canWrite = await BiteScoreSignInGate.ensureSignedInForWrite(context);
+    final canWrite = widget.testWriteGate != null
+        ? await widget.testWriteGate!(context)
+        : await BiteScoreSignInGate.ensureSignedInForWrite(context);
     if (!canWrite || !mounted || !_isPrivateLeaseCurrent(authLease)) {
       return;
     }
@@ -2276,10 +2410,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     }
 
     try {
-      final submitted = await BiteScoreService.submitReviewReport(
-        review: review,
-        reason: reason,
-      );
+      final submitted = widget.testReviewReporter != null
+          ? await widget.testReviewReporter!(review, reason)
+          : await BiteScoreService.submitReviewReport(
+              review: review,
+              reason: reason,
+            );
       if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
         return;
       }
@@ -3312,6 +3448,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
             }
 
             final detail =
+                _boundedDetail ??
                 snapshot.data ??
                 _DishDetailData(
                   dish: entry.dish,
@@ -3329,8 +3466,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
             final currentDish = detail.dish;
             final currentRestaurant = detail.restaurant;
             final sortedReviews = _sortedReviewsForDisplay(detail.reviews);
-            _scheduleTargetReviewReveal(sortedReviews);
-            _scheduleInitialEditReview(sortedReviews);
+            if (!_boundedReviewsLoading && _boundedReviewsError == null) {
+              _scheduleTargetReviewReveal(sortedReviews);
+              _scheduleInitialEditReview(sortedReviews);
+            }
             _scheduleInitialReviewSectionScroll();
             final targetReviewId = widget.targetReviewId?.trim();
             final targetReviewIndex =
@@ -3410,11 +3549,17 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                               _buildDishCategoryControl(
                                                 currentDish,
                                               ),
-                                              _buildDishImagePreview(
-                                                currentDish,
-                                                currentRestaurant,
-                                                detail.dishImages,
-                                              ),
+                                              if (_boundedImagesLoading ||
+                                                  _boundedImagesError != null)
+                                                _boundedSectionStatus(
+                                                  images: true,
+                                                )
+                                              else
+                                                _buildDishImagePreview(
+                                                  currentDish,
+                                                  currentRestaurant,
+                                                  detail.dishImages,
+                                                ),
                                             ],
                                           ),
                                         ),
@@ -3625,7 +3770,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                               _buildReviewSortDropdown(),
                             ],
                             const SizedBox(height: 12),
-                            if (detail.reviews.isEmpty)
+                            if (_boundedReviewsLoading ||
+                                _boundedReviewsError != null)
+                              _boundedSectionStatus(images: false)
+                            else if (detail.reviews.isEmpty)
                               Container(
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(16),
@@ -4737,6 +4885,9 @@ class _ReviewReportDialogState extends State<_ReviewReportDialog> {
     'Harassment',
     'Off-topic',
     'Suspicious or fake',
+    'Profanity / Inappropriate Content',
+    'Threats or Hate Speech',
+    'Private Personal Information',
     'Other',
   ];
 
@@ -4746,7 +4897,10 @@ class _ReviewReportDialogState extends State<_ReviewReportDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Report Review'),
+      scrollable: true,
       content: DropdownButtonFormField<String>(
+        isExpanded: true,
+        itemHeight: null,
         initialValue: _selectedReason,
         hint: const Text('Select a reason'),
         decoration: const InputDecoration(

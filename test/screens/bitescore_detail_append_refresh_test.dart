@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/customer_bitescore_reads_test.dart' show review;
 import '../services/customer_bitescore_search_service_test.dart'
     show dishProjection, restaurantProjection;
 
@@ -27,6 +28,116 @@ class _ReviewUser extends Fake implements User {
 }
 
 void main() {
+  for (final pendingAuthority in [true, false]) {
+    testWidgets(
+      'account change retires pending ${pendingAuthority ? 'detail' : 'sections'}',
+      (tester) async {
+        CustomerBiteScoreRuntime.testEnabled = true;
+        SharedPreferences.setMockInitialValues({});
+        addTearDown(() => CustomerBiteScoreRuntime.testEnabled = null);
+        addTearDown(() => AppModeStateService.setMode(AppMode.biteSaver));
+        final authChanges = StreamController<String>.broadcast(sync: true);
+        addTearDown(authChanges.close);
+        var authRealm = 'signed:A';
+        User currentUser = _ReviewUser('A');
+        final oldAuthority = Completer<Object?>();
+        final oldReviews = Completer<Object?>();
+        final oldImages = Completer<Object?>();
+        final calls = <String>[];
+        Map<String, Object?> detail() => {
+          'kind': 'dish',
+          'dish': {
+            ...dishProjection('dish'),
+            'displayName': 'Dish for $authRealm',
+          },
+          'restaurant': restaurantProjection('restaurant-1'),
+          'isFavorite': authRealm == 'signed:B',
+          'canManage': false,
+        };
+        final reads = CustomerBiteScoreReads(
+          actorKey: () => authRealm,
+          boundary: (name, request) async {
+            calls.add('$authRealm:$name');
+            if (name == 'getCustomerBiteScoreDetail') {
+              if (authRealm == 'signed:A' && pendingAuthority) {
+                return oldAuthority.future;
+              }
+              return detail();
+            }
+            if (authRealm == 'signed:A') {
+              return name == 'pageCustomerBiteScoreReviews'
+                  ? oldReviews.future
+                  : oldImages.future;
+            }
+            return {'items': [], 'nextCursor': null};
+          },
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            navigatorKey: rootNavigatorKey,
+            scaffoldMessengerKey: rootScaffoldMessengerKey,
+            home: MainNavigationScreen(
+              initialMode: AppMode.biteScore,
+              initializePlatformServices: false,
+              testCustomerAuthRealmProvider: () => authRealm,
+              testCustomerAuthRealmChanges: authChanges.stream,
+              testModeHomeBuilder: (_, _) => const SizedBox.shrink(),
+              testPagesBuilder: (_) => const [
+                SizedBox.shrink(),
+                SizedBox.shrink(),
+                SizedBox.shrink(),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        rootNavigatorKey.currentState!.push<void>(
+          MaterialPageRoute(
+            builder: (_) => BiteScoreDishDetailScreen(
+              entry: CustomerBiteScorePublicData.entry(dishProjection('dish')),
+              testCustomerReads: reads,
+              testCurrentUserProvider: () => currentUser,
+            ),
+          ),
+        );
+        if (pendingAuthority) {
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 400));
+        } else {
+          await tester.pumpAndSettle();
+          expect(find.text('Loading reviews…'), findsOneWidget);
+        }
+        currentUser = _ReviewUser('B');
+        authRealm = 'signed:B';
+        authChanges.add(authRealm);
+        await tester.pumpAndSettle();
+        expect(find.text('Dish for signed:B'), findsOneWidget);
+        expect(find.byTooltip('Unsave dish'), findsOneWidget);
+        if (pendingAuthority) {
+          oldAuthority.complete(detail());
+        } else {
+          oldReviews.complete({
+            'items': [review('stale')],
+            'nextCursor': 'stale-cursor',
+          });
+          oldImages.completeError(StateError('late image failure'));
+        }
+        await tester.pumpAndSettle();
+        expect(find.text('Dish for signed:B'), findsOneWidget);
+        expect(find.text('Review stale'), findsNothing);
+        expect(find.text('Could not load photos.'), findsNothing);
+        expect(find.text('No reviews yet for this dish.'), findsOneWidget);
+        if (pendingAuthority) {
+          expect(calls.where((call) => call.startsWith('signed:A:')), [
+            'signed:A:getCustomerBiteScoreDetail',
+          ]);
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
   testWidgets(
     'auth refresh retires an in-flight photo append without disabling the new page',
     (tester) async {
