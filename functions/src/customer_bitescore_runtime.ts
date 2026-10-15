@@ -1,3 +1,4 @@
+import {customerBiteScoreTerms} from "./bitescore_terms.js";
 import {createHmac} from "node:crypto";
 import {getFirestore} from "firebase-admin/firestore";
 import {defineSecret} from "firebase-functions/params";
@@ -121,6 +122,18 @@ export const getCustomerBiteScoreProfileSummary = onCall(publicOptions, (request
   getCustomerBiteScoreProfileSummaryHandler(getFirestore(), request.data, readContext(request))));
 export const getCustomerBiteScoreSuggestions = onCall(publicOptions, (request) => safely(() =>
   getCustomerBiteScoreSuggestionsHandler(getFirestore(), request.data, readContext(request))));
+
+const termsOptions = {serviceAccount: biteScoreCustomerRuntimeServiceAccount, timeoutSeconds: 60};
+function termsRequest(request: CallableRequest<unknown>, accept: boolean) {
+  return safely(() => customerBiteScoreTerms(
+    createFirestoreRatingDestructivePrivateDatabase(getFirestore()),
+    {uid: request.auth?.uid ?? "", emailVerified: request.auth?.token.email_verified === true,
+      anonymous: request.auth?.token.firebase?.sign_in_provider === "anonymous"},
+    request.data, accept, new Date(),
+  ));
+}
+export const getCustomerBiteScoreTerms = onCall(termsOptions, (request) => termsRequest(request, false));
+export const acceptCustomerBiteScoreTerms = onCall(termsOptions, (request) => termsRequest(request, true));
 
 export const saveCustomerBiteScoreReview = onCall({
   serviceAccount: biteScoreCustomerRuntimeServiceAccount,

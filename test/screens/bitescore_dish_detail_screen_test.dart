@@ -16,6 +16,70 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'declined Terms preserve review draft and never dispatch a save',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      var saves = 0;
+      var prompts = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: BiteScoreDishDetailScreen(
+            entry: _entry(),
+            scrollToReviewSection: true,
+            testInitialLoader: () async {},
+            testCurrentUserProvider: () => null,
+            testWriteGate: (_) async => true,
+            testTermsGate: (_) async {
+              prompts++;
+              return false;
+            },
+            testReviewSaver:
+                ({
+                  required dish,
+                  required restaurant,
+                  required overallImpression,
+                  required headline,
+                  required notes,
+                  required tastinessScore,
+                  required qualityScore,
+                  required valueScore,
+                }) async {
+                  saves++;
+                  throw StateError('Must not save');
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final fields = find.byType(TextField);
+      await tester.enterText(fields.at(0), 'Keep my headline');
+      await tester.enterText(fields.at(1), 'Keep my notes');
+      for (final slider in tester.widgetList<Slider>(find.byType(Slider))) {
+        slider.onChanged?.call(7);
+      }
+      await tester.pump();
+      final save = find.widgetWithText(ElevatedButton, 'Save Review');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(prompts, 1);
+      expect(saves, 0);
+      expect(find.text('Keep my headline'), findsOneWidget);
+      expect(find.text('Keep my notes'), findsOneWidget);
+      expect(
+        tester
+            .widgetList<Slider>(find.byType(Slider))
+            .every((s) => s.value == 7),
+        true,
+      );
+      expect(tester.widget<ElevatedButton>(save).onPressed, isNotNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test('multi-word title does not shrink when individual words fit', () {
     final size = BiteScoreResponsiveDishTitle.fittedFontSizeFor(
       text: 'Double Cheeseburger',

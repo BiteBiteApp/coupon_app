@@ -517,11 +517,11 @@ test("approved runtime isolation and proposal schedule preserve the complete exp
 
 test("approved BiteScore additions retain exact isolated runtime metadata", () => {
   const metadata = loadActualCompiledMetadata();
-  // Explicitly authored RUN002/RUN003 inventory: nineteen callables, thirteen written
+  // RUN002/RUN003 plus two dormant Terms callables: twenty-one callables, thirteen written
   // triggers and one scheduler. SDK-default region is absent in this module's
   // real metadata; this fixture preserves that exact source contract.
-  assert.equal(Object.keys(biteScoreMetadata).length, 33);
-  assert.equal(Object.values(biteScoreMetadata).filter(value => value.callableTrigger).length, 19);
+  assert.equal(Object.keys(biteScoreMetadata).length, 35);
+  assert.equal(Object.values(biteScoreMetadata).filter(value => value.callableTrigger).length, 21);
   assert.equal(Object.values(biteScoreMetadata).filter(value => value.eventTrigger).length, 13);
   assert.equal(Object.values(biteScoreMetadata).filter(value => value.scheduleTrigger).length, 1);
   for (const [name, expected] of Object.entries(biteScoreMetadata)) {

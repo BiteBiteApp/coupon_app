@@ -26,6 +26,8 @@ export {
   getCustomerBiteScoreProfileSummary,
   getCustomerBiteScoreSuggestions,
   saveCustomerBiteScoreReview,
+  getCustomerBiteScoreTerms,
+  acceptCustomerBiteScoreTerms,
   maintainCustomerBiteScoreReviewAggregate,
   maintainCustomerBiteScoreDishAggregate,
   maintainCustomerBiteScoreReviewFeedback,

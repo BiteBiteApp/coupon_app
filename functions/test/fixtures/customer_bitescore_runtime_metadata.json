@@ -630,5 +630,31 @@
     "platform": "gcfv2",
     "labels": {},
     "callableTrigger": {}
+  },
+  "getCustomerBiteScoreTerms": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "callableTrigger": {}
+  },
+  "acceptCustomerBiteScoreTerms": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "callableTrigger": {}
   }
 }

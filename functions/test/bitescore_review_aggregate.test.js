@@ -344,3 +344,83 @@ test("logical review tie-break preserves Dart UTF-16 ordering rather than UTF-8 
   assert.equal(result.review.id, z);
   assert.equal(Object.hasOwn(result.review, "aggregateReviewOrder0"), false);
 });
+
+const {customerBiteScoreTerms, approvedBiteScoreTerms} = require('../lib/bitescore_terms.js');
+const approvedTermsFixture = {version: 'SIMULATED-APPROVED-v1', text: 'Simulated approved Terms for tests only.'};
+const termsActor = {uid: 'user-1', emailVerified: true, anonymous: false};
+const acceptTerms = (db, overrides = {}, actor = termsActor, policy = approvedTermsFixture, now = base) =>
+  customerBiteScoreTerms(db, actor, {expectedUserId: 'user-1', version: policy?.version, ...overrides}, true, now, policy);
+const saveWithTerms = (db, overrides = {}, policy = approvedTermsFixture) =>
+  saveCustomerBiteScoreReview(db, termsActor, input(overrides), later(1), policy);
+
+test('unpublished default is dormant, saves unchanged, and never issues a draft receipt', async () => {
+  assert.equal(approvedBiteScoreTerms, null);
+  const db = database();
+  assert.deepEqual(await customerBiteScoreTerms(db, termsActor, {expectedUserId: 'user-1'}, false, base),
+    {schemaVersion: 1, userId: 'user-1', enabled: false});
+  await assert.rejects(customerBiteScoreTerms(db, termsActor, {expectedUserId: 'user-1', version: 'draft'}, true, base),
+    {code: 'failed-precondition'});
+  assert.equal(db.get('user_profiles/user-1'), undefined);
+  await save(db, 'user-1');
+  assert.equal(aggregate(db).ratingCount, 1);
+  assert.ok(!db.reads.includes('user_profiles/user-1'));
+});
+
+test('active trusted write denies missing, obsolete, cross-user and client-asserted receipts atomically', async () => {
+  const db = database();
+  for (const receipt of [undefined, {version: 'old', acceptedAt: base}, {version: approvedTermsFixture.version}]) {
+    db.set('user_profiles/user-1', {termsAcceptance: receipt});
+    await assert.rejects(saveWithTerms(db), {code: 'failed-precondition'});
+    await assert.rejects(saveWithTerms(db, {accepted: true, termsAcceptance: {version: approvedTermsFixture.version}}),
+      {code: 'invalid-argument'});
+    assert.equal(aggregate(db), undefined);
+    assert.ok(![...db.documents.keys()].some(p => p.startsWith('dish_reviews/')));
+  }
+  await acceptTerms(db, {expectedUserId: 'user-2'}, {...termsActor, uid: 'user-2'});
+  await assert.rejects(saveWithTerms(db), {code: 'failed-precondition'});
+});
+
+test('acceptance is UID-bound, minimal, idempotent and preserves private profile fields', async () => {
+  const db = database();
+  db.set('user_profiles/user-1', {userId: 'user-1', displayName: 'Existing', points: 7});
+  await acceptTerms(db, {acceptedAt: 'client time', uid: 'victim', accepted: true});
+  await acceptTerms(db, {}, termsActor, approvedTermsFixture, later(100));
+  assert.deepEqual(db.get('user_profiles/user-1'), {userId: 'user-1', displayName: 'Existing', points: 7,
+    termsAcceptance: {version: approvedTermsFixture.version, acceptedAt: base}});
+  assert.equal(db.get('user_profiles/victim'), undefined);
+  const first = await saveWithTerms(db);
+  const edited = await saveWithTerms(db, {overallImpression: 10});
+  assert.equal(first.review.id, edited.review.id);
+  assert.equal(first.review.createdAtMillis, edited.review.createdAtMillis);
+  assert.equal(aggregate(db).ratingCount, 1);
+  close(edited.review.overallBiteScore, computeTrustedBiteScore(input({overallImpression: 10})));
+  const next = {...approvedTermsFixture, version: 'SIMULATED-APPROVED-v2'};
+  await assert.rejects(saveWithTerms(db, {}, next), {code: 'failed-precondition'});
+  await assert.rejects(acceptTerms(db, {version: approvedTermsFixture.version}, termsActor, next), {code: 'failed-precondition'});
+  await acceptTerms(db, {}, termsActor, next);
+  await saveWithTerms(db, {}, next);
+});
+
+test('guest, unverified, signed-out, account-switched and deleting identities cannot accept', async () => {
+  const db = database();
+  for (const actor of [{uid: '', emailVerified: false}, {...termsActor, anonymous: true},
+    {...termsActor, emailVerified: false}, {...termsActor, uid: 'user-2'}]) {
+    await assert.rejects(acceptTerms(db, {}, actor), {code: 'permission-denied'});
+  }
+  db.set('private_account_deletions/user-1', {});
+  await assert.rejects(acceptTerms(db), {code: 'failed-precondition'});
+  await assert.rejects(saveWithTerms(db), {code: 'failed-precondition'});
+  assert.equal(db.get('user_profiles/user-1'), undefined);
+});
+
+test('existing Rules exclude receipt field from client mutations and existing deletion removes profile root', () => {
+  const fs = require('node:fs');
+  const rules = fs.readFileSync('../firestore.rules', 'utf8');
+  const fields = rules.slice(rules.indexOf('function profileWritableFields()'), rules.indexOf('function userOwnedCreate'));
+  assert.ok(!fields.includes('termsAcceptance'));
+  assert.match(fields, /keys\(\)\.hasOnly\(profileWritableFields\(\)\)/);
+  assert.match(fields, /changedKeys\(\)\.hasOnly\(profileWritableFields\(\)\)/);
+  assert.match(rules, /allow read: if isAdmin\(\) \|\| isSelf\(userId\)/);
+  const cleanup = fs.readFileSync('src/account_deletion_cleanup.ts', 'utf8');
+  assert.match(cleanup, /function personalRootPaths[\s\S]*?`user_profiles\/\$\{uid\}`/);
+});

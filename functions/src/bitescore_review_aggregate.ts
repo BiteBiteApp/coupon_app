@@ -1,3 +1,4 @@
+import {requireBiteScoreTerms, approvedBiteScoreTerms, type ApprovedBiteScoreTerms} from "./bitescore_terms.js";
 import {requireAccountWritableInStore} from "./account_deletion_guard.js";
 import {createHash} from "node:crypto";
 import {
@@ -574,6 +575,7 @@ export async function saveCustomerBiteScoreReview(
   actor: {uid: string; emailVerified: boolean},
   request: unknown,
   now: Date,
+  terms: ApprovedBiteScoreTerms | null = approvedBiteScoreTerms,
 ): Promise<Readonly<Record<string, unknown>>> {
   const userId = id(actor.uid);
   if (!actor.emailVerified) fail("permission-denied", "Verify your email before reviewing.");
@@ -581,6 +583,7 @@ export async function saveCustomerBiteScoreReview(
   if (input.expectedUserId !== userId) fail("permission-denied", "Your account changed. Please try again.");
   return database.runTransaction(async (transaction) => {
     await requireAccountWritableInStore(transaction, userId);
+    await requireBiteScoreTerms(transaction, userId, terms);
     const epoch = await runtime(transaction);
     if (epoch === null) fail("failed-precondition", "Trusted BiteScore reviews are not enabled.");
     const [dishDocument, restaurant, stateDocument, aggregate, milestoneLock] = await Promise.all([

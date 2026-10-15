@@ -19,6 +19,7 @@ import '../services/bitescore_image_upload_service.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
+import '../services/bitescore_terms_service.dart';
 import '../services/customer_bitescore_reads.dart';
 import '../services/customer_bitescore_runtime.dart';
 import '../services/customer_bitescore_search_service.dart';
@@ -391,6 +392,7 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
   final Future<void> Function()? testInitialLoader;
   final CustomerBiteScoreReads? testCustomerReads;
   final BiteScoreDishDetailWriteGate? testWriteGate;
+  final BiteScoreDishDetailWriteGate? testTermsGate;
   final BiteScoreDishDetailReviewSaver? testReviewSaver;
   final Future<bool> Function(DishReview review, String reason)?
   testReviewReporter;
@@ -412,6 +414,7 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
     @visibleForTesting this.testInitialLoader,
     @visibleForTesting this.testCustomerReads,
     @visibleForTesting this.testWriteGate,
+    @visibleForTesting this.testTermsGate,
     @visibleForTesting this.testReviewSaver,
     @visibleForTesting this.testReviewReporter,
     @visibleForTesting this.testCurrentUserProvider,
@@ -1562,6 +1565,55 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     );
 
     try {
+      final termsAccepted = widget.testTermsGate != null
+          ? await widget.testTermsGate!(context)
+          : await BiteScoreTermsService.ensureAccepted(
+              expectedUserId: expectedUserId ?? '',
+              isCurrent: () =>
+                  mounted &&
+                  _isPrivateLeaseCurrent(authLease) &&
+                  _currentUser?.uid == expectedUserId &&
+                  _currentUser?.isAnonymous == false,
+              confirm: (version, text) async =>
+                  await showDialog<bool>(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: const Text('Terms of Service'),
+                      content: SizedBox(
+                        width: 560,
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('Version: $version'),
+                              const SizedBox(height: 12),
+                              SelectableText(text),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Accept these Terms to submit your review. You can cancel and continue browsing.',
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext, false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(dialogContext, true),
+                          child: const Text('Accept Terms'),
+                        ),
+                      ],
+                    ),
+                  ) ==
+                  true,
+            );
+      if (!termsAccepted || !mounted || !_isPrivateLeaseCurrent(authLease)) {
+        return;
+      }
       saveResult = testReviewSaver != null
           ? await testReviewSaver(
               dish: _currentEntry.dish,
