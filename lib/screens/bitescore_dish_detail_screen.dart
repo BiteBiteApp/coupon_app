@@ -941,6 +941,47 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   Widget _boundedSectionStatus({required bool images}) {
     final loading = images ? _boundedImagesLoading : _boundedReviewsLoading;
     final label = images ? 'photos' : 'reviews';
+    if (loading && images) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 7),
+        child: Container(
+          key: const ValueKey('bitescore-dish-image-loading-placeholder'),
+          width: BiteScoreDishImagePreview.imageSize.width,
+          height: BiteScoreDishImagePreview.imageSize.height,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F8FD),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Text(
+            'Loading photos…',
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: BiteRaterTheme.mutedInk, fontSize: 12),
+          ),
+        ),
+      );
+    }
+    if (loading && !images) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BiteRaterTheme.surfaceDecoration(
+          accentColor: BiteRaterTheme.ocean,
+          radius: 16,
+        ),
+        child: const Text(
+          'Loading reviews…',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: BiteRaterTheme.mutedInk,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
