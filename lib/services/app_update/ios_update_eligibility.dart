@@ -40,9 +40,10 @@ final class IosUpdateEligibility {
   }) : fetch = fetch ?? fetchJson,
        clock = clock ?? DateTime.now;
 
-  // Configuration gap: fill only after matching the current ASC record's
-  // numeric Apple ID AND com.colesmart.bitestar. Null disables production.
-  static const String? configuredAppleId = null;
+  // Owner verified the current BiteStar App Store Connect General Information
+  // record on 2026-10-14: com.colesmart.bitestar, SKU bitestar-ios.
+  // Identity configuration does not enable the separately controlled policy.
+  static const String configuredAppleId = '6792401678';
   static const bundleId = 'com.colesmart.bitestar';
   static final policyUrl = Uri.https(
     'coupon-app-29446.web.app',

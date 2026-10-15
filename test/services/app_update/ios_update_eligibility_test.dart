@@ -29,7 +29,6 @@ void main() {
 
   IosUpdateEligibility provider({Future<Object?> Function(Uri)? request}) =>
       IosUpdateEligibility(
-        expectedAppleId: '123456789',
         snapshot: () async => local,
         fetch: request ?? fetch,
         clock: () => now,
@@ -40,7 +39,7 @@ void main() {
       'schemaVersion': 1,
       'enabled': true,
       'bundleId': 'com.colesmart.bitestar',
-      'appleId': '123456789',
+      'appleId': '6792401678',
       'version': '1.10',
       'urgent': false,
       'issuedAt': now.toIso8601String(),
@@ -50,14 +49,14 @@ void main() {
       'publicInstallation': true,
       'externalEntry': false,
       'bundleId': 'com.colesmart.bitestar',
-      'appleId': '123456789',
+      'appleId': '6792401678',
       'installedVersion': '1.9.0',
       'country': 'CA',
       'device': 'iPhone17,1',
       'osVersion': '18.0',
     };
     app = {
-      'trackId': 123456789,
+      'trackId': 6792401678,
       'bundleId': 'com.colesmart.bitestar',
       'kind': 'software',
       'version': '1.10.0',
@@ -126,7 +125,7 @@ void main() {
     'Apple text/javascript is JSON-decoded only for the exact Apple endpoint',
     () async {
       final apple = Uri.https('itunes.apple.com', '/lookup', {
-        'id': '123456789',
+        'id': '6792401678',
       });
       Future<Object?> request(Uri uri, String body) => http.runWithClient(
         () => IosUpdateEligibility.fetchJson(uri),
@@ -178,7 +177,7 @@ void main() {
     'iOS hung native or network check times out without changing saved history',
     () async {
       final storage = MemoryUpdateStorage();
-      storage.data['app_update.v1.ios:com.colesmart.bitestar:123456789:1.10.0'] =
+      storage.data['app_update.v1.ios:com.colesmart.bitestar:6792401678:1.10.0'] =
           '{"count":1,"at":0}';
       final saved = Map.of(storage.data);
       final platform = FakeUpdatePlatform();
@@ -199,11 +198,11 @@ void main() {
     'verified exact identity/version uses actual storefront, never default US',
     () async {
       final release = AppUpdateRelease.fromIos(await provider().check())!;
-      expect(release.key, 'ios:com.colesmart.bitestar:123456789:1.10.0');
+      expect(release.key, 'ios:com.colesmart.bitestar:6792401678:1.10.0');
       expect(release.build, isNull);
       expect(release.urgent, false);
       expect(requests.last.queryParameters, {
-        'id': '123456789',
+        'id': '6792401678',
         'country': 'CA',
         'entity': 'software',
       });
@@ -220,9 +219,9 @@ void main() {
   test(
     'missing Apple ID disables real provider before any network or native work',
     () async {
-      expect(IosUpdateEligibility.configuredAppleId, isNull);
       expect(
         await IosUpdateEligibility(
+          expectedAppleId: null,
           snapshot: () => throw StateError('must not read'),
           fetch: (uri) => throw StateError('must not fetch'),
         ).check(),
@@ -238,7 +237,12 @@ void main() {
       );
       expect(file['enabled'], false);
       expect(file['urgent'], false);
-      expect(file['appleId'], isNull);
+      expect(IosUpdateEligibility.configuredAppleId, '6792401678');
+      expect(IosUpdateEligibility.bundleId, 'com.colesmart.bitestar');
+      expect(file['appleId'], '6792401678');
+      expect(file['bundleId'], 'com.colesmart.bitestar');
+      expect(file['issuedAt'], isNull);
+      expect(file['expiresAt'], isNull);
       expect(file['version'], isNull);
       final hosting = jsonDecode(
         File('firebase.json').readAsStringSync(),
@@ -259,6 +263,27 @@ void main() {
       });
     },
   );
+  test(
+    'configured identity with checked-in disabled policy never requests Apple facts',
+    () async {
+      final file = jsonDecode(
+        File('web/app-updates/ios.json').readAsStringSync(),
+      );
+      final fetched = <Uri>[];
+      final eligibility = IosUpdateEligibility(
+        snapshot: () =>
+            throw StateError('disabled policy must not read native facts'),
+        fetch: (uri) async {
+          fetched.add(uri);
+          return file;
+        },
+        clock: () => now,
+      );
+      expect(await eligibility.check(), isNull);
+      expect(fetched, [IosUpdateEligibility.policyUrl]);
+    },
+  );
+
   test('missing, disabled, malformed, non-JSON policy fails open', () async {
     for (final value in [
       null,
@@ -268,7 +293,7 @@ void main() {
       {...policy, 'enabled': false},
       {...policy, 'schemaVersion': 2},
       {...policy, 'urgent': 'true'},
-      {...policy, 'appleId': 123456789},
+      {...policy, 'appleId': 6792401678},
       {...policy, 'version': 'next'},
     ]) {
       expect(await provider(request: (_) async => value).check(), isNull);
@@ -299,10 +324,10 @@ void main() {
     }
     policy['appleId'] = '987654321';
     expect(await provider().check(), isNull);
-    policy['appleId'] = '123456789';
+    policy['appleId'] = '6792401678';
     local['appleId'] = '987654321';
     expect(await provider().check(), isNull);
-    local['appleId'] = '123456789';
+    local['appleId'] = '6792401678';
     app['trackId'] = 987654321;
     expect(await provider().check(), isNull);
   });
@@ -458,7 +483,7 @@ void main() {
       expect(await service.check(), isNull);
       expect(
         storage.data.keys.single,
-        'app_update.v1.ios:com.colesmart.bitestar:123456789:1.10.0',
+        'app_update.v1.ios:com.colesmart.bitestar:6792401678:1.10.0',
       );
     },
   );

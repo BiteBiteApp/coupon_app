@@ -2,18 +2,21 @@ BiteStar iOS update policy — source-only operating notes
 
 Initial state
   web/app-updates/ios.json is disabled, non-urgent and has no target version.
-  IosUpdateEligibility.configuredAppleId is null, which stops eligibility before
-  any policy/network/native request. This is an explicit missing configuration,
-  not a completed App Store identity verification.
+  IosUpdateEligibility.configuredAppleId and the disabled policy appleId are
+  configured as the string "6792401678". Identity configuration alone does not
+  enable reminders or enforcement; enabled remains false and urgent remains false.
   No endpoint was published and no update requirement was activated in this run.
 
-Identity prerequisite
-  Obtain numeric Apple ID from the current App Store Connect BiteStar record.
-  Record matching bundle com.colesmart.bitestar and SKU bitestar-ios. Do not use
-  the historical BiteStar Old/BiteSaver record, Team ID, or Firebase app ID.
-  Set configuredAppleId to that verified number as a STRING, update the disabled
-  policy appleId to the same string, adjust the configuration-gap test, requalify
-  affected tests/build, review and checkpoint before store distribution.
+Verified identity
+  Owner verified the current App Store Connect General Information screen on
+  2026-10-14 and supplied these authoritative values in
+  BS-UI11-IOS-APPLE-IDENTITY-FINALIZE-003:
+    Apple ID: 6792401678
+    Bundle ID: com.colesmart.bitestar
+    SKU: bitestar-ios
+  This is the current BiteStar record, not historical BiteStar Old/BiteSaver.
+  The numeric Apple ID is configured as a STRING in source and the disabled JSON.
+  Configuration tests verify these exact public identifiers and reject mismatches.
   No private App Store Connect information or credentials go in the JSON/app.
 
 Existing Hosting origin and packaging
@@ -36,7 +39,7 @@ Future owner-approved release
     schemaVersion: integer 1
     enabled: boolean true
     bundleId: exact com.colesmart.bitestar
-    appleId: verified numeric Apple ID as a string
+    appleId: string "6792401678"
     version: actual PUBLIC Apple marketing version (1–3 numeric components)
     urgent: boolean false, unless the owner separately approves an urgent release
     issuedAt: current UTC ISO-8601 timestamp ending Z
@@ -101,8 +104,9 @@ Local qualification commands (no deployment or app launch)
   flutter build web --no-web-resources-cdn
 
 Separate release qualification
-  Verified Apple ID configured in a reviewed signed build; owner-approved policy
-  publication/activation; real lower/higher public App Store versions; storefront,
+  Distribute a reviewed signed build containing the configured Apple ID;
+  separately authorize owner-approved policy publication/activation; real lower/
+  higher public App Store versions; storefront,
   supported/unsupported OS/device, two 24h postponements, urgency, withdrawal,
   offline/launch failure, return without installing, actual update/restart,
   protected auth/link/timer/editor flows and store/account restrictions. Preserve
