@@ -1034,14 +1034,19 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     return _pollStatus(purpose: purpose);
   }
 
+  /// Whether an uncertain status request can be replayed in this session.
+  bool get canRetryStatusPoll =>
+      !_disposed &&
+      _status == CustomerBiteSaverCoordinatorStatus.error &&
+      _pendingStatusRequest != null &&
+      _pendingStatusPurpose != null &&
+      _binding != null;
+
   /// Replays the exact status request whose transport outcome was uncertain.
   Future<void> retryStatusPoll() {
     _ensureAlive();
     final purpose = _pendingStatusPurpose;
-    if (_status != CustomerBiteSaverCoordinatorStatus.error ||
-        _pendingStatusRequest == null ||
-        purpose == null ||
-        _binding == null) {
+    if (!canRetryStatusPoll) {
       return Future<void>.value();
     }
     _status = purpose == _StatusPollPurpose.preparing

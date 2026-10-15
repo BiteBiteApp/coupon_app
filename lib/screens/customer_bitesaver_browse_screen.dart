@@ -911,8 +911,8 @@ class _CustomerBiteSaverBrowseScreenState
     final coordinator = widget.coordinator;
     if (coordinator.status == CustomerBiteSaverCoordinatorStatus.error &&
         coordinator.hasSession) {
-      await coordinator.retryStatusPoll();
-      if (coordinator.status != CustomerBiteSaverCoordinatorStatus.error) {
+      if (coordinator.canRetryStatusPoll) {
+        await coordinator.retryStatusPoll();
         return;
       }
       await _startSearch(fresh: true);
