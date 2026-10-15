@@ -13,6 +13,7 @@ import '../services/subscription_return_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/bitesaver_colors.dart';
 import '../widgets/admin_content_insets.dart';
+import 'about_us_screen.dart';
 import 'bitescore_home_screen.dart';
 import 'customer_account_screen.dart';
 import 'home_screen.dart';
@@ -2625,13 +2626,22 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Widget _buildBiteSaverMenuButton() {
     return PopupMenuButton<int>(
       tooltip: 'Menu',
-      onSelected: _selectTab,
+      onSelected: (value) {
+        if (value == 3) {
+          Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(builder: (_) => const AboutUsScreen()),
+          );
+          return;
+        }
+        _selectTab(value);
+      },
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       color: const Color(0xFFFFFEFC),
       itemBuilder: (context) => const [
         PopupMenuItem(value: 0, child: Text('Home')),
         PopupMenuItem(value: 1, child: Text('Restaurant Hub')),
         PopupMenuItem(value: 2, child: Text('My Profile')),
+        PopupMenuItem(value: 3, child: Text('About Us')),
       ],
       child: Container(
         width: 48,
@@ -2844,9 +2854,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final labels = measureAppModeLabels(context);
-                    // Menu target/padding (68), switcher padding (32), and thumb inset (4).
+                    // Menu target/padding (68), switcher padding (32), thumb inset (4),
+                    // and label padding (16 per half).
                     final needsSeparateRow =
-                        labels.width > (constraints.maxWidth - 104) / 2;
+                        labels.width > (constraints.maxWidth - 136) / 2;
                     final menu = Padding(
                       padding: const EdgeInsets.only(left: 16, right: 4),
                       child: _buildBiteSaverMenuButton(),

@@ -5303,7 +5303,7 @@ void main() {
             .onPressed,
         isNull,
       );
-      await tester.tap(find.text('Try BiteScore'));
+      await tester.tap(find.text('Try Dish Ratings'));
       await tester.pump();
       expect(AppModeStateService.selectedMode.value, AppMode.biteScore);
       expect(transport.startCalls, 3);

@@ -9,6 +9,7 @@ import 'package:coupon_app/models/dish_rating_aggregate.dart';
 import 'package:coupon_app/models/dish_review.dart';
 import 'package:coupon_app/models/restaurant.dart';
 import 'package:coupon_app/main.dart' as bite_app;
+import 'package:coupon_app/screens/about_us_screen.dart';
 import 'package:coupon_app/screens/bitescore_create_rate_screen.dart';
 import 'package:coupon_app/screens/bitescore_dish_detail_screen.dart';
 import 'package:coupon_app/screens/bitescore_home_screen.dart';
@@ -3088,6 +3089,73 @@ void main() {
     expect(find.text('Account Page'), findsOneWidget);
   });
 
+  for (final mode in AppMode.values) {
+    testWidgets('signed-out About Us preserves ${mode.name} state and tabs', (
+      tester,
+    ) async {
+      final counters = _NavigationProbeCounters();
+      await tester.pumpWidget(
+        _stateRetentionTestApp(
+          counters: counters,
+          authRealmProvider: () => 'guest',
+          authRealmChanges: const Stream<String>.empty(),
+        ),
+      );
+      AppModeStateService.setMode(mode);
+      await tester.pumpAndSettle();
+      final homeFinder = find.byKey(ValueKey('${mode.name}-home-probe'));
+      final original = tester.state<_NavigationProbePageState>(homeFinder);
+      original.queryController.text = 'retained restaurant search';
+      for (final tab in ['Home', 'Restaurant Hub', 'My Profile']) {
+        await tester.tap(find.byTooltip('Menu'));
+        await tester.pumpAndSettle();
+        expect(find.text('Admin'), findsNothing);
+        expect(
+          find.widgetWithText(PopupMenuItem<int>, 'About Us'),
+          findsOneWidget,
+        );
+        await tester.tap(find.widgetWithText(PopupMenuItem<int>, tab));
+        await tester.pumpAndSettle();
+        final expectedPage = tab == 'Home'
+            ? '${mode.name}-home page'
+            : tab == 'Restaurant Hub'
+            ? 'hub page'
+            : 'account page';
+        expect(find.text(expectedPage), findsOneWidget);
+        await tester.tap(find.byTooltip('Menu'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('About Us'));
+        await tester.pumpAndSettle();
+        expect(find.byType(AboutUsScreen), findsOneWidget);
+        expect(find.text('About BiteStar'), findsOneWidget);
+        expect(AppModeStateService.selectedMode.value, mode);
+        // Exercise the page back button and Android/system Back independently.
+        if (tab == 'Restaurant Hub') {
+          await tester.binding.handlePopRoute();
+        } else {
+          await tester.tap(find.byTooltip('Back'));
+        }
+        await tester.pumpAndSettle();
+        expect(find.text(expectedPage), findsOneWidget);
+        expect(find.byType(AboutUsScreen), findsNothing);
+        expect(AppModeStateService.selectedMode.value, mode);
+        expect(
+          tester.state(
+            find.byKey(
+              ValueKey('${mode.name}-home-probe'),
+              skipOffstage: false,
+            ),
+          ),
+          same(original),
+        );
+        expect(original.queryController.text, 'retained restaurant search');
+        expect(counters.loads['${mode.name}-home'], 1);
+        expect(counters.disposals['${mode.name}-home'], isNull);
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
   testWidgets('obsolete initial index displays Home', (tester) async {
     await tester.pumpWidget(_testApp(initialIndex: 3));
     expect(find.text('biteSaver Home Page'), findsOneWidget);
@@ -4054,7 +4122,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(
-      find.text('This BiteScore restaurant is not currently available.'),
+      find.text('This restaurant is not currently available in Dish Ratings.'),
       findsOneWidget,
     );
 
@@ -4454,7 +4522,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Open clean mode-switch descendant'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('BiteSaver'));
+      await tester.tap(find.text('Coupons & Specials'));
       await tester.pumpAndSettle();
 
       expect(
@@ -4540,13 +4608,13 @@ void main() {
             .state<_RefreshGenerationProbeHomeState>(
               find.byKey(const ValueKey('biteScore-mode-refresh-probe')),
             );
-        await tester.tap(find.text('BiteSaver'));
+        await tester.tap(find.text('Coupons & Specials'));
         await tester.pump();
         final biteSaverHomeState = tester
             .state<_RefreshGenerationProbeHomeState>(
               find.byKey(const ValueKey('biteSaver-mode-refresh-probe')),
             );
-        await tester.tap(find.text('BiteScore'));
+        await tester.tap(find.text('Dish Ratings'));
         await tester.pump();
         expect(
           identical(
@@ -4573,7 +4641,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text('BiteSaver'));
+        await tester.tap(find.text('Coupons & Specials'));
         await tester.pumpAndSettle();
 
         expect(
@@ -4600,7 +4668,7 @@ void main() {
         expect(biteSaverHomeState.refreshes, 0);
         expect(biteScoreHomeState.refreshes, isDirty ? 1 : 0);
 
-        await tester.tap(find.text('BiteScore'));
+        await tester.tap(find.text('Dish Ratings'));
         await tester.pump();
         expect(
           identical(
@@ -5139,10 +5207,28 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(_testApp(textScaler: const TextScaler.linear(1.5)));
-    await tester.pump();
-    expect(find.text('Restaurant\nHub'), findsOneWidget);
-    expect(tester.takeException(), isNull);
+    for (final scale in [1.5, 2.0, 3.0]) {
+      await tester.pumpWidget(_testApp(textScaler: TextScaler.linear(scale)));
+      await tester.pumpAndSettle();
+      for (final mode in AppMode.values) {
+        await tester.tap(
+          find
+              .text(
+                mode == AppMode.biteSaver
+                    ? 'Coupons & Specials'
+                    : 'Dish Ratings',
+              )
+              .last,
+        );
+        await tester.pumpAndSettle();
+        expect(AppModeStateService.selectedMode.value, mode);
+        expect(find.text('Restaurant\nHub'), findsOneWidget);
+        final menu = tester.getRect(find.byTooltip('Menu'));
+        final switcher = tester.getRect(find.byType(AppModeSwitcherBar));
+        expect(menu.bottom, lessThanOrEqualTo(switcher.top));
+        expect(tester.takeException(), isNull);
+      }
+    }
   });
 }
 

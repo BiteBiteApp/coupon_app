@@ -595,7 +595,7 @@ void main() {
       );
       final access = detail.boundedAccess!;
       if (visitCase == 'mode') {
-        await tester.tap(find.text('BiteScore').first);
+        await tester.tap(find.text('Dish Ratings').first);
       } else {
         await tester.tap(find.text('Home'));
       }
@@ -894,7 +894,9 @@ void main() {
       unawaited(rootNavigatorKey.currentState!.pushNamed(route));
       await tester.pumpAndSettle();
       expect(
-        find.text('This restaurant is not currently available in BiteSaver.'),
+        find.text(
+          'This restaurant is not currently available in Coupons & Specials.',
+        ),
         findsOneWidget,
       );
       expect(find.byType(RestaurantProfileScreen), findsNothing);

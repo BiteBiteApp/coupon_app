@@ -4,18 +4,22 @@ import '../services/app_mode_state_service.dart';
 import '../screens/main_navigation_screen.dart';
 import 'bitesaver_colors.dart';
 
-/// Measures both existing labels with the same inherited typography and scaler.
+const couponsAndSpecialsLabel = 'Coupons & Specials';
+const dishRatingsLabel = 'Dish Ratings';
+
+/// Measures both mode labels with the same inherited typography and scaler.
 Size measureAppModeLabels(
   BuildContext context, {
   double maxWidth = double.infinity,
+  double fontSize = 13,
 }) {
   var size = Size.zero;
-  for (final text in ['BiteSaver', 'BiteScore']) {
+  for (final text in [couponsAndSpecialsLabel, dishRatingsLabel]) {
     final label = TextPainter(
       text: TextSpan(
         text: text,
         style: DefaultTextStyle.of(context).style.merge(
-          const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+          TextStyle(fontSize: fontSize, fontWeight: FontWeight.w800),
         ),
       ),
       textDirection: Directionality.of(context),
@@ -128,9 +132,9 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
           final thumbWidth = (width - 4) / 2;
           final labels = measureAppModeLabels(
             context,
-            maxWidth: (thumbWidth - 4).clamp(1, double.infinity),
+            maxWidth: (thumbWidth - 16).clamp(1, double.infinity),
           );
-          final barHeight = labels.height + 16 > 42 ? labels.height + 16 : 42.0;
+          final barHeight = labels.height + 16 > 48 ? labels.height + 16 : 48.0;
           final visualPosition = _dragPosition ?? _selectedPosition;
           final left = 2 + (visualPosition * thumbWidth);
           final isDragging = _dragPosition != null;
@@ -230,15 +234,23 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                                 width: 0.8,
                               ),
                             ),
-                            child: Center(
-                              child: Text(
-                                widget.selectedMode == AppMode.biteSaver
-                                    ? 'BiteSaver'
-                                    : 'BiteScore',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13,
+                            child: ExcludeSemantics(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    widget.selectedMode == AppMode.biteSaver
+                                        ? couponsAndSpecialsLabel
+                                        : dishRatingsLabel,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ),
                               ),
                             ),
@@ -250,40 +262,52 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                   Row(
                     children: [
                       Expanded(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(24),
-                          onHighlightChanged: (pressed) {
-                            _setPressedMode(pressed ? AppMode.biteSaver : null);
-                          },
+                        child: Semantics(
+                          label: couponsAndSpecialsLabel,
+                          button: true,
+                          selected: widget.selectedMode == AppMode.biteSaver,
                           onTap: () => widget.onModeSelected(AppMode.biteSaver),
-                          child: AnimatedScale(
-                            scale: _pressedMode == AppMode.biteSaver
-                                ? 0.985
-                                : 1.0,
-                            duration: const Duration(milliseconds: 100),
-                            curve: Curves.easeOut,
-                            child: AnimatedOpacity(
-                              opacity: _pressedMode == AppMode.biteSaver
-                                  ? 0.98
+                          excludeSemantics: true,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(24),
+                            onHighlightChanged: (pressed) {
+                              _setPressedMode(
+                                pressed ? AppMode.biteSaver : null,
+                              );
+                            },
+                            onTap: () =>
+                                widget.onModeSelected(AppMode.biteSaver),
+                            child: AnimatedScale(
+                              scale: _pressedMode == AppMode.biteSaver
+                                  ? 0.985
                                   : 1.0,
                               duration: const Duration(milliseconds: 100),
                               curve: Curves.easeOut,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    'BiteSaver',
-                                    style: TextStyle(
-                                      color:
-                                          widget.selectedMode ==
-                                              AppMode.biteSaver
-                                          ? Colors.transparent
-                                          : colorScheme.onSurfaceVariant
-                                                .withValues(alpha: 0.9),
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
+                              child: AnimatedOpacity(
+                                opacity: _pressedMode == AppMode.biteSaver
+                                    ? 0.98
+                                    : 1.0,
+                                duration: const Duration(milliseconds: 100),
+                                curve: Curves.easeOut,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                    horizontal: 8,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      couponsAndSpecialsLabel,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color:
+                                            widget.selectedMode ==
+                                                AppMode.biteSaver
+                                            ? Colors.transparent
+                                            : colorScheme.onSurfaceVariant
+                                                  .withValues(alpha: 0.9),
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -293,40 +317,52 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                         ),
                       ),
                       Expanded(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(24),
-                          onHighlightChanged: (pressed) {
-                            _setPressedMode(pressed ? AppMode.biteScore : null);
-                          },
+                        child: Semantics(
+                          label: dishRatingsLabel,
+                          button: true,
+                          selected: widget.selectedMode == AppMode.biteScore,
                           onTap: () => widget.onModeSelected(AppMode.biteScore),
-                          child: AnimatedScale(
-                            scale: _pressedMode == AppMode.biteScore
-                                ? 0.985
-                                : 1.0,
-                            duration: const Duration(milliseconds: 100),
-                            curve: Curves.easeOut,
-                            child: AnimatedOpacity(
-                              opacity: _pressedMode == AppMode.biteScore
-                                  ? 0.98
+                          excludeSemantics: true,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(24),
+                            onHighlightChanged: (pressed) {
+                              _setPressedMode(
+                                pressed ? AppMode.biteScore : null,
+                              );
+                            },
+                            onTap: () =>
+                                widget.onModeSelected(AppMode.biteScore),
+                            child: AnimatedScale(
+                              scale: _pressedMode == AppMode.biteScore
+                                  ? 0.985
                                   : 1.0,
                               duration: const Duration(milliseconds: 100),
                               curve: Curves.easeOut,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    'BiteScore',
-                                    style: TextStyle(
-                                      color:
-                                          widget.selectedMode ==
-                                              AppMode.biteScore
-                                          ? Colors.transparent
-                                          : colorScheme.onSurfaceVariant
-                                                .withValues(alpha: 0.9),
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
+                              child: AnimatedOpacity(
+                                opacity: _pressedMode == AppMode.biteScore
+                                    ? 0.98
+                                    : 1.0,
+                                duration: const Duration(milliseconds: 100),
+                                curve: Curves.easeOut,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                    horizontal: 8,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      dishRatingsLabel,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color:
+                                            widget.selectedMode ==
+                                                AppMode.biteScore
+                                            ? Colors.transparent
+                                            : colorScheme.onSurfaceVariant
+                                                  .withValues(alpha: 0.9),
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ),
                                 ),

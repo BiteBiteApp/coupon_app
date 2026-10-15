@@ -182,17 +182,17 @@ class _RestaurantCustomerDeepLinkScreenState
     return _RestaurantDeepLinkResolution.coupon(restaurant: restaurant);
   }
 
-  String get _title => _isBiteScore ? 'BiteScore Restaurant' : 'Restaurant';
+  String get _title => _isBiteScore ? 'Dish Ratings Restaurant' : 'Restaurant';
 
   String get _notFoundMessage => _isBiteScore
-      ? 'This BiteScore restaurant is not currently available.'
+      ? 'This restaurant is not currently available in Dish Ratings.'
       : 'We couldn’t find this restaurant.';
 
   String get _noOffersMessage =>
       'This restaurant does not have any customer-visible offers right now.';
 
   String get _catalogNotAvailableMessage =>
-      'This restaurant is not currently available in BiteSaver.';
+      'This restaurant is not currently available in Coupons & Specials.';
 
   void _openSafeHome() {
     final mode = _isBiteScore ? AppMode.biteScore : AppMode.biteSaver;

@@ -37,6 +37,7 @@ class DetailHistoryFixture extends StatefulWidget {
 class DetailHistoryFixtureState extends State<DetailHistoryFixture> {
   final realms = StreamController<String>.broadcast(sync: true);
   User? user = HistoryUser('owner-a');
+  int reportPromptCalls = 0;
   void changeUser(String? uid) {
     user = uid == null ? null : HistoryUser(uid);
     realms.add(mainNavigationAuthRealmForUser(user));
@@ -82,6 +83,11 @@ class HistoryHome extends StatelessWidget {
             builder: (_) => RestaurantProfileScreen(
               restaurant: historyRestaurant,
               loadFavorite: (_) async => false,
+              resolvePublicMenu: (_) async => null,
+              promptForReport: (_) async {
+                owner.reportPromptCalls++;
+                return null;
+              },
               refreshRestaurant: (_) async => null,
               loadProjectionData: (_) async => null,
               loadMedia: (id) async => BiteSaverRestaurantMedia(

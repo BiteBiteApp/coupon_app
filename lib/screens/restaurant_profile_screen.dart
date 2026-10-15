@@ -12,6 +12,7 @@ import '../models/daily_special.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
+import '../widgets/app_mode_switcher_bar.dart';
 import '../services/bitesaver_report_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
@@ -1567,6 +1568,14 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
             builder: (context, constraints) {
               final width = constraints.maxWidth;
               final thumbWidth = (width - 4) / 2;
+              final labels = measureAppModeLabels(
+                context,
+                maxWidth: (thumbWidth - 16).clamp(1, double.infinity),
+                fontSize: 14,
+              );
+              final barHeight = labels.height + 24 > 51
+                  ? labels.height + 24
+                  : 51.0;
               final visualPosition = (selectedPosition + _modeDragProgress)
                   .clamp(0, 1)
                   .toDouble();
@@ -1594,7 +1603,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                 },
                 child: Container(
                   width: double.infinity,
-                  height: 51,
+                  height: barHeight,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       begin: Alignment.centerLeft,
@@ -1673,15 +1682,23 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                     width: 0.8,
                                   ),
                                 ),
-                                child: Center(
-                                  child: Text(
-                                    selectedMode == AppMode.biteSaver
-                                        ? 'BiteSaver'
-                                        : 'BiteScore',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 14,
+                                child: ExcludeSemantics(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        selectedMode == AppMode.biteSaver
+                                            ? couponsAndSpecialsLabel
+                                            : dishRatingsLabel,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 14,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1693,43 +1710,54 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                       Row(
                         children: [
                           Expanded(
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(24),
-                              onHighlightChanged: (pressed) {
-                                _setPressedMode(
-                                  pressed ? AppMode.biteSaver : null,
-                                );
-                              },
-                              onTap: () {
-                                _selectMode(AppMode.biteSaver, selectedMode);
-                              },
-                              child: AnimatedScale(
-                                scale: _pressedMode == AppMode.biteSaver
-                                    ? 0.985
-                                    : 1.0,
-                                duration: const Duration(milliseconds: 100),
-                                curve: Curves.easeOut,
-                                child: AnimatedOpacity(
-                                  opacity: _pressedMode == AppMode.biteSaver
-                                      ? 0.98
+                            child: Semantics(
+                              label: couponsAndSpecialsLabel,
+                              button: true,
+                              selected: selectedMode == AppMode.biteSaver,
+                              onTap: () =>
+                                  _selectMode(AppMode.biteSaver, selectedMode),
+                              excludeSemantics: true,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(24),
+                                onHighlightChanged: (pressed) {
+                                  _setPressedMode(
+                                    pressed ? AppMode.biteSaver : null,
+                                  );
+                                },
+                                onTap: () {
+                                  _selectMode(AppMode.biteSaver, selectedMode);
+                                },
+                                child: AnimatedScale(
+                                  scale: _pressedMode == AppMode.biteSaver
+                                      ? 0.985
                                       : 1.0,
                                   duration: const Duration(milliseconds: 100),
                                   curve: Curves.easeOut,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        'BiteSaver',
-                                        style: TextStyle(
-                                          color:
-                                              selectedMode == AppMode.biteSaver
-                                              ? Colors.transparent
-                                              : colorScheme.onSurfaceVariant
-                                                    .withValues(alpha: 0.9),
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 14,
+                                  child: AnimatedOpacity(
+                                    opacity: _pressedMode == AppMode.biteSaver
+                                        ? 0.98
+                                        : 1.0,
+                                    duration: const Duration(milliseconds: 100),
+                                    curve: Curves.easeOut,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                        horizontal: 8,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          couponsAndSpecialsLabel,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color:
+                                                selectedMode ==
+                                                    AppMode.biteSaver
+                                                ? Colors.transparent
+                                                : colorScheme.onSurfaceVariant
+                                                      .withValues(alpha: 0.9),
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1739,43 +1767,54 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                             ),
                           ),
                           Expanded(
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(24),
-                              onHighlightChanged: (pressed) {
-                                _setPressedMode(
-                                  pressed ? AppMode.biteScore : null,
-                                );
-                              },
-                              onTap: () {
-                                _selectMode(AppMode.biteScore, selectedMode);
-                              },
-                              child: AnimatedScale(
-                                scale: _pressedMode == AppMode.biteScore
-                                    ? 0.985
-                                    : 1.0,
-                                duration: const Duration(milliseconds: 100),
-                                curve: Curves.easeOut,
-                                child: AnimatedOpacity(
-                                  opacity: _pressedMode == AppMode.biteScore
-                                      ? 0.98
+                            child: Semantics(
+                              label: dishRatingsLabel,
+                              button: true,
+                              selected: selectedMode == AppMode.biteScore,
+                              onTap: () =>
+                                  _selectMode(AppMode.biteScore, selectedMode),
+                              excludeSemantics: true,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(24),
+                                onHighlightChanged: (pressed) {
+                                  _setPressedMode(
+                                    pressed ? AppMode.biteScore : null,
+                                  );
+                                },
+                                onTap: () {
+                                  _selectMode(AppMode.biteScore, selectedMode);
+                                },
+                                child: AnimatedScale(
+                                  scale: _pressedMode == AppMode.biteScore
+                                      ? 0.985
                                       : 1.0,
                                   duration: const Duration(milliseconds: 100),
                                   curve: Curves.easeOut,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        'BiteScore',
-                                        style: TextStyle(
-                                          color:
-                                              selectedMode == AppMode.biteScore
-                                              ? Colors.transparent
-                                              : colorScheme.onSurfaceVariant
-                                                    .withValues(alpha: 0.9),
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 14,
+                                  child: AnimatedOpacity(
+                                    opacity: _pressedMode == AppMode.biteScore
+                                        ? 0.98
+                                        : 1.0,
+                                    duration: const Duration(milliseconds: 100),
+                                    curve: Curves.easeOut,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                        horizontal: 8,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          dishRatingsLabel,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color:
+                                                selectedMode ==
+                                                    AppMode.biteScore
+                                                ? Colors.transparent
+                                                : colorScheme.onSurfaceVariant
+                                                      .withValues(alpha: 0.9),
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1840,7 +1879,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                 Icon(Icons.storefront_outlined, size: 56),
                 SizedBox(height: 16),
                 Text(
-                  'This restaurant is not currently available in BiteSaver.',
+                  'This restaurant is not currently available in Coupons & Specials.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),

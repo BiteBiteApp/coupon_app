@@ -452,7 +452,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text('This restaurant is not currently available in BiteSaver.'),
+        find.text(
+          'This restaurant is not currently available in Coupons & Specials.',
+        ),
         findsOneWidget,
       );
     },
@@ -481,7 +483,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text('This restaurant is not currently available in BiteSaver.'),
+        find.text(
+          'This restaurant is not currently available in Coupons & Specials.',
+        ),
         findsOneWidget,
       );
       expect(find.text('Identity Cafe'), findsNothing);
@@ -503,7 +507,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('This restaurant is not currently available in BiteSaver.'),
+      find.text(
+        'This restaurant is not currently available in Coupons & Specials.',
+      ),
       findsOneWidget,
     );
     expect(find.text('Identity Cafe'), findsNothing);

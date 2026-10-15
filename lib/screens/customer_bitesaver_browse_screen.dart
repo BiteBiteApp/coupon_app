@@ -1762,7 +1762,7 @@ class _CustomerBiteSaverBrowseScreenState
               ),
               const SizedBox(height: 8),
               const Text(
-                'Try a larger radius, another ZIP code, or switch to BiteScore to find highly rated dishes nearby.',
+                'Try a larger radius, another ZIP code, or switch to Dish Ratings to find highly rated dishes nearby.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: BiteSaverColors.secondaryText,
@@ -1787,7 +1787,7 @@ class _CustomerBiteSaverBrowseScreenState
                     onPressed: () {
                       AppModeStateService.setMode(AppMode.biteScore);
                     },
-                    child: const Text('Try BiteScore'),
+                    child: const Text('Try Dish Ratings'),
                   ),
                 ],
               ),

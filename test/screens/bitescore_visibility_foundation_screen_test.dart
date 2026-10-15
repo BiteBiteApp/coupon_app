@@ -179,7 +179,9 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(
-          find.text('This BiteScore restaurant is not currently available.'),
+          find.text(
+            'This restaurant is not currently available in Dish Ratings.',
+          ),
           findsOneWidget,
           reason: fixture.key,
         );
@@ -240,7 +242,9 @@ void main() {
 
       expect(resolvedIds, <String>['catalog-1']);
       expect(
-        find.text('This restaurant is not currently available in BiteSaver.'),
+        find.text(
+          'This restaurant is not currently available in Coupons & Specials.',
+        ),
         findsOneWidget,
       );
       expect(find.text('We couldn’t find this restaurant.'), findsNothing);
@@ -276,7 +280,9 @@ void main() {
       expect(resolverCalls, 0, reason: routeId.codeUnits.toString());
       expect(find.text('We couldn’t find this restaurant.'), findsOneWidget);
       expect(
-        find.text('This restaurant is not currently available in BiteSaver.'),
+        find.text(
+          'This restaurant is not currently available in Coupons & Specials.',
+        ),
         findsNothing,
       );
     }

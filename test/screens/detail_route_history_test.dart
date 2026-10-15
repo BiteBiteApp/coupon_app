@@ -1,3 +1,4 @@
+import 'package:coupon_app/screens/about_us_screen.dart';
 import 'package:coupon_app/screens/bitescore_dish_detail_screen.dart';
 import 'package:coupon_app/screens/bitescore_restaurant_dishes_screen.dart';
 import 'package:coupon_app/screens/coupon_detail_screen.dart';
@@ -5,6 +6,7 @@ import 'package:coupon_app/screens/main_navigation_screen.dart';
 import 'package:coupon_app/screens/restaurant_profile_screen.dart';
 import 'package:coupon_app/services/app_mode_state_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -36,7 +38,11 @@ void main() {
           if (switchMode) {
             await tester.tap(
               find
-                  .text(mode == AppMode.biteSaver ? 'BiteScore' : 'BiteSaver')
+                  .text(
+                    mode == AppMode.biteSaver
+                        ? 'Dish Ratings'
+                        : 'Coupons & Specials',
+                  )
                   .first,
             );
           } else {
@@ -48,6 +54,19 @@ void main() {
             tester.state(find.byType(type, skipOffstage: false)),
             same(detail),
           );
+          final modeBeforeAbout = AppModeStateService.selectedMode.value;
+          await tester.tap(find.byTooltip('Menu'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('About Us'));
+          await tester.pumpAndSettle();
+          expect(find.byType(AboutUsScreen), findsOneWidget);
+          expect(
+            tester.state(find.byType(type, skipOffstage: false)),
+            same(detail),
+          );
+          await tester.tap(find.byTooltip('Back'));
+          await tester.pumpAndSettle();
+          expect(AppModeStateService.selectedMode.value, modeBeforeAbout);
           await tester.binding.handlePopRoute();
           await tester.pumpAndSettle();
           expect(tester.state(find.byType(type)), same(detail));
@@ -63,6 +82,102 @@ void main() {
       );
     }
   }
+  for (final scale in [1.0, 2.0, 3.0]) {
+    testWidgets('profile switcher labels and drag at 320dp scale $scale', (
+      tester,
+    ) async {
+      await openFixture(tester, AppMode.biteSaver);
+      await tester.tap(find.text('Open restaurant detail'));
+      await tester.pumpAndSettle();
+      final detail = tester.state(find.byType(RestaurantProfileScreen));
+      tester.view.physicalSize = const Size(320, 700);
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpAndSettle();
+      for (final mode in AppMode.values) {
+        AppModeStateService.setMode(mode);
+        await tester.pumpAndSettle();
+        for (final label in ['Coupons & Specials', 'Dish Ratings']) {
+          expect(find.bySemanticsLabel(label), findsOneWidget);
+          for (final element in find.text(label).evaluate()) {
+            final paragraph = element.renderObject! as RenderParagraph;
+            expect(paragraph.textScaler.scale(14), closeTo(14 * scale, .01));
+            expect(paragraph.didExceedMaxLines, isFalse);
+            for (var i = 0; i < label.length; i++) {
+              if (label[i] == ' ') continue;
+              for (final box in paragraph.getBoxesForSelection(
+                TextSelection(baseOffset: i, extentOffset: i + 1),
+              )) {
+                expect(box.left, greaterThanOrEqualTo(-.01));
+                expect(
+                  box.right,
+                  lessThanOrEqualTo(paragraph.size.width + .01),
+                );
+                expect(
+                  box.bottom,
+                  lessThanOrEqualTo(paragraph.size.height + .01),
+                );
+              }
+            }
+          }
+        }
+        expect(tester.takeException(), isNull);
+      }
+      // Growing labels can move profile actions below the fold. They must stay
+      // reachable and retain their accessible button actions after scrolling.
+      final menu = find.byKey(const ValueKey('profile-menu-main'));
+      await Scrollable.ensureVisible(tester.element(menu), alignment: .5);
+      await tester.pumpAndSettle();
+      for (final action in [menu, find.widgetWithText(TextButton, 'Report')]) {
+        expect(action.hitTestable(), findsOneWidget);
+        final semantics = tester.getSemantics(action).getSemanticsData();
+        expect(semantics.flagsCollection.isHidden, isFalse);
+        expect(semantics.flagsCollection.isButton, isTrue);
+        expect(semantics.hasAction(SemanticsAction.tap), isTrue);
+      }
+      if (scale == 2) {
+        await tester.tap(menu);
+        await tester.pumpAndSettle();
+        expect(find.text('Menu is not available right now.'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 4));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(TextButton, 'Report'));
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .state<DetailHistoryFixtureState>(
+                find.byType(DetailHistoryFixture),
+              )
+              .reportPromptCalls,
+          1,
+        );
+        expect(
+          tester.state(find.byType(RestaurantProfileScreen)),
+          same(detail),
+        );
+      }
+      AppModeStateService.setMode(AppMode.biteSaver);
+      await tester.pumpAndSettle();
+      // Return to the switcher before checking its gestures.
+      await tester.ensureVisible(find.text('Dish Ratings').last);
+      await tester.pumpAndSettle();
+      final left = tester.getCenter(find.text('Coupons & Specials').last);
+      await tester.dragFrom(left, const Offset(240, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('biteScore local Home'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(tester.state(find.byType(RestaurantProfileScreen)), same(detail));
+      await tester.tap(find.text('Dish Ratings').last);
+      await tester.pumpAndSettle();
+      expect(find.text('biteScore local Home'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(tester.state(find.byType(RestaurantProfileScreen)), same(detail));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'Score restaurant explicit mode callback retains the same route',
     (tester) async {
@@ -70,7 +185,7 @@ void main() {
       await tester.tap(find.text('Open Score restaurant detail'));
       await tester.pumpAndSettle();
       final state = tester.state(find.byType(BiteScoreRestaurantDishesScreen));
-      await tester.tap(find.text('BiteSaver').first);
+      await tester.tap(find.text('Coupons & Specials').first);
       await tester.pumpAndSettle();
       expect(find.text('biteSaver local Home'), findsOneWidget);
       await tester.binding.handlePopRoute();
@@ -91,7 +206,7 @@ void main() {
       await tester.tap(find.text('Open restaurant detail'));
       await tester.pumpAndSettle();
       final restaurant = tester.state(find.byType(RestaurantProfileScreen));
-      await tester.tap(find.text('BiteScore').first);
+      await tester.tap(find.text('Dish Ratings').first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Open dish detail'));
       await tester.pumpAndSettle();

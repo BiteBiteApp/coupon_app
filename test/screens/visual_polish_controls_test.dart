@@ -181,7 +181,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       final switcher = find.byType(AppModeSwitcherBar);
-      for (final label in ['BiteSaver', 'BiteScore']) {
+      for (final label in ['Coupons & Specials', 'Dish Ratings']) {
         for (final f in find.text(label).evaluate()) {
           final rect = tester.getRect(
             find.byElementPredicate((e) => identical(e, f)),
@@ -193,7 +193,7 @@ void main() {
           );
         }
       }
-      await tester.tap(find.text('BiteScore').last);
+      await tester.tap(find.text('Dish Ratings').last);
       await tester.pumpAndSettle();
       expect(find.text('biteScore local home'), findsOneWidget);
       await tester.binding.handlePopRoute();
