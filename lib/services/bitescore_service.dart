@@ -5783,6 +5783,15 @@ class BiteScoreService {
     );
   }
 
+  static Future<void> dismissReviewerReportAsAdmin(String reportId) async {
+    // Rules authorize the operator and permit only status/timestamp changes.
+    // update() cannot recreate a report removed by account deletion.
+    await reviewReportsCollection().doc(reportId).update({
+      'status': ReviewReport.statusDismissed,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   static Future<void> dismissReportedReviewAsAdmin(
     BiteScoreReportedReviewAdminEntry entry,
   ) async {

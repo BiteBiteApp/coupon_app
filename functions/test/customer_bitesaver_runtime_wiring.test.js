@@ -7,6 +7,16 @@ const protectedMetadata = require(
   "./fixtures/customer_bitesaver_pre_device_runtime_metadata.json",
 );
 const biteScoreMetadata = require("./fixtures/customer_bitescore_runtime_metadata.json");
+// Stage 1 reviewer safety adds only these four dormant callable contracts.
+// Retain the historical fixture and require exact secret-free runtime metadata.
+const reviewerSafetyMetadata = Object.fromEntries([
+  "submitReviewerReport", "blockReviewer", "unblockReviewer", "getReviewerSafetyStatus",
+].map((name) => [name, {
+  availableMemoryMb: null, timeoutSeconds: 60, minInstances: null,
+  maxInstances: null, ingressSettings: null, concurrency: null,
+  serviceAccountEmail: "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+  vpc: null, platform: "gcfv2", labels: {}, callableTrigger: {},
+}]));
 const path = require("node:path");
 const test = require("node:test");
 
@@ -471,7 +481,7 @@ test("approved runtime isolation and proposal schedule preserve the complete exp
   // Admin, search, background, and scheduled runtime configuration.
   assert.deepEqual(
     Object.keys(metadata).sort(),
-    [...Object.keys(protectedMetadata), ...Object.keys(deviceCallableFactories), ...Object.keys(biteScoreMetadata), "requestAccountDeletion", "getAccountDeletionStatus", "processAccountDeletionRequests", "cleanupAccountDeletionFinalizedImage", "verifyAdminUserDirectory"]
+    [...Object.keys(protectedMetadata), ...Object.keys(deviceCallableFactories), ...Object.keys(biteScoreMetadata), ...Object.keys(reviewerSafetyMetadata), "requestAccountDeletion", "getAccountDeletionStatus", "processAccountDeletionRequests", "cleanupAccountDeletionFinalizedImage", "verifyAdminUserDirectory"]
       .filter((name) => !retiredCallableExports.has(name))
       .sort(),
   );
@@ -527,9 +537,12 @@ test("approved BiteScore additions retain exact isolated runtime metadata", () =
   for (const [name, expected] of Object.entries(biteScoreMetadata)) {
     assert.deepEqual(metadata[name], expected, name);
   }
+  for (const [name, expected] of Object.entries(reviewerSafetyMetadata)) {
+    assert.deepEqual(metadata[name], expected, name);
+  }
   assert.deepEqual(Object.entries(metadata)
     .filter(([, value]) => value?.serviceAccountEmail === "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com")
-    .map(([name]) => name).sort(), Object.keys(biteScoreMetadata).sort());
+    .map(([name]) => name).sort(), [...Object.keys(biteScoreMetadata), ...Object.keys(reviewerSafetyMetadata)].sort());
 });
 
 test("exactly thirteen Browse, Saved, Menu and guest exports share the dedicated Node 24 runtime identity", () => {

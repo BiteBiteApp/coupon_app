@@ -1,3 +1,4 @@
+import {reviewerSafetyPreferencesPath, reviewerSafetyRevision} from "./reviewer_safety.js";
 import {ratingRestaurantOperationLockPath} from "./rating_destructive_job_contract.js";
 import {accountDeletionLateMediaStep, type AccountDeletionFinalizedObjects} from "./account_deletion_finalized_media.js";
 import {accountDeletionSettledWorkStep} from "./account_deletion_work.js";
@@ -52,12 +53,14 @@ const families: readonly Family[] = [
     {collection: "customer_device_installations", field, mode: "delete" as const},
   ]),
   ...["createdByUid", "usedByUid", "revokedByUid", "restaurantId"].map((field) => ({collection: "restaurant_invites", field, mode: "invitation" as const})),
+  // Append only: persisted stageIndex values must keep their existing meaning.
+  {collection: "review_reports", field: "reportedUserId", mode: "delete"},
 ];
 function familyQuery(db: Firestore, family: Family, uid: string): Query {
   const query = db.collection(family.collection).where(family.field, "==", uid);
   return family.collection === "restaurant_invites" && family.field === "restaurantId" ? query.where("side", "==", "coupon") : query;
 }
-const children = ["favorite_restaurants", "favorite_dishes", "favorite_coupons", "local_expert_badges", "local_expert_badge_celebrations", "coupon_redemptions"] as const;
+const children = ["favorite_restaurants", "favorite_dishes", "favorite_coupons", "local_expert_badges", "local_expert_badge_celebrations", "coupon_redemptions", "blocked_reviewers", "reviewer_safety_state"] as const;
 const pending = (reason: Exclude<AccountDeletionReason, null>): DeletionStepResult => ({pending: reason, retry: reason === "accepted_work"});
 
 /** Exact known unresolved branches fail closed before deleting personal rows.
@@ -289,6 +292,37 @@ async function childrenStep(context: AccountDeletionStepContext): Promise<Deleti
   return {item: null};
 }
 
+/** One incoming reference per leased step. Target fences serialize against new
+ * blocks; a deleting blocker must never have preferences recreated by cleanup. */
+async function drainIncomingReviewerBlock(context: AccountDeletionStepContext): Promise<boolean> {
+  const {db, job} = context;
+  return db.runTransaction(async (tx) => {
+    await context.assertLease(tx);
+    // Receipts/guards are also target-linked personal records. Remove these
+    // even if an operator already deleted their report document.
+    const reportState = await tx.get(db.collectionGroup("reviewer_safety_state").where("targetUserId", "==", job.uid).limit(1));
+    if (!reportState.empty) {
+      const row = reportState.docs[0], parts = row.ref.path.split("/");
+      if (parts.length !== 4 || parts[0] !== "user_profiles" || parts[2] !== "reviewer_safety_state" ||
+          !/^report_(request|pending)_[a-f0-9]{64}$/.test(parts[3])) throw new Error("Unexpected reviewer report state identity");
+      tx.delete(row.ref);
+      return true;
+    }
+    const page = await tx.get(db.collectionGroup("blocked_reviewers").where("targetUserId", "==", job.uid).limit(1));
+    if (page.empty) return false;
+    const block = page.docs[0], parts = block.ref.path.split("/");
+    if (parts.length !== 4 || parts[0] !== "user_profiles" || parts[2] !== "blocked_reviewers" || parts[3] !== job.uid) {
+      throw new Error("Unexpected incoming reviewer block identity");
+    }
+    const blockerUid = parts[1];
+    const [fence, preferences] = await tx.getAll(db.doc(accountDeletionPath(blockerUid)), db.doc(reviewerSafetyPreferencesPath(blockerUid)));
+    if (!fence.exists) tx.set(preferences.ref, {schemaVersion: 1,
+      revision: reviewerSafetyRevision(preferences.get("revision")) + 1, updatedAt: FieldValue.serverTimestamp()});
+    tx.delete(block.ref);
+    return true;
+  });
+}
+
 async function hasRemainingPrivateState(context: AccountDeletionStepContext): Promise<boolean> {
   const {db, job} = context;
   // Material retained work is visible rather than declared erased. These
@@ -369,6 +403,7 @@ export function createAccountDeletionStep(auth: AccountDeletionAuth, billing?: A
       if (reason) return pending(reason);
       for (const family of families) if (!(await familyQuery(db, family, job.uid).limit(1).get()).empty) return {phase: "contributions", stageIndex: 0};
       for (const child of children) if (!(await db.collection(`${child === "coupon_redemptions" ? "customer_redemptions" : "user_profiles"}/${job.uid}/${child}`).limit(1).get()).empty) return {phase: "children", stageIndex: 0};
+      if (await drainIncomingReviewerBlock(context)) return {};
       try { if (!await accountDeletionSettledWorkStep(context)) return {}; } catch { return pending("accepted_work"); }
       const privateMembers = await db.collection("private_dish_edit_proposal_group_members").where("supporterUid", "==", job.uid).limit(1).get();
       if (!privateMembers.empty) {
@@ -415,6 +450,7 @@ export function createAccountDeletionStep(auth: AccountDeletionAuth, billing?: A
       if (reason) return pending(reason);
       for (const family of families) if (!(await familyQuery(db, family, job.uid).limit(1).get()).empty) return {phase: "contributions", stageIndex: 0};
       for (const child of children) if (!(await db.collection(`${child === "coupon_redemptions" ? "customer_redemptions" : "user_profiles"}/${job.uid}/${child}`).limit(1).get()).empty) return {phase: "children", stageIndex: 0};
+      if (await drainIncomingReviewerBlock(context)) return {};
       try { if (!await accountDeletionSettledWorkStep(context)) return {}; } catch { return pending("accepted_work"); }
       const privateMembers = await db.collection("private_dish_edit_proposal_group_members").where("supporterUid", "==", job.uid).limit(1).get();
       if (!privateMembers.empty) {

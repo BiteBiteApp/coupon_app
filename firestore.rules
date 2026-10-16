@@ -1477,6 +1477,15 @@ service cloud.firestore {
     }
 
     match /user_profiles/{userId} {
+      match /blocked_reviewers/{targetUid} {
+        allow read: if isSignedInNonAnonymousSelf(userId);
+        allow write: if false;
+      }
+      match /reviewer_safety_state/{stateId} {
+        allow read: if stateId == 'preferences' && isSignedInNonAnonymousSelf(userId);
+        allow write: if false;
+      }
+
       allow read: if isAdmin() || isSelf(userId);
       allow create: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin() || canCreateOwnProfile(userId));
       allow update: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin() || canUpdateOwnProfile(userId));
@@ -1852,15 +1861,33 @@ service cloud.firestore {
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data));
     }
 
+    function legacyReviewReport(data) {
+      return data.get('reportScope', 'review') == 'review' &&
+        !data.keys().hasAny(['reportedUserId', 'evidence']);
+    }
+
     match /review_reports/{reportId} {
+      // Reviewer scope and evidence can only originate in the trusted callable.
+      // The legacy client write contract stays available until its own cutover.
       allow read: if isAdmin() || readsOwnReport('reportingUserId');
-      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'reportingUserId') && deletionReviewParentMayWrite(request.resource.data) && (createsOwnReport('reportingUserId') &&
+      allow create: if legacyReviewReport(request.resource.data) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'reportingUserId') && deletionReviewParentMayWrite(request.resource.data) && (createsOwnReport('reportingUserId') &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data));
-      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'reportingUserId') && deletionPersonalIdentityMayWrite(request.resource.data, 'reportingUserId') && deletionReviewParentMayWrite(resource.data) && deletionReviewParentMayWrite(request.resource.data) && ((isAdmin() || updatesOwnReport('reportingUserId')) &&
+      allow update: if legacyReviewReport(resource.data) && legacyReviewReport(request.resource.data) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'reportingUserId') && deletionPersonalIdentityMayWrite(request.resource.data, 'reportingUserId') && deletionReviewParentMayWrite(resource.data) && deletionReviewParentMayWrite(request.resource.data) && ((isAdmin() || updatesOwnReport('reportingUserId')) &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data));
-      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'reportingUserId') && (isAdmin() &&
+      allow delete: if legacyReviewReport(resource.data) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'reportingUserId') && (isAdmin() &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data));
+      allow update: if resource.data.get('reportScope', '') == 'reviewer' &&
+        isAdmin() && deletionActorMayWrite() &&
+        deletionPersonalIdentityMayWrite(resource.data, 'reportingUserId') &&
+        deletionPersonalIdentityMayWrite(resource.data, 'reportedUserId') &&
+        changedKeys().hasOnly(['status', 'updatedAt']) &&
+        request.resource.data.status == 'dismissed' &&
+        request.resource.data.updatedAt == request.time;
+      allow delete: if resource.data.get('reportScope', '') == 'reviewer' &&
+        isAdmin() && deletionActorMayWrite() &&
+        deletionPersonalIdentityMayWrite(resource.data, 'reportingUserId') &&
+        deletionPersonalIdentityMayWrite(resource.data, 'reportedUserId');
     }
 
     match /restaurant_reports/{reportId} {

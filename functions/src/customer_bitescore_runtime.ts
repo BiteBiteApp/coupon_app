@@ -1,3 +1,4 @@
+import {submitReviewerReportHandler, blockReviewerHandler, unblockReviewerHandler, getReviewerSafetyStatusHandler} from "./reviewer_safety.js";
 import {customerBiteScoreTerms} from "./bitescore_terms.js";
 import {createHmac} from "node:crypto";
 import {getFirestore} from "firebase-admin/firestore";
@@ -60,6 +61,17 @@ const publicOptions = {
   secrets: [cursorSecret],
   timeoutSeconds: 60,
 };
+
+// Stage 1 source contracts only; no customer UI calls these until Stage 2.
+const reviewerSafetyOptions = {serviceAccount: biteScoreCustomerRuntimeServiceAccount, timeoutSeconds: 60};
+export const submitReviewerReport = onCall(reviewerSafetyOptions, (request) => safely(() =>
+  submitReviewerReportHandler(getFirestore(), request)));
+export const blockReviewer = onCall(reviewerSafetyOptions, (request) => safely(() =>
+  blockReviewerHandler(getFirestore(), request)));
+export const unblockReviewer = onCall(reviewerSafetyOptions, (request) => safely(() =>
+  unblockReviewerHandler(getFirestore(), request)));
+export const getReviewerSafetyStatus = onCall(reviewerSafetyOptions, (request) => safely(() =>
+  getReviewerSafetyStatusHandler(getFirestore(), request)));
 
 // Signed-in admission is shared across screen instances. Guest public reading
 // retains the existing per-installation binding without introducing a login gate.

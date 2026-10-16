@@ -1025,6 +1025,8 @@
     }
   ],
   "fieldOverrides": [
+    {"collectionGroup":"reviewer_safety_state","fieldPath":"targetUserId","indexes":[{"order":"ASCENDING","queryScope":"COLLECTION"},{"order":"DESCENDING","queryScope":"COLLECTION"},{"order":"ASCENDING","queryScope":"COLLECTION_GROUP"}]},
+    {"collectionGroup":"blocked_reviewers","fieldPath":"targetUserId","indexes":[{"order":"ASCENDING","queryScope":"COLLECTION"},{"order":"DESCENDING","queryScope":"COLLECTION"},{"order":"ASCENDING","queryScope":"COLLECTION_GROUP"}]},
     {
       "collectionGroup": "bitesaver_offer_index",
       "fieldPath": "searchMatchValues",

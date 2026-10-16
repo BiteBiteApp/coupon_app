@@ -988,7 +988,23 @@ const DELETION_SINGLE_FIELD_CONTRACT = [
   })),
 ];
 
+// Incoming private safety references are drained by account deletion across
+// owners. Preserve ordinary collection indexes and add only the equality group
+// index used by these bounded cleanup queries.
+const REVIEWER_SAFETY_DELETION_FIELD_CONTRACT = [
+  "reviewer_safety_state", "blocked_reviewers",
+].map((collectionGroup) => ({
+  collectionGroup,
+  fieldPath: "targetUserId",
+  indexes: [
+    {order: "ASCENDING", queryScope: "COLLECTION"},
+    {order: "DESCENDING", queryScope: "COLLECTION"},
+    {order: "ASCENDING", queryScope: "COLLECTION_GROUP"},
+  ],
+}));
+
 const REQUIRED_FIELD_OVERRIDE_CONTRACT = [
+  ...REVIEWER_SAFETY_DELETION_FIELD_CONTRACT,
   {
     collectionGroup: "bitesaver_offer_index",
     fieldPath: "searchMatchValues",
@@ -1212,11 +1228,13 @@ test("Firestore TTL and single-field settings exactly match customer and Admin t
 
   assert.equal(firebaseConfiguration.firestore.indexes, "firestore.indexes.json");
   assert.equal(firebaseConfiguration.firestore.rules, "firestore.rules");
-  assert.equal(fieldOverrides.length, 27);
+  assert.equal(fieldOverrides.length, 29);
   assert.equal(new Set(signatures).size, fieldOverrides.length);
   assert.equal(fieldOverrides.filter(({ ttl }) => ttl === true).length, 20);
 
   for (const override of fieldOverrides) {
+    const safety = REVIEWER_SAFETY_DELETION_FIELD_CONTRACT.find((entry) => entry.collectionGroup === override.collectionGroup);
+    if (safety) { assert.deepEqual(override, safety); assert.equal(override.ttl, undefined); continue; }
     const deletion = DELETION_SINGLE_FIELD_CONTRACT.find((entry) => entry.collectionGroup === override.collectionGroup && entry.fieldPath === override.fieldPath);
     if (deletion) { assert.deepEqual(override, deletion); assert.equal(override.ttl, undefined); continue; }
     if (ADMIN_TEMPORARY_TTL_COLLECTIONS.includes(override.collectionGroup)) {

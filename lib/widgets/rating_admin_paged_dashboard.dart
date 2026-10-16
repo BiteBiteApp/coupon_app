@@ -1438,8 +1438,10 @@ class RatingAdminQueuePagedView extends StatefulWidget {
     this.service,
     this.operationsService,
     this.loadRestaurant,
+    this.dismissReviewerReport,
   });
 
+  final Future<void> Function(String reportId)? dismissReviewerReport;
   final RatingAdminQueueKind kind;
   final RatingAdminEditRestaurant onEditRestaurant;
   final RatingAdminEditDish onEditDish;
@@ -1677,7 +1679,47 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
     );
   }
 
+  Widget _reviewerReportCard(RatingAdminQueueRecord record) {
+    final report = record.reviewerReport;
+    return _card(
+      record,
+      'Reviewer report',
+      <String>[
+        'Reported UID: ${report.reportedUserId}',
+        if (report.publicDisplayName != null)
+          'Captured name: ${report.publicDisplayName}',
+        'Report ID: ${report.id}',
+        'Status: ${report.status}',
+        'Reason: ${report.reason}',
+        'Evidence captured: ${report.capturedAt.toIso8601String()}',
+        if (report.supportingReviewId != null) ...[
+          'Supporting review ID: ${report.supportingReviewId}',
+          'Dish ID: ${report.supportingDishId}',
+          'Restaurant ID: ${report.supportingRestaurantId}',
+          if (report.headline != null) 'Captured headline: ${report.headline}',
+          if (report.notes != null) 'Captured notes: ${report.notes}',
+          if (report.textTruncated) 'Captured text was shortened.',
+        ] else
+          'Profile report; no supporting review selected.',
+      ],
+      <Widget>[
+        OutlinedButton(
+          onPressed: () => _run(
+            record,
+            () =>
+                (widget.dismissReviewerReport ??
+                BiteScoreService.dismissReviewerReportAsAdmin)(report.id),
+            'Reviewer report dismissed.',
+            'Could not dismiss this reviewer report right now.',
+          ),
+          child: const Text('Dismiss Report'),
+        ),
+      ],
+    );
+  }
+
   Widget _reportedReviewCard(RatingAdminQueueRecord record) {
+    if (record.isReviewerReport) return _reviewerReportCard(record);
     final entry = _reportedReviewEntry(record);
     final review = entry.review;
     return _card(

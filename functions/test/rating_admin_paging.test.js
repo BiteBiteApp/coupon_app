@@ -1112,3 +1112,31 @@ test("Rating radius sessions exceed 135 with bounded exhaustive advancement", as
   assert.deepEqual([...store.results.get(persisted.id)], retainedResults);
   assert.equal(database.queries.length, queryCount);
 });
+
+test('reviewer-only queue entries survive absent/edited supporting reviews and never fabricate review targets', async () => {
+  const evidence = {publicDisplayName:'Captured name', capturedAt:new Date(nowMs), supportingReview:{reviewId:'removed',dishId:'dish',restaurantId:'restaurant',headline:'Captured abuse',notes:'Evidence',textTruncated:false}};
+  const database = new FakeDatabase({review_reports:[
+    {id:'reviewer-report',data:{schemaVersion:1,reportScope:'reviewer',reportedUserId:'target',reportingUserId:'reporter',reason:'Harassment',status:'pending',createdAt:new Date(nowMs),updatedAt:new Date(nowMs),evidence}},
+    {id:'profile-report',data:{schemaVersion:1,reportScope:'reviewer',reportedUserId:'another',reportingUserId:'reporter',reason:'Other',status:'pending',createdAt:new Date(nowMs-1),updatedAt:new Date(nowMs),evidence:{...evidence,supportingReview:null}}},
+  ]});
+  const page = await listRatingAdminQueuePageHandler(request({queueKind:'reportedReviews'},25),context(database));
+  assert.equal(page.items.length,2);
+  assert.equal(page.items[0].reportScope,'reviewer');
+  assert.equal(page.items[0].reportedUserId,'target');
+  assert.equal(page.items[0].evidence.supportingReview.headline,'Captured abuse');
+  for(const item of page.items){assert.equal('review' in item,false);assert.equal('reviewId' in item,false);}
+  assert.equal(page.items[1].evidence.supportingReview,null);
+  assert.ok(!database.gets.flat().some(p=>p==='dish_reviews/removed'));
+});
+
+test('reviewer queue preserves sub-millisecond ordering across forward/backward pages', async () => {
+  const rows=Array.from({length:60},(_,i)=>({id:`reviewer-${String(i).padStart(2,'0')}`,data:{schemaVersion:1,reportScope:'reviewer',reportedUserId:'target',reportingUserId:'reporter',reason:'Other',status:'pending',createdAt:new Timestamp(1800000000,123400000+i*1000),evidence:{publicDisplayName:'Name',capturedAt:new Timestamp(1800000000,123400000+i*1000),supportingReview:null}}}));
+  const database=new FakeDatabase({review_reports:rows}),ctx=context(database);
+  const first=await listRatingAdminQueuePageHandler(request({queueKind:'reportedReviews'},25),ctx);
+  const second=await listRatingAdminQueuePageHandler(request({queueKind:'reportedReviews'},25,{direction:'forward',cursor:first.nextCursor}),ctx);
+  const third=await listRatingAdminQueuePageHandler(request({queueKind:'reportedReviews'},25,{direction:'forward',cursor:second.nextCursor}),ctx);
+  assert.deepEqual([...first.items,...second.items,...third.items].map(v=>v.id),rows.map(v=>v.id).reverse());
+  const back=await listRatingAdminQueuePageHandler(request({queueKind:'reportedReviews'},25,{direction:'backward',cursor:second.previousCursor}),ctx);
+  assert.deepEqual(back.items.map(v=>v.id),first.items.map(v=>v.id));
+  assert.ok(first.items.every(v=>Number.isInteger(v.evidence.capturedAtMillis)));
+});

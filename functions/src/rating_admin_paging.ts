@@ -1,3 +1,4 @@
+import {reviewerReportAdminProjection} from "./reviewer_safety.js";
 import { createHash } from "node:crypto";
 import {
   FieldPath,
@@ -868,7 +869,7 @@ async function enrichQueue(
   database: RatingAdminPagingDatabase,
 ): Promise<readonly (Readonly<Record<string, unknown>> | null)[]> {
   if (kind === "reportedReviews") {
-    const reviewIds = documents.map(
+    const reviewIds = documents.filter((document) => document.data.reportScope !== "reviewer").map(
       (document) => idFrom(document.data, "reviewId") ?? "",
     );
     const reviews = await documentsByPath(database, "dish_reviews", reviewIds);
@@ -901,6 +902,7 @@ async function enrichQueue(
     );
     return documents.map((report) => {
       const data = report.data;
+      if (data.reportScope === "reviewer") return reviewerReportAdminProjection(report.id, data);
       const reviewId = idFrom(data, "reviewId");
       const review = reviewId === null ? undefined : basesById.get(reviewId);
       if (review === undefined) {
@@ -1081,11 +1083,11 @@ export async function listRatingAdminQueuePageHandler(
     ],
     pageSize: ratingAdminQueuePageSize,
     fingerprintCriteria: { queueKind },
-    cursorValues: (document) => [
-      documentTimestamp(document, "createdAt"),
-      document.id,
-    ],
-    queryCursorValues: (tuple) => [new Date(tuple[0] as number), tuple[1]],
+    cursorValues: (document) => queueKind === "reportedReviews"
+      ? adminTimestampCursorValues(document.data.createdAt, document.id)
+      : [documentTimestamp(document, "createdAt"), document.id],
+    queryCursorValues: (tuple) => queueKind === "reportedReviews"
+      ? adminTimestampQueryValues(tuple) : [new Date(tuple[0] as number), tuple[1]],
     project: () => null,
     exactCount: true,
     enrich: (page) => enrichQueue(queueKind, page, context.database),

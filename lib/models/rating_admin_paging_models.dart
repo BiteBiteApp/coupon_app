@@ -471,6 +471,22 @@ class RatingAdminQueueRecord {
       throw const FormatException('Invalid Rating Admin queue kind.');
     }
     final required = switch (kind) {
+      RatingAdminQueueKind.reportedReviews
+          when data['reportScope'] == 'reviewer' =>
+        <String>{
+          'kind',
+          'id',
+          'reportId',
+          'reportScope',
+          'schemaVersion',
+          'reportingUserId',
+          'reportedUserId',
+          'reason',
+          'status',
+          'reportCreatedAtMillis',
+          'reportUpdatedAtMillis',
+          'evidence',
+        },
       RatingAdminQueueKind.reportedReviews => <String>{
         'kind',
         'id',
@@ -535,6 +551,11 @@ class RatingAdminQueueRecord {
       },
     };
     _keys(data, required);
+    if (kind == RatingAdminQueueKind.reportedReviews &&
+        data['reportScope'] == 'reviewer') {
+      ReviewerReport.fromAdminMap(data);
+    }
+
     if (kind == RatingAdminQueueKind.restaurantReports ||
         kind == RatingAdminQueueKind.duplicateRestaurantReports) {
       if (_restaurantFrom(data['restaurant']) == null) {
@@ -568,8 +589,17 @@ class RatingAdminQueueRecord {
       _nullableString(fields['reportingUserId']) ?? '';
   BitescoreRestaurant? get restaurant => _restaurantFrom(fields['restaurant']);
 
+  bool get isReviewerReport =>
+      kind == RatingAdminQueueKind.reportedReviews &&
+      fields['reportScope'] == 'reviewer';
+
+  ReviewerReport get reviewerReport {
+    if (!isReviewerReport) throw StateError('Not a reviewer report.');
+    return ReviewerReport.fromAdminMap(fields);
+  }
+
   RatingAdminReviewRecord get reportedReview {
-    if (kind != RatingAdminQueueKind.reportedReviews) {
+    if (kind != RatingAdminQueueKind.reportedReviews || isReviewerReport) {
       throw StateError('Not a reported review.');
     }
     final reviewData = _map(fields['review']);
@@ -582,6 +612,7 @@ class RatingAdminQueueRecord {
   }
 
   ReviewReport get reviewReport {
+    if (isReviewerReport) throw StateError('Not a review report.');
     return ReviewReport(
       id: id,
       reviewId: _string(fields['reviewId'], allowEmpty: false),

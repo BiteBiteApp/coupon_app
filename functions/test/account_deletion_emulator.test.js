@@ -173,3 +173,54 @@ local('acceptance preserves an active milestone lock and its owner can drain wit
  await ml.releaseReviewMilestoneReconciliationLock(db,lock,clock);assert.equal((await ref.get()).get('state'),'released');assert.equal((await ref.get()).get('accountDeletionRequested'),true);
  assert.equal((await ml.claimReviewMilestoneReconciliationLock(db,{...lock,operationId:'new-forbidden'},clock)).status,'account-deletion');
 });
+
+local('reviewer safety cleanup drains outgoing/incoming records and target-linked receipts without changing B content', async()=>{
+ const safety=require('../lib/reviewer_safety');
+ for(const uid of ['fake-A','fake-B']) await db.doc(`public_reviewer_profiles/${uid}`).set({userId:uid,publicDisplayName:uid});
+ const r=(from,to,extra={})=>({auth:{uid:from,token:{email_verified:true,firebase:{sign_in_provider:'password'}}},data:{schemaVersion:1,expectedUserId:from,targetUserId:to,...extra}});
+ await safety.blockReviewerHandler(db,r('fake-A','fake-B',{expectedRevision:0,supportingReviewId:null}));
+ await safety.blockReviewerHandler(db,r('fake-B','fake-A',{expectedRevision:0,supportingReviewId:null}));
+ for(const [from,to] of [['fake-A','fake-B'],['fake-B','fake-A']]) await safety.submitReviewerReportHandler(db,r(from,to,{reason:'Harassment',supportingReviewId:null,requestId:'deletion_safety_request_1'}));
+ // Unrelated B report and personal state must survive A deletion.
+ await db.doc('public_reviewer_profiles/fake-C').set({userId:'fake-C',publicDisplayName:'C'});
+ const surviving=await safety.submitReviewerReportHandler(db,r('fake-B','fake-C',{reason:'Spam',supportingReviewId:null,requestId:'deletion_safety_request_2'}));
+ await request('fake-A');
+ await assert.rejects(safety.blockReviewerHandler(db,r('fake-B','fake-A',{expectedRevision:1,supportingReviewId:null})),e=>e.code==='failed-precondition');
+ assert.equal((await run('fake-A')).state,'complete');
+ for(const child of ['blocked_reviewers','reviewer_safety_state'])assert.ok((await db.collection(`user_profiles/fake-A/${child}`).get()).empty);
+ assert.ok((await db.collectionGroup('blocked_reviewers').where('targetUserId','==','fake-A').get()).empty);
+ assert.ok((await db.collectionGroup('reviewer_safety_state').where('targetUserId','==','fake-A').get()).empty);
+ assert.ok((await db.collection('review_reports').where('reportedUserId','==','fake-A').get()).empty);
+ assert.ok((await db.collection('review_reports').where('reportingUserId','==','fake-A').get()).empty);
+ assert.ok((await db.doc('review_reports/'+surviving.reportId).get()).exists);
+ assert.equal((await db.doc(safety.reviewerSafetyPreferencesPath('fake-B')).get()).get('revision'),2);
+ assert.ok(await identity('fake-B'));
+});
+local('in-flight reviewer block/report against deletion cannot survive completion',async()=>{
+ const safety=require('../lib/reviewer_safety');
+ await db.doc('public_reviewer_profiles/fake-A').set({userId:'fake-A',publicDisplayName:'A'});
+ const base={schemaVersion:1,expectedUserId:'fake-B',targetUserId:'fake-A'};
+ const authContext={uid:'fake-B',token:{email_verified:true,firebase:{sign_in_provider:'password'}}};
+ const results=await Promise.allSettled([
+  safety.blockReviewerHandler(db,{auth:authContext,data:{...base,expectedRevision:0,supportingReviewId:null}}),
+  safety.submitReviewerReportHandler(db,{auth:authContext,data:{...base,reason:'Harassment',supportingReviewId:null,requestId:'deletion_racing_request_1'}}),
+  request('fake-A'),
+ ]);
+ assert.equal(results[2].status,'fulfilled');
+ for(const result of results.slice(0,2))if(result.status==='rejected')assert.equal(result.reason.code,'failed-precondition');
+ assert.equal((await run('fake-A')).state,'complete');
+ assert.ok((await db.collection('review_reports').where('reportedUserId','==','fake-A').get()).empty);
+ for(const family of ['blocked_reviewers','reviewer_safety_state'])assert.ok((await db.collectionGroup(family).where('targetUserId','==','fake-A').get()).empty);
+});
+local('post-Auth verification drains late incoming safety references without recreating deleting blocker preferences',async()=>{
+ await request('fake-A');
+ const step=cleanup.createAccountDeletionStep(authAdapter,undefined,objects);
+ for(let i=0;i<150&&(await job('fake-A')).phase!=='auth_verify';i++){now+=4000000;await api.processAccountDeletionJob(db,'fake-A',step,()=>now);}
+ assert.equal((await job('fake-A')).phase,'auth_verify');
+ await db.doc('private_account_deletions/fake-B').set({state:'requested'});
+ await db.doc('user_profiles/fake-B/blocked_reviewers/fake-A').set({schemaVersion:1,targetUserId:'fake-A',createdAt:new Date()});
+ await db.doc('user_profiles/fake-B/reviewer_safety_state/report_request_'+ 'a'.repeat(64)).set({targetUserId:'fake-A',reportId:'removed-report'});
+ assert.equal((await run('fake-A',step)).state,'complete');
+ assert.ok((await db.collection('user_profiles/fake-B/blocked_reviewers').get()).empty);
+ assert.ok((await db.collection('user_profiles/fake-B/reviewer_safety_state').get()).empty);
+});
