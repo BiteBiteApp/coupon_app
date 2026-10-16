@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -29,6 +30,7 @@ import '../services/local_expert_badge_celebration_service.dart';
 import '../services/local_expert_badge_recalculation_service.dart';
 import '../services/local_expert_badge_service.dart';
 import '../services/rating_destructive_operations_service.dart';
+import '../services/reviewer_safety_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
@@ -402,6 +404,8 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
   final BiteScoreDishFavoriteSaver? testDishFavoriteSaver;
   final BiteScoreMissingDishImageSaver? testMissingDishImageSaver;
   final Future<List<BitescoreDish>> Function()? testMergeCandidatesLoader;
+  final ReviewerSafetyService? testReviewerSafetyService;
+  final BiteScoreDishDetailWriteGate? testBlockSignInGate;
 
   const BiteScoreDishDetailScreen({
     super.key,
@@ -423,6 +427,8 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
     @visibleForTesting this.testDishFavoriteSaver,
     @visibleForTesting this.testMissingDishImageSaver,
     @visibleForTesting this.testMergeCandidatesLoader,
+    @visibleForTesting this.testReviewerSafetyService,
+    @visibleForTesting this.testBlockSignInGate,
   });
 
   @override
@@ -492,6 +498,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   Future<_DishDetailData>? _detailFuture;
   late final _boundedReads =
       widget.testCustomerReads ?? CustomerBiteScoreReads();
+  late final _reviewerSafety =
+      widget.testReviewerSafetyService ??
+      ReviewerSafetyService(currentUser: () => _currentUser);
+  bool _reviewerSafetyBusy = false;
   String? _boundedReviewCursor;
   String? _boundedImageCursor;
   bool _boundedAppendLoading = false;
@@ -670,6 +680,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       _isSavingFavoriteDish = false;
       _hasDishChanges = false;
       _highlightedReviewId = null;
+      _reviewerSafetyBusy = false;
       _refresh();
     });
   }
@@ -1078,6 +1089,21 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       setState(() {});
     } catch (error) {
       if (mounted && generation == _detailLoadGeneration) {
+        if (!images &&
+            error is FirebaseFunctionsException &&
+            error.code == 'failed-precondition') {
+          setState(() {
+            _boundedReviewItems = [];
+            _boundedReviewCursor = null;
+            _boundedReviewsError = error;
+            _didHandleTargetReview = true;
+            _boundedDetail = _boundedData(
+              _currentEntry,
+              const [],
+              _boundedDetail!.dishImages,
+            );
+          });
+        }
         _showSnackBar(
           AppErrorText.friendly(
             error,
@@ -2529,6 +2555,106 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     }
   }
 
+  Future<void> _blockReviewer(DishReview review) async {
+    final originLease = _authBoundRouteBinding?.captureLease();
+    if (!ReviewerSafetyCustomerUi.isEnabled ||
+        _reviewerSafetyBusy ||
+        !_isPrivateLeaseCurrent(originLease) ||
+        review.userId == _currentUser?.uid) {
+      return;
+    }
+    setState(() => _reviewerSafetyBusy = true);
+    var lease = originLease;
+    String? operationUserId = _currentUser?.isAnonymous == false
+        ? _currentUser?.uid
+        : null;
+    bool current() =>
+        mounted &&
+        ReviewerSafetyCustomerUi.isEnabled &&
+        _isPrivateLeaseCurrent(lease) &&
+        (operationUserId == null || _currentUser?.uid == operationUserId);
+    try {
+      if (_currentUser == null || _currentUser!.isAnonymous) {
+        final signedIn =
+            await (widget.testBlockSignInGate?.call(context) ??
+                BiteScoreSignInGate.ensureSignedInForFavorites(
+                  context,
+                  message: 'Please sign in to block a reviewer.',
+                  returnToOriginAfterSignIn: true,
+                ));
+        if (!signedIn || !current()) return;
+      }
+      final user = _currentUser;
+      if (user == null ||
+          user.isAnonymous ||
+          user.uid == review.userId ||
+          !current()) {
+        return;
+      }
+      lease = _authBoundRouteBinding?.captureLease();
+      final expectedUserId = user.uid;
+      operationUserId = expectedUserId;
+      bool accountCurrent() =>
+          current() &&
+          _currentUser?.uid == expectedUserId &&
+          _currentUser?.isAnonymous == false;
+      if (!accountCurrent()) return;
+      final confirmed = await showDialog<bool>(
+        context: _privateOverlayContext ?? context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Block Reviewer'),
+          content: const Text(
+            "Hide this reviewer's reviews from your BiteStar browsing. You can unblock them from My Profile.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Block Reviewer'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !accountCurrent()) return;
+      final status = await _reviewerSafety.status(
+        expectedUserId: expectedUserId,
+        targetUserId: review.userId,
+        leaseIsCurrent: accountCurrent,
+      );
+      if (!accountCurrent()) return;
+      if (!status.blocked) {
+        final result = await _reviewerSafety.block(
+          expectedUserId: expectedUserId,
+          targetUserId: review.userId,
+          expectedRevision: status.revision,
+          supportingReviewId: review.id,
+          leaseIsCurrent: accountCurrent,
+        );
+        if (!accountCurrent()) return;
+        if (!result.blocked) throw StateError('Reviewer preferences changed.');
+      }
+      // Discard visible/cached reviews immediately. The next page comes only
+      // from the trusted filter, including when an exact target was blocked.
+      _didHandleTargetReview = true;
+      _didHandleInitialEditReview = true;
+      setState(_refresh);
+      _showSnackBar('Reviewer blocked.');
+    } catch (error) {
+      if (current()) {
+        // A failed/stale write may already have succeeded on the server. Never
+        // keep showing an old review page while the customer refreshes.
+        _didHandleTargetReview = true;
+        setState(_refresh);
+        _showSnackBar(ReviewerSafetyService.errorMessage(error));
+      }
+    } finally {
+      if (current()) setState(() => _reviewerSafetyBusy = false);
+    }
+  }
+
   Future<void> _reportDish() async {
     final authLease = _authBoundRouteBinding?.captureLease();
     final canWrite = await BiteScoreSignInGate.ensureSignedInForWrite(context);
@@ -2690,6 +2816,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
           unawaited(_startEditingReview(review));
           return;
         }
+        if (value == 'block') {
+          unawaited(_blockReviewer(review));
+          return;
+        }
         _reportReview(review);
       },
       itemBuilder: (context) => [
@@ -2707,6 +2837,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                 : 'Report review',
           ),
         ),
+        if (ReviewerSafetyCustomerUi.isEnabled && !canEditReview)
+          PopupMenuItem<String>(
+            value: 'block',
+            enabled: !_reviewerSafetyBusy,
+            child: const Text('Block reviewer'),
+          ),
       ],
       child: const SizedBox(
         width: 22,
@@ -3874,10 +4010,14 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                   accentColor: BiteRaterTheme.ocean,
                                   radius: 16,
                                 ),
-                                child: const Text(
-                                  'No reviews yet for this dish.',
+                                child: Text(
+                                  hasMoreReviews
+                                      ? 'No reviews to show on this page. Load more to continue.'
+                                      : ReviewerSafetyCustomerUi.isEnabled
+                                      ? 'No reviews to show.'
+                                      : 'No reviews yet for this dish.',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     color: BiteRaterTheme.mutedInk,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -3928,6 +4068,16 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                 ),
                               ],
                             ],
+                            if (detail.reviews.isEmpty &&
+                                hasMoreReviews &&
+                                !_boundedReviewsLoading &&
+                                _boundedReviewsError == null)
+                              OutlinedButton(
+                                onPressed: _boundedAppendLoading
+                                    ? null
+                                    : () => _loadMoreBounded(),
+                                child: const Text('Load more'),
+                              ),
                             const SizedBox(height: 20),
                             _buildInlineReviewForm(),
                           ],

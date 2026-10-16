@@ -14,6 +14,7 @@ import '../services/bitescore_service.dart';
 import '../services/customer_bitescore_profile_service.dart';
 import '../services/customer_bitescore_reads.dart';
 import '../services/customer_bitescore_runtime.dart';
+import '../services/reviewer_safety_service.dart';
 import '../services/customer_bitescore_search_service.dart';
 import '../widgets/customer_bitescore_page_status.dart';
 import '../services/customer_bitesaver_saved_coordinator.dart';
@@ -28,6 +29,7 @@ import 'coupon_detail_screen.dart';
 import 'customer_bitesaver_saved_destinations.dart';
 import 'main_navigation_screen.dart';
 import 'restaurant_profile_screen.dart';
+import 'blocked_reviewers_screen.dart';
 
 enum _SavedSection { restaurants, dishes, coupons }
 
@@ -50,6 +52,7 @@ class CustomerProfileScreen extends StatefulWidget {
   final CustomerBiteScoreProfileService? boundedProfileService;
   final Future<void> Function()? testPrepareProfileIdentity;
   final Future<BiteScoreUserProfileData> Function()? testLegacyBiteSaverLoader;
+  final ReviewerSafetyService? testReviewerSafetyService;
 
   const CustomerProfileScreen({
     super.key,
@@ -62,6 +65,7 @@ class CustomerProfileScreen extends StatefulWidget {
     this.boundedProfileService,
     @visibleForTesting this.testPrepareProfileIdentity,
     @visibleForTesting this.testLegacyBiteSaverLoader,
+    @visibleForTesting this.testReviewerSafetyService,
   }) : boundedSavedCoordinator = null;
 
   const CustomerProfileScreen.fromCustomerBiteSaver({
@@ -76,6 +80,7 @@ class CustomerProfileScreen extends StatefulWidget {
     this.boundedProfileService,
     @visibleForTesting this.testPrepareProfileIdentity,
     @visibleForTesting this.testLegacyBiteSaverLoader,
+    @visibleForTesting this.testReviewerSafetyService,
   }) : boundedSavedCoordinator = savedCoordinator;
 
   @override
@@ -1249,6 +1254,29 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
   }
 
+  Widget _blockedReviewersTile() => ListTile(
+    leading: const Icon(Icons.block),
+    title: const Text('Blocked Reviewers'),
+    trailing: const Icon(Icons.chevron_right),
+    onTap: () async {
+      final lease = _authBoundRouteBinding?.captureLease();
+      if (!ReviewerSafetyCustomerUi.isEnabled ||
+          !_isOpeningUserCurrent(lease)) {
+        return;
+      }
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => BlockedReviewersScreen(
+            expectedUserId: widget.currentUser.uid,
+            service: widget.testReviewerSafetyService,
+            testCurrentUserProvider: widget.testCurrentUserProvider,
+          ),
+        ),
+      );
+      if (!mounted || !_isOpeningUserCurrent(lease)) return;
+    },
+  );
+
   Widget _buildProfileBody(BiteScoreUserProfileData profileData) {
     if (!_hasSeededUsernameField) {
       _usernameController.text = profileData.chosenUsername ?? '';
@@ -1265,6 +1293,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           _buildPublicUsernameCard(profileData),
+          if (ReviewerSafetyCustomerUi.isEnabled) _blockedReviewersTile(),
           const SizedBox(height: 16),
           _buildBadgeCard(profileData),
           const SizedBox(height: 16),
@@ -1289,6 +1318,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   Widget _buildBoundedProfileBody(BiteScoreUserProfileData profile) {
     final rows = <Widget Function()>[
       () => _buildPublicUsernameCard(profile),
+      if (ReviewerSafetyCustomerUi.isEnabled) _blockedReviewersTile,
       () => const SizedBox(height: 16),
       () => _buildBadgeCard(profile),
       () => const SizedBox(height: 16),
