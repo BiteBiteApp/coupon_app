@@ -28,7 +28,8 @@ service cloud.firestore {
     }
     function deletionImageParentMayWrite(data) {
       let parent = get(/databases/$(database)/documents/bitescore_dish_images/$(data.imageId)).data;
-      return deletionPersonalIdentityMayWrite(parent, 'uploadedByUserId') &&
+      return parent.get('moderationStatus', '') != 'removed' &&
+        deletionPersonalIdentityMayWrite(parent, 'uploadedByUserId') &&
         parent.dishId == data.dishId && parent.restaurantId == data.restaurantId;
     }
     function deletionCatalogFieldMayWrite(field) {
@@ -1709,6 +1710,24 @@ service cloud.firestore {
         isAdmin());
     }
 
+    // A client cannot put a moderated photo back into public thumbnails by
+    // rewriting the dish primary fields. Clearing or selecting a live exact
+    // image stays supported; legacy URL-only selections are unchanged pre-cutover.
+    function validPublicDishPrimaryImage(dishId) {
+      let data = request.resource.data;
+      let imageId = data.get('primaryImageId', null);
+      let url = data.get('primaryImageUrl', null);
+      return !biteScoreTrustedAggregatesEnabled() ||
+        !changedKeys().hasAny(['primaryImageId', 'primaryImageUrl']) ||
+        (imageId == null && url == null) ||
+        (imageId is string && imageId.size() > 0 &&
+          exists(/databases/$(database)/documents/bitescore_dish_images/$(imageId)) &&
+          get(/databases/$(database)/documents/bitescore_dish_images/$(imageId)).data.dishId == dishId &&
+          get(/databases/$(database)/documents/bitescore_dish_images/$(imageId)).data.restaurantId == data.restaurantId &&
+          get(/databases/$(database)/documents/bitescore_dish_images/$(imageId)).data.get('moderationStatus', '') != 'removed' &&
+          get(/databases/$(database)/documents/bitescore_dish_images/$(imageId)).data.imageUrl == url);
+    }
+
     match /bitescore_dishes/{dishId} {
       allow read: if isAdmin() || ownerOfBiteScoreRestaurant(resource.data.restaurantId);
       allow create: if deletionActorMayWrite() && deletionCatalogAttributionMayWrite() && (canonicalDishId(dishId) &&
@@ -1742,6 +1761,7 @@ service cloud.firestore {
             ])
           )
         ) &&
+        validPublicDishPrimaryImage(dishId) &&
         biteScoreDishProvenanceUnchanged() &&
         aggregateWriteGenerationUnchanged() &&
         validAggregateWriteGeneration(request.resource.data));
@@ -1810,10 +1830,11 @@ service cloud.firestore {
     match /bitescore_dish_images/{imageId} {
       allow read: if isAdmin() || ownerOfBiteScoreDish(resource.data.dishId) ||
         (signedIn() && resource.data.uploadedByUserId == request.auth.uid);
-      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'uploadedByUserId') && deletionOptionalReviewParentMayWrite(request.resource.data) && (isAdmin() ||
+      allow create: if !request.resource.data.keys().hasAny(['moderationStatus', 'moderatedAt']) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'uploadedByUserId') && deletionOptionalReviewParentMayWrite(request.resource.data) && (isAdmin() ||
         (!biteScoreTrustedAggregatesEnabled() && emailVerified() &&
           request.resource.data.uploadedByUserId == request.auth.uid));
-      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'uploadedByUserId') && deletionPersonalIdentityMayWrite(request.resource.data, 'uploadedByUserId') && deletionOptionalReviewParentMayWrite(resource.data) && deletionOptionalReviewParentMayWrite(request.resource.data) && (isAdmin() ||
+      allow update: if resource.data.get('moderationStatus', '') != 'removed' &&
+        !changedKeys().hasAny(['moderationStatus', 'moderatedAt']) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'uploadedByUserId') && deletionPersonalIdentityMayWrite(request.resource.data, 'uploadedByUserId') && deletionOptionalReviewParentMayWrite(resource.data) && deletionOptionalReviewParentMayWrite(request.resource.data) && (isAdmin() ||
         ownerOfBiteScoreRestaurant(resource.data.restaurantId) ||
         (
           !biteScoreTrustedAggregatesEnabled() && emailVerified() &&
@@ -1825,7 +1846,7 @@ service cloud.firestore {
             'updatedAt'
           ])
         ));
-      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'uploadedByUserId') && (isAdmin() ||
+      allow delete: if resource.data.get('moderationStatus', '') != 'removed' && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'uploadedByUserId') && (isAdmin() ||
         (signedIn() && resource.data.uploadedByUserId == request.auth.uid));
     }
 
@@ -1863,7 +1884,7 @@ service cloud.firestore {
 
     function legacyReviewReport(data) {
       return data.get('reportScope', 'review') == 'review' &&
-        !data.keys().hasAny(['reportedUserId', 'evidence']);
+        !data.keys().hasAny(['reportedUserId', 'evidence', 'imageId', 'targetFingerprint', 'supportingReviewId']);
     }
 
     match /review_reports/{reportId} {

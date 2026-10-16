@@ -419,3 +419,24 @@ test('actual review callable uses Firebase UID, keeps guest behavior, and never 
     assert.deepEqual(page.items.map(item => item.review.id), expected);
   }
 });
+
+test('moderated source suppresses stale gallery and review-photo index entries without removing the written review',async()=>{
+ const {db,context}=fixture();db.values.set('dish_reviews/r',review(1));await reads.reconcileCustomerBiteScoreReview(db,'r');
+ const source={dishId:'dish',restaurantId:'restaurant',reviewId:'r',uploadedByUserId:'uploader',imageUrl:'https://example.test/photo.jpg',storagePath:'private',createdAt:new Date(1)};
+ db.values.set('bitescore_dish_images/photo',source);await reads.reconcileCustomerBiteScoreImage(db,'photo');
+ const before=await reads.pageCustomerBiteScoreReviewsHandler(db,{dishId:'dish',sort:'Most recent'},context);
+ assert.equal(before.items[0].image.id,'photo');assert.match(before.items[0].image.reportTargetVersion,/^[a-f0-9]{64}$/);
+ // Do not run reconciliation: customer reads must independently reject removed source.
+ db.values.set('bitescore_dish_images/photo',{...source,moderationStatus:'removed'});
+ assert.equal((await reads.pageCustomerBiteScoreImagesHandler(db,{dishId:'dish'},context)).items.length,0);
+ const after=await reads.pageCustomerBiteScoreReviewsHandler(db,{dishId:'dish',sort:'Most recent'},context);
+ assert.equal(after.items.length,1);assert.equal(after.items[0].image,null);assert.equal(after.items[0].review.id,'r');
+});
+test('detail strips a stale primary URL without losing the dish when its search projection lags',async()=>{
+ const {db,context}=fixture();
+ const [path,index]=[...db.values.entries()].find(([path])=>path.startsWith('dish_search_index/'));
+ db.values.set(path,{...index,customerPublicProjection:{...index.customerPublicProjection,primaryImageUrl:'https://example.test/removed.jpg'}});
+ db.values.set('bitescore_dishes/dish',{...db.values.get('bitescore_dishes/dish'),primaryImageUrl:'https://example.test/replacement.jpg'});
+ const detail=await reads.getCustomerBiteScoreDetailHandler(db,{kind:'dish',id:'dish'},context);
+ assert.equal(detail.dish.sourceDocumentId,'dish');assert.equal(detail.dish.primaryImageUrl,undefined);
+});

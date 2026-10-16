@@ -228,6 +228,7 @@ class CustomerBiteScoreReads {
       uploadedByUserId: '',
       storagePath: '',
       imageUrl: image['imageUrl'] as String,
+      reportTargetVersion: image['reportTargetVersion'] as String?,
       sortOrder: image['sortOrder'] as int,
       helpfulCount: _count(image['helpfulCount']),
       notHelpfulCount: _count(image['notHelpfulCount']),

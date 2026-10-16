@@ -1,3 +1,4 @@
+import {currentBiteScorePrimaryImage} from "./customer_bitescore_search_contract.js";
 import {requireAccountWritableInStore} from "./account_deletion_guard.js";
 import {randomBytes} from "node:crypto";
 import {readReviewerVisibility} from "./reviewer_visibility.js";
@@ -250,7 +251,8 @@ async function hydrate(db: Database, documents: readonly Document[], c: Criteria
           Boolean(rawDish.mergedIntoDishId) || rawDish.restaurantId !== parentId))) continue;
     }
     result.push({id: ids!.id, sourcePath: document.path, dishId: ids!.dishId, restaurantId: parentId,
-      dish, restaurant, review, source: document.data, fingerprint: digest(dish, restaurant, review)});
+      dish: live && dish ? currentBiteScorePrimaryImage(dish, roots.get(`bitescore_dishes/${ids!.dishId}`) ?? {}) : dish,
+      restaurant, review, source: document.data, fingerprint: digest(dish, restaurant, review)});
   }
   return result;
 }

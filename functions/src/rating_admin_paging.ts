@@ -1,3 +1,4 @@
+import {photoReportAdminProjection} from "./photo_reports.js";
 import {reviewerReportAdminProjection} from "./reviewer_safety.js";
 import { createHash } from "node:crypto";
 import {
@@ -869,10 +870,14 @@ async function enrichQueue(
   database: RatingAdminPagingDatabase,
 ): Promise<readonly (Readonly<Record<string, unknown>> | null)[]> {
   if (kind === "reportedReviews") {
-    const reviewIds = documents.filter((document) => document.data.reportScope !== "reviewer").map(
+    const reviewIds = documents.filter((document) => document.data.reportScope !== "reviewer" && document.data.reportScope !== "photo").map(
       (document) => idFrom(document.data, "reviewId") ?? "",
     );
     const reviews = await documentsByPath(database, "dish_reviews", reviewIds);
+    const photos = documents.filter(document => document.data.reportScope === "photo");
+    const photoImages = await documentsByPath(database, "bitescore_dish_images", photos.map(document => idFrom(document.data, "imageId") ?? ""));
+    const photoDishes = await documentsByPath(database, "bitescore_dishes", photos.map(document => idFrom(document.data, "dishId") ?? ""));
+    const photoRestaurants = await documentsByPath(database, "bitescore_restaurants", photos.map(document => idFrom(document.data, "restaurantId") ?? ""));
     const reviewDocuments = documents
       .map((document) =>
         reviews.get(idFrom(document.data, "reviewId") ?? ""))
@@ -902,6 +907,9 @@ async function enrichQueue(
     );
     return documents.map((report) => {
       const data = report.data;
+      if (data.reportScope === "photo") return photoReportAdminProjection(report.id, data,
+        photoImages.get(idFrom(data, "imageId") ?? "")?.data, photoDishes.get(idFrom(data, "dishId") ?? "")?.data,
+        photoRestaurants.get(idFrom(data, "restaurantId") ?? "")?.data);
       if (data.reportScope === "reviewer") return reviewerReportAdminProjection(report.id, data);
       const reviewId = idFrom(data, "reviewId");
       const review = reviewId === null ? undefined : basesById.get(reviewId);

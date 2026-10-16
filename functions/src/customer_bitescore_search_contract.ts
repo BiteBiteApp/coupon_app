@@ -217,3 +217,13 @@ export function customerBiteScoreUtf16Key(value: string): Buffer {
   for (let i = 0; i < value.length; i += 1) buffer.writeUInt16BE(value.charCodeAt(i), i * 2);
   return buffer;
 }
+
+/** An asynchronous search projection must not keep presenting a former primary
+ * image after exact-photo moderation updates the authoritative dish. */
+export function currentBiteScorePrimaryImage(
+  projection: Readonly<Record<string, unknown>>, dish: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  if (projection.primaryImageUrl === dish.primaryImageUrl) return projection;
+  const {primaryImageUrl: _stale, ...current} = projection;
+  return current;
+}

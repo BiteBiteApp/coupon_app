@@ -1140,3 +1140,15 @@ test('reviewer queue preserves sub-millisecond ordering across forward/backward 
   assert.deepEqual(back.items.map(v=>v.id),first.items.map(v=>v.id));
   assert.ok(first.items.every(v=>Number.isInteger(v.evidence.capturedAtMillis)));
 });
+
+test('photo cases remain bounded and pageable without a supporting review or surviving image', async () => {
+  const rows=Array.from({length:31},(_,i)=>({id:`photo-${String(i).padStart(2,'0')}`,data:{schemaVersion:1,reportScope:'photo',imageId:`image-${i}`,dishId:'dish',restaurantId:'restaurant',supportingReviewId:'deleted',reportedUserId:'target',reportingUserId:'reporter',reason:'Other',status:'pending',createdAt:new Timestamp(1800000000,123400000+i*1000),targetFingerprint:'a'.repeat(64)}}));
+  const database=new FakeDatabase({review_reports:rows},{'bitescore_dishes/dish':{id:'dish',data:{name:'Food'}},'bitescore_restaurants/restaurant':{id:'restaurant',data:{name:'Restaurant'}}});
+  const ctx=context(database),first=await listRatingAdminQueuePageHandler(request({queueKind:'reportedReviews'},25),ctx);
+  const second=await listRatingAdminQueuePageHandler(request({queueKind:'reportedReviews'},25,{direction:'forward',cursor:first.nextCursor}),ctx);
+  assert.deepEqual([...first.items,...second.items].map(x=>x.id),rows.map(x=>x.id).reverse());
+  assert.equal(second.hasNext,false);assert.equal(first.items[0].dishName,'Food');
+  assert.ok(first.items.every(x=>x.reportScope==='photo'&&x.imageState==='unavailable'&&x.imageUrl===null));
+  assert.ok(!database.gets.flat().some(p=>p.startsWith('dish_reviews/')));
+  assert.ok(database.queries.every(q=>q.limit<=26));
+});

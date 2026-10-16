@@ -17,6 +17,7 @@ import '../models/restaurant_report.dart';
 import '../models/review_report.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
+import '../services/photo_report_service.dart';
 import '../services/paged_query_controller.dart';
 import '../services/rating_admin_paging_service.dart';
 import '../services/rating_destructive_operations_service.dart';
@@ -1439,9 +1440,11 @@ class RatingAdminQueuePagedView extends StatefulWidget {
     this.operationsService,
     this.loadRestaurant,
     this.dismissReviewerReport,
+    this.photoReportService,
   });
 
   final Future<void> Function(String reportId)? dismissReviewerReport;
+  final PhotoReportService? photoReportService;
   final RatingAdminQueueKind kind;
   final RatingAdminEditRestaurant onEditRestaurant;
   final RatingAdminEditDish onEditDish;
@@ -1718,7 +1721,80 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
     );
   }
 
+  Widget _photoReportCard(RatingAdminQueueRecord record) {
+    final photo = record.photoReport;
+    Future<void> handle(String action) =>
+        (widget.photoReportService ?? PhotoReportService()).moderate(
+          reportId: photo.id,
+          imageId: photo.imageId,
+          action: action,
+        );
+    return _card(
+      record,
+      'Photo report',
+      [
+        '${photo.restaurantName} — ${photo.dishName}',
+        'Report ID: ${photo.id}',
+        'Photo ID: ${photo.imageId}',
+        'Dish ID: ${photo.dishId}',
+        'Restaurant ID: ${photo.restaurantId}',
+        'Reason: ${photo.reason}',
+        'Status: ${photo.status}',
+        if (photo.supportingReviewId != null)
+          'Supporting review ID: ${photo.supportingReviewId} (may no longer be available)',
+        if (photo.imageState == 'removed') 'Photo removed from public display.',
+        if (photo.imageState == 'unavailable') 'Photo is no longer available.',
+        if (photo.imageState == 'changed')
+          'Photo identity changed; removal is unavailable.',
+      ],
+      [
+        OutlinedButton(
+          onPressed: () => _run(
+            record,
+            () => handle('dismiss'),
+            'Photo report dismissed.',
+            'Could not dismiss this report. Please try again.',
+          ),
+          child: const Text('Dismiss Report'),
+        ),
+        if (photo.imageState != 'changed')
+          FilledButton(
+            onPressed: () async {
+              if (!await _confirm(
+                    context,
+                    title: 'Remove Photo',
+                    message:
+                        'Remove photo ${photo.imageId} from public display? Other photos, reviews and ratings will remain.',
+                    action: 'Remove Photo',
+                  ) ||
+                  !mounted) {
+                return;
+              }
+              await _run(
+                record,
+                () => handle('remove'),
+                'Photo removed from public display.',
+                'Could not finish removing this photo. Please retry.',
+              );
+            },
+            child: const Text('Remove Photo'),
+          ),
+      ],
+      preview: photo.imageUrl == null
+          ? null
+          : Image.network(
+              photo.imageUrl!,
+              height: 180,
+              fit: BoxFit.contain,
+              semanticLabel: 'Reported photo ${photo.imageId}',
+              errorBuilder: (_, error, stack) =>
+                  const Text('Photo preview unavailable.'),
+            ),
+    );
+  }
+
   Widget _reportedReviewCard(RatingAdminQueueRecord record) {
+    if (record.isPhotoReport) return _photoReportCard(record);
     if (record.isReviewerReport) return _reviewerReportCard(record);
     final entry = _reportedReviewEntry(record);
     final review = entry.review;
@@ -1945,8 +2021,9 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
     RatingAdminQueueRecord record,
     String title,
     List<String> lines,
-    List<Widget> actions,
-  ) {
+    List<Widget> actions, {
+    Widget? preview,
+  }) {
     final busy = _busy.contains(record.kind.wireName + ':' + record.id);
     return IgnorePointer(
       ignoring: busy,
@@ -1966,6 +2043,7 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
               ),
               const SizedBox(height: 8),
               Text(lines.join('\n')),
+              if (preview != null) ...[const SizedBox(height: 12), preview],
               const SizedBox(height: 12),
               Wrap(spacing: 8, runSpacing: 8, children: actions),
             ],
@@ -1978,7 +2056,8 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
   @override
   Widget build(BuildContext context) {
     final title = switch (widget.kind) {
-      RatingAdminQueueKind.reportedReviews => 'No Reported Reviews',
+      RatingAdminQueueKind.reportedReviews =>
+        'No Pending Review or Photo Reports',
       RatingAdminQueueKind.restaurantReports => 'No Restaurant Reports',
       RatingAdminQueueKind.dishReports => 'No Dish Reports',
       RatingAdminQueueKind.duplicateRestaurantReports => 'No Duplicate Reports',

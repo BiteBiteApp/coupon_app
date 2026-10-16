@@ -472,6 +472,25 @@ class RatingAdminQueueRecord {
     }
     final required = switch (kind) {
       RatingAdminQueueKind.reportedReviews
+          when data['reportScope'] == 'photo' =>
+        <String>{
+          'kind',
+          'id',
+          'reportId',
+          'reportScope',
+          'schemaVersion',
+          'imageId',
+          'dishId',
+          'restaurantId',
+          'supportingReviewId',
+          'reason',
+          'status',
+          'imageState',
+          'imageUrl',
+          'dishName',
+          'restaurantName',
+        },
+      RatingAdminQueueKind.reportedReviews
           when data['reportScope'] == 'reviewer' =>
         <String>{
           'kind',
@@ -552,6 +571,10 @@ class RatingAdminQueueRecord {
     };
     _keys(data, required);
     if (kind == RatingAdminQueueKind.reportedReviews &&
+        data['reportScope'] == 'photo') {
+      PhotoReport.fromAdminMap(data);
+    }
+    if (kind == RatingAdminQueueKind.reportedReviews &&
         data['reportScope'] == 'reviewer') {
       ReviewerReport.fromAdminMap(data);
     }
@@ -589,6 +612,14 @@ class RatingAdminQueueRecord {
       _nullableString(fields['reportingUserId']) ?? '';
   BitescoreRestaurant? get restaurant => _restaurantFrom(fields['restaurant']);
 
+  bool get isPhotoReport =>
+      kind == RatingAdminQueueKind.reportedReviews &&
+      fields['reportScope'] == 'photo';
+  PhotoReport get photoReport {
+    if (!isPhotoReport) throw StateError('Not a photo report.');
+    return PhotoReport.fromAdminMap(fields);
+  }
+
   bool get isReviewerReport =>
       kind == RatingAdminQueueKind.reportedReviews &&
       fields['reportScope'] == 'reviewer';
@@ -599,7 +630,9 @@ class RatingAdminQueueRecord {
   }
 
   RatingAdminReviewRecord get reportedReview {
-    if (kind != RatingAdminQueueKind.reportedReviews || isReviewerReport) {
+    if (kind != RatingAdminQueueKind.reportedReviews ||
+        isReviewerReport ||
+        isPhotoReport) {
       throw StateError('Not a reported review.');
     }
     final reviewData = _map(fields['review']);
@@ -612,7 +645,9 @@ class RatingAdminQueueRecord {
   }
 
   ReviewReport get reviewReport {
-    if (isReviewerReport) throw StateError('Not a review report.');
+    if (isReviewerReport || isPhotoReport) {
+      throw StateError('Not a review report.');
+    }
     return ReviewReport(
       id: id,
       reviewId: _string(fields['reviewId'], allowEmpty: false),

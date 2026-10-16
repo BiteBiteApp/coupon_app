@@ -224,3 +224,28 @@ local('post-Auth verification drains late incoming safety references without rec
  assert.ok((await db.collection('user_profiles/fake-B/blocked_reviewers').get()).empty);
  assert.ok((await db.collection('user_profiles/fake-B/reviewer_safety_state').get()).empty);
 });
+
+local('photo-report compatibility deletes reporter private state/cases and uploader cases without keeping media evidence', async()=>{
+ const photos=require('../lib/photo_reports');
+ await db.doc('private_bitescore_runtime/aggregation').set({version:1,enabled:true,epoch:'photo-deletion-local'});
+ await db.doc('bitescore_restaurants/photo-parent').set({id:'photo-parent',name:'Shared',isActive:true});
+ await db.doc('bitescore_dishes/photo-dish').set({id:'photo-dish',restaurantId:'photo-parent',name:'Food',isActive:true,imageCount:0});
+ const image=(uid,id)=>({id,dishId:'photo-dish',restaurantId:'photo-parent',uploadedByUserId:uid,reviewId:'deleted-support',imageUrl:`https://example.test/${id}.jpg`,storagePath:`bitescore_user_uploads/${hash(`bitestar.dish-upload.v1:${uid}`)}/dish_images/photo-dish/${id}.jpg`});
+ const a=image('fake-A','a-photo'),b=image('fake-B','b-photo');
+ await db.doc('bitescore_dish_images/a-photo').set(a);await db.doc('bitescore_dish_images/b-photo').set(b);
+ await reads.reconcileCustomerBiteScoreImage(db,'a-photo');await reads.reconcileCustomerBiteScoreImage(db,'b-photo');
+ const submit=(from,img,id)=>photos.submitPhotoReportHandler(db,{auth:{uid:from,token:{firebase:{sign_in_provider:'password'}}},data:{schemaVersion:1,expectedUserId:from,imageId:img.id,dishId:'photo-dish',restaurantId:'photo-parent',reason:'Other',requestId:id,reportTargetVersion:photos.photoReportTargetFingerprint(img)}});
+ const incoming=await submit('fake-B',a,'photo_deletion_case_1');const outgoing=await submit('fake-A',b,'photo_deletion_case_2');
+ const survivor=await submit('fake-C',b,'photo_deletion_case_3');
+ await db.doc('bitescore_dish_images/a-photo').update({moderationStatus:'removed',moderatedAt:new Date()});
+ await db.doc('review_reports/'+incoming.reportId).update({status:'resolved'});
+ await db.doc('user_profiles/fake-A/photo_report_state/orphan').set({reportId:'absent',fingerprint:'a'.repeat(64)});
+ await request('fake-A');assert.equal((await run('fake-A')).state,'complete');
+ assert.equal((await db.doc('review_reports/'+incoming.reportId).get()).exists,false);
+ assert.equal((await db.doc('review_reports/'+outgoing.reportId).get()).exists,false);
+ assert.equal((await db.doc('review_reports/'+survivor.reportId).get()).exists,true);
+ assert.ok((await db.collection('user_profiles/fake-A/photo_report_state').get()).empty);
+ assert.equal((await db.doc('bitescore_dish_images/a-photo').get()).exists,false);
+ assert.equal((await db.doc('bitescore_dish_images/b-photo').get()).exists,true);
+ assert.equal((await db.doc('bitescore_dishes/photo-dish').get()).get('imageCount'),1);
+});

@@ -8,7 +8,7 @@ import {readBiteScoreCatalogRestaurantId} from "./restaurant_invite_helpers.js";
 import {ratingDishOperationLockPath, ratingRestaurantOperationLockPath} from "./rating_destructive_job_contract.js";
 import {dishMergeReviewLockPath} from "./dish_proposal_private_contract.js";
 import {biteScoreReviewAggregationRuntimePath} from "./bitescore_review_aggregate.js";
-import {customerBiteScoreImage} from "./customer_bitescore_reads.js";
+import {customerBiteScoreReportableImage} from "./customer_bitescore_reads.js";
 import {biteScoreRestaurantIsActive} from "./search_index_builders.js";
 
 type Data = Record<string, unknown>;
@@ -102,7 +102,7 @@ async function parent(
   return value;
 }
 function safeImage(imageId: string, source: Data, dishId: string, restaurantId: string): Data {
-  const image = customerBiteScoreImage(imageId, source, dishId, restaurantId);
+  const image = customerBiteScoreReportableImage(imageId, source, dishId, restaurantId);
   if (!image) throw new HttpsError("failed-precondition", "This photo is unavailable.");
   return image;
 }

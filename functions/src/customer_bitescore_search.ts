@@ -1,3 +1,4 @@
+import {currentBiteScorePrimaryImage} from "./customer_bitescore_search_contract.js";
 import {randomBytes} from "node:crypto";
 import type {OpaqueCursorCodec} from "./opaque_cursor.js";
 import type {
@@ -521,7 +522,7 @@ async function visibleResults(database: SearchDatabase, session: Session,
           dish.data.restaurantId !== parent.sourceDocumentId))) continue;
     // Reconstruct from the verified allowlist instead of trusting a stored DTO
     // field if a future server writer accidentally adds private metadata.
-    result.push(Object.freeze({...projection, ...(session.criteria.kind === "dish" ? {restaurant: parent} : {}),
+    result.push(Object.freeze({... (dish ? currentBiteScorePrimaryImage(projection, dish.data) : projection), ...(session.criteria.kind === "dish" ? {restaurant: parent} : {}),
       distanceMiles: session.criteria.center === null ? null : exactCustomerBiteSaverDistanceMiles(session.criteria.center,
         {latitude: parent.latitude as number, longitude: parent.longitude as number})}));
   }

@@ -10,6 +10,7 @@ class BiteScoreDishImage {
   final String uploadedByUserId;
   final String imageUrl;
   final String storagePath;
+  final String? reportTargetVersion;
   final int sortOrder;
   final int helpfulCount;
   final int notHelpfulCount;
@@ -24,6 +25,7 @@ class BiteScoreDishImage {
     required this.uploadedByUserId,
     required this.imageUrl,
     required this.storagePath,
+    this.reportTargetVersion,
     this.sortOrder = 0,
     this.helpfulCount = 0,
     this.notHelpfulCount = 0,
@@ -40,6 +42,7 @@ class BiteScoreDishImage {
       uploadedByUserId: uploadedByUserId,
       imageUrl: imageUrl,
       storagePath: storagePath,
+      reportTargetVersion: reportTargetVersion,
       sortOrder: sortOrder,
       helpfulCount: helpfulCount ?? this.helpfulCount,
       notHelpfulCount: notHelpfulCount ?? this.notHelpfulCount,
@@ -69,7 +72,7 @@ class BiteScoreDishImage {
     Map<String, dynamic>? data, {
     required String fallbackId,
   }) {
-    if (data == null) {
+    if (data == null || data['moderationStatus'] == 'removed') {
       return null;
     }
 
@@ -88,7 +91,7 @@ class BiteScoreDishImage {
     }
 
     return BiteScoreDishImage(
-      id: _readString(data['id']) ?? fallbackId,
+      id: fallbackId,
       dishId: dishId,
       restaurantId: restaurantId,
       reviewId: _readString(data['reviewId']),

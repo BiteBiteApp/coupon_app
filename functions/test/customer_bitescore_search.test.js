@@ -287,3 +287,11 @@ test("source errors release only their preparation lease, and excessive concurre
   assert.equal(current.state, "failed");
   assert.equal((await page(db, continued(current), context())).items.length, 0);
 });
+
+test('search suppresses a stale moderated primary thumbnail while keeping the dish result',async()=>{
+ const db=new MemoryDatabase(),parent=addRestaurant(db);addDish(db,'photo-dish',parent,{primaryImageUrl:'https://example.test/old.jpg',primaryImageId:'old'});
+ const ctx=context(),state=await ready(db,request(),ctx);
+ const before=await page(db,continued(state),ctx);assert.equal(before.items[0].primaryImageUrl,'https://example.test/old.jpg');
+ const raw=db.documents.get('bitescore_dishes/photo-dish');db.documents.set('bitescore_dishes/photo-dish',{...raw,primaryImageUrl:'https://example.test/new.jpg',primaryImageId:'new'});
+ const after=await page(db,continued(state),ctx);assert.equal(after.items.length,1);assert.equal(after.items[0].primaryImageUrl,undefined);
+});

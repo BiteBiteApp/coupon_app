@@ -182,7 +182,7 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
                   const Tab(text: 'Restaurants'),
                   const Tab(text: 'Dishes'),
                   const Tab(text: 'Reviews'),
-                  const Tab(text: 'Reported Reviews'),
+                  const Tab(text: 'Review & Photo Reports'),
                   const Tab(text: 'Data Reports'),
                   const Tab(text: 'Claims'),
                   const Tab(text: 'Dish Suggestions'),

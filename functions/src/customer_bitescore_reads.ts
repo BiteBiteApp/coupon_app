@@ -13,7 +13,7 @@ import { OpaqueCursorCodec, OpaqueCursorError } from "./opaque_cursor.js";
 import { createQueryFingerprint } from "./query_fingerprint.js";
 import { createSearchIndexDocumentId } from "./search_index_contract.js";
 import { readBiteScoreCatalogRestaurantId } from "./restaurant_invite_helpers.js";
-import { readCustomerBiteScorePublicProjection, customerBiteScoreUtf16Key } from "./customer_bitescore_search_contract.js";
+import { currentBiteScorePrimaryImage, readCustomerBiteScorePublicProjection, customerBiteScoreUtf16Key } from "./customer_bitescore_search_contract.js";
 
 import { customerBiteScoreProfileGenerationPath, nextCustomerBiteScoreProfileGeneration } from "./customer_bitescore_profile_generation.js";
 
@@ -165,7 +165,7 @@ export async function readCustomerBiteScoreProjection(db: Firestore, kind: "dish
       (kind === "dish" && (current.restaurantId !== result.restaurantSourceDocumentId || Boolean(current.mergedIntoDishId)))) {
     throw new HttpsError("not-found", "This BiteScore content is unavailable.");
   }
-  return result;
+  return kind === "dish" ? currentBiteScorePrimaryImage(result, current) : result;
 }
 export async function getCustomerBiteScoreDetailHandler(db: Firestore, raw: unknown, context: CustomerBiteScoreReadContext): Promise<Data> {
   const request = data(raw);
@@ -289,6 +289,7 @@ export async function pageCustomerBiteScoreReviewsHandler(db: Firestore, raw: un
       const source = (await db.doc(`bitescore_dish_images/${imageId}`).get()).data();
       image = source ? customerBiteScoreImage(imageId, source, dishId, id(dish.restaurantSourceDocumentId)) : null;
       if (image && !isDeepStrictEqual(image, reviewImage.data().image)) throw new HttpsError("failed-precondition", "Images changed. Refresh to continue.");
+      if (image) image = {...image, reportTargetVersion: customerBiteScorePhotoVersion(source!)};
     }
     const reports = context.userId ? await db.collection("review_reports").where("reviewId", "==", indexed.reviewId).where("reportingUserId", "==", context.userId).where("status", "==", "pending").limit(1).get() : null;
     items.push({review: safe.review, helpfulCount: indexed.helpfulCount, notHelpfulCount: indexed.notHelpfulCount,
@@ -306,8 +307,18 @@ export async function pageCustomerBiteScoreReviewsHandler(db: Firestore, raw: un
 }
 
 /** Images expose only customer display fields, never uploader or storage metadata. */
+/** Opaque version of the displayed source; response-only, never requires an
+ * index backfill. Prevents a report from retargeting a replacement at the same ID. */
+export function customerBiteScorePhotoVersion(source: Data): string {
+  return createHash("sha256").update(JSON.stringify([source.dishId, source.restaurantId,
+    source.uploadedByUserId, source.imageUrl, source.storagePath, source.storageGeneration ?? null])).digest("hex");
+}
+export function customerBiteScoreReportableImage(imageId: string, source: Data, dishId: string, restaurantId: string): Data | null {
+  const image = customerBiteScoreImage(imageId, source, dishId, restaurantId);
+  return image ? {...image, reportTargetVersion: customerBiteScorePhotoVersion(source)} : null;
+}
 export function customerBiteScoreImage(imageId: string, source: Data, dishId: string, restaurantId: string): Data | null {
-  if (source.dishId !== dishId || source.restaurantId !== restaurantId) return null;
+  if (source.moderationStatus === "removed" || source.dishId !== dishId || source.restaurantId !== restaurantId) return null;
   const publicImage = customerPublicMenuEntry({key: imageId, kind: "menu_images", privateSourceIdentities: typeof source.uploadedByUserId === "string" ? [source.uploadedByUserId] : [], document: {id: imageId, path: `bitescore_dish_images/${imageId}`, data: {...source, sortOrder: source.sortOrder ?? 0}}});
   if (publicImage?.kind !== "image") return null;
   return {id: imageId, dishId, restaurantId, reviewId: typeof source.reviewId === "string" ? source.reviewId : null,
@@ -353,7 +364,7 @@ export async function pageCustomerBiteScoreImagesHandler(db: Firestore, raw: unk
     const safe = source ? customerBiteScoreImage(doc.data().imageId, source, dishId, restaurantId) : null;
     if (!safe) return;
     if (!isDeepStrictEqual(safe, doc.data().image)) throw new HttpsError("failed-precondition", "Images changed. Refresh to continue.");
-    items.push(safe);
+    items.push({...safe, reportTargetVersion: customerBiteScorePhotoVersion(source!)});
   });
   const last = selected[selected.length - 1];
   await readCustomerBiteScoreProjection(db, "dish", dishId);

@@ -3195,6 +3195,7 @@ class BiteScoreService {
       uploadedByUserId: uploadedByUserId,
       storagePath: storagePath,
       imageUrl: raw['imageUrl'] as String,
+      reportTargetVersion: raw['reportTargetVersion'] as String?,
       sortOrder: integer('sortOrder', signed: true),
       helpfulCount: integer('helpfulCount'),
       notHelpfulCount: integer('notHelpfulCount'),

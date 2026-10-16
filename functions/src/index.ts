@@ -24,6 +24,8 @@ export {
   advanceCustomerBiteScoreProfileList,
   getCustomerBiteScoreProfileListPage,
   getCustomerBiteScoreProfileSummary,
+  submitPhotoReport,
+  moderatePhotoReport,
   submitReviewerReport,
   blockReviewer,
   unblockReviewer,

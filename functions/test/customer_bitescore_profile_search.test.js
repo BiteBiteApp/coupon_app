@@ -352,3 +352,12 @@ test('public target criteria cannot select private viewer state; anonymous guest
   assert.ok(!exactReads.some(p => p === safetyPreferences('viewer') || p === safetyBlock('viewer')));
   assert.ok(!exactReads.some(p => p === safetyPreferences(userId) || p === safetyBlock(userId)));
 });
+
+for(const kind of ['savedDishes','reviews'])test(`${kind} suppresses stale primary thumbnail without hiding dish or review`,async()=>{
+ const db=new MemoryDatabase(),parent=addRestaurant(db);addDish(db,'photo-dish',parent,{primaryImageUrl:'https://example.test/old.jpg',primaryImageId:'old'});
+ db.documents.set(`user_profiles/${userId}/favorite_dishes/photo-dish`,{dishId:'photo-dish'});review(db,'review','photo-dish',parent.id);
+ const state=await ready(db,request({kind}));
+ const before=await page(db,continued(state),ctx);assert.equal(before.items[0].dish.primaryImageUrl,'https://example.test/old.jpg');
+ const raw=db.documents.get('bitescore_dishes/photo-dish');db.documents.set('bitescore_dishes/photo-dish',{...raw,primaryImageUrl:'https://example.test/new.jpg',primaryImageId:'new'});
+ const after=await page(db,continued(state),ctx);assert.equal(after.items.length,1);assert.equal(after.items[0].dish.primaryImageUrl,undefined);
+});

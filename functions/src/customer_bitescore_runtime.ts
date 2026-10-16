@@ -1,3 +1,4 @@
+import {submitPhotoReportHandler, moderatePhotoReportHandler} from "./photo_reports.js";
 import {submitReviewerReportHandler, blockReviewerHandler, unblockReviewerHandler, getReviewerSafetyStatusHandler} from "./reviewer_safety.js";
 import {customerBiteScoreTerms} from "./bitescore_terms.js";
 import {createHmac} from "node:crypto";
@@ -64,6 +65,10 @@ const publicOptions = {
 
 // Stage 1 source contracts only; no customer UI calls these until Stage 2.
 const reviewerSafetyOptions = {serviceAccount: biteScoreCustomerRuntimeServiceAccount, timeoutSeconds: 60};
+export const submitPhotoReport = onCall(reviewerSafetyOptions, (request) => safely(() =>
+  submitPhotoReportHandler(getFirestore(), request)));
+export const moderatePhotoReport = onCall(reviewerSafetyOptions, (request) => safely(() =>
+  moderatePhotoReportHandler(getFirestore(), request)));
 export const submitReviewerReport = onCall(reviewerSafetyOptions, (request) => safely(() =>
   submitReviewerReportHandler(getFirestore(), request)));
 export const blockReviewer = onCall(reviewerSafetyOptions, (request) => safely(() =>

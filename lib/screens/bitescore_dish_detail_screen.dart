@@ -31,6 +31,7 @@ import '../services/local_expert_badge_recalculation_service.dart';
 import '../services/local_expert_badge_service.dart';
 import '../services/rating_destructive_operations_service.dart';
 import '../services/reviewer_safety_service.dart';
+import '../services/photo_report_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
@@ -2321,6 +2322,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     required BitescoreRestaurant restaurant,
     required List<BiteScoreDishImage>? images,
     required String initialImageUrl,
+    BiteScoreDishImage? initialImage,
     String? title,
   }) async {
     var safeImages = images ?? const <BiteScoreDishImage>[];
@@ -2349,6 +2351,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         return;
       }
       safeImages = _boundedDetail?.dishImages ?? safeImages;
+    }
+    if (initialImage != null &&
+        !safeImages.any((image) => image.id == initialImage.id)) {
+      safeImages = [...safeImages, initialImage];
     }
     final imageUrls = safeImages
         .map((image) => image.imageUrl.trim())
@@ -2940,7 +2946,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                         child: Padding(
                           padding: const EdgeInsets.only(right: 2),
                           child: _buildReviewImageThumbnail(
-                            reviewImage.imageUrl,
+                            reviewImage,
                             dishImages,
                           ),
                         ),
@@ -3007,10 +3013,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   }
 
   Widget _buildReviewImageThumbnail(
-    String imageUrl,
+    BiteScoreDishImage image,
     List<BiteScoreDishImage>? images,
   ) {
-    final trimmedUrl = imageUrl.trim();
+    final trimmedUrl = image.imageUrl.trim();
     if (trimmedUrl.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -3021,6 +3027,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         restaurant: _currentEntry.restaurant,
         images: images,
         initialImageUrl: trimmedUrl,
+        initialImage: image,
         title: 'Review image',
       ),
       borderRadius: BorderRadius.circular(12),
@@ -4182,6 +4189,8 @@ class BiteScoreDishImageGalleryScreen extends StatefulWidget {
   final String? title;
   final BiteScoreGalleryAddImageCallback? onAddImage;
   final BiteScoreGalleryVoteCallback? onToggleVote;
+  final PhotoReportService? photoReportService;
+  final Future<bool> Function(BuildContext context)? canReport;
   final Future<bool> Function(BuildContext context)? canVote;
   final Future<Map<String, String>> Function(List<String> imageIds)?
   loadCurrentVotes;
@@ -4200,6 +4209,8 @@ class BiteScoreDishImageGalleryScreen extends StatefulWidget {
     this.onAddImage,
     this.onToggleVote,
     this.canVote,
+    this.canReport,
+    this.photoReportService,
     this.loadCurrentVotes,
     @visibleForTesting this.testCurrentUserProvider,
   });
@@ -4215,6 +4226,9 @@ class _BiteScoreDishImageGalleryScreenState
   late List<String> _imageUrls;
   late int _selectedIndex;
   Map<String, String> _currentVotesByImageId = const <String, String>{};
+  bool _isReporting = false;
+  bool _isSubmittingReport = false;
+  final Map<(String, String, String, String), String> _reportRequests = {};
   bool _isVoting = false;
   bool _isLoadingMore = false;
   final Set<String> _loadedVoteImageIds = <String>{};
@@ -4388,6 +4402,17 @@ class _BiteScoreDishImageGalleryScreenState
     });
   }
 
+  BiteScoreDishImage? get _reportableSelectedImage {
+    if (_selectedIndex < 0 || _selectedIndex >= _imageUrls.length) {
+      return null;
+    }
+    final selectedUrl = _imageUrls[_selectedIndex].trim();
+    final matches = _images
+        .where((image) => image.imageUrl.trim() == selectedUrl)
+        .toList();
+    return matches.length == 1 ? matches.single : null;
+  }
+
   BiteScoreDishImage? get _selectedImage {
     if (_selectedIndex < 0 || _selectedIndex >= _imageUrls.length) {
       return null;
@@ -4399,6 +4424,91 @@ class _BiteScoreDishImageGalleryScreenState
       }
     }
     return null;
+  }
+
+  Future<void> _reportPhoto() async {
+    final image = _reportableSelectedImage;
+    if (_isReporting ||
+        image == null ||
+        image.reportTargetVersion == null ||
+        !PhotoReportingUi.isEnabled) {
+      return;
+    }
+    final lease = _authBoundRouteBinding?.captureLease();
+    final originUid = _currentUser?.isAnonymous == false
+        ? _currentUser!.uid
+        : null;
+    String? reportUid = originUid;
+    setState(() => _isReporting = true);
+    void message(String text) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(text), behavior: SnackBarBehavior.floating),
+        );
+    }
+
+    try {
+      final signedIn =
+          await (widget.canReport?.call(_privateOverlayContext ?? context) ??
+              BiteScoreSignInGate.ensureSignedInForFavorites(
+                _privateOverlayContext ?? context,
+                message: 'Please sign in to report a photo.',
+                returnToOriginAfterSignIn: true,
+              ));
+      if (!signedIn || !mounted || !_isPrivateLeaseCurrent(lease)) return;
+      final uid = _expectedPrivateWriteUserId(lease);
+      if (uid == null || (originUid != null && originUid != uid)) return;
+      reportUid = uid;
+      bool current() =>
+          mounted && _isPrivateLeaseCurrent(lease) && _currentUser?.uid == uid;
+      final reason = await showDialog<String>(
+        context: _privateOverlayContext ?? context,
+        builder: (_) => _ReviewReportDialog(photoUrl: image.imageUrl),
+      );
+      if (reason == null || !current()) return;
+      // The captured photo is also shown in the modal. Navigation/load-more can
+      // never replace the target while sign-in or the dialog is awaiting input.
+      final key = (uid, image.id, image.reportTargetVersion!, reason);
+      final requestId = _reportRequests.putIfAbsent(
+        key,
+        PhotoReportService.newRequestId,
+      );
+      setState(() => _isSubmittingReport = true);
+      final submitted =
+          await (widget.photoReportService ?? PhotoReportService()).submit(
+            image: image,
+            reason: reason,
+            requestId: requestId,
+            expectedUserId: uid,
+            leaseIsCurrent: current,
+          );
+      if (!current()) return;
+      _reportRequests.remove(key);
+      message(
+        submitted
+            ? 'Photo reported. An admin will review it.'
+            : 'You already reported this photo.',
+      );
+    } catch (error) {
+      if (mounted &&
+          _isPrivateLeaseCurrent(lease) &&
+          (reportUid == null || _currentUser?.uid == reportUid)) {
+        message(
+          AppErrorText.friendly(
+            error,
+            fallback: 'Could not report this photo. Please try again.',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isReporting = false;
+          _isSubmittingReport = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadCurrentVotes() async {
@@ -4686,6 +4796,24 @@ class _BiteScoreDishImageGalleryScreenState
     final hasImages = _imageUrls.isNotEmpty;
     final imageUrl = hasImages ? _imageUrls[_selectedIndex] : '';
     final hasMultipleImages = _imageUrls.length > 1;
+    final compactControls =
+        MediaQuery.sizeOf(context).width <
+        MediaQuery.textScalerOf(context).scale(14) * 26;
+    final VoidCallback? previousImage =
+        !hasMultipleImages || _selectedIndex == 0
+        ? null
+        : () => _selectImage(_selectedIndex - 1);
+    final VoidCallback? nextImage =
+        !hasMultipleImages || _selectedIndex >= _imageUrls.length - 1
+        ? null
+        : () => _selectImage(_selectedIndex + 1);
+    final addImageIcon = _isAddingImage
+        ? const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : const Icon(Icons.add_a_photo_outlined);
 
     final content = PopScope<bool>(
       canPop: false,
@@ -4706,18 +4834,39 @@ class _BiteScoreDishImageGalleryScreenState
           backgroundColor: BiteRaterTheme.pageBackground,
           surfaceTintColor: BiteRaterTheme.pageBackground,
           actions: [
-            TextButton.icon(
-              key: const ValueKey('bitescore-gallery-add-image-button'),
-              onPressed: _isAddingImage ? null : _addImage,
-              icon: _isAddingImage
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.add_a_photo_outlined),
-              label: Text(_isAddingImage ? 'Uploading' : 'Add Image'),
-            ),
+            if (PhotoReportingUi.isEnabled && hasImages)
+              IconButton(
+                key: const ValueKey('bitescore-gallery-report-photo'),
+                tooltip: _reportableSelectedImage?.reportTargetVersion == null
+                    ? 'Report unavailable for this photo. Refresh photos and try again.'
+                    : 'Report Photo',
+                onPressed:
+                    _isReporting ||
+                        _reportableSelectedImage?.reportTargetVersion == null
+                    ? null
+                    : _reportPhoto,
+                icon: _isSubmittingReport
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.flag_outlined),
+              ),
+            if (compactControls)
+              IconButton(
+                key: const ValueKey('bitescore-gallery-add-image-button'),
+                tooltip: _isAddingImage ? 'Uploading' : 'Add Image',
+                onPressed: _isAddingImage ? null : _addImage,
+                icon: addImageIcon,
+              )
+            else
+              TextButton.icon(
+                key: const ValueKey('bitescore-gallery-add-image-button'),
+                onPressed: _isAddingImage ? null : _addImage,
+                icon: addImageIcon,
+                label: Text(_isAddingImage ? 'Uploading' : 'Add Image'),
+              ),
           ],
         ),
         body: SafeArea(
@@ -4780,14 +4929,17 @@ class _BiteScoreDishImageGalleryScreenState
                       child: Row(
                         children: [
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed:
-                                  !hasMultipleImages || _selectedIndex == 0
-                                  ? null
-                                  : () => _selectImage(_selectedIndex - 1),
-                              icon: const Icon(Icons.chevron_left),
-                              label: const Text('Previous'),
-                            ),
+                            child: compactControls
+                                ? IconButton.outlined(
+                                    tooltip: 'Previous',
+                                    onPressed: previousImage,
+                                    icon: const Icon(Icons.chevron_left),
+                                  )
+                                : OutlinedButton.icon(
+                                    onPressed: previousImage,
+                                    icon: const Icon(Icons.chevron_left),
+                                    label: const Text('Previous'),
+                                  ),
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -4800,15 +4952,17 @@ class _BiteScoreDishImageGalleryScreenState
                             ),
                           ),
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed:
-                                  !hasMultipleImages ||
-                                      _selectedIndex >= _imageUrls.length - 1
-                                  ? null
-                                  : () => _selectImage(_selectedIndex + 1),
-                              icon: const Icon(Icons.chevron_right),
-                              label: const Text('Next'),
-                            ),
+                            child: compactControls
+                                ? IconButton.outlined(
+                                    tooltip: 'Next',
+                                    onPressed: nextImage,
+                                    icon: const Icon(Icons.chevron_right),
+                                  )
+                                : OutlinedButton.icon(
+                                    onPressed: nextImage,
+                                    icon: const Icon(Icons.chevron_right),
+                                    label: const Text('Next'),
+                                  ),
                           ),
                         ],
                       ),
@@ -5135,7 +5289,8 @@ class _DishManagementDialogState extends State<_DishManagementDialog> {
 }
 
 class _ReviewReportDialog extends StatefulWidget {
-  const _ReviewReportDialog();
+  const _ReviewReportDialog({this.photoUrl});
+  final String? photoUrl;
 
   @override
   State<_ReviewReportDialog> createState() => _ReviewReportDialogState();
@@ -5158,28 +5313,47 @@ class _ReviewReportDialogState extends State<_ReviewReportDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Report Review'),
+      title: Text(widget.photoUrl == null ? 'Report Review' : 'Report Photo'),
       scrollable: true,
-      content: DropdownButtonFormField<String>(
-        isExpanded: true,
-        itemHeight: null,
-        initialValue: _selectedReason,
-        hint: const Text('Select a reason'),
-        decoration: const InputDecoration(
-          labelText: 'Reason (Optional)',
-          border: OutlineInputBorder(),
-        ),
-        items: _reasons
-            .map(
-              (reason) =>
-                  DropdownMenuItem<String>(value: reason, child: Text(reason)),
-            )
-            .toList(),
-        onChanged: (value) {
-          setState(() {
-            _selectedReason = value;
-          });
-        },
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.photoUrl != null) ...[
+            Image.network(
+              widget.photoUrl!,
+              height: 120,
+              fit: BoxFit.contain,
+              errorBuilder: (_, error, stack) =>
+                  const Text('Photo preview unavailable'),
+            ),
+            const SizedBox(height: 12),
+          ],
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            itemHeight: null,
+            initialValue: _selectedReason,
+            hint: const Text('Select a reason'),
+            decoration: InputDecoration(
+              labelText: widget.photoUrl == null
+                  ? 'Reason (Optional)'
+                  : 'Reason',
+              border: const OutlineInputBorder(),
+            ),
+            items: _reasons
+                .map(
+                  (reason) => DropdownMenuItem<String>(
+                    value: reason,
+                    child: Text(reason),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedReason = value;
+              });
+            },
+          ),
+        ],
       ),
       actions: [
         TextButton(
@@ -5187,7 +5361,9 @@ class _ReviewReportDialogState extends State<_ReviewReportDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: () => Navigator.of(context).pop(_selectedReason ?? ''),
+          onPressed: widget.photoUrl != null && _selectedReason == null
+              ? null
+              : () => Navigator.of(context).pop(_selectedReason ?? ''),
           child: const Text('Submit'),
         ),
       ],
