@@ -9,7 +9,7 @@ import { biteSaverAccountCatalogBindingState, biteScoreCatalogBindingState } fro
 import { ratingDishOperationLockPath, ratingRestaurantOperationLockPath } from "./rating_destructive_job_contract.js";
 import { dishMergeReviewLockPath } from "./dish_proposal_private_contract.js";
 import { HttpsError } from "firebase-functions/v2/https";
-import { OpaqueCursorCodec } from "./opaque_cursor.js";
+import { OpaqueCursorCodec, OpaqueCursorError } from "./opaque_cursor.js";
 import { createQueryFingerprint } from "./query_fingerprint.js";
 import { createSearchIndexDocumentId } from "./search_index_contract.js";
 import { readBiteScoreCatalogRestaurantId } from "./restaurant_invite_helpers.js";
@@ -188,6 +188,27 @@ function reviewOrder(sort: string): readonly (readonly [string, "asc" | "desc"])
   if (sort === "Highest score" || sort === "Lowest score") return [["overallBiteScore", sort === "Highest score" ? "desc" : "asc"], ["createdAtMicros", "desc"], ["reviewOrder0", "asc"], ["reviewOrder1", "asc"]];
   return [["createdAtMicros", "desc"], ["reviewOrder0", "asc"], ["reviewOrder1", "asc"]];
 }
+
+function reviewRefreshRequired(): never {
+  throw new HttpsError("failed-precondition", "Reviews changed. Refresh to continue.");
+}
+
+/** Read the existing Stage 1 preferences contract, never a client viewer ID.
+ * Missing preferences mean no prior mutations; malformed persisted state must
+ * not silently fall back to the unfiltered view. Kept local to this read path
+ * because reviewer_safety already depends on this module's public projection. */
+async function reviewBlockRevision(db: Firestore, viewerId: string | null): Promise<number> {
+  if (viewerId === null) return 0;
+  const snapshot = await db.doc(`user_profiles/${viewerId}/reviewer_safety_state/preferences`).get();
+  if (!snapshot.exists) return 0;
+  const value = snapshot.data();
+  if (value?.schemaVersion !== 1 || !Number.isSafeInteger(value.revision) ||
+      value.revision < 0 || value.revision >= Number.MAX_SAFE_INTEGER || !(value.updatedAt instanceof Timestamp)) {
+    reviewRefreshRequired();
+  }
+  return value.revision as number;
+}
+
 export async function pageCustomerBiteScoreReviewsHandler(db: Firestore, raw: unknown, context: CustomerBiteScoreReadContext): Promise<Data> {
   const request = data(raw);
   const dishId = id(request.dishId);
@@ -197,7 +218,12 @@ export async function pageCustomerBiteScoreReviewsHandler(db: Firestore, raw: un
   await readCustomerBiteScoreProjection(db, "restaurant", id(dish.restaurantSourceDocumentId));
   const generationRef = db.doc(`${customerBiteScoreReadGeneration}/${hash(dishId)}`);
   const generation = count((await generationRef.get()).data()?.generation);
-  const binding = {queryFingerprint: createQueryFingerprint({dishId, sort, generation}), source: "customerBiteScoreReads", searchMode: "dishReviews", pageSize: customerBiteScoreReadPageSize, callerBinding: hash(context.actorId)};
+  // The callable's readContext supplies userId from request.auth.uid. Raw request
+  // identity fields never authorize private reads, including for guest calls.
+  const viewerId = context.userId ?? null;
+  if (viewerId !== null) accountDeletionPath(viewerId);
+  const blockRevision = await reviewBlockRevision(db, viewerId);
+  const binding = {queryFingerprint: createQueryFingerprint({dishId, sort, generation, blockRevision}), source: "customerBiteScoreReads", searchMode: "dishReviews", pageSize: customerBiteScoreReadPageSize, callerBinding: hash(JSON.stringify([context.actorId, viewerId]))};
   let query: Query = db.collection(customerBiteScoreReviewIndex).where("dishId", "==", dishId).where("publicVisible", "==", true);
   for (const [field, direction] of reviewOrder(sort)) query = query.orderBy(field, direction);
   if (request.targetReviewId != null) {
@@ -207,7 +233,9 @@ export async function pageCustomerBiteScoreReviewsHandler(db: Firestore, raw: un
     query = query.startAt(target);
   }
   if (request.cursor !== undefined && request.cursor !== null) {
-    const cursor = context.cursorCodec.decode(request.cursor as string, {...binding, purposes: ["forward"]});
+    let cursor;
+    try { cursor = context.cursorCodec.decode(request.cursor as string, {...binding, purposes: ["forward"]}); }
+    catch (error) { if (error instanceof OpaqueCursorError) reviewRefreshRequired(); throw error; }
     const key = cursor.sortTuple[0];
     if (typeof key !== "string" || !/^[a-f0-9]{64}$/.test(key)) throw new HttpsError("invalid-argument", "Invalid review cursor.");
     const last = await db.doc(`${customerBiteScoreReviewIndex}/${key}`).get();
@@ -217,12 +245,27 @@ export async function pageCustomerBiteScoreReviewsHandler(db: Firestore, raw: un
   const snapshot = await query.limit(customerBiteScoreReadPageSize + 1).get();
   const selected = snapshot.docs.slice(0, customerBiteScoreReadPageSize);
   const sources = selected.length ? await db.getAll(...selected.map((doc) => db.doc(`dish_reviews/${doc.data().reviewId}`))) : [];
-  const users = [...new Set(selected.map((doc) => id(doc.data().userId)))];
-  const metadata = await readReviewerMetadata(db, users);
-  const items: Data[] = [];
+  // At most 25 exact block reads in one batch, from authoritative source authors.
+  // Lookahead establishes continuation only; it is examined on the next page.
+  const authors = [...new Set(sources.map((source) => source.data()?.userId)
+    .filter((value): value is string => typeof value === "string" && readBiteScoreCatalogRestaurantId(value) === value))];
+  const blocks = viewerId !== null && authors.length ? await db.getAll(...authors.map((author) =>
+    db.doc(`user_profiles/${viewerId}/blocked_reviewers/${author}`))) : [];
+  const blocked = new Set<string>();
+  blocks.forEach((block, index) => {
+    if (!block.exists) return;
+    const value = block.data();
+    if (blockRevision === 0 || value?.schemaVersion !== 1 || value.targetUserId !== authors[index]) reviewRefreshRequired();
+    blocked.add(authors[index]);
+  });
+  const visible: {indexed: Data; safe: Data}[] = [];
   for (let i = 0; i < selected.length; i++) {
     const indexed = selected[i].data();
     const latest = sources[i].data();
+    if (latest && blocked.has(latest.userId)) {
+      if (indexed.reviewId === request.targetReviewId) throw new HttpsError("not-found", "This review is unavailable.");
+      continue;
+    }
     // Never disclose stale hidden/deleted text while asynchronous projections catch up.
     if (!latest || !isCustomerBiteScorePublicReview(latest) || latest.dishId !== dishId || latest.restaurantId !== dish.restaurantSourceDocumentId || latest.userId !== indexed.userId) continue;
     const safe = buildCustomerBiteScoreReview(indexed.reviewId, latest, indexed);
@@ -230,6 +273,12 @@ export async function pageCustomerBiteScoreReviewsHandler(db: Firestore, raw: un
     if (!isDeepStrictEqual(safe.review, indexed.review)) {
       throw new HttpsError("failed-precondition", "Reviews changed. Refresh to continue.");
     }
+    visible.push({indexed, safe});
+  }
+  // Never fetch profiles, badges, votes, reports or images for excluded authors.
+  const metadata = await readReviewerMetadata(db, [...new Set(visible.map(({indexed}) => id(indexed.userId)))]);
+  const items: Data[] = [];
+  for (const {indexed, safe} of visible) {
     const ownVoteId = context.userId ? readBiteScoreCatalogRestaurantId(indexed.reviewId + "_" + context.userId) : null;
     const ownVote = ownVoteId ? await db.doc(`review_feedback_votes/${ownVoteId}`).get() : null;
     const reviewImages = await imageQuery(db, dishId, false).where("reviewId", "==", indexed.reviewId).limit(1).get();
@@ -244,11 +293,14 @@ export async function pageCustomerBiteScoreReviewsHandler(db: Firestore, raw: un
     const reports = context.userId ? await db.collection("review_reports").where("reviewId", "==", indexed.reviewId).where("reportingUserId", "==", context.userId).where("status", "==", "pending").limit(1).get() : null;
     items.push({review: safe.review, helpfulCount: indexed.helpfulCount, notHelpfulCount: indexed.notHelpfulCount,
       currentUserVoteType: ownVote?.data()?.userId === context.userId && ownVote?.data()?.reviewId === indexed.reviewId ? ownVote?.data()?.voteType ?? null : null,
-      hasPendingUserReport: Boolean(reports && !reports.empty), reviewer: metadata.get(indexed.userId), image});
+      hasPendingUserReport: Boolean(reports && !reports.empty), reviewer: metadata.get(id(indexed.userId)), image});
   }
   await readCustomerBiteScoreProjection(db, "dish", dishId);
   await readCustomerBiteScoreProjection(db, "restaurant", id(dish.restaurantSourceDocumentId));
   if (count((await generationRef.get()).data()?.generation) !== generation) throw new HttpsError("failed-precondition", "Reviews changed. Refresh to continue.");
+  if (await reviewBlockRevision(db, viewerId) !== blockRevision) reviewRefreshRequired();
+  // Advance past examined candidates even when every candidate was excluded.
+  // An empty items array with nextCursor is a continuation, not end-of-results.
   const last = selected[selected.length - 1];
   return {items, nextCursor: snapshot.docs.length > customerBiteScoreReadPageSize && last ? context.cursorCodec.encode({...binding, purpose: "forward", sortTuple: [last.id]}) : null};
 }

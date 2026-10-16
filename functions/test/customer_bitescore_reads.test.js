@@ -209,3 +209,213 @@ test('permanent retired and deleted image parents are never patched or resurrect
   assert.equal(db.values.has(reads.customerBiteScoreImageIndex+'/'+hash('img')),false);
  }
 });
+
+// Reviewer Safety Stage 2A: instrument only the existing bounded in-memory
+// adapter; no production services or emulator processes are used by these tests.
+const preferencesPath = uid => `user_profiles/${uid}/reviewer_safety_state/preferences`;
+const blockPath = (uid, author) => `user_profiles/${uid}/blocked_reviewers/${author}`;
+function setBlocks(db, uid, authors, revision) {
+  for (const path of [...db.values.keys()]) if (path.startsWith(`user_profiles/${uid}/blocked_reviewers/`)) db.values.delete(path);
+  db.values.set(preferencesPath(uid), {schemaVersion: 1, revision, updatedAt: Timestamp.fromMillis(5000 + revision)});
+  for (const author of authors) db.values.set(blockPath(uid, author), {schemaVersion: 1, targetUserId: author, createdAt: Timestamp.fromMillis(5000)});
+}
+async function safetyFixture(total = 63, authorFor = n => `user${n}`) {
+  const {db, context} = fixture();
+  for (let n = 0; n < total; n++) {
+    const rid = `r${String(n).padStart(3, '0')}`;
+    db.values.set('dish_reviews/' + rid, review(n, {userId: authorFor(n)}));
+    await reads.reconcileCustomerBiteScoreReview(db, rid);
+  }
+  const audit = {documents: [], batches: [], queries: []};
+  const snap = db.snap.bind(db), getAll = db.getAll.bind(db), collection = db.collection.bind(db);
+  db.snap = path => { audit.documents.push(path); return snap(path); };
+  db.getAll = async (...refs) => { audit.batches.push(refs.map(ref => ref.path)); return getAll(...refs); };
+  db.collection = path => { audit.queries.push(path); return collection(path); };
+  return {db, audit, context: {...context, actorId: 'trusted-viewer', userId: 'viewer'}};
+}
+const requestPage = (db, context, extra = {}) => reads.pageCustomerBiteScoreReviewsHandler(db, {dishId: 'dish', sort: 'Most recent', ...extra}, context);
+const refresh = error => error.code === 'failed-precondition' && error.message === 'Reviews changed. Refresh to continue.';
+
+for (const sort of reads.customerBiteScoreReviewSorts) test(`personal filtering preserves ${sort}, lookahead and all eligible records across bounded pages`, async () => {
+  const {db, context, audit} = await safetyFixture();
+  const blockedAuthors = Array.from({length: 63}, (_, n) => `user${n}`).filter((_, n) => n % 3 !== 0);
+  setBlocks(db, 'viewer', blockedAuthors, 1);
+  const publicIds = [], visibleIds = [];
+  for (const [reader, ids] of [[{...context, userId: null}, publicIds], [context, visibleIds]]) {
+    let cursor; let pages = 0;
+    do {
+      const page = await requestPage(db, reader, {sort, cursor});
+      assert.ok(page.items.length <= 25);
+      ids.push(...page.items.map(item => item.review.id));
+      cursor = page.nextCursor; pages++;
+      assert.ok(pages <= 3, 'never refill/scan beyond a single bounded batch');
+    } while (cursor);
+    assert.equal(pages, 3);
+  }
+  assert.deepEqual(visibleIds, publicIds.filter(rid => Number(rid.slice(1)) % 3 === 0));
+  assert.equal(new Set(visibleIds).size, visibleIds.length);
+  const batches = audit.batches.filter(refs => refs[0]?.includes('/blocked_reviewers/'));
+  assert.deepEqual(batches.map(refs => refs.length), [25, 25, 13]);
+  assert.equal(audit.documents.filter(p => p === preferencesPath('viewer')).length, 6);
+  assert.ok(audit.queries.every(p => !p.includes('blocked_reviewers') && !p.includes('reviewer_safety_state')));
+});
+
+test('no blocks, signed-out and guest contexts preserve ordinary public results and ignore forged viewer fields', async () => {
+  const {db, context, audit} = await safetyFixture(3);
+  setBlocks(db, 'someone-else', ['user1'], 1);
+  for (const reader of [context, {...context, userId: null}, {...context, userId: undefined}, {...context, userId: 'anonymous-guest', actorId: 'guest-auth'}]) {
+    const page = await requestPage(db, reader, {userId: 'someone-else', viewerId: 'someone-else', expectedUserId: 'someone-else'});
+    assert.deepEqual(page.items.map(i => i.review.id), ['r002', 'r001', 'r000']);
+  }
+  assert.ok(!audit.documents.some(p => p.startsWith('user_profiles/someone-else/')));
+});
+
+test('one repeated blocked author adds one exact block read and no excluded text, image, identity or metadata', async () => {
+  const {db, context, audit} = await safetyFixture(26, () => 'blocked-author');
+  setBlocks(db, 'viewer', ['blocked-author'], 1);
+  db.values.set('public_reviewer_profiles/blocked-author', {publicDisplayName: 'Do not disclose'});
+  const before = require("node:v8").serialize([...db.values]);
+  const page = await requestPage(db, context);
+  assert.deepEqual(page.items, []); assert.ok(page.nextCursor);
+  assert.deepEqual(Object.keys(page).sort(), ['items', 'nextCursor']);
+  assert.equal(audit.batches.filter(refs => refs[0]?.includes('/blocked_reviewers/')).length, 1);
+  assert.equal(audit.documents.filter(p => p === blockPath('viewer', 'blocked-author')).length, 1);
+  assert.equal(audit.documents.filter(p => p === preferencesPath('viewer')).length, 2);
+  assert.ok(!audit.documents.some(p => p.startsWith('public_reviewer_profiles/') || p.includes('/local_expert_badges/')));
+  assert.ok(!audit.queries.includes(reads.customerBiteScoreImageIndex));
+  assert.ok(!audit.queries.includes('review_reports'));
+  assert.deepEqual(require("node:v8").serialize([...db.values]), before, 'reads preserve all public content, aggregates and votes');
+  const end = await requestPage(db, context, {cursor: page.nextCursor});
+  assert.deepEqual(end, {items: [], nextCursor: null});
+  const other = await requestPage(db, {...context, userId: 'other', actorId: 'other'});
+  assert.equal(other.items.length, 25);
+  assert.equal((await reads.getCustomerBiteScoreDetailHandler(db, {kind: 'dish', id: 'dish'}, context)).dish.sourceDocumentId, 'dish');
+});
+
+test('long blocked prefix yields empty continuing pages without skipping lookahead or eligible reviews', async () => {
+  const {db, context, audit} = await safetyFixture(82);
+  setBlocks(db, 'viewer', Array.from({length: 60}, (_, n) => `user${n + 22}`), 1);
+  const pages = []; let cursor;
+  do { const page = await requestPage(db, context, {cursor}); pages.push(page); cursor = page.nextCursor; assert.ok(pages.length <= 4); } while (cursor);
+  assert.deepEqual(pages.map(p => p.items.length), [0, 0, 15, 7]);
+  assert.ok(pages[0].nextCursor && pages[1].nextCursor && pages[2].nextCursor);
+  assert.equal(pages[3].nextCursor, null);
+  assert.deepEqual(pages.flatMap(p => p.items.map(i => i.review.id)), Array.from({length: 22}, (_, i) => `r${String(21 - i).padStart(3, '0')}`));
+  assert.equal(audit.queries.filter(p => p === reads.customerBiteScoreReviewIndex).length, 4);
+});
+
+test('blocked exact target is neutrally unavailable, valid target retains dish/order semantics', async () => {
+  const {db, context, audit} = await safetyFixture();
+  setBlocks(db, 'viewer', ['user12'], 1);
+  await assert.rejects(requestPage(db, context, {targetReviewId: 'r012'}), {code: 'not-found', message: 'This review is unavailable.'});
+  assert.ok(!audit.documents.includes('public_reviewer_profiles/user12'));
+  const page = await requestPage(db, context, {targetReviewId: 'r013'});
+  assert.equal(page.items[0].review.id, 'r013'); assert.equal(page.items.length, 13);
+  const other = await requestPage(db, {...context, userId: null}, {targetReviewId: 'r012'});
+  assert.equal(other.items[0].review.id, 'r012');
+});
+
+test('block/unblock revisions reject old continuations and account switches even with a reused actor binding', async () => {
+  const {db, context} = await safetyFixture();
+  const first = await requestPage(db, context);
+  setBlocks(db, 'viewer', ['user30'], 1);
+  await assert.rejects(requestPage(db, context, {cursor: first.nextCursor}), refresh);
+  const blockedPage = await requestPage(db, context);
+  const next = await requestPage(db, context, {cursor: blockedPage.nextCursor});
+  assert.ok(!next.items.some(i => i.review.userId === 'user30'));
+  setBlocks(db, 'viewer', [], 2);
+  for (const cursor of [first.nextCursor, blockedPage.nextCursor]) await assert.rejects(requestPage(db, context, {cursor}), refresh);
+  const fresh = await requestPage(db, context);
+  for (const userId of ['another-user', null]) await assert.rejects(requestPage(db, {...context, userId}, {cursor: fresh.nextCursor}), refresh);
+});
+
+test('in-flight block/unblock and preference removal fail closed at the final revision check', async () => {
+  for (const change of ['block', 'unblock', 'remove']) {
+    const {db, context} = await safetyFixture(3);
+    if (change !== 'block') setBlocks(db, 'viewer', ['user0'], 1);
+    const getAll = db.getAll.bind(db); let changed = false;
+    db.getAll = async (...refs) => {
+      const snapshots = await getAll(...refs);
+      if (!changed && refs.some(ref => ref.path.includes('/blocked_reviewers/'))) {
+        changed = true;
+        if (change === 'remove') db.values.delete(preferencesPath('viewer'));
+        else setBlocks(db, 'viewer', change === 'block' ? ['user1'] : [], change === 'block' ? 1 : 2);
+      }
+      return snapshots;
+    };
+    await assert.rejects(requestPage(db, context), refresh); assert.equal(changed, true);
+  }
+});
+
+test('malformed revision and inconsistent block identity never fall back to public content', async () => {
+  const {db, context} = await safetyFixture(3);
+  for (const value of [{}, {schemaVersion: 2, revision: 1}, ...[undefined, -1, 1.5, '1', Number.MAX_SAFE_INTEGER, NaN].map(revision => ({schemaVersion: 1, revision, updatedAt: Timestamp.now()})), {schemaVersion: 1, revision: 1, updatedAt: 'forged'}]) {
+    db.values.set(preferencesPath('viewer'), value);
+    await assert.rejects(requestPage(db, context), refresh);
+  }
+  setBlocks(db, 'viewer', ['user1'], 1);
+  db.values.get(blockPath('viewer', 'user1')).targetUserId = 'someone-else';
+  await assert.rejects(requestPage(db, context), refresh);
+  setBlocks(db, 'viewer', ['user1'], 1); db.values.delete(preferencesPath('viewer'));
+  await assert.rejects(requestPage(db, context), refresh);
+});
+
+test('authoritative reassignment cannot bypass blocks and inconsistent/stale sources remain fail closed', async () => {
+  const {db, context, audit} = await safetyFixture(3);
+  setBlocks(db, 'viewer', ['new-author'], 1);
+  db.values.get('dish_reviews/r001').userId = 'new-author';
+  const page = await requestPage(db, context);
+  assert.ok(!page.items.some(i => i.review.id === 'r001'));
+  assert.ok(audit.documents.includes(blockPath('viewer', 'new-author')));
+  assert.ok(!audit.documents.includes('public_reviewer_profiles/user1'));
+  await assert.rejects(requestPage(db, context, {targetReviewId: 'r001'}), {code: 'not-found'});
+  db.values.get('dish_reviews/r000').notes = 'Stale projection';
+  await assert.rejects(requestPage(db, context), refresh);
+});
+
+test('eligible review votes, pending reports, profile metadata, badges and image remain unchanged', async () => {
+  const {db, context} = await safetyFixture(2);
+  setBlocks(db, 'viewer', ['user0'], 1);
+  db.values.set('review_feedback_votes/r001_viewer', {reviewId: 'r001', userId: 'viewer', voteType: 'helpful'});
+  db.values.set('review_reports/report', {reviewId: 'r001', reportingUserId: 'viewer', status: 'pending'});
+  db.values.set('public_reviewer_profiles/user1', {publicDisplayName: 'Visible reviewer'});
+  db.values.set('user_profiles/user1/local_expert_badges/pizza', {expertTypeId: 'pizza', displayName: 'Pizza expert', level: 1});
+  db.values.set('bitescore_dish_images/img', {dishId: 'dish', restaurantId: 'restaurant', reviewId: 'r001', imageUrl: 'https://example.test/visible.jpg'});
+  await reads.reconcileCustomerBiteScoreImage(db, 'img');
+  const before = require("node:v8").serialize([...db.values]);
+  const page = await requestPage(db, context);
+  assert.equal(page.items.length, 1);
+  const item = page.items[0];
+  assert.equal(item.currentUserVoteType, 'helpful'); assert.equal(item.hasPendingUserReport, true);
+  assert.equal(item.reviewer.displayName, 'Visible reviewer'); assert.equal(item.reviewer.badges[0].expertTypeId, 'pizza');
+  assert.equal(item.image.id, 'img');
+  assert.deepEqual(require("node:v8").serialize([...db.values]), before);
+});
+
+test('actual review callable uses Firebase UID, keeps guest behavior, and never trusts payload viewer identity', async () => {
+  const {db} = await safetyFixture(3);
+  setBlocks(db, 'viewer', ['user1'], 1);
+  const Module = require('node:module');
+  const originalLoad = Module._load;
+  const actualFirestore = require('firebase-admin/firestore');
+  const actualParams = require('firebase-functions/params');
+  // Only inject the database and a synthetic cursor key; execute the real
+  // callable/readContext/handler chain without an SDK network connection.
+  Module._load = function(name, parent, isMain) {
+    if (name === 'firebase-admin/firestore') return {...actualFirestore, getFirestore: () => db};
+    if (name === 'firebase-functions/params') return {...actualParams, defineSecret: secret => ({name: secret, value: () => Buffer.alloc(32, 9).toString('base64url')})};
+    return originalLoad.call(this, name, parent, isMain);
+  };
+  let runtime;
+  try { runtime = require('../lib/customer_bitescore_runtime.js'); } finally { Module._load = originalLoad; }
+  const data = {dishId: 'dish', sort: 'Most recent', clientInstanceId: 'synthetic_instance_123', userId: 'viewer', viewerId: 'viewer'};
+  for (const [auth, expected] of [
+    [{uid: 'viewer', token: {firebase: {sign_in_provider: 'password'}}}, ['r002', 'r000']],
+    [{uid: 'another', token: {firebase: {sign_in_provider: 'password'}}}, ['r002', 'r001', 'r000']],
+    [{uid: 'anonymous-guest', token: {firebase: {sign_in_provider: 'anonymous'}}}, ['r002', 'r001', 'r000']],
+    [undefined, ['r002', 'r001', 'r000']],
+  ]) {
+    const page = await runtime.pageCustomerBiteScoreReviews.run({auth, data});
+    assert.deepEqual(page.items.map(item => item.review.id), expected);
+  }
+});
