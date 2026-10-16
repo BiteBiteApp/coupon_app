@@ -118,3 +118,17 @@ test("new photo ownership rejects foreign metadata and forged proof on retired p
  const store=db(); store.values.set("private_account_deletions/user",{});
  await assert.rejects(create(store,request(),options),{code:"failed-precondition"});
 });
+
+test('posting restriction blocks photo publication and new votes; existing content and own withdrawal survive',async()=>{
+ const store=db();await create(store,request(),options);await vote(store,voteRequest());
+ const path='user_profiles/user/posting_restriction_state/current';
+ store.values.set(path,{schemaVersion:1,revision:1,kind:'indefinite',startsAt:new Date(0),endsAt:null,releasedAt:null});
+ const imageBefore={...store.values.get('bitescore_dish_images/image')};
+ await assert.rejects(create(store,request(input({imageId:'blocked'})),options),e=>e.details?.reason==='posting-restricted');
+ await assert.rejects(vote(store,voteRequest('notHelpful')),e=>e.details?.reason==='posting-restricted');
+ assert.deepEqual(store.values.get('bitescore_dish_images/image'),imageBefore);
+ assert.equal((await vote(store,voteRequest())).currentUserVoteType,null);
+ store.values.set(path,{...store.values.get(path),releasedAt:new Date(500)});
+ await create(store,request(input({imageId:'released'})),options);
+ assert.equal(store.values.get('bitescore_dishes/dish').imageCount,2);
+});

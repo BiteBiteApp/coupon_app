@@ -42,6 +42,20 @@ service cloud.firestore {
     match /private_account_deletions/{document=**} {
       allow read, write: if false;
     }
+    // Only customer publication uses this guard. Existing content, business
+    // functions, reports, account operations and withdrawal stay independent.
+    function customerPostingAllowed() {
+      let path = /databases/$(database)/documents/user_profiles/$(request.auth.uid)/posting_restriction_state/current;
+      return signedIn() && (!exists(path) || postingRestrictionInactive(get(path).data));
+    }
+    function postingRestrictionInactive(data) {
+      return data.schemaVersion == 1 && data.revision is int && data.revision > 0 &&
+        data.kind in ['7d', '14d', 'indefinite'] && data.startsAt is timestamp &&
+        ((data.kind == 'indefinite' && data.endsAt == null) ||
+          (data.kind != 'indefinite' && data.endsAt is timestamp && data.endsAt > data.startsAt)) &&
+        (data.releasedAt is timestamp ||
+          (data.releasedAt == null && data.kind != 'indefinite' && request.time >= data.endsAt));
+    }
     function signedIn() {
       return request.auth != null;
     }
@@ -1482,6 +1496,9 @@ service cloud.firestore {
         allow read: if isSignedInNonAnonymousSelf(userId);
         allow write: if false;
       }
+      match /posting_restriction_state/{stateId} {
+        allow read, write: if false;
+      }
       match /reviewer_safety_state/{stateId} {
         allow read: if stateId == 'preferences' && isSignedInNonAnonymousSelf(userId);
         allow write: if false;
@@ -1685,7 +1702,7 @@ service cloud.firestore {
         validBiteScoreRestaurantCreateRevision() &&
         (
           isAdmin() ||
-          canCreatePublicBiteScoreRestaurant(restaurantId)
+          (customerPostingAllowed() && canCreatePublicBiteScoreRestaurant(restaurantId))
         ));
       allow update: if validCatalogBioUpdate() && deletionActorMayWrite() && deletionCatalogAttributionMayWrite() && (!changedKeys().hasAny(biteScoreCatalogBindingFields()) &&
         validBiteScoreClaimInvitationEpochUpdate() &&
@@ -1728,6 +1745,21 @@ service cloud.firestore {
           get(/databases/$(database)/documents/bitescore_dish_images/$(imageId)).data.imageUrl == url);
     }
 
+    // A legacy vote withdrawal can reselect an existing photo, but must not
+    // publish an arbitrary new URL while the caller is restricted.
+    function restrictedDishImageMaintenance(dishId) {
+      let imageId = request.resource.data.get('primaryImageId', null);
+      let url = request.resource.data.get('primaryImageUrl', null);
+      return !changedKeys().hasAny(['primaryImageId', 'primaryImageUrl']) ||
+        (imageId == null && url == null) ||
+        (imageId is string && imageId.size() > 0 &&
+          exists(/databases/$(database)/documents/bitescore_dish_images/$(imageId)) &&
+          get(/databases/$(database)/documents/bitescore_dish_images/$(imageId)).data.dishId == dishId &&
+          get(/databases/$(database)/documents/bitescore_dish_images/$(imageId)).data.restaurantId == resource.data.restaurantId &&
+          get(/databases/$(database)/documents/bitescore_dish_images/$(imageId)).data.get('moderationStatus', '') != 'removed' &&
+          get(/databases/$(database)/documents/bitescore_dish_images/$(imageId)).data.imageUrl == url);
+    }
+
     match /bitescore_dishes/{dishId} {
       allow read: if isAdmin() || ownerOfBiteScoreRestaurant(resource.data.restaurantId);
       allow create: if deletionActorMayWrite() && deletionCatalogAttributionMayWrite() && (canonicalDishId(dishId) &&
@@ -1737,7 +1769,7 @@ service cloud.firestore {
         aggregateWriteGenerationAbsentOnClientCreate() &&
         (
           isAdmin() ||
-          (emailVerified() && validBiteScoreDishCreateProvenance())
+          (emailVerified() && customerPostingAllowed() && validBiteScoreDishCreateProvenance())
         ));
       allow update: if deletionActorMayWrite() && deletionCatalogAttributionMayWrite() && (dishOperationLockAllowsMutation(dishId) &&
         dataRestaurantOperationLockAllowsMutation(resource.data) &&
@@ -1747,6 +1779,8 @@ service cloud.firestore {
           ownerOfBiteScoreRestaurant(resource.data.restaurantId) ||
           (
             emailVerified() &&
+            (customerPostingAllowed() ||
+              (!changedKeys().hasAny(['category', 'subcategory', 'categoryManualKeywords', 'categoryTags']) && restrictedDishImageMaintenance(dishId))) &&
             (!biteScoreTrustedAggregatesEnabled() ||
               !changedKeys().hasAny(['imageCount', 'primaryImageId', 'primaryImageUrl'])) &&
             changedKeys().hasOnly([
@@ -1806,12 +1840,12 @@ service cloud.firestore {
 
     match /dish_reviews/{reviewId} {
       allow read: if isAdmin() || ownerOfBiteScoreDish(resource.data.dishId);
-      allow create: if deletionActorMayWrite() && (!biteScoreTrustedAggregatesEnabled() && createsOwnReview() &&
+      allow create: if deletionActorMayWrite() && (!biteScoreTrustedAggregatesEnabled() && customerPostingAllowed() && createsOwnReview() &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
         reviewDataHasCanonicalDishId(request.resource.data) &&
         !reviewDataHasBlockingMergeLock(request.resource.data) &&
         reviewDataUserAllowsMilestoneMutation(request.resource.data));
-      allow update: if deletionActorMayWrite() && ((isAdmin() || !biteScoreTrustedAggregatesEnabled()) && (isAdmin() || updatesOwnReview()) &&
+      allow update: if deletionActorMayWrite() && ((isAdmin() || !biteScoreTrustedAggregatesEnabled()) && (isAdmin() || (customerPostingAllowed() && updatesOwnReview())) &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
         ((request.resource.data.dishId == resource.data.dishId && request.resource.data.restaurantId == resource.data.restaurantId) || dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data)) &&
         reviewDataHasCanonicalDishId(resource.data) &&
@@ -1831,7 +1865,7 @@ service cloud.firestore {
       allow read: if isAdmin() || ownerOfBiteScoreDish(resource.data.dishId) ||
         (signedIn() && resource.data.uploadedByUserId == request.auth.uid);
       allow create: if !request.resource.data.keys().hasAny(['moderationStatus', 'moderatedAt']) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'uploadedByUserId') && deletionOptionalReviewParentMayWrite(request.resource.data) && (isAdmin() ||
-        (!biteScoreTrustedAggregatesEnabled() && emailVerified() &&
+        (!biteScoreTrustedAggregatesEnabled() && emailVerified() && customerPostingAllowed() &&
           request.resource.data.uploadedByUserId == request.auth.uid));
       allow update: if resource.data.get('moderationStatus', '') != 'removed' &&
         !changedKeys().hasAny(['moderationStatus', 'moderatedAt']) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'uploadedByUserId') && deletionPersonalIdentityMayWrite(request.resource.data, 'uploadedByUserId') && deletionOptionalReviewParentMayWrite(resource.data) && deletionOptionalReviewParentMayWrite(request.resource.data) && (isAdmin() ||
@@ -1855,8 +1889,8 @@ service cloud.firestore {
       allow read: if signedIn() &&
         (!exists(/databases/$(database)/documents/bitescore_dish_image_votes/$(voteId)) ||
           resource.data.userId == request.auth.uid);
-      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && deletionImageParentMayWrite(request.resource.data) && (emailVerified() && request.resource.data.userId == request.auth.uid);
-      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && deletionImageParentMayWrite(resource.data) && deletionImageParentMayWrite(request.resource.data) && (emailVerified() &&
+      allow create: if customerPostingAllowed() && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && deletionImageParentMayWrite(request.resource.data) && (emailVerified() && request.resource.data.userId == request.auth.uid);
+      allow update: if customerPostingAllowed() && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && deletionImageParentMayWrite(resource.data) && deletionImageParentMayWrite(request.resource.data) && (emailVerified() &&
         resource.data.userId == request.auth.uid &&
         request.resource.data.userId == request.auth.uid);
       allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && (signedIn() && resource.data.userId == request.auth.uid);
@@ -1869,10 +1903,10 @@ service cloud.firestore {
         (!exists(/databases/$(database)/documents/review_feedback_votes/$(voteId)) ||
           resource.data.userId == request.auth.uid));
       allow list: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
-      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && deletionReviewParentMayWrite(request.resource.data) && (emailVerified() &&
+      allow create: if customerPostingAllowed() && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && deletionReviewParentMayWrite(request.resource.data) && (emailVerified() &&
         request.resource.data.userId == request.auth.uid &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data));
-      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && deletionReviewParentMayWrite(resource.data) && deletionReviewParentMayWrite(request.resource.data) && (emailVerified() &&
+      allow update: if customerPostingAllowed() && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && deletionReviewParentMayWrite(resource.data) && deletionReviewParentMayWrite(request.resource.data) && (emailVerified() &&
         resource.data.userId == request.auth.uid &&
         request.resource.data.userId == request.auth.uid &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
@@ -1946,7 +1980,7 @@ service cloud.firestore {
 
     match /dish_edit_proposals/{proposalId} {
       allow read: if isAdmin() || readsOwnDishEditProposal();
-      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (createsOwnDishEditProposal() &&
+      allow create: if customerPostingAllowed() && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (createsOwnDishEditProposal() &&
         (!biteScoreTrustedAggregatesEnabled() || validBiteScoreProposalLookupData(request.resource.data)) &&
         dishProposalResolutionIdentitiesValid(request.resource.data) &&
         proposalOperationLocksAllowMutation(request.resource.data));

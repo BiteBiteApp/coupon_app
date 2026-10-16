@@ -1,3 +1,4 @@
+import {requireCustomerPostingAllowedInStore} from "./posting_restriction_guard.js";
 import {requireAccountWritableInStore} from "./account_deletion_guard.js";
 import {createHash, randomUUID} from "node:crypto";
 import {isDeepStrictEqual} from "node:util";
@@ -205,6 +206,7 @@ export async function resolveCustomerBiteScoreRestaurantCreationHandler(database
   const zipCode = /\d{5}(?:-\d{4})?/.exec(rawZip)?.[0] ?? rawZip;
   return database.runTransaction(async (transaction) => {
     await requireAccountWritableInStore(transaction, uid);
+    await requireCustomerPostingAllowedInStore(transaction, uid, now.getTime());
     const own = await transaction.getDocument(`bitescore_restaurants/${newId}`);
     if (own) {
       const target = restaurant(own);
@@ -260,6 +262,7 @@ export async function resolveCustomerBiteScoreDishCreationHandler(database: Data
   const priceLabel = text(data.priceLabel, false) || null;
   return database.runTransaction(async (transaction) => {
     await requireAccountWritableInStore(transaction, uid);
+    await requireCustomerPostingAllowedInStore(transaction, uid, now.getTime());
     const parent = restaurant(await transaction.getDocument(`bitescore_restaurants/${restaurantId}`));
     coordinates(parent.data);
     await unlocked(transaction, restaurantId, newId);

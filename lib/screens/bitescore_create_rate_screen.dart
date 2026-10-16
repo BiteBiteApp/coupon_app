@@ -2762,6 +2762,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   Future<ContributionPointAwardResult> _uploadSelectedDishImage(
     BiteScoreReviewSaveResult saveResult,
     MainNavigationAuthLease? authLease,
+    void Function(String) onFailure,
   ) async {
     final selectedImage = _selectedDishImage;
     if (selectedImage == null) {
@@ -2790,11 +2791,13 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       if (!mounted || !_canUseOpeningIdentity(authLease)) {
         return const ContributionPointAwardResult();
       }
-      _showSnackBar(
-        AppErrorText.friendly(
-          error,
-          fallback: 'Review saved, but the dish image could not be uploaded.',
-        ),
+      onFailure(
+        AppErrorText.isPostingRestriction(error)
+            ? 'Review saved, but the photo was not posted. ${AppErrorText.friendly(error, fallback: 'Public posting is restricted.')}'
+            : AppErrorText.friendly(
+                error,
+                fallback: 'Review saved, but the dish image could not be uploaded.',
+              ),
       );
       return const ContributionPointAwardResult();
     }
@@ -2992,6 +2995,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     late final BiteScoreReviewSaveResult saveResult;
     late final ContributionPointAwardResult combinedAward;
     var coreSaveSucceeded = false;
+    String? photoFailureMessage;
     final refreshDelivery = mainNavigationController.captureHomeRefreshDelivery(
       context,
       mode: AppMode.biteScore,
@@ -3104,7 +3108,11 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         return;
       }
 
-      final imageAward = await _uploadSelectedDishImage(saveResult, authLease);
+      final imageAward = await _uploadSelectedDishImage(
+        saveResult,
+        authLease,
+        (message) => photoFailureMessage = message,
+      );
 
       if (!mounted || !_canUseOpeningIdentity(authLease)) {
         return;
@@ -3124,10 +3132,12 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       }
 
       _showSnackBar(
-        AppErrorText.friendly(
-          error,
-          fallback: 'Could not save your BiteScore changes right now.',
-        ),
+        AppErrorText.isPostingRestriction(error)
+            ? 'Your review was not saved. ${AppErrorText.friendly(error, fallback: 'Public posting is restricted.')}'
+            : AppErrorText.friendly(
+                error,
+                fallback: 'Could not save your BiteScore changes right now.',
+              ),
       );
       return;
     } finally {
@@ -3160,11 +3170,12 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          isExistingDishMode
-              ? 'Review saved.'
-              : isExistingRestaurantMode && selectedExistingDish == null
-              ? 'Dish created and rated.'
-              : 'Review saved.',
+          photoFailureMessage ??
+              (isExistingDishMode
+                  ? 'Review saved.'
+                  : isExistingRestaurantMode && selectedExistingDish == null
+                  ? 'Dish created and rated.'
+                  : 'Review saved.'),
         ),
       ),
     );

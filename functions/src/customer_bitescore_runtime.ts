@@ -1,3 +1,4 @@
+import {getCustomerPostingStatusHandler, getAdminPostingRestrictionHandler, setAdminPostingRestrictionHandler} from "./posting_restrictions.js";
 import {submitPhotoReportHandler, moderatePhotoReportHandler} from "./photo_reports.js";
 import {submitReviewerReportHandler, blockReviewerHandler, unblockReviewerHandler, getReviewerSafetyStatusHandler} from "./reviewer_safety.js";
 import {customerBiteScoreTerms} from "./bitescore_terms.js";
@@ -65,6 +66,12 @@ const publicOptions = {
 
 // Stage 1 source contracts only; no customer UI calls these until Stage 2.
 const reviewerSafetyOptions = {serviceAccount: biteScoreCustomerRuntimeServiceAccount, timeoutSeconds: 60};
+export const getCustomerPostingStatus = onCall(reviewerSafetyOptions, request => safely(() =>
+  getCustomerPostingStatusHandler(getFirestore(), request)));
+export const getAdminPostingRestriction = onCall(reviewerSafetyOptions, request => safely(() =>
+  getAdminPostingRestrictionHandler(getFirestore(), request)));
+export const setAdminPostingRestriction = onCall(reviewerSafetyOptions, request => safely(() =>
+  setAdminPostingRestrictionHandler(getFirestore(), request)));
 export const submitPhotoReport = onCall(reviewerSafetyOptions, (request) => safely(() =>
   submitPhotoReportHandler(getFirestore(), request)));
 export const moderatePhotoReport = onCall(reviewerSafetyOptions, (request) => safely(() =>

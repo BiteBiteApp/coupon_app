@@ -28,7 +28,8 @@ if (process.env.BITESAVER_FIRESTORE_EMULATOR_TEST !== "1") {
     const data={schemaVersion:1,expectedUserId:userId,imageId,dishId,restaurantId,reviewId:null,mode:"gallery",storagePath,
       imageUrl:`https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(storagePath)}?alt=media&token=${token}`};
     const runtime="private_bitescore_runtime/aggregation";
-    const paths=[runtime,`bitescore_dishes/${dishId}`,`bitescore_restaurants/${restaurantId}`,`bitescore_dish_images/${imageId}`,
+    const restrictionPath=`user_profiles/${userId}/posting_restriction_state/current`;
+    const paths=[restrictionPath,`bitescore_dish_images/blocked-${imageId}`,runtime,`bitescore_dishes/${dishId}`,`bitescore_restaurants/${restaurantId}`,`bitescore_dish_images/${imageId}`,
       ...Array.from({length:6},(_,i)=>`bitescore_dish_image_votes/${imageId}_${userId}-${i}`)];
     try {
       await bucket.file(storagePath).save(Buffer.from([0xff,0xd8,0xff,0xd9]),{resumable:false,metadata:{contentType:"image/jpeg",metadata:{firebaseStorageDownloadTokens:token,ownershipVersion:"1",uploaderKey:createHash("sha256").update(`bitestar.dish-upload.v1:${userId}`).digest("hex"),dishId}}});
@@ -44,6 +45,15 @@ if (process.env.BITESAVER_FIRESTORE_EMULATOR_TEST !== "1") {
       assert.equal(JSON.stringify(created).includes("storagePath"),false);
       await Promise.all(Array.from({length:6},(_,i)=>vote(i%2?db2:db,{auth:auth(`${userId}-${i}`),data:{schemaVersion:1,expectedUserId:`${userId}-${i}`,imageId,dishId,restaurantId,voteType:"helpful"}})));
       assert.equal((await db.doc(`bitescore_dish_images/${imageId}`).get()).data().helpfulCount,6);
+      await db.doc(restrictionPath).set({schemaVersion:1,revision:1,kind:"indefinite",startsAt:new Date(),endsAt:null,releasedAt:null});
+      const before=(await db.doc(`bitescore_dishes/${dishId}`).get()).data();
+      await assert.rejects(create(db,{data:{...data,imageId:`blocked-${imageId}`},auth:auth()}),error=>error.code==="permission-denied" && error.details.reason==="posting-restricted");
+      await assert.rejects(vote(db,{auth:auth(),data:{schemaVersion:1,expectedUserId:userId,imageId,dishId,restaurantId,voteType:"helpful"}}),error=>error.code==="permission-denied" && error.details.reason==="posting-restricted");
+      assert.equal((await db.doc(`bitescore_dish_images/blocked-${imageId}`).get()).exists,false);
+      assert.deepEqual((await db.doc(`bitescore_dishes/${dishId}`).get()).data(),before);
+      await db.doc(restrictionPath).update({releasedAt:new Date(),revision:2});
+      await create(db,{data:{...data,imageId:`blocked-${imageId}`},auth:auth()});
+      assert.equal((await db.doc(`bitescore_dish_images/blocked-${imageId}`).get()).exists,true);
       await assert.rejects(create(db,{data:{...data,imageId:`missing-${imageId}`,storagePath:storagePath.replace("123.jpg","missing.jpg"),imageUrl:data.imageUrl.replace("123.jpg","missing.jpg")},auth:auth()}),{code:"failed-precondition"});
       await assert.rejects(vote(db,{auth:auth(),data:{schemaVersion:1,expectedUserId:userId,imageId,dishId,restaurantId:"wrong",voteType:"helpful"}}),{code:"failed-precondition"});
     }finally{

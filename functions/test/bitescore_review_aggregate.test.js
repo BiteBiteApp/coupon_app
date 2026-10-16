@@ -424,3 +424,19 @@ test('existing Rules exclude receipt field from client mutations and existing de
   const cleanup = fs.readFileSync('src/account_deletion_cleanup.ts', 'utf8');
   assert.match(cleanup, /function personalRootPaths[\s\S]*?`user_profiles\/\$\{uid\}`/);
 });
+
+test('posting-only restriction rejects trusted rating/review edits before any writes and automatically expires', async()=>{
+ const db=new MemoryDatabase();const uid='restricted';
+ const input={schemaVersion:1,expectedUserId:uid,dishId:'dish',restaurantId:'restaurant',headline:'damn good',notes:'draft stays client-side',overallImpression:8,tastinessScore:8,qualityScore:8,valueScore:8};
+ db.set(biteScoreReviewAggregationRuntimePath,{enabled:true,version:1,epoch:'posting-test'});
+ db.set('bitescore_dishes/dish',{id:'dish',restaurantId:'restaurant',isActive:true});
+ db.set('bitescore_restaurants/restaurant',{id:'restaurant',isActive:true});
+ const result=await saveCustomerBiteScoreReview(db,{uid,emailVerified:true},input,base);
+ const before=[...db.documents];
+ const p=`user_profiles/${uid}/posting_restriction_state/current`;
+ db.set(p,{schemaVersion:1,revision:1,kind:'7d',startsAt:base,endsAt:later(7*86400),releasedAt:null});
+ await assert.rejects(saveCustomerBiteScoreReview(db,{uid,emailVerified:true},{...input,notes:'edited'},later(1)),e=>e.details?.reason==='posting-restricted');
+ for(const [path,data] of before)assert.deepEqual(db.get(path),data);
+ const updated=await saveCustomerBiteScoreReview(db,{uid,emailVerified:true},{...input,notes:'edited'},later(7*86400));
+ assert.equal(updated.review.id,result.review.id);assert.equal(updated.review.notes,'edited');assert.equal(db.get('dish_rating_aggregates/dish').ratingCount,1);
+});

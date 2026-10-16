@@ -1,4 +1,10 @@
+// ignore_for_file: depend_on_referenced_packages
 import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
+import 'package:coupon_app/services/contribution_points_service.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coupon_app/models/bitescore_dish.dart';
@@ -16,6 +22,133 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'saved review retains blocked photo and final restriction message',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final picker = ImagePickerPlatform.instance;
+      ImagePickerPlatform.instance = _ReviewPhotoPicker();
+      addTearDown(() => ImagePickerPlatform.instance = picker);
+      var saves = 0;
+      var uploads = 0;
+      final savedDrafts = <List<Object>>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: BiteScoreDishDetailScreen(
+            entry: _entry(),
+            scrollToReviewSection: true,
+            testInitialLoader: () async {},
+            testCurrentUserProvider: () => _GalleryTestUser(uid: 'user-saved'),
+            testWriteGate: (_) async => true,
+            testTermsGate: (_) async => true,
+            testSuppressLocalExpertBadgeRecalculation: true,
+            testReviewSaver:
+                ({
+                  required dish,
+                  required restaurant,
+                  required overallImpression,
+                  required headline,
+                  required notes,
+                  required tastinessScore,
+                  required qualityScore,
+                  required valueScore,
+                }) async {
+                  saves++;
+                  savedDrafts.add([
+                    headline,
+                    notes,
+                    overallImpression,
+                    tastinessScore,
+                    qualityScore,
+                    valueScore,
+                  ]);
+                  return BiteScoreReviewSaveResult(
+                    dish: dish,
+                    restaurant: restaurant,
+                    review: _review(
+                      id: 'saved',
+                      headline: headline,
+                      notes: notes,
+                    ),
+                    contributionPointAward:
+                        const ContributionPointAwardResult(),
+                  );
+                },
+            testReviewImageUploader:
+                ({
+                  required dishId,
+                  required expectedUid,
+                  required pickedImage,
+                }) async {
+                  uploads++;
+                  throw FirebaseFunctionsException(
+                    code: 'permission-denied',
+                    message: 'Public posting is restricted.',
+                    details: {
+                      'reason': 'posting-restricted',
+                      'kind': 'indefinite',
+                      'endsAtMillis': null,
+                    },
+                  );
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(0), 'Damn good');
+      await tester.enterText(
+        find.byType(TextField).at(1),
+        'Keep this saved review',
+      );
+      final addPhoto = find.widgetWithText(OutlinedButton, 'Add dish image');
+      await tester.ensureVisible(addPhoto);
+      await tester.tap(addPhoto);
+      await tester.pumpAndSettle();
+      expect(find.text('Dish image selected'), findsOneWidget);
+      for (final slider in tester.widgetList<Slider>(find.byType(Slider))) {
+        slider.onChanged?.call(7);
+      }
+      await tester.pump();
+      final save = find.widgetWithText(ElevatedButton, 'Save Review');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(saves, 1);
+      expect(uploads, 1);
+      expect(
+        find.textContaining('Review saved, but the photo was not posted.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('administrator releases'), findsOneWidget);
+      expect(find.text('Review saved.'), findsNothing);
+      expect(find.text('Dish image selected'), findsOneWidget);
+      expect(find.text('Damn good'), findsOneWidget);
+      expect(find.text('Keep this saved review'), findsOneWidget);
+      final retry = find.widgetWithText(ElevatedButton, 'Save Changes');
+      expect(tester.widget<ElevatedButton>(retry).onPressed, isNotNull);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(retry);
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+      expect(saves, 2);
+      expect(uploads, 2);
+      expect(savedDrafts[1], savedDrafts[0]);
+      expect(savedDrafts[1], [
+        'Damn good',
+        'Keep this saved review',
+        7.0,
+        7.0,
+        7.0,
+        7.0,
+      ]);
+      expect(find.textContaining('photo was not posted'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'declined Terms preserve review draft and never dispatch a save',
     (tester) async {
@@ -970,6 +1103,9 @@ class _GalleryTestUser extends Fake implements User {
   _GalleryTestUser({required this.uid});
 
   @override
+  String? get email => null;
+
+  @override
   bool get isAnonymous => false;
 }
 
@@ -1052,5 +1188,18 @@ DishReview _review({
     overallImpression: 8,
     overallBiteScore: 80,
     createdAt: createdAt,
+  );
+}
+
+class _ReviewPhotoPicker extends ImagePickerPlatform {
+  @override
+  Future<XFile?> getImageFromSource({
+    required ImageSource source,
+    ImagePickerOptions options = const ImagePickerOptions(),
+  }) async => XFile.fromData(
+    Uint8List.fromList([1, 2, 3]),
+    name: 'draft.jpg',
+    path: '/synthetic/draft.jpg',
+    mimeType: 'image/jpeg',
   );
 }

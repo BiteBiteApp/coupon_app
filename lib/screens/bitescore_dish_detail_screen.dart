@@ -397,6 +397,11 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
   final BiteScoreDishDetailWriteGate? testWriteGate;
   final BiteScoreDishDetailWriteGate? testTermsGate;
   final BiteScoreDishDetailReviewSaver? testReviewSaver;
+  final Future<BiteScoreUploadedDishImage> Function({
+    required String dishId,
+    required String expectedUid,
+    required BiteScorePickedDishImage pickedImage,
+  })? testReviewImageUploader;
   final Future<bool> Function(DishReview review, String reason)?
   testReviewReporter;
   final User? Function()? testCurrentUserProvider;
@@ -421,6 +426,7 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
     @visibleForTesting this.testWriteGate,
     @visibleForTesting this.testTermsGate,
     @visibleForTesting this.testReviewSaver,
+    @visibleForTesting this.testReviewImageUploader,
     @visibleForTesting this.testReviewReporter,
     @visibleForTesting this.testCurrentUserProvider,
     @visibleForTesting this.testSuppressLocalExpertBadgeRecalculation = false,
@@ -1605,6 +1611,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     late final BiteScoreReviewSaveResult saveResult;
     late final ContributionPointAwardResult combinedAward;
     var coreSaveSucceeded = false;
+    String? photoFailureMessage;
     final refreshDelivery = mainNavigationController.captureHomeRefreshDelivery(
       context,
       mode: AppMode.biteScore,
@@ -1684,7 +1691,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
             );
 
       coreSaveSucceeded = true;
-      final imageAward = await _uploadSelectedDishImage(saveResult, authLease);
+      final imageAward = await _uploadSelectedDishImage(
+        saveResult,
+        authLease,
+        (message) => photoFailureMessage = message,
+      );
       refreshDelivery.confirm();
       if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
         return;
@@ -1697,10 +1708,15 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         actionGroupId: 'dish_detail_review:${saveResult.review.id}',
       );
 
-      _headlineController.clear();
-      _notesController.clear();
-      _selectedDishImage = null;
-      _editingReview = null;
+      if (photoFailureMessage == null) {
+        _headlineController.clear();
+        _notesController.clear();
+        _selectedDishImage = null;
+        _editingReview = null;
+      } else {
+        // Retrying the retained photo must preserve the review just saved.
+        _editingReview = saveResult.review;
+      }
       _hasDishChanges = true;
     } catch (error) {
       if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
@@ -1732,7 +1748,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       return;
     }
 
-    _showSnackBar(isEditingReview ? 'Review updated.' : 'Review saved.');
+    _showSnackBar(
+      photoFailureMessage ??
+          (isEditingReview ? 'Review updated.' : 'Review saved.'),
+    );
     if (!widget.testSuppressLocalExpertBadgeRecalculation) {
       unawaited(
         _requestLocalExpertBadgeRecalculation(
@@ -1804,6 +1823,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   Future<ContributionPointAwardResult> _uploadSelectedDishImage(
     BiteScoreReviewSaveResult saveResult,
     MainNavigationAuthLease? authLease,
+    void Function(String) onFailure,
   ) async {
     final selectedImage = _selectedDishImage;
     if (selectedImage == null) {
@@ -1811,7 +1831,8 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     }
 
     try {
-      final uploadedImage = await BiteScoreImageUploadService.uploadDishImage(
+      final uploadedImage = await (widget.testReviewImageUploader ??
+          BiteScoreImageUploadService.uploadDishImage)(
         dishId: saveResult.dish.id,
         expectedUid: saveResult.review.userId,
         pickedImage: selectedImage,
@@ -1832,11 +1853,13 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
         return const ContributionPointAwardResult();
       }
-      _showSnackBar(
-        AppErrorText.friendly(
-          error,
-          fallback: 'Review saved, but the dish image could not be uploaded.',
-        ),
+      onFailure(
+        AppErrorText.isPostingRestriction(error)
+            ? 'Review saved, but the photo was not posted. ${AppErrorText.friendly(error, fallback: 'Public posting is restricted.')}'
+            : AppErrorText.friendly(
+                error,
+                fallback: 'Review saved, but the dish image could not be uploaded.',
+              ),
       );
       return const ContributionPointAwardResult();
     }

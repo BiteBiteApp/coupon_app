@@ -60,7 +60,7 @@ function familyQuery(db: Firestore, family: Family, uid: string): Query {
   const query = db.collection(family.collection).where(family.field, "==", uid);
   return family.collection === "restaurant_invites" && family.field === "restaurantId" ? query.where("side", "==", "coupon") : query;
 }
-const children = ["favorite_restaurants", "favorite_dishes", "favorite_coupons", "local_expert_badges", "local_expert_badge_celebrations", "coupon_redemptions", "blocked_reviewers", "reviewer_safety_state", "photo_report_state"] as const;
+const children = ["favorite_restaurants", "favorite_dishes", "favorite_coupons", "local_expert_badges", "local_expert_badge_celebrations", "coupon_redemptions", "blocked_reviewers", "reviewer_safety_state", "photo_report_state", "posting_restriction_state"] as const;
 const pending = (reason: Exclude<AccountDeletionReason, null>): DeletionStepResult => ({pending: reason, retry: reason === "accepted_work"});
 
 /** Exact known unresolved branches fail closed before deleting personal rows.

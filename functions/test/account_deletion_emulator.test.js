@@ -55,7 +55,7 @@ local('A reviews and votes removed; B and shared catalog/accounting survive; orp
  await db.doc('review_reports/B-about-A').set({reportingUserId:'fake-B',reviewId:aReview,dishId:'shared-dish',restaurantId:'shared'});
  await db.doc('user_profiles/fake-A').set({displayName:'A',contributionPoints:10});
  await db.doc('user_profiles/fake-B').set({displayName:'B',contributionPoints:10});
- for(const child of ['favorite_restaurants','favorite_dishes','favorite_coupons','local_expert_badges','local_expert_badge_celebrations'])await db.doc(`user_profiles/fake-A/${child}/one`).set({restaurantId:'shared',dishId:'shared-dish'});
+ for(const child of ['favorite_restaurants','favorite_dishes','favorite_coupons','local_expert_badges','local_expert_badge_celebrations','posting_restriction_state'])await db.doc(`user_profiles/fake-A/${child}/one`).set({restaurantId:'shared',dishId:'shared-dish'});
  await db.doc('customer_redemptions/fake-A/coupon_redemptions/one').set({couponId:'coupon'}); // parent intentionally absent
  await db.doc('bitescore_contribution_point_ledger/A-point').set({userId:'fake-A',pointsDelta:10});
  await db.doc('public_usernames/name-A').set({userId:'fake-A'});await db.doc('public_usernames/reassigned').set({userId:'fake-B'});
@@ -71,7 +71,7 @@ local('A reviews and votes removed; B and shared catalog/accounting survive; orp
  assert.equal((await db.doc(`private_bitescore_review_stats/${hash(bReview)}`).get()).get('helpfulCount'),0);
  assert.ok(!(await db.doc('review_reports/B-about-A').get()).exists);
  assert.ok((await db.doc('public_usernames/reassigned').get()).exists);assert.ok((await db.doc('private_device_only_security/device-A').get()).exists);
- for(const child of ['favorite_restaurants','favorite_dishes','favorite_coupons','local_expert_badges','local_expert_badge_celebrations'])assert.ok((await db.collection(`user_profiles/fake-A/${child}`).get()).empty);
+ for(const child of ['favorite_restaurants','favorite_dishes','favorite_coupons','local_expert_badges','local_expert_badge_celebrations','posting_restriction_state'])assert.ok((await db.collection(`user_profiles/fake-A/${child}`).get()).empty);
  assert.ok((await db.collection('customer_redemptions/fake-A/coupon_redemptions').get()).empty);
  // Delayed source events reread current documents, cannot recreate A's mirrors.
  await reads.reconcileCustomerBiteScoreReview(db,aReview);await reads.reconcileCustomerBiteScoreFeedback(db,'B-on-A');

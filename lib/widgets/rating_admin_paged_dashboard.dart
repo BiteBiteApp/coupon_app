@@ -2,6 +2,9 @@
 
 import 'dart:async';
 
+import '../services/posting_restriction_service.dart';
+import 'posting_restriction_dialog.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -1441,10 +1444,12 @@ class RatingAdminQueuePagedView extends StatefulWidget {
     this.loadRestaurant,
     this.dismissReviewerReport,
     this.photoReportService,
+    this.postingRestrictionService,
   });
 
   final Future<void> Function(String reportId)? dismissReviewerReport;
   final PhotoReportService? photoReportService;
+  final PostingRestrictionService? postingRestrictionService;
   final RatingAdminQueueKind kind;
   final RatingAdminEditRestaurant onEditRestaurant;
   final RatingAdminEditDish onEditDish;
@@ -1682,6 +1687,19 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
     );
   }
 
+  Widget _postingButton([String? reportId]) => OutlinedButton(
+    onPressed: () => showDialog<void>(
+      context: context,
+      builder: (_) => PostingRestrictionDialog(
+        reportId: reportId,
+        service: widget.postingRestrictionService,
+      ),
+    ),
+    child: Text(
+      reportId == null ? 'Posting restriction by UID' : 'Manage posting access',
+    ),
+  );
+
   Widget _reviewerReportCard(RatingAdminQueueRecord record) {
     final report = record.reviewerReport;
     return _card(
@@ -1706,6 +1724,7 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
           'Profile report; no supporting review selected.',
       ],
       <Widget>[
+        _postingButton(record.id),
         OutlinedButton(
           onPressed: () => _run(
             record,
@@ -1748,6 +1767,7 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
           'Photo identity changed; removal is unavailable.',
       ],
       [
+        _postingButton(record.id),
         OutlinedButton(
           onPressed: () => _run(
             record,
@@ -1810,6 +1830,7 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
         if ((review.notes ?? '').isNotEmpty) 'Notes: ' + review.notes!,
       ],
       <Widget>[
+        _postingButton(record.id),
         OutlinedButton(
           onPressed: () => _run(
             record,
@@ -2065,25 +2086,29 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
     };
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: PagedDirectoryView<RatingAdminQueueRecord>(
-        controller: _controller,
-        onRefresh: _controller.refreshCurrentPage,
-        emptyBuilder: (_) => _empty(
-          title,
-          'There are no pending items in this queue.',
-          Icons.inbox_outlined,
-        ),
-        itemBuilder: (context, record, _) => switch (record.kind) {
-          RatingAdminQueueKind.reportedReviews => _reportedReviewCard(record),
-          RatingAdminQueueKind.restaurantReports => _restaurantReportCard(
-            record,
+      child: Column(
+        children: [
+          if (widget.kind == RatingAdminQueueKind.reportedReviews)
+            Align(alignment: Alignment.centerLeft, child: _postingButton()),
+          Expanded(
+            child: PagedDirectoryView<RatingAdminQueueRecord>(
+              controller: _controller,
+              onRefresh: _controller.refreshCurrentPage,
+              emptyBuilder: (_) => _empty(
+                title,
+                'There are no pending items in this queue.',
+                Icons.inbox_outlined,
+              ),
+              itemBuilder: (context, record, _) => switch (record.kind) {
+                RatingAdminQueueKind.reportedReviews => _reportedReviewCard(record),
+                RatingAdminQueueKind.restaurantReports => _restaurantReportCard(record),
+                RatingAdminQueueKind.dishReports => _dishReportCard(record),
+                RatingAdminQueueKind.duplicateRestaurantReports => _duplicateCard(record),
+                RatingAdminQueueKind.claims => _claimCard(record),
+              },
+            ),
           ),
-          RatingAdminQueueKind.dishReports => _dishReportCard(record),
-          RatingAdminQueueKind.duplicateRestaurantReports => _duplicateCard(
-            record,
-          ),
-          RatingAdminQueueKind.claims => _claimCard(record),
-        },
+        ],
       ),
     );
   }

@@ -1,10 +1,22 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'posting_restriction_service.dart';
+
 class AppErrorText {
-  static String friendly(
-    Object error, {
-    required String fallback,
-  }) {
+  static bool isPostingRestriction(Object error) =>
+      error is PostingRestrictedException ||
+      (error is FirebaseFunctionsException &&
+          error.details is Map &&
+          (error.details as Map)['reason'] == 'posting-restricted');
+
+  static String friendly(Object error, {required String fallback}) {
+    if (error is FirebaseFunctionsException &&
+        error.details is Map &&
+        (error.details as Map)['reason'] == 'posting-restricted') {
+      final end = (error.details as Map)['endsAtMillis'];
+      return postingRestrictionMessage(end is int ? end : null);
+    }
     if (error is ArgumentError) {
       final message = error.message;
       if (message is String && message.trim().isNotEmpty) {

@@ -1,3 +1,4 @@
+import {requireCustomerPostingAllowedInStore} from "./posting_restriction_guard.js";
 import {requireBiteScoreTerms, approvedBiteScoreTerms, type ApprovedBiteScoreTerms} from "./bitescore_terms.js";
 import {requireAccountWritableInStore} from "./account_deletion_guard.js";
 import {createHash} from "node:crypto";
@@ -583,6 +584,7 @@ export async function saveCustomerBiteScoreReview(
   if (input.expectedUserId !== userId) fail("permission-denied", "Your account changed. Please try again.");
   return database.runTransaction(async (transaction) => {
     await requireAccountWritableInStore(transaction, userId);
+    await requireCustomerPostingAllowedInStore(transaction, userId, now.getTime());
     await requireBiteScoreTerms(transaction, userId, terms);
     const epoch = await runtime(transaction);
     if (epoch === null) fail("failed-precondition", "Trusted BiteScore reviews are not enabled.");

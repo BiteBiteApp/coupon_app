@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart';
 
 import 'admin_access_service.dart';
+import 'posting_restriction_service.dart';
 import 'bitescore_owner_queries.dart';
 import '../models/bitescore_dish.dart';
 import '../models/bitescore_category.dart';
@@ -3282,6 +3283,7 @@ class BiteScoreService {
       return image;
     }
 
+    await PostingRestrictionService().requireAllowed(uploadedByUserId);
     final imageRef = dishImagesCollection().doc();
     final dishRef = dishesCollection().doc(dish.id);
 
@@ -3448,6 +3450,8 @@ class BiteScoreService {
         }
         transaction.delete(voteRef);
       } else {
+        await PostingRestrictionService().requireAllowed(pinnedUserId);
+        _requireExpectedSignedInBiteScoreUser(pinnedUserId);
         if (existingVote?.voteType == BiteScoreDishImageVote.voteHelpful) {
           helpfulDelta -= 1;
         } else if (existingVote?.voteType ==
@@ -4972,6 +4976,8 @@ class BiteScoreService {
         return;
       }
 
+      await PostingRestrictionService().requireAllowed(pinnedUserId);
+      _requireExpectedSignedInBiteScoreUser(pinnedUserId);
       final payload = {
         'id': voteRef.id,
         'reviewId': review.id,
@@ -5179,6 +5185,8 @@ class BiteScoreService {
   }
 
   static Future<void> submitEditProposal(DishEditProposal proposal) async {
+    await PostingRestrictionService().requireAllowed(proposal.userId);
+    _requireExpectedSignedInBiteScoreUser(proposal.userId);
     await editProposalsCollection().doc(proposal.id).set({
       ...proposal.toFirestoreMap(),
       'createdAt': FieldValue.serverTimestamp(),
@@ -7003,7 +7011,9 @@ class BiteScoreService {
   }
 
   static Future<User> _requireFreshSignedInSuggestionUser() async {
-    return _requireFreshSignedInBiteScoreUserForCurrentOperation();
+    final user = await _requireFreshSignedInBiteScoreUserForCurrentOperation();
+    await PostingRestrictionService().requireAllowed(user.uid);
+    return _requireExpectedSignedInBiteScoreUser(user.uid);
   }
 
   static User _requireSignedInAppUser() {
@@ -7103,6 +7113,11 @@ class BiteScoreService {
       await beforeMutation(operation);
     }
     _requireExpectedSignedInBiteScoreUser(expectedUserId);
+    if (operation != 'toggleDishImageVote' &&
+        operation != 'toggleReviewFeedbackVote') {
+      await PostingRestrictionService().requireAllowed(expectedUserId);
+      _requireExpectedSignedInBiteScoreUser(expectedUserId);
+    }
     return expectedUserId.trim();
   }
 

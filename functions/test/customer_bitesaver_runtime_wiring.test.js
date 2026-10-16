@@ -18,6 +18,7 @@ const reviewerSafetyMetadata = Object.fromEntries([
   vpc: null, platform: "gcfv2", labels: {}, callableTrigger: {},
 }]));
 const photoReportMetadata = Object.fromEntries(["submitPhotoReport", "moderatePhotoReport"].map(name => [name, reviewerSafetyMetadata.submitReviewerReport]));
+const postingRestrictionMetadata = Object.fromEntries(["getCustomerPostingStatus", "getAdminPostingRestriction", "setAdminPostingRestriction"].map(name => [name, reviewerSafetyMetadata.submitReviewerReport]));
 const path = require("node:path");
 const test = require("node:test");
 
@@ -482,7 +483,7 @@ test("approved runtime isolation and proposal schedule preserve the complete exp
   // Admin, search, background, and scheduled runtime configuration.
   assert.deepEqual(
     Object.keys(metadata).sort(),
-    [...Object.keys(protectedMetadata), ...Object.keys(deviceCallableFactories), ...Object.keys(biteScoreMetadata), ...Object.keys(reviewerSafetyMetadata), ...Object.keys(photoReportMetadata), "requestAccountDeletion", "getAccountDeletionStatus", "processAccountDeletionRequests", "cleanupAccountDeletionFinalizedImage", "verifyAdminUserDirectory"]
+    [...Object.keys(protectedMetadata), ...Object.keys(deviceCallableFactories), ...Object.keys(biteScoreMetadata), ...Object.keys(reviewerSafetyMetadata), ...Object.keys(photoReportMetadata), ...Object.keys(postingRestrictionMetadata), "requestAccountDeletion", "getAccountDeletionStatus", "processAccountDeletionRequests", "cleanupAccountDeletionFinalizedImage", "verifyAdminUserDirectory"]
       .filter((name) => !retiredCallableExports.has(name))
       .sort(),
   );
@@ -538,12 +539,12 @@ test("approved BiteScore additions retain exact isolated runtime metadata", () =
   for (const [name, expected] of Object.entries(biteScoreMetadata)) {
     assert.deepEqual(metadata[name], expected, name);
   }
-  for (const [name, expected] of Object.entries({...reviewerSafetyMetadata, ...photoReportMetadata})) {
+  for (const [name, expected] of Object.entries({...reviewerSafetyMetadata, ...photoReportMetadata, ...postingRestrictionMetadata})) {
     assert.deepEqual(metadata[name], expected, name);
   }
   assert.deepEqual(Object.entries(metadata)
     .filter(([, value]) => value?.serviceAccountEmail === "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com")
-    .map(([name]) => name).sort(), [...Object.keys(biteScoreMetadata), ...Object.keys(reviewerSafetyMetadata), ...Object.keys(photoReportMetadata)].sort());
+    .map(([name]) => name).sort(), [...Object.keys(biteScoreMetadata), ...Object.keys(reviewerSafetyMetadata), ...Object.keys(photoReportMetadata), ...Object.keys(postingRestrictionMetadata)].sort());
 });
 
 test("exactly thirteen Browse, Saved, Menu and guest exports share the dedicated Node 24 runtime identity", () => {

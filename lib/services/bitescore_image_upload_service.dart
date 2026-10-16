@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:image_picker/image_picker.dart';
 
 import 'firestore_document_id.dart';
+import 'posting_restriction_service.dart';
 
 class BiteScorePickedDishImage {
   final String fileName;
@@ -74,6 +75,8 @@ class BiteScoreImageUploadService {
       }
     }
 
+    requireActor();
+    await PostingRestrictionService().requireAllowed(expectedUid);
     requireActor();
     final timestamp = DateTime.now().microsecondsSinceEpoch;
     final storagePath = dishImageStoragePath(

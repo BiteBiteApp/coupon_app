@@ -314,3 +314,11 @@ test("short equality response is compared with the complete normalized value bef
   await assert.rejects(restaurant(db, restaurantInput({requestId: "different_request_02"}), actor), {code: "failed-precondition"});
   assert.equal(db.documents.size, 1); assert.equal(db.get(`bitescore_restaurants/${id}`).normalizedName, "good food");
 });
+
+test('restricted customer cannot create catalog restaurant/dish or edit categories, but may submit ownership claim',async()=>{
+ const {db,id}=await created();const before=[...db.documents];
+ db.set(`user_profiles/${actor.userId}/posting_restriction_state/current`,{schemaVersion:1,revision:1,kind:'indefinite',startsAt:now,endsAt:null,releasedAt:null});
+ for(const operation of [()=>restaurant(db,restaurantInput({requestId:'another-restaurant'}),actor,now),()=>dish(db,dishInput(id),actor,now)]) await assert.rejects(operation(),e=>e.details?.reason==='posting-restricted');
+ for(const [path,data] of before)assert.deepEqual(db.get(path),data);
+ assert.ok((await claim(db,claimInput(id),actor,now)).claimId);
+});

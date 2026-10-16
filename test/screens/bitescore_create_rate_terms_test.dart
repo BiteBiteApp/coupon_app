@@ -2,6 +2,8 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:cloud_functions/cloud_functions.dart';
+
 import 'package:cloud_firestore_platform_interface/cloud_firestore_platform_interface.dart';
 import 'package:coupon_app/models/bitescore_dish.dart';
 import 'package:coupon_app/models/bitescore_restaurant.dart';
@@ -44,6 +46,24 @@ void main() {
     store.dishes = [];
     store.reads.clear();
   });
+
+  for (final path in [_Path.existing, _Path.newDish, _Path.manual]) {
+    testWidgets('${path.name}: posting denial keeps draft, photo and retry/cancel available', (tester) async {
+      final h = _Harness(store, postingDenied: true);
+      await h.run(tester, path, () async {
+        final addPhoto = find.widgetWithText(OutlinedButton, 'Add dish image');
+        await tester.ensureVisible(addPhoto); await tester.tap(addPhoto); await tester.pumpAndSettle();
+        final before = _draft(tester);
+        await h.submit(tester, path);
+        expect(_draft(tester), before);
+        expect(find.text('Dish image selected'), findsOneWidget);
+        expect((tester.state(find.byType(BiteScoreCreateRateScreen)) as dynamic).isSaving, false);
+        expect(find.textContaining('Your review was not saved.'), findsOneWidget);
+        expect(find.textContaining('administrator releases'), findsOneWidget);
+        expect(h.events.where((e) => e.startsWith('write:')), isEmpty);
+      });
+    });
+  }
 
   for (final path in _Path.values) {
     testWidgets(
@@ -372,6 +392,7 @@ class _Harness {
     this.failure,
     this.pending,
     this.withShell = false,
+    this.postingDenied = false,
   });
   final _Store store;
   final bool? active;
@@ -379,6 +400,7 @@ class _Harness {
   final String? failure;
   final Completer<Object?>? pending;
   final bool withShell;
+  final bool postingDenied;
   String authRealm = 'signed:A';
   final authChanges = StreamController<String>.broadcast(sync: true);
   int homeRefreshGeneration = 0;
@@ -430,6 +452,12 @@ class _Harness {
       reloadUser: (_) async {},
       refreshIdToken: (_) async {},
       write: (operation, uid) async {
+        if (postingDenied) {
+          throw FirebaseFunctionsException(
+            code: 'permission-denied', message: 'Restricted',
+            details: {'reason': 'posting-restricted', 'kind': 'indefinite', 'endsAtMillis': null},
+          );
+        }
         writes.add(operation);
         uids.add(uid);
         events.add('write:$operation');

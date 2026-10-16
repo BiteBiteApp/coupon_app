@@ -1,3 +1,4 @@
+import {requireCustomerPostingAllowed} from "./posting_restriction_guard.js";
 import {createHash} from "node:crypto";
 import {requireAccountWritable} from "./account_deletion_guard.js";
 import {type Firestore, type Transaction} from "firebase-admin/firestore";
@@ -138,6 +139,7 @@ export async function createCustomerBiteScorePhotoHandler(
   const now = options.now ?? new Date();
   return db.runTransaction(async (tx) => {
     await requireAccountWritable(db, tx, userId);
+    await requireCustomerPostingAllowed(db, tx, userId, now.getTime());
     const dish = await parent(db, tx, dishId, restaurantId);
     const imageRef = db.doc(`bitescore_dish_images/${imageId}`);
     const existing = await tx.get(imageRef);
@@ -197,7 +199,10 @@ export async function toggleCustomerBiteScorePhotoVoteHandler(
       throw new HttpsError("failed-precondition", "The photo vote does not match its target.");
     }
     const next = old?.voteType === voteType ? null : voteType;
-    if (next !== null) await requireAccountWritable(db, tx, source.uploadedByUserId);
+    if (next !== null) {
+      await requireCustomerPostingAllowed(db, tx, userId, now.getTime());
+      await requireAccountWritable(db, tx, source.uploadedByUserId);
+    }
     const delta = (type: string) => Number(next === type) - Number(old?.voteType === type);
     const helpfulCount = Math.max(0, count(source.helpfulCount) + delta("helpful"));
     const notHelpfulCount = Math.max(0, count(source.notHelpfulCount) + delta("notHelpful"));
