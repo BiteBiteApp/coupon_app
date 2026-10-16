@@ -8,6 +8,7 @@ import '../services/app_error_text.dart';
 import '../services/bitescore_image_upload_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
+import '../services/bitescore_terms_service.dart';
 import '../services/customer_bitescore_runtime.dart';
 import '../services/customer_bitescore_search_service.dart';
 import '../services/contribution_points_celebration_service.dart';
@@ -32,6 +33,12 @@ typedef BiteScoreRestaurantDishesBuilder =
     );
 typedef BiteScoreCreateRateWriteGate =
     Future<bool> Function(BuildContext context);
+typedef BiteScoreCreateRateTermsAcceptance =
+    Future<bool> Function({
+      required String expectedUserId,
+      required bool Function() isCurrent,
+      required Future<bool> Function(String version, String text) confirm,
+    });
 typedef BiteScoreCreateRateReviewSaver =
     Future<BiteScoreReviewSaveResult> Function({
       required BitescoreDish dish,
@@ -73,6 +80,7 @@ class BiteScoreCreateRateScreen extends StatefulWidget {
   final BiteScoreRestaurantDishesBuilder? testRestaurantDishesBuilder;
   final BiteScoreCreateRateWriteGate? testWriteGate;
   final BiteScoreCreateRateReviewSaver? testReviewSaver;
+  final BiteScoreCreateRateTermsAcceptance? testTermsAcceptance;
   final User? Function()? testCurrentUserProvider;
   final CustomerBiteScoreSearchApi? testSearchApi;
 
@@ -85,6 +93,7 @@ class BiteScoreCreateRateScreen extends StatefulWidget {
     @visibleForTesting this.testRestaurantDishesBuilder,
     @visibleForTesting this.testWriteGate,
     @visibleForTesting this.testReviewSaver,
+    @visibleForTesting this.testTermsAcceptance,
     @visibleForTesting this.testCurrentUserProvider,
     @visibleForTesting this.testSearchApi,
   });
@@ -2816,6 +2825,59 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     }
   }
 
+  Future<bool> _ensureTermsAccepted(
+    String? expectedUserId,
+    MainNavigationAuthLease? authLease,
+  ) async {
+    final ensureAccepted =
+        widget.testTermsAcceptance ?? BiteScoreTermsService.ensureAccepted;
+    final accepted = await ensureAccepted(
+      expectedUserId: expectedUserId ?? '',
+      isCurrent: () =>
+          mounted &&
+          _canUseOpeningIdentity(authLease) &&
+          _currentUser?.uid == expectedUserId &&
+          _currentUser?.isAnonymous == false,
+      confirm: (version, text) async =>
+          await showDialog<bool>(
+            context: _privateOverlayContext ?? context,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text('Terms of Service'),
+              content: SizedBox(
+                width: 560,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Version: $version'),
+                      const SizedBox(height: 12),
+                      SelectableText(text),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Accept these Terms to submit your review. You can cancel and continue browsing.',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Accept Terms'),
+                ),
+              ],
+            ),
+          ) ==
+          true,
+    );
+    return accepted && mounted && _canUseOpeningIdentity(authLease);
+  }
+
   Future<void> _save() async {
     if (isSaving || _saveSucceeded) {
       return;
@@ -2936,6 +2998,41 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     );
 
     try {
+      BiteScoreCreateRequest? manualRequest;
+      if (!isExistingDishMode && !isExistingRestaurantMode) {
+        if (!showDishCreationForManualRestaurant) {
+          _showSnackBar('Choose or confirm a restaurant first.');
+          return;
+        }
+
+        manualRequest = BiteScoreCreateRequest(
+          restaurantName: restaurantNameController.text,
+          streetAddress: streetAddressController.text,
+          city: cityController.text,
+          state: _normalizedState(stateController.text),
+          zipCode: zipCodeController.text,
+          dishName: dishNameController.text,
+          category: _categorySelection.categoryForSave ?? '',
+          subcategory: _categorySelection.subcategoryForSave,
+          categoryManualKeywords: _categorySelection.manualKeywordsForSave,
+          priceLabel: priceLabelController.text,
+          headline: headlineController.text,
+          notes: notesController.text,
+          overallImpression: selectedOverallImpression,
+          tastinessScore: selectedTastinessScore,
+          qualityScore: selectedQualityScore,
+          valueScore: selectedValueScore,
+        );
+
+        final validationError = manualRequest.validate();
+        if (validationError != null) {
+          _showSnackBar(validationError);
+          return;
+        }
+      }
+      if (!await _ensureTermsAccepted(expectedUserId, authLease)) {
+        return;
+      }
       if (isExistingDishMode) {
         final entry = widget.existingEntry!;
         final testReviewSaver = widget.testReviewSaver;
@@ -2995,38 +3092,8 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
           );
         }
       } else {
-        if (!showDishCreationForManualRestaurant) {
-          _showSnackBar('Choose or confirm a restaurant first.');
-          return;
-        }
-
-        final request = BiteScoreCreateRequest(
-          restaurantName: restaurantNameController.text,
-          streetAddress: streetAddressController.text,
-          city: cityController.text,
-          state: _normalizedState(stateController.text),
-          zipCode: zipCodeController.text,
-          dishName: dishNameController.text,
-          category: _categorySelection.categoryForSave ?? '',
-          subcategory: _categorySelection.subcategoryForSave,
-          categoryManualKeywords: _categorySelection.manualKeywordsForSave,
-          priceLabel: priceLabelController.text,
-          headline: headlineController.text,
-          notes: notesController.text,
-          overallImpression: selectedOverallImpression,
-          tastinessScore: selectedTastinessScore,
-          qualityScore: selectedQualityScore,
-          valueScore: selectedValueScore,
-        );
-
-        final validationError = request.validate();
-        if (validationError != null) {
-          _showSnackBar(validationError);
-          return;
-        }
-
         saveResult = await BiteScoreService.createAndRate(
-          request,
+          manualRequest!,
           expectedUserId: expectedUserId!,
         );
       }
