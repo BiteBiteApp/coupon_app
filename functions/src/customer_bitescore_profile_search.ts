@@ -1,5 +1,6 @@
 import {requireAccountWritableInStore} from "./account_deletion_guard.js";
 import {randomBytes} from "node:crypto";
+import {readReviewerVisibility} from "./reviewer_visibility.js";
 import type {CustomerBiteSaverSearchDatabase as Database, CustomerBiteSaverStoredDocument as Document,
   CustomerBiteSaverTransaction as Transaction} from "./customer_bitesaver_search_store.js";
 import type {CustomerBiteScoreSearchContext} from "./customer_bitescore_search.js";
@@ -25,6 +26,7 @@ type Criteria = {kind: "savedRestaurants" | "savedDishes" | "reviews" | "localEx
   userId: string; sort: "mostRecent" | "highestRated" | "lowestRated" | "nearest";
   expertTypeId: string | null; location: {latitude: number; longitude: number} | null};
 type Session = {version: string; sessionId: string; actor: string; instanceId: string; queryGeneration: number;
+  reviewerVisibility?: {version: 1; viewerBinding: string; revision: number};
   queryFingerprint: string; criteria: Criteria; state: "preparing" | "ready" | "failed"; attempt: number;
   after: string | null; scannedCount: number; generations: number[]; leaseId: string | null; leaseUntilMs: number;
   absoluteExpiresAtMs: number; idleExpiresAtMs: number; expiresAt: Date};
@@ -33,6 +35,23 @@ type Candidate = {id: string; sourcePath: string; dishId: string | null; restaur
 
 function fail(message = "This BiteScore list is unavailable or expired. Refresh the list."): never {
   throw new CustomerBiteScoreSearchError("failed-precondition", message);
+}
+function reviewerList(c: Criteria): boolean { return c.kind === "reviews" || c.kind === "localExpert"; }
+function viewerBinding(context: Context): string { return digest("reviewer-visibility.v1", context.userId ?? null); }
+function fingerprint(c: Criteria, visibility: Session["reviewerVisibility"]): string {
+  // Saved sessions retain their exact v1 fingerprint. Reviewer sessions require
+  // this new marker; pre-safety sessions fail closed without a migration.
+  return reviewerList(c) ? digest(version, c, visibility) : digest(version, c);
+}
+async function visibility(tx: Transaction, c: Criteria, context: Context): Promise<Session["reviewerVisibility"]> {
+  if (!reviewerList(c)) {
+    await requireAccountWritableInStore(tx, c.userId);
+    if (context.userId) await requireAccountWritableInStore(tx, context.userId);
+    return undefined;
+  }
+  const revision = await readReviewerVisibility(async (paths) =>
+    (await tx.getDocuments(paths)).map((document) => document?.data ?? null), context.userId ?? null, c.userId);
+  return {version: 1, viewerBinding: viewerBinding(context), revision};
 }
 function id(value: unknown): string {
   const result = readBiteScoreCatalogRestaurantId(value);
@@ -87,7 +106,11 @@ function readSession(document: Document | null): Session {
       !Number.isSafeInteger(s.scannedCount) || s.scannedCount < 0 || typeof s.instanceId !== "string" ||
       !Number.isSafeInteger(s.queryGeneration) || (s.after !== null && typeof s.after !== "string")) fail();
   const c = criteria(s.criteria);
-  if (digest(version, c) !== s.queryFingerprint) fail();
+  if (reviewerList(c) && (!s.reviewerVisibility || s.reviewerVisibility.version !== 1 ||
+      !/^[a-f0-9]{64}$/u.test(s.reviewerVisibility.viewerBinding) ||
+      !Number.isSafeInteger(s.reviewerVisibility.revision) || s.reviewerVisibility.revision < 0 ||
+      s.reviewerVisibility.revision >= Number.MAX_SAFE_INTEGER)) fail();
+  if (fingerprint(c, s.reviewerVisibility) !== s.queryFingerprint) fail();
   return {...s, criteria: c};
 }
 function continuation(raw: unknown): {sessionId: string; queryFingerprint: string; cursor: unknown} {
@@ -104,8 +127,9 @@ async function current(transaction: Transaction, input: ReturnType<typeof contin
   if (session.actor !== actor(context) || session.queryFingerprint !== input.queryFingerprint ||
       timestamp(context) >= Math.min(session.absoluteExpiresAtMs, session.idleExpiresAtMs)) fail();
   authorize(session.criteria, context);
-  await requireAccountWritableInStore(transaction, session.criteria.userId);
-  if (context.userId) await requireAccountWritableInStore(transaction, context.userId);
+  if (reviewerList(session.criteria) && session.reviewerVisibility?.viewerBinding !== viewerBinding(context)) fail();
+  const visible = await visibility(transaction, session.criteria, context);
+  if (reviewerList(session.criteria) && visible?.revision !== session.reviewerVisibility?.revision) fail();
   const instance = await transaction.getDocument(instancePath(session.actor, session.instanceId));
   if (instance?.data.sessionId !== session.sessionId || instance.data.queryGeneration !== session.queryGeneration) fail();
   return session;
@@ -126,11 +150,10 @@ export async function startCustomerBiteScoreProfileListHandler(db: Database, raw
   const actorId = actor(context);
   const queryGeneration = raw.queryGeneration as number;
   const time = timestamp(context);
-  const queryFingerprint = digest(version, c);
   const sessionId = digest(version, actorId, instanceId, requestId);
   return response(await db.runTransaction(async (tx) => {
-    await requireAccountWritableInStore(tx, c.userId);
-    if (context.userId) await requireAccountWritableInStore(tx, context.userId);
+    const reviewerVisibility = await visibility(tx, c, context);
+    const queryFingerprint = fingerprint(c, reviewerVisibility);
     const [instance, admission, previous, generations] = await Promise.all([tx.getDocument(instancePath(actorId, instanceId)),
       tx.getDocument(admissionPath(actorId)), tx.getDocument(path(sessionId)), generation(tx, c.userId)]);
     if (previous !== null) {
@@ -147,6 +170,7 @@ export async function startCustomerBiteScoreProfileListHandler(db: Database, raw
       typeof v.expiresAtMs === "number" && v.expiresAtMs > time && v.instanceId !== instanceId) : [];
     if (starts >= 12 || pending.length >= 4) throw new CustomerBiteScoreSearchError("resource-exhausted", "Please wait before preparing another profile list.");
     const s: Session = {version, sessionId, actor: actorId, instanceId, queryGeneration, queryFingerprint, criteria: c,
+      ...(reviewerVisibility ? {reviewerVisibility} : {}),
       state: "preparing", attempt: 0, after: null, scannedCount: 0, generations, leaseId: null, leaseUntilMs: 0,
       absoluteExpiresAtMs: time + customerBiteScoreSessionLifetimeMs, idleExpiresAtMs: time + customerBiteScoreIdleLifetimeMs,
       expiresAt: new Date(time + customerBiteScoreSessionLifetimeMs)};

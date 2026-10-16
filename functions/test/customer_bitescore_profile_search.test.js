@@ -178,3 +178,177 @@ test("profile and Local Expert date ties preserve Dart microseconds before canon
   const high = await ready(db, request({kind: "localExpert", expertTypeId: "burger", sort: "highestRated"}, 2));
   assert.deepEqual((await all(db, high)).map((v) => v.review.id), ["a-older", "z-newer"]);
 });
+
+const safetyPreferences = uid => `user_profiles/${uid}/reviewer_safety_state/preferences`;
+const safetyBlock = (uid, target = userId) => `user_profiles/${uid}/blocked_reviewers/${target}`;
+const viewer = {...context('viewer-actor'), userId: 'viewer'};
+function blocking(db, uid, revision, blocked) {
+  db.documents.set(safetyPreferences(uid), {schemaVersion: 1, revision, updatedAt: Timestamp.now()});
+  if (blocked) db.documents.set(safetyBlock(uid), {schemaVersion: 1, targetUserId: userId, createdAt: Timestamp.now()});
+  else db.documents.delete(safetyBlock(uid));
+}
+function safetyFixture(total = 32) {
+  const db = new MemoryDatabase();
+  const parent = addRestaurant(db), dish = addDish(db, 'dish-a', parent);
+  for (let i = 0; i < total; i++) review(db, `r${String(i).padStart(3, '0')}`, dish.id, parent.id,
+    {createdAt: new Date(nowMs + i), overallBiteScore: i % 7});
+  const visibilityBatches = [], exactReads = [];
+  const run = db.runTransaction.bind(db);
+  db.runTransaction = operation => run(tx => operation({...tx,
+    getDocument: p => {exactReads.push(p); return tx.getDocument(p);},
+    getDocuments: paths => {exactReads.push(...paths); if (paths.some(p => p.includes('/reviewer_safety_state/'))) visibilityBatches.push([...paths]); return tx.getDocuments(paths);},
+  }));
+  return {db, visibilityBatches, exactReads};
+}
+const listCriteria = (kind, sort = 'mostRecent') => ({kind, sort, ...(kind === 'localExpert' ? {expertTypeId: 'burger'} : {})});
+const isUnavailable = error => ['not-found', 'failed-precondition'].includes(error.code);
+
+for (const kind of ['reviews', 'localExpert']) for (const sort of ['mostRecent', 'highestRated', 'lowestRated', 'nearest']) {
+  test(`${kind} ${sort}: unblocked/guest ordering and paging preserved; blocked initial and cached paths rejected`, async () => {
+    const {db, visibilityBatches, exactReads} = safetyFixture();
+    const c = listCriteria(kind, sort);
+    const guest = context('guest-actor');
+    const publicState = await ready(db, request(c), guest);
+    const expected = await all(db, publicState, guest);
+    const state = await ready(db, request(c), viewer);
+    assert.deepEqual(await all(db, state, viewer), expected);
+    const first = await page(db, continued(state), viewer);
+    assert.equal(first.items.length, 25); assert.ok(first.nextCursor);
+    blocking(db, 'viewer', 1, true);
+    const queryCount = db.queries.length;
+    for (const operation of [() => start(db, request(c, 2), viewer), () => advance(db, continued(state), viewer),
+      () => page(db, continued(state), viewer), () => page(db, continued(state, first.nextCursor), viewer)]) {
+      await assert.rejects(operation(), {code: 'not-found', message: 'This reviewer is unavailable.'});
+    }
+    assert.equal(db.queries.length, queryCount, 'blocked requests fail before review/result queries');
+    assert.deepEqual(await all(db, publicState, guest), expected);
+    assert.ok(visibilityBatches.every(batch => batch.length === 4));
+    assert.ok(!exactReads.some(p => p.startsWith(`user_profiles/${userId}/reviewer_safety_state`) || p.startsWith(`user_profiles/${userId}/blocked_reviewers`)));
+    assert.ok(db.queries.every(q => q.limit <= 26 && !q.collectionPath.includes('blocked_reviewers')));
+    assert.ok(db.readBatches.every(batch => batch.length <= 75));
+    assert.ok(db.maxWrites <= 26);
+  });
+}
+
+test('profile sessions bind revision across block/unblock, same-UID retries and stale cursor replay', async () => {
+  for (const kind of ['reviews', 'localExpert']) {
+    const {db} = safetyFixture(); const req = request(listCriteria(kind));
+    const state = await ready(db, req, viewer), first = await page(db, continued(state), viewer);
+    blocking(db, 'viewer', 1, true); blocking(db, 'viewer', 2, false);
+    for (const operation of [() => start(db, req, viewer), () => advance(db, continued(state), viewer),
+      () => page(db, continued(state, first.nextCursor), viewer)]) await assert.rejects(operation(), {code: 'failed-precondition'});
+    const fresh = await ready(db, request(listCriteria(kind), 2), viewer);
+    assert.equal((await all(db, fresh, viewer)).length, 32);
+    await assert.rejects(page(db, continued(fresh, first.nextCursor), viewer));
+  }
+});
+
+test('reviewer sessions reject switched accounts even if the actor binding is accidentally reused', async () => {
+  const {db, exactReads} = safetyFixture();
+  const state = await ready(db, request(listCriteria('reviews')), viewer);
+  for (const userId of ['other', null, undefined]) {
+    exactReads.length = 0;
+    for (const operation of [advance, page]) await assert.rejects(operation(db, continued(state), {...viewer, userId}), {code: 'failed-precondition'});
+    assert.ok(!exactReads.some(p => p.includes('/blocked_reviewers/')), 'reject identity mismatch before private visibility reads');
+  }
+  const untouched = await page(db, continued(state), viewer); assert.equal(untouched.items.length, 25);
+});
+
+test('pre-safety reviewer sessions require refresh while legacy saved sessions stay valid', async () => {
+  const {db} = safetyFixture(1);
+  let state = await ready(db, request(listCriteria('reviews')), viewer);
+  const sessionPath = `private_bitescore_search_sessions/${state.sessionId}`;
+  const stored = db.documents.get(sessionPath);
+  delete stored.reviewerVisibility;
+  const {customerBiteScoreDigest: digest} = require('../lib/customer_bitescore_search_contract.js');
+  stored.queryFingerprint = digest(stored.version, stored.criteria);
+  await assert.rejects(page(db, {...continued(state), queryFingerprint: stored.queryFingerprint}, viewer), {code: 'failed-precondition'});
+  db.documents.set(`user_profiles/${userId}/favorite_dishes/dish-a`, {dishId: 'dish-a'});
+  state = await ready(db, request({kind: 'savedDishes'}, 2), ctx);
+  const saved = db.documents.get(`private_bitescore_search_sessions/${state.sessionId}`);
+  assert.equal(Object.hasOwn(saved, 'reviewerVisibility'), false);
+  assert.equal(saved.queryFingerprint, digest(saved.version, saved.criteria));
+  assert.equal((await page(db, continued(state), ctx)).items.length, 1);
+});
+
+test('in-flight preparation and page reads reject block/unblock changes before returning', async () => {
+  for (const kind of ['reviews', 'localExpert']) for (const phase of ['advance', 'page']) for (const blocked of [true, false]) {
+    const {db} = safetyFixture();
+    const state = phase === 'page' ? await ready(db, request(listCriteria(kind)), viewer) : await start(db, request(listCriteria(kind)), viewer);
+    let changed = false;
+    db.beforeQuery = query => {
+      if (!changed && query.collectionPath === (phase === 'advance' ? customerBiteScoreReviewIndex : 'private_bitescore_search_results')) {
+        changed = true; blocking(db, 'viewer', blocked ? 1 : 2, blocked);
+      }
+    };
+    await assert.rejects((phase === 'advance' ? advance : page)(db, continued(state), viewer), isUnavailable);
+    assert.equal(changed, true);
+  }
+});
+
+test('malformed private state and deleting viewer/target fail closed for profile list start and continuation', async () => {
+  const {db} = safetyFixture(1);
+  const state = await ready(db, request(listCriteria('reviews')), viewer);
+  const invalid = [
+    () => db.documents.set(safetyPreferences('viewer'), {}),
+    () => db.documents.set(safetyPreferences('viewer'), {schemaVersion: 1, revision: -1, updatedAt: Timestamp.now()}),
+    () => db.documents.set(safetyPreferences('viewer'), {schemaVersion: 1, revision: '1', updatedAt: Timestamp.now()}),
+    () => {blocking(db, 'viewer', 1, true); db.documents.get(safetyBlock('viewer')).targetUserId = 'forged';},
+    () => {blocking(db, 'viewer', 1, true); db.documents.delete(safetyPreferences('viewer'));},
+    () => db.documents.set('private_account_deletions/viewer', {}),
+    () => db.documents.set(`private_account_deletions/${userId}`, {}),
+  ];
+  for (const corrupt of invalid) {
+    db.documents.delete(safetyPreferences('viewer')); db.documents.delete(safetyBlock('viewer'));
+    db.documents.delete('private_account_deletions/viewer'); db.documents.delete(`private_account_deletions/${userId}`);
+    corrupt();
+    for (const operation of [() => start(db, request(listCriteria('reviews'), 2), viewer), () => advance(db, continued(state), viewer), () => page(db, continued(state), viewer)]) {
+      await assert.rejects(operation(), {code: 'failed-precondition'});
+    }
+  }
+});
+
+test('saved lists ignore blocking state and preserve ownership, results, and exact session contract', async () => {
+  const {db, visibilityBatches} = safetyFixture(1);
+  db.documents.set(`user_profiles/${userId}/favorite_dishes/dish-a`, {dishId: 'dish-a'});
+  db.documents.set(`user_profiles/${userId}/favorite_restaurants/restaurant-a`, {restaurantId: 'restaurant-a'});
+  db.documents.set(safetyPreferences(userId), {malformed: true});
+  for (const [i, kind] of ['savedDishes', 'savedRestaurants'].entries()) {
+    const state = await ready(db, request({kind}, i + 1), ctx);
+    assert.equal((await all(db, state, ctx)).length, 1);
+    await assert.rejects(page(db, continued(state), viewer), {code: 'failed-precondition'});
+  }
+  assert.equal(visibilityBatches.length, 0);
+});
+
+test('profile visibility work is constant per operation and public records never change', async () => {
+  const {db, visibilityBatches} = safetyFixture(32);
+  const publicData = () => require('node:v8').serialize([...db.documents].filter(([p]) => !p.startsWith('private_bitescore_search_') && !p.startsWith('private_bitescore_search_admission/')));
+  const before = publicData();
+  let state = await start(db, request(listCriteria('reviews')), viewer);
+  assert.equal(visibilityBatches.length, 1);
+  let checks = visibilityBatches.length;
+  state = await advance(db, continued(state), viewer);
+  assert.equal(visibilityBatches.length - checks, 2);
+  state = await advance(db, continued(state), viewer);
+  checks = visibilityBatches.length;
+  const result = await page(db, continued(state), viewer);
+  assert.equal(visibilityBatches.length - checks, 2);
+  assert.equal(result.items.length, 25);
+  for (const batch of visibilityBatches) assert.deepEqual(batch, [safetyPreferences('viewer'), safetyBlock('viewer'), `private_account_deletions/${userId}`, 'private_account_deletions/viewer']);
+  for (const key of ['reviewerVisibility', 'viewerBinding', 'revision', 'blocked']) assert.equal(Object.hasOwn(result, key), false);
+  assert.deepEqual(publicData(), before);
+});
+
+test('public target criteria cannot select private viewer state; anonymous guests retain public lists', async () => {
+  const {db, exactReads} = safetyFixture(1);
+  blocking(db, 'viewer', 1, true);
+  const spoofed = {...request(listCriteria('reviews')), viewerId: 'other', userId: 'other', expectedUserId: 'other'};
+  await assert.rejects(start(db, spoofed, viewer), {code: 'not-found'});
+  exactReads.length = 0;
+  const guest = {...context('anonymous-actor'), userId: 'anonymous-guest'};
+  const state = await ready(db, spoofed, guest);
+  assert.equal((await all(db, state, guest)).length, 1);
+  assert.ok(!exactReads.some(p => p === safetyPreferences('viewer') || p === safetyBlock('viewer')));
+  assert.ok(!exactReads.some(p => p === safetyPreferences(userId) || p === safetyBlock(userId)));
+});

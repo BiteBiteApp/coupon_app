@@ -9,6 +9,7 @@ import {
   type CustomerBiteScoreReadContext,
 } from "./customer_bitescore_reads.js";
 import {readBiteScoreCatalogRestaurantId} from "./restaurant_invite_helpers.js";
+import {readReviewerVisibility, reviewerVisibilityRefreshRequired} from "./reviewer_visibility.js";
 
 type Data = Record<string, unknown>;
 function count(value: unknown): number {
@@ -56,6 +57,10 @@ export async function getCustomerBiteScoreProfileSummaryHandler(
   const request = raw as Data | null;
   const userId = request && readBiteScoreCatalogRestaurantId(request.userId);
   if (!userId) throw new HttpsError("invalid-argument", "Invalid reviewer identity.");
+  const viewerId = context.userId ?? null;
+  const visibility = () => readReviewerVisibility(async (paths) =>
+    (await db.getAll(...paths.map((path) => db.doc(path)))).map((snapshot) => snapshot.exists ? snapshot.data()! : null), viewerId, userId);
+  const revision = await visibility();
   const own = context.userId === userId;
   const key = createHash("sha256").update(userId).digest("hex");
   const [identitySnapshot, totalsSnapshot, profileSnapshot, oldest, reviewerMetadata] = await Promise.all([
@@ -90,6 +95,7 @@ export async function getCustomerBiteScoreProfileSummaryHandler(
   const contributionPoints = typeof profileSnapshot.data()?.contributionPoints === "number" &&
       Number.isFinite(profileSnapshot.data()?.contributionPoints)
     ? Math.trunc(profileSnapshot.data()!.contributionPoints as number) : 0;
+  if (await visibility() !== revision) reviewerVisibilityRefreshRequired();
   return {
     schemaVersion: 1, userId, publicDisplayName, chosenUsername, fallbackUsername,
     reviewCount, helpfulVotesReceived, accountAgeDays, moderationFlagCount: 0,
