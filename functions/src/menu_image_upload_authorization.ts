@@ -263,6 +263,8 @@ export function createFirestoreMenuImageUploadAuthorizationDatabase(
     },
     async createAuthorization(authorizationId: string, grant: MenuImageUploadAuthorizationGrant, actorUid: string) {
       await firestore.runTransaction(async (tx) => {
+        const screening = await tx.get(firestore.doc("private_bitescore_runtime/photo_screening"));
+        if (screening.get("ownerRequired") === true) throw new HttpsError("failed-precondition", "Use the current app to check new menu photographs before publication.");
         await requireAccountWritable(firestore, tx, actorUid);
         await requireAccountWritable(firestore, tx, grant.ownerUserId);
         const source = await tx.get(firestore.doc(`${grant.sourceType === "biteSaver" ? "restaurant_accounts" : "restaurant_menus"}/${grant.sourceId}`));

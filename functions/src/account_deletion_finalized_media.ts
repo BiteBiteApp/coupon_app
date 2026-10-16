@@ -13,13 +13,14 @@ const generationValue = (value: unknown): string | null =>
   typeof value === "string" && /^[1-9][0-9]*$/u.test(value) ? value :
     typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? String(value) : null;
 
-type Scope = {kind: "dish"; ownerKey: string; dishId: string} |
+type Scope = {kind: "dish"; ownerKey: string; dishId: string} | {kind: "owner"; ownerKey: string} |
   {kind: "business"; uid: string} | {kind: "menu"; grantId: string; fileName: string};
 function scope(path: unknown): Scope | null {
   if (typeof path !== "string") return null;
   const parts = path.split("/");
   if (!parts.every(segment)) return null;
   if (parts.length === 5 && parts[0] === "bitescore_user_uploads" && /^[a-f0-9]{64}$/u.test(parts[1]) && parts[2] === "dish_images") return {kind: "dish", ownerKey: parts[1], dishId: parts[3]};
+  if (parts.length === 4 && parts[0] === "bitescore_user_uploads" && /^[a-f0-9]{64}$/.test(parts[1]) && parts[2] === "owner_images" && /^screened_bso_[a-f0-9]{64}[.]jpg$/.test(parts[3])) return {kind: "owner", ownerKey: parts[1]};
   if (parts.length === 4 && parts[0] === "bitesaver_restaurants" && parts[1].length <= 128 && ["restaurant_images", "coupon_images", "menu_images"].includes(parts[2])) return {kind: "business", uid: parts[1]};
   if (parts.length === 3 && parts[0] === "public_menu_images" && /^bsmia_[A-Za-z0-9_-]{43}$/u.test(parts[1]) && /^image\.(jpg|png|webp)$/u.test(parts[2])) return {kind: "menu", grantId: parts[1], fileName: parts[2]};
   return null;
@@ -27,6 +28,7 @@ function scope(path: unknown): Scope | null {
 function metadataMatches(parsed: Scope, metadata: Record<string, unknown> | undefined): boolean {
   // Only the dish path needs client metadata: its exact three fields are bound
   // by immutable-create Storage Rules. A URL/publication UID is never evidence.
+  if (parsed.kind === "owner") return metadata?.ownershipVersion === "1" && metadata?.uploaderKey === parsed.ownerKey;
   return parsed.kind !== "dish" || (metadata?.ownershipVersion === "1" && metadata?.uploaderKey === parsed.ownerKey && metadata?.dishId === parsed.dishId);
 }
 function accepted(uid: string, value: DocumentData | undefined): value is DocumentData {
@@ -82,7 +84,7 @@ export async function reconcileAccountDeletionFinalizedObject(
   if (data.complete === true) return;
   const parsed = scope(data.path);
   const grant = parsed?.kind === "menu" ? (await db.doc(`private_menu_image_upload_authorizations/${parsed.grantId}`).get()).data() : undefined;
-  if (!parsed || (parsed.kind === "dish" && parsed.ownerKey !== accountDeletionPhotoOwnerKey(uid)) ||
+  if (!parsed || ((parsed.kind === "dish" || parsed.kind === "owner") && parsed.ownerKey !== accountDeletionPhotoOwnerKey(uid)) ||
       (parsed.kind === "business" && parsed.uid !== uid) ||
       (parsed.kind === "menu" && (grantOwner(grant, parsed) !== uid ||
         (grant?.state === "retired" && grant.deletionOperationId !== job.operationId)))) throw new Error("Late media ownership unproven");
@@ -113,7 +115,7 @@ export async function accountDeletionObjectFinalizedHandler(
   const parsed = scope(data?.name), generation = generationValue(data?.generation);
   if (event.type !== accountDeletionFinalizeEvent || data?.bucket !== accountDeletionMediaBucket || !parsed || !generation || !metadataMatches(parsed, data.metadata)) return;
   let uid: string;
-  if (parsed.kind === "dish") {
+  if (parsed.kind === "dish" || parsed.kind === "owner") {
     const matches = await db.collection("private_account_deletions").where("photoOwnerKey", "==", parsed.ownerKey).limit(2).get();
     if (matches.empty) return;
     if (matches.size !== 1) throw new Error("Late media owner is ambiguous");

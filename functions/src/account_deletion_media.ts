@@ -6,6 +6,7 @@ import {createHash} from "node:crypto";
 import {getStorage} from "firebase-admin/storage";
 import type {AccountDeletionStepContext} from "./account_deletion_service.js";
 import {reconcileCustomerBiteScoreImage} from "./customer_bitescore_reads.js";
+import {validOwnerPhotoIdentity} from "./owner_photo_identity.js";
 
 export interface AccountDeletionObjects {
   nextOwnedPath(uid: string, after?: string): Promise<string | null>;
@@ -28,16 +29,18 @@ export function createAccountDeletionObjects(): AccountDeletionObjects {
     },
     async nextPersonalPath(uid, after) {
       if (!validId(uid)) throw new Error("Invalid personal object namespace");
-      const prefix = `bitescore_user_uploads/${key(`bitestar.dish-upload.v1:${uid}`)}/dish_images/`;
+      const prefix = `bitescore_user_uploads/${key(`bitestar.dish-upload.v1:${uid}`)}/`;
       const [files] = await bucket.getFiles({prefix, maxResults: 2, autoPaginate: false, ...(after ? {startOffset: after} : {})});
       return files.map((file) => file.name).find((name) => !after || name !== after) ?? null;
     },
     async personalGeneration(path, uid) {
       const parts = path.split("/");
-      if (parts.length !== 5 || parts[0] !== "bitescore_user_uploads" || parts[1] !== key(`bitestar.dish-upload.v1:${uid}`) || parts[2] !== "dish_images" || !validId(parts[3]) || !validId(parts[4])) throw new Error("Personal object scope changed");
+      const ownerPhoto = parts.length === 4 && parts[2] === "owner_images" && /^screened_bso_[a-f0-9]{64}[.]jpg$/.test(parts[3]);
+      if (parts[0] !== "bitescore_user_uploads" || parts[1] !== key(`bitestar.dish-upload.v1:${uid}`) ||
+          (!ownerPhoto && (parts.length !== 5 || parts[2] !== "dish_images" || !validId(parts[3]) || !validId(parts[4])))) throw new Error("Personal object scope changed");
       try {
         const value = (await bucket.file(path).getMetadata())[0];
-        if (value.metadata?.ownershipVersion !== "1" || value.metadata?.uploaderKey !== parts[1] || value.metadata?.dishId !== parts[3] || !/^[0-9]+$/.test(String(value.generation))) throw new Error("Personal object ownership unproven");
+        if (value.metadata?.ownershipVersion !== "1" || value.metadata?.uploaderKey !== parts[1] || (!ownerPhoto && value.metadata?.dishId !== parts[3]) || !/^[0-9]+$/.test(String(value.generation))) throw new Error("Personal object ownership unproven");
         return String(value.generation);
       } catch (error) { if ((error as {code?: number}).code === 404) return null; throw error; }
     },
@@ -169,7 +172,13 @@ export async function deletionContributionIsUnlocked(context: AccountDeletionSte
     (!proposal.exists || proposal.get("state") === "merged_source" || (proposal.get("blocksClientReviews") === false && proposal.get("blocksClientAggregates") === false));
 }
 
-async function removeOwnedMenuReference(context: AccountDeletionStepContext, path: string, objects: AccountDeletionObjects): Promise<boolean> {
+export async function removeScreenedOwnerMenuReference(context: AccountDeletionStepContext, row: Record<string, any>): Promise<boolean> {
+  if (row.lane !== "owner" || row.family !== "menu") return false;
+  if (row.ownerUserId !== context.job.uid || !validOwnerPhotoIdentity(row)) throw new Error("Screened menu ownership changed");
+  return removeOwnedMenuReference(context, row.storagePath, {referenceUrls: async () => []});
+}
+
+async function removeOwnedMenuReference(context: AccountDeletionStepContext, path: string, objects: Pick<AccountDeletionObjects, "referenceUrls">): Promise<boolean> {
   const queries: Array<[string, string]> = [["storagePath", path], ...(await objects.referenceUrls(path)).map((url): [string, string] => ["imageUrl", url])];
   for (const [field, value] of queries) {
     const found = await context.db.collectionGroup("menu_images").where(field, "==", value).limit(1).get();

@@ -1,3 +1,4 @@
+import {submitScreenedOwnerPhotoHandler, getOwnerScreenedPhotoHandler, useOwnerScreenedPhotoHandler, retireDetachedOwnerPhoto, requireOwnerPhotoReference, markOwnerPhotoAttached} from "./owner_photo_screening.js";
 export {submitScreenedBiteScorePhoto, listAdminScreeningPhotos, previewAdminScreeningPhoto, decideAdminScreeningPhoto, cleanupExpiredScreeningPhotos} from "./customer_bitescore_runtime.js";
 import {createOwnerMediaDependencies} from "./bitesaver_owner_media_runtime.js";
 import {getStorage, getDownloadURL} from "firebase-admin/storage";
@@ -1018,11 +1019,14 @@ async function runBiteSaverAccountTransaction<T>(
     const decision = evaluate(
       biteSaverAccountSnapshot(latestSnapshot.exists, latestSnapshot.data()),
     );
+    const photo = decision.operation !== "none" && Object.prototype.hasOwnProperty.call(decision.data, "mainImageUrl") ?
+      await requireOwnerPhotoReference(db, transaction, "biteSaver", documentId, "main", documentId, decision.data.mainImageUrl, latestSnapshot.get("mainImageUrl")) : null;
     if (decision.operation === "create") {
       transaction.create(accountRef, decision.data);
     } else if (decision.operation === "update") {
       transaction.update(accountRef, decision.data);
     }
+    markOwnerPhotoAttached(db, transaction, photo);
     return decision.response;
   });
 }
@@ -2883,6 +2887,11 @@ export const processRatingDestructiveOperationWork = onSchedule(
   },
 );
 
+// Dormant source-only owner screening. Shares BiteScore admission and cleanup.
+const ownerPhotoOptions = {timeoutSeconds: 60, maxInstances: 2, concurrency: 2};
+export const submitScreenedOwnerPhoto = onCall(ownerPhotoOptions, request => submitScreenedOwnerPhotoHandler(db, request));
+export const getOwnerScreenedPhoto = onCall(ownerPhotoOptions, request => getOwnerScreenedPhotoHandler(db, request));
+export const useOwnerScreenedPhoto = onCall(ownerPhotoOptions, request => useOwnerScreenedPhotoHandler(db, request));
 const ownerMediaDependencies = createOwnerMediaDependencies(db, getStorage().bucket("coupon-app-29446.firebasestorage.app"), getDownloadURL);
 
 export const removeBiteSaverOwnerImage = onCall(async request => removeOwnerImage(request, ownerMediaDependencies));
@@ -5523,6 +5532,8 @@ export const maintainBiteSaverRestaurantSearchIndex = onDocumentWritten(
     secrets: [biteSaverCustomerIdentityKeyV1],
   },
   async (event) => {
+    await retireDetachedOwnerPhoto(db, event.data?.before.get("mainImageUrl"));
+    await retireDetachedOwnerPhoto(db, event.data?.before.get("ownerMedia.legacyMain"));
     await handleBiteSaverRestaurantWrite(searchIndexDatabase, {
       restaurantAccountId: event.params?.restaurantAccountId as string,
       before: readSearchIndexEventSnapshotData(event.data?.before),
@@ -5611,6 +5622,7 @@ export const maintainBiteSaverCouponOfferSearchIndex = onDocumentWritten(
     secrets: [biteSaverCustomerIdentityKeyV1],
   },
   async (event) => {
+    await retireDetachedOwnerPhoto(db, event.data?.before.get("imageUrl"));
     await handleBiteSaverCouponOfferWrite(searchIndexDatabase, {
       restaurantAccountId: event.params.restaurantAccountId as string,
       couponId: event.params.couponId as string,
@@ -5629,6 +5641,7 @@ export const maintainBiteSaverDailySpecialSearchIndex = onDocumentWritten(
     retry: true,
   },
   async (event) => {
+    await retireDetachedOwnerPhoto(db, event.data?.before.get("imageUrl"));
     await handleBiteSaverDailySpecialOfferWrite(searchIndexDatabase, {
       restaurantAccountId: event.params.restaurantAccountId as string,
       dailySpecialId: event.params.dailySpecialId as string,

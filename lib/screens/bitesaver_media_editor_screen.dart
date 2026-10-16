@@ -1,3 +1,6 @@
+import '../widgets/owner_photo_check_feedback.dart';
+import '../services/owner_photo_screening_service.dart';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../models/daily_special.dart';
@@ -125,7 +128,12 @@ class _BiteSaverMediaEditorScreenState
         as String?;
   }
 
-  Future<void> _upload(void Function(String) assign) async {
+  final Map<String, String> _previews = {};
+
+  Future<void> _upload(
+    void Function(String) assign, {
+    String targetId = 'gallery',
+  }) async {
     if (!_editable) return;
     setState(() {
       _busy = true;
@@ -133,10 +141,13 @@ class _BiteSaverMediaEditorScreenState
     });
     final oldIds = _images.map((i) => i['id']).toSet();
     try {
-      final result = await (widget.upload ?? widget.service.upload)(
-        widget.ownerUid,
-        _version,
-      );
+      final result = widget.upload != null
+          ? await widget.upload!(widget.ownerUid, _version)
+          : await widget.service.upload(
+              widget.ownerUid,
+              _version,
+              targetId: targetId,
+            );
       if (!mounted || result == null) return;
       widget.service.requireOwner(widget.ownerUid);
       _media = Map<String, dynamic>.from(result['media'] as Map);
@@ -144,10 +155,22 @@ class _BiteSaverMediaEditorScreenState
           result['registeredImageId'] as String? ??
           _images.where((i) => !oldIds.contains(i['id'])).single['id']
               as String;
+      if (OwnerPhotoScreeningService.isEnabled && addedId.startsWith('bso_')) {
+        try {
+          final preview = await OwnerPhotoScreeningService().preview(addedId);
+          if (preview != null) _previews[addedId] = preview;
+        } catch (_) {
+          // Preview failure does not discard an approved selection. Saving
+          // still uses the exact server-validated image receipt.
+        }
+        if (!mounted) return;
+        widget.service.requireOwner(widget.ownerUid);
+      }
       assign(addedId);
       _dirty = true;
     } catch (error) {
       if (mounted) {
+        showOwnerPhotoCheckFeedback(context, error);
         _error = AppErrorText.friendly(
           error,
           fallback:
@@ -319,7 +342,7 @@ class _BiteSaverMediaEditorScreenState
         height: height,
         width: double.infinity,
         child: InkWell(
-          onTap: (_url(id) ?? legacyUrl) == null
+          onTap: _previews[id] != null || (_url(id) ?? legacyUrl) == null
               ? null
               : () => Navigator.push(
                   context,
@@ -330,10 +353,12 @@ class _BiteSaverMediaEditorScreenState
                     ),
                   ),
                 ),
-          child: BiteSaverRestaurantImage(
-            imageUrl: _url(id) ?? legacyUrl,
-            fit: BoxFit.contain,
-          ),
+          child: _previews[id] != null
+              ? Image.memory(base64Decode(_previews[id]!), fit: BoxFit.contain)
+              : BiteSaverRestaurantImage(
+                  imageUrl: _url(id) ?? legacyUrl,
+                  fit: BoxFit.contain,
+                ),
         ),
       );
   Widget _photos() => Column(
@@ -440,7 +465,7 @@ class _BiteSaverMediaEditorScreenState
                         ? () => _upload((id) {
                             special['imageId'] = id;
                             special['removeLegacyImage'] = true;
-                          })
+                          }, targetId: special['id'] as String)
                         : null,
                     child: Text(
                       !hasPhoto ? 'Add Optional Photo' : 'Replace Photo',
@@ -628,7 +653,7 @@ class _BiteSaverMediaEditorScreenState
               ? () => _upload((id) {
                   _boardImage = id;
                   _board ??= _newSpecial(board: true);
-                })
+                }, targetId: 'board')
               : null,
           icon: const Icon(Icons.add_a_photo_outlined),
           label: Text(

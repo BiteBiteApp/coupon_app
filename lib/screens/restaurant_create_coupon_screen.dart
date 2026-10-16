@@ -1,3 +1,5 @@
+import '../widgets/owner_photo_check_feedback.dart';
+import '../services/owner_photo_screening_service.dart';
 import 'bitesaver_media_editor_screen.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -301,6 +303,7 @@ class _RestaurantCreateCouponScreenState
   String selectedCouponType = 'Normal coupon';
   String selectedProximityRadius = '1 mile';
   String? editingCouponId;
+  String _couponPhotoTargetId = OwnerPhotoScreeningService.newTargetId();
   String? restaurantImageUrl;
   String? couponImageUrl;
   _OwnerBoundRestaurantImageSelection? _selectedRestaurantImage;
@@ -695,10 +698,13 @@ class _RestaurantCreateCouponScreenState
 
   void _resetCouponDraftState() {
     editingCouponId = null;
+    _couponPhotoTargetId = OwnerPhotoScreeningService.newTargetId();
     titleController.clear();
     couponCodeController.clear();
     couponDetailsController.clear();
     couponImageUrl = null;
+    _couponPrivatePreview = null;
+    _couponPrivatePreviewUrl = null;
     selectedUsageRule = 'Unlimited';
     selectedCouponType = 'Normal coupon';
     selectedProximityRadius = '1 mile';
@@ -2920,7 +2926,9 @@ class _RestaurantCreateCouponScreenState
     required String distance,
   }) {
     return Coupon(
-      id: editingCouponId ?? '',
+      id:
+          editingCouponId ??
+          (OwnerPhotoScreeningService.isEnabled ? _couponPhotoTargetId : ''),
       restaurant: restaurantName,
       title: titleController.text.trim(),
       distance: distance,
@@ -2967,6 +2975,57 @@ class _RestaurantCreateCouponScreenState
     });
 
     try {
+      if (OwnerPhotoScreeningService.isEnabled &&
+          widget.pickRestaurantImage == null) {
+        final screening = OwnerPhotoScreeningService();
+        final selectedId = OwnerPhotoScreeningService.imageId(
+          _selectedRestaurantImage?.uploadedUrl,
+        );
+        if (selectedId != null) {
+          await screening.acknowledge(selectedId, ownerIdentity.uid);
+        }
+        final recovered = await screening.recover(
+          uid: ownerIdentity.uid,
+          sourceType: 'biteSaver',
+          sourceId: ownerIdentity.uid,
+          family: 'main',
+          targetId: ownerIdentity.uid,
+        );
+        if (recovered != null) {
+          final preview = await screening.preview(recovered['imageId']);
+          if (preview == null) {
+            throw StateError('The approved photograph is unavailable.');
+          }
+          final bytes = base64Decode(preview);
+          final picked = BiteSaverPickedImage(
+            fileName: bytes[0] == 0x89 ? 'photo.png' : 'photo.jpg',
+            bytes: bytes,
+          );
+          final validated =
+              await BiteSaverImageUploadService.validateRestaurantImage(picked);
+          if (!mounted ||
+              !_isCurrentOwnerScope(ownerIdentity, ownerIdentityGeneration) ||
+              operationGeneration != _restaurantImageOperationGeneration) {
+            return;
+          }
+          if (validated == null) {
+            throw StateError('The approved photograph is unavailable.');
+          }
+          setState(
+            () =>
+                _selectedRestaurantImage = _OwnerBoundRestaurantImageSelection(
+                  ownerIdentity: ownerIdentity,
+                  ownerIdentityGeneration: ownerIdentityGeneration,
+                  selectionGeneration: ++_restaurantImageSelectionGeneration,
+                  validatedImage: validated,
+                ).withUploadedUrl(recovered['imageUrl']),
+          );
+          _showSnackBar(
+            'Photograph approved and available. Save Restaurant Image to apply it.',
+          );
+          return;
+        }
+      }
       final injectedPicker = widget.pickRestaurantImage;
       final pickedImage = injectedPicker != null
           ? await injectedPicker()
@@ -3047,6 +3106,7 @@ class _RestaurantCreateCouponScreenState
           operationGeneration != _restaurantImageOperationGeneration) {
         return;
       }
+      if (mounted && showOwnerPhotoCheckFeedback(context, error)) return;
       _showSnackBar(
         AppErrorText.friendly(
           error,
@@ -3063,6 +3123,9 @@ class _RestaurantCreateCouponScreenState
       }
     }
   }
+
+  Uint8List? _couponPrivatePreview;
+  String? _couponPrivatePreviewUrl;
 
   Future<void> _pickCouponImage() async {
     if (couponImageUploading) {
@@ -3086,6 +3149,8 @@ class _RestaurantCreateCouponScreenState
     );
     final couponKey = submittedEditingCouponId?.isNotEmpty == true
         ? submittedEditingCouponId!
+        : OwnerPhotoScreeningService.isEnabled
+        ? _couponPhotoTargetId
         : DateTime.now().microsecondsSinceEpoch.toString();
     bool operationIsCurrent() => _isCurrentCouponImageOperation(operation);
     int? installedDraftGeneration;
@@ -3102,6 +3167,14 @@ class _RestaurantCreateCouponScreenState
     });
 
     try {
+      final selectedId = OwnerPhotoScreeningService.imageId(couponImageUrl);
+      if (selectedId != null) {
+        await OwnerPhotoScreeningService().acknowledge(
+          selectedId,
+          action.ownerScope.identity.uid,
+        );
+        if (!operationIsCurrent()) return;
+      }
       final pickAndUpload =
           widget.pickAndUploadCouponImage ??
           BiteSaverImageUploadService.pickAndUploadCouponImage;
@@ -3117,7 +3190,22 @@ class _RestaurantCreateCouponScreenState
         return;
       }
       final uploadedUrl = result.imageUrl;
+      Uint8List? privatePreview;
+      final screenedId = OwnerPhotoScreeningService.imageId(uploadedUrl);
+      if (screenedId != null) {
+        try {
+          final preview = await OwnerPhotoScreeningService().preview(
+            screenedId,
+          );
+          if (preview != null) privatePreview = base64Decode(preview);
+        } catch (_) {
+          /* Saving the approved image does not depend on preview. */
+        }
+        if (!operationIsCurrent()) return;
+      }
       setState(() {
+        _couponPrivatePreview = privatePreview;
+        _couponPrivatePreviewUrl = uploadedUrl;
         _advanceCouponDraftGeneration(preserveCouponImageOperation: true);
         installedDraftGeneration = _couponDraftGeneration;
         installedImageUrl = uploadedUrl;
@@ -3130,6 +3218,11 @@ class _RestaurantCreateCouponScreenState
             uid: action.ownerScope.identity.uid,
             couponId: submittedEditingCouponId!,
             imageUrl: uploadedUrl,
+          );
+        } else if (OwnerPhotoScreeningService.imageId(uploadedUrl) != null) {
+          await OwnerPhotoScreeningService().use(
+            uploadedUrl,
+            expectedUid: action.ownerScope.identity.uid,
           );
         } else {
           await RestaurantAccountService.couponsCollection(
@@ -3155,6 +3248,7 @@ class _RestaurantCreateCouponScreenState
       if (!operationIsCurrent() && !installedResultIsCurrent()) {
         return;
       }
+      if (mounted && showOwnerPhotoCheckFeedback(context, error)) return;
       _showSnackBar(
         AppErrorText.friendly(
           error,
@@ -3400,6 +3494,17 @@ class _RestaurantCreateCouponScreenState
         final authoritativeImageUrl =
             authoritativeRestaurant?.mainImageUrl ?? submittedImageUrl;
         restaurantImageUrl = authoritativeImageUrl;
+        final receiptId = OwnerPhotoScreeningService.imageId(
+          authoritativeImageUrl,
+        );
+        if (receiptId != null) {
+          unawaited(
+            OwnerPhotoScreeningService().acknowledge(
+              receiptId,
+              ownerIdentity.uid,
+            ),
+          );
+        }
         if (identical(_selectedRestaurantImage, submittedSelectedImage)) {
           _selectedRestaurantImage = null;
         }
@@ -3821,12 +3926,17 @@ class _RestaurantCreateCouponScreenState
           draftGeneration != _couponDraftGeneration) {
         return;
       }
-      _showSnackBar(
-        AppErrorText.friendly(
-          error,
-          fallback: 'Could not save the coupon right now.',
-        ),
-      );
+      if (error is CouponPhotoAttachmentException) {
+        setState(() => editingCouponId = error.savedCoupon.id);
+        _showSnackBar(error.toString());
+      } else {
+        _showSnackBar(
+          AppErrorText.friendly(
+            error,
+            fallback: 'Could not save the coupon right now.',
+          ),
+        );
+      }
     } finally {
       if (_isCurrentOwnerAction(action)) {
         setState(() {
@@ -4732,6 +4842,8 @@ class _RestaurantCreateCouponScreenState
                 height: 132,
                 semanticLabel: 'Selected restaurant image preview',
               )
+            else if (imageBytes != null)
+              Image.memory(imageBytes, height: 132, fit: BoxFit.contain)
             else
               _buildNetworkImagePreview(imageUrl!, height: 132),
           ],
@@ -4745,7 +4857,13 @@ class _RestaurantCreateCouponScreenState
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.image_outlined),
-            label: Text(uploading ? 'Uploading...' : buttonLabel),
+            label: Text(
+              uploading
+                  ? (OwnerPhotoScreeningService.isEnabled
+                        ? 'Checking photo...'
+                        : 'Uploading...')
+                  : buttonLabel,
+            ),
           ),
         ],
       ),
@@ -6368,6 +6486,9 @@ class _RestaurantCreateCouponScreenState
               ? 'Add coupon image'
               : 'Change coupon image',
           imageUrl: couponImageUrl,
+          imageBytes: _couponPrivatePreviewUrl == couponImageUrl
+              ? _couponPrivatePreview
+              : null,
           uploading: couponImageUploading,
           onPressed: () {
             if (_isCurrentExactOwnerScope(renderedOwnerScope)) {

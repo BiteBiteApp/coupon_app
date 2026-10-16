@@ -6,7 +6,7 @@ import {createFirestoreDishProposalPrivateDatabase} from "./dish_proposal_privat
 import {maintainDishEditProposalPrivateState, applyDishProposalMemberChange, parseDishProposalMemberDocument} from "./dish_proposal_private_maintenance.js";
 import {dishProposalMemberPath} from "./dish_proposal_private_contract.js";
 import {accountDeletionBusinessStep} from "./account_deletion_business.js";
-import {accountDeletionPersonalObjectStep, accountDeletionOwnedObjectStep, deletionContributionIsUnlocked, accountDeletionPhotoStep, deleteAccountOwnedMenuObject, type AccountDeletionObjects} from "./account_deletion_media.js";
+import {accountDeletionPersonalObjectStep, accountDeletionOwnedObjectStep, deletionContributionIsUnlocked, accountDeletionPhotoStep, deleteAccountOwnedMenuObject, removeScreenedOwnerMenuReference, type AccountDeletionObjects} from "./account_deletion_media.js";
 import {createHash} from "node:crypto";
 import {FieldValue, type DocumentData, type Query, type Firestore} from "firebase-admin/firestore";
 import {accountDeletionPath} from "./account_deletion_guard.js";
@@ -137,6 +137,10 @@ async function familyStep(context: AccountDeletionStepContext): Promise<Deletion
   const item = job.item;
   if (item.familyIndex !== job.stageIndex || !segment(item.sourceId)) return pending("temporary_failure");
   const path = `${family.collection}/${item.sourceId}`;
+  if (family.collection === "private_bitescore_photo_screenings") {
+    const row = (await db.doc(path).get()).data();
+    if (row && await removeScreenedOwnerMenuReference(context, row)) return {};
+  }
   if (family.mode === "menuActor" || family.mode === "bio") {
     return db.runTransaction(async (tx) => {
       await context.assertLease(tx);

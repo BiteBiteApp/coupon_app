@@ -1,3 +1,4 @@
+import 'owner_photo_screening_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/bitescore_restaurant.dart';
@@ -239,16 +240,21 @@ class RestaurantMenuService {
   /// mixed BiteScore source. The linked menu is read through its bounded API.
   static Future<RestaurantPublicMenuRoute?> resolveBiteSaverPublicMenuRoute({
     required String uid,
-    Future<Map<String, dynamic>?> Function(String restaurantId)? projectionLoader,
+    Future<Map<String, dynamic>?> Function(String restaurantId)?
+    projectionLoader,
   }) async {
     final accountId = exactFirestoreDocumentId(uid);
     if (accountId == null) return null;
-    final accountData = await (projectionLoader ??
-        RestaurantAccountService.loadCustomerRestaurantProjectionById)(accountId);
+    final accountData =
+        await (projectionLoader ??
+            RestaurantAccountService.loadCustomerRestaurantProjectionById)(
+          accountId,
+        );
     if (RestaurantAccountService.customerRestaurantFromProjectionData(
           accountData,
           expectedRestaurantId: accountId,
-        ) == null) {
+        ) ==
+        null) {
       return null;
     }
     if (accountData?[menuSourceSideField] == menuSourceBiteScore) {
@@ -716,6 +722,13 @@ class RestaurantMenuService {
       );
     }
 
+    if (OwnerPhotoScreeningService.imageId(imageUrl) != null) {
+      final result = await OwnerPhotoScreeningService().use(imageUrl);
+      return RestaurantMenuImage.tryFromFirestore(
+        Map<String, dynamic>.from(result['image'] as Map),
+        fallbackId: (result['image'] as Map)['id'],
+      )!;
+    }
     final trimmedUrl = imageUrl.trim();
     if (trimmedUrl.isEmpty) {
       throw ArgumentError('Menu image URL is required.');

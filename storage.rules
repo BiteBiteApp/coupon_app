@@ -92,31 +92,65 @@ service firebase.storage {
       return firestore.exists(/databases/(default)/documents/bitescore_dishes/$(dishId));
     }
 
+    // SOURCE CUTOVER CANDIDATE. Historical reads remain; screened bytes have
+    // no token and need the exact immutable decision AND saved target.
+    function screenedOwnerPhotoIsPublic(ownerKey, fileName) {
+      let imageId = fileName.replace('screened_', '').replace('.jpg', '');
+      let row = firestore.get(/databases/(default)/documents/private_bitescore_photo_screenings/$(imageId)).data;
+      return row.lane == 'owner' && row.state == 'approved' && row.get('attached', false) == true &&
+        resource.metadata.uploaderKey == ownerKey && row.generation == string(resource.generation) &&
+        row.storagePath == 'bitescore_user_uploads/' + ownerKey + '/owner_images/' + fileName &&
+        screenedOwnerTargetMatches(row);
+    }
+    function screenedOwnerTargetMatches(row) {
+      return row.family == 'managed' && row.targetId != 'gallery' ?
+        screenedOwnerSpecialMatches(row, firestore.get(/databases/(default)/documents/restaurant_accounts/$(row.sourceId)/daily_specials/$(row.targetId == 'board' ? 'bitesaver_managed_board' : row.targetId)).data) :
+        row.family == 'menu' ? (
+        row.sourceType == 'biteSaver' ?
+          firestore.get(/databases/(default)/documents/restaurant_accounts/$(row.sourceId)/menu_images/$(row.targetId)).data.imageUrl == row.publicUrl :
+          firestore.get(/databases/(default)/documents/restaurant_menus/$(row.sourceId)/menu_images/$(row.targetId)).data.imageUrl == row.publicUrl
+      ) : row.family == 'coupon' ?
+        firestore.get(/databases/(default)/documents/restaurant_accounts/$(row.sourceId)/coupons/$(row.targetId)).data.imageUrl == row.publicUrl :
+        screenedOwnerRestaurantMatches(row, firestore.get(/databases/(default)/documents/restaurant_accounts/$(row.sourceId)).data);
+    }
+    function screenedOwnerSpecialMatches(row, special) {
+      return special.imageUrl == row.publicUrl &&
+        (row.targetId == 'board' || special.screeningTargetToken == row.targetToken);
+    }
+    function screenedOwnerRestaurantMatches(row, account) {
+      return row.family == 'main' ? (account.get('mainImageUrl', null) == row.publicUrl ||
+        (account.get('ownerMedia', {}).get('legacyMain', null) == row.publicUrl &&
+          'legacy-main' in account.get('ownerMedia', {}).get('gallery', []))) :
+        row.family == 'managed' && account.ownerMedia.version == row.publishedMediaVersion;
+    }
+
+    match /bitescore_user_uploads/{ownerKey}/owner_images/{fileName} {
+      allow get: if fileName.matches('screened_bso_[a-f0-9]{64}[.]jpg') && screenedOwnerPhotoIsPublic(ownerKey, fileName);
+      allow list, create, update, delete: if false;
+    }
+
     match /bitesaver_restaurants/{uid}/restaurant_images/{fileName} {
       allow read: if true;
-      allow create: if isOwner(uid) && isAllowedImage();
-      allow update: if isOwner(uid) && isAllowedImage();
+      allow create, update: if false;
       allow delete: if isOwner(uid);
     }
 
     match /bitesaver_restaurants/{uid}/coupon_images/{fileName} {
       allow read: if true;
-      allow create: if isOwner(uid) && isAllowedImage();
-      allow update: if isOwner(uid) && isAllowedImage();
+      allow create, update: if false;
       allow delete: if isOwner(uid);
     }
 
     match /bitesaver_restaurants/{uid}/menu_images/{fileName} {
       allow read: if true;
-      allow create: if isOwner(uid) && isAllowedImage();
-      allow update: if isOwner(uid) && isAllowedImage();
+      allow create, update: if false;
       allow delete: if isOwner(uid);
     }
 
     match /restaurant_menus/{menuId}/menu_images/{fileName} {
       allow read: if true;
-      allow create: if isSharedMenuOwner(menuId) && isAllowedImage();
-      allow update: if isSharedMenuOwner(menuId) && isAllowedImage();
+      allow create: if false;
+      allow update: if false;
       allow delete: if isSharedMenuOwner(menuId);
     }
 
@@ -124,10 +158,8 @@ service firebase.storage {
     // owner fence. Owner uses grant+source; Admin uses grant+actor fence (2).
     match /public_menu_images/{authorizationId}/{fileName} {
       allow read: if true;
-      allow create: if canManageAuthorizedMenuImage(authorizationId, fileName) &&
-        isAllowedImage() && hasNoCustomMetadata();
-      allow update: if canManageAuthorizedMenuImage(authorizationId, fileName) &&
-        isAllowedImage() && hasNoCustomMetadata();
+      allow create: if false;
+      allow update: if false;
       allow delete: if canManageAuthorizedMenuImage(authorizationId, fileName);
     }
 

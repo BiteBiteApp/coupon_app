@@ -127,14 +127,17 @@ async function seedSharedGrant({
   return `public_menu_images/${id}/image.png`;
 }
 
-test("current own-menu owner can create, update, delete, and serve publicly", async () => {
-  await assertSucceeds(upload("owner"));
-  await assertSucceeds(
-    storageFor("unauthenticated").ref(objectPath).getMetadata(),
-  );
-  await assertSucceeds(upload("owner", objectPath, {
-    bytes: Uint8Array.from([0xff, 0xd8, 0x01, 0xff, 0xd9]),
-  }));
+async function seedHistoricalUpload(path = objectPath, contentType = "image/jpeg") {
+  await testEnv.withSecurityRulesDisabled(async context => {
+    await context.storage().ref(path).put(Uint8Array.from([0xff,0xd8,0xff,0xd9]), {contentType});
+  });
+}
+
+test("candidate cutover denies new owner uploads while historical public reads and deletes survive", async () => {
+  await assertFails(upload("owner"));
+  await seedHistoricalUpload();
+  await assertSucceeds(storageFor("unauthenticated").ref(objectPath).getMetadata());
+  await assertFails(upload("owner", objectPath));
   await assertSucceeds(storageFor("owner").ref(objectPath).delete());
 });
 
@@ -148,15 +151,16 @@ test("path possession does not authorize unrelated, anonymous, or signed-out wri
   }));
 });
 
-test("claim and allowlisted-email admins retain create and delete authority", async () => {
+test("candidate cutover denies Admin public uploads and preserves historical delete authority", async () => {
   for (const actorName of ["claimAdmin", "emailAdmin"]) {
-    await assertSucceeds(upload(actorName));
+    await assertFails(upload(actorName));
+    await seedHistoricalUpload();
     await assertSucceeds(storageFor(actorName).ref(objectPath).delete());
   }
 });
 
 test("own and shared ownership are revalidated for every mutation", async () => {
-  await assertSucceeds(upload("owner"));
+  await seedHistoricalUpload();
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await context.firestore().doc("restaurant_accounts/owner-a").update({
       couponPostingEnabled: false,
@@ -167,7 +171,7 @@ test("own and shared ownership are revalidated for every mutation", async () => 
   await assertSucceeds(storageFor("claimAdmin").ref(objectPath).delete());
 
   const sharedPath = await seedSharedGrant();
-  await assertSucceeds(upload("owner", sharedPath, {contentType: "image/png"}));
+  await seedHistoricalUpload(sharedPath, "image/png");
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await context.firestore().doc("restaurant_menus/shared-menu-private").update({
       createdByUserId: "owner-b",
@@ -219,8 +223,8 @@ test("real deletion acceptance revokes both owner menu grants atomically and pre
     const db=getFirestore(app), now=Date.now();
     const shared=await seedSharedGrant();
     await seedOwnGrant({id:'bsmia_'+ 'c'.repeat(43),ownerUserId:'owner-b',sourceId:'owner-b'});
-    await assertSucceeds(upload('owner',objectPath));
-    await assertSucceeds(upload('owner',shared,{contentType:'image/png'}));
+    await seedHistoricalUpload();
+    await seedHistoricalUpload(shared, 'image/png');
     const accept=()=>requestAccountDeletionHandler(db,{schemaVersion:1,expectedUid:'owner-a',confirmation:'DELETE',receipt:'r'.repeat(43)},
       {uid:'owner-a',authTime:Math.floor(now/1000),issuedAt:Math.floor(now/1000),signInProvider:'password'},
       {uid:'owner-a',creationTime:new Date(now-100000).toUTCString(),providerIds:['password'],disabled:false},now);
@@ -233,10 +237,12 @@ test("real deletion acceptance revokes both owner menu grants atomically and pre
     await assertFails(upload('claimAdmin',objectPath));
     await assertFails(upload('claimAdmin',shared,{contentType:'image/png'}));
     const bPath='public_menu_images/bsmia_'+ 'c'.repeat(43)+'/image.jpg';
-    await assertSucceeds(upload('otherOwner',bPath));
+    await assertFails(upload('otherOwner',bPath));
+    require('node:assert/strict').equal((await db.doc('private_menu_image_upload_authorizations/bsmia_'+ 'c'.repeat(43)).get()).get('state'),'active');
     await db.doc('private_account_deletions/claim-admin').set({state:'requested'});
     await assertFails(upload('claimAdmin',bPath));
-    await assertSucceeds(upload('otherOwner',bPath));
+    await assertFails(upload('otherOwner',bPath));
+    require('node:assert/strict').equal((await db.doc('private_menu_image_upload_authorizations/bsmia_'+ 'c'.repeat(43)).get()).get('state'),'active');
   } finally { await deleteApp(app); }
 });
 

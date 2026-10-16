@@ -1,3 +1,4 @@
+import '../widgets/owner_photo_check_feedback.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -321,6 +322,11 @@ class _RestaurantMenuManagementScreenState
         return;
       }
 
+      if (!mounted ||
+          _currentUser?.uid != user.uid ||
+          _sourceForUser(user)?.id != source.id) {
+        return;
+      }
       final savedImage = await RestaurantMenuService.saveMenuImage(
         source: source,
         imageUrl: imageUrl,
@@ -335,7 +341,8 @@ class _RestaurantMenuManagementScreenState
       });
       _showSnackBar('Menu image uploaded.');
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || _currentUser?.uid != user.uid) return;
+      if (showOwnerPhotoCheckFeedback(context, error)) return;
       _showSnackBar(
         AppErrorText.friendly(
           error,

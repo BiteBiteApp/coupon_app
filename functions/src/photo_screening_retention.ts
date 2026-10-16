@@ -1,3 +1,4 @@
+import {validOwnerPhotoIdentity, ownerPhotoMetadata, ownerPhotoPublicationPath as ownerPhotoTargetPath, ownerPhotoIsAttached} from "./owner_photo_identity.js";
 import {createHash, randomUUID} from "node:crypto";
 import {getStorage} from "firebase-admin/storage";
 import {FieldValue, type Firestore} from "firebase-admin/firestore";
@@ -11,13 +12,13 @@ export const pendingRetentionMs = 30 * dayMs;
 const cleanupLeaseMs = 120_000, maxCleanupAttempts = 8;
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 const generation = (value: unknown): value is string => typeof value === "string" && /^[1-9][0-9]*$/.test(value);
-export const terminalPhotoStates = ["rejected", "expired", "upload_failed"];
+export const terminalPhotoStates = ["rejected", "expired", "upload_failed", "withdrawn"];
 export function millis(value: any): number | null {
   const result = value instanceof Date ? value.getTime() : typeof value?.toMillis === "function" ? value.toMillis() : NaN;
   return Number.isFinite(result) ? result : null;
 }
 export function photoExpired(row: Data, at: number): boolean {
-  return !["approved", "removed", ...terminalPhotoStates].includes(row.state) &&
+  return !(row.state === "approved" && (row.lane !== "owner" || row.attached === true)) && !["removed", ...terminalPhotoStates].includes(row.state) &&
     (millis(row.expiresAt) === null || millis(row.expiresAt)! <= at);
 }
 /** Explicit candidate approval is separate from the already-approved 30 days. */
@@ -31,6 +32,7 @@ export function terminalFields(state: string, at: number, reason: string): Data 
     maintenanceAt: new Date(at), terminalAt: new Date(at), queueOpen: true, updatedAt: new Date(at)};
 }
 function validIdentity(row: Data): boolean {
+  if (row.lane === "owner") return validOwnerPhotoIdentity(row);
   if (typeof row.ownerUserId !== "string" || !row.ownerUserId || typeof row.dishId !== "string" ||
       !row.dishId || /[\/\x00-\x1f]/u.test(row.dishId) || !/^[a-f0-9]{64}$/.test(row.sha256 ?? "") ||
       typeof row.uploadToken !== "string" || !/^[a-f0-9-]{36}$/.test(row.uploadToken)) return false;
@@ -39,6 +41,7 @@ function validIdentity(row: Data): boolean {
     `bitescore_user_uploads/${digest(`bitestar.dish-upload.v1:${row.ownerUserId}`)}/dish_images/${row.dishId}/screened_${imageId}.jpg`;
 }
 export function uploadMetadata(row: Data): Record<string, string> {
+  if (row.lane === "owner") return ownerPhotoMetadata(row);
   return {ownershipVersion: "1", uploaderKey: digest(`bitestar.dish-upload.v1:${row.ownerUserId}`), dishId: row.dishId,
     screeningImageId: row.imageId, screeningSha256: row.sha256, screeningUploadToken: row.uploadToken};
 }
@@ -73,11 +76,12 @@ export type CleanupOptions = {now?: () => number; objects?: ScreeningCleanupObje
 export async function cleanupScreeningPhoto(db: Firestore, imageId: string, options: CleanupOptions = {}): Promise<void> {
   const now = options.now ?? Date.now, leaseId = randomUUID(), ref = db.doc(`${screeningCollection}/${imageId}`);
   const claimed = await db.runTransaction(async tx => {
-    const [snapshot, source, runtime] = await tx.getAll(ref, db.doc(`bitescore_dish_images/${imageId}`), db.doc(screeningRuntimePath));
+    const snapshot = await tx.get(ref);
+    const [source, runtime] = await tx.getAll(db.doc(snapshot.get("lane") === "owner" ? ownerPhotoTargetPath(snapshot.data()!) : `bitescore_dish_images/${imageId}`), db.doc(screeningRuntimePath));
     if (!snapshot.exists) return null;
     if (runtime.get("cleanupEnabled") !== true) return null;
     let row = snapshot.data()!;
-    if (source.exists || ["approved", "removed"].includes(row.state)) {
+    if ((row.lane === "owner" ? ownerPhotoIsAttached(row, source.data()) : source.exists) || row.state === "removed" || (row.state === "approved" && row.lane !== "owner")) {
       // A stale due marker must not occupy every subsequent bounded page.
       tx.update(ref, {maintenanceAt: FieldValue.delete(), queueOpen: false});
       return null;
@@ -113,8 +117,8 @@ export async function cleanupScreeningPhoto(db: Firestore, imageId: string, opti
       if (!generation(current.generation) || !matches(claimed, current.metadata) || (expected && expected !== current.generation)) throw new Error("identity_changed");
       // Lost upload acknowledgement: pin a proven generation before deleting.
       const pinned = await db.runTransaction(async tx => {
-        const [latest, source] = await tx.getAll(ref, db.doc(`bitescore_dish_images/${imageId}`));
-        if (!latest.exists || source.exists || latest.get("cleanupLeaseId") !== leaseId ||
+        const [latest, source] = await tx.getAll(ref, db.doc(claimed.lane === "owner" ? ownerPhotoTargetPath(claimed) : `bitescore_dish_images/${imageId}`));
+        if (!latest.exists || (claimed.lane === "owner" ? ownerPhotoIsAttached(latest.data()!, source.data()) : source.exists) || latest.get("cleanupLeaseId") !== leaseId ||
             !terminalPhotoStates.includes(latest.get("state"))) return false;
         tx.update(ref, {cleanupGeneration: current.generation}); return true;
       });
@@ -164,14 +168,15 @@ export async function maintainScreeningPhotos(db: Firestore, options: CleanupOpt
  * failed/lost acknowledgement and even after an earlier probe found no bytes. */
 export async function screeningPhotoFinalized(db: Firestore, event: {type: string; data: {bucket?: unknown; name?: unknown; generation?: unknown; metadata?: Record<string, unknown>}}, options: CleanupOptions = {}): Promise<void> {
   const metadata = event.data?.metadata, id = metadata?.screeningImageId;
-  if (event.type !== "google.cloud.storage.object.v1.finalized" || typeof id !== "string" || !/^bss_[a-f0-9]{64}$/.test(id) || !generation(event.data.generation)) return;
+  if (event.type !== "google.cloud.storage.object.v1.finalized" || typeof id !== "string" || !/^bs[so]_[a-f0-9]{64}$/.test(id) || !generation(event.data.generation)) return;
   const objects = options.objects ?? screeningCleanupObjects(), now = options.now ?? Date.now;
   if (event.data.bucket !== objects.bucket) return;
   const ref = db.doc(`${screeningCollection}/${id}`);
   const rearmed = await db.runTransaction(async tx => {
-    const [row, source] = await tx.getAll(ref, db.doc(`bitescore_dish_images/${id}`));
+    const row = await tx.get(ref);
+    const source = await tx.get(db.doc(row.get("lane") === "owner" ? ownerPhotoTargetPath(row.data()!) : `bitescore_dish_images/${id}`));
     const value = row.data();
-    if (!value || source.exists || !matches(value, metadata) || value.storagePath !== event.data.name ||
+    if (!value || (value.lane === "owner" ? ownerPhotoIsAttached(value, source.data()) : source.exists) || !matches(value, metadata) || value.storagePath !== event.data.name ||
         ["approved", "removed"].includes(value.state)) return false;
     // Active/stored workflows already have a durable deadline. Late delivery of
     // an old generation must not rewrite a current workflow's immutable proof.

@@ -28,10 +28,10 @@ test.before(async () => {
 });
 test.beforeEach(async () => { await env.clearFirestore(); await env.clearStorage(); deleteCalls = []; deleteHook = null; await db.doc('restaurant_accounts/owner').set({ uid: 'owner', couponApplicationSubmitted: true, approvalStatus: 'approved', couponPostingEnabled: true }); });
 test.after(async () => { await db.terminate(); await deleteApp(app); await env.cleanup(); });
-test('unchanged Rules protect root metadata; only actual owner may upload existing namespace', async () => {
+test('candidate cutover protects root metadata and blocks new public uploads for every owner', async () => {
     await assertFails(updateDoc(doc(actor('owner').firestore(), 'restaurant_accounts/owner'), { ownerMedia: { version: 999 } }));
     const objectPath = `bitesaver_restaurants/owner/restaurant_images/managed_${id}.png`, bytes = new Uint8Array([137, 80, 78, 71]), metadata = { contentType: 'image/png', customMetadata: { mediaId: id } };
-    await assertSucceeds(uploadBytes(ref(actor('owner').storage(), objectPath), bytes, metadata));
+    await assertFails(uploadBytes(ref(actor('owner').storage(), objectPath), bytes, metadata));
     await assertFails(uploadBytes(ref(actor('other').storage(), objectPath), bytes, metadata));
     await assertFails(deleteObject(ref(actor('other').storage(), objectPath)));
     await db.doc('private_account_deletions/owner').set({ state: 'requested' });

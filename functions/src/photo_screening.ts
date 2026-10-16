@@ -1,3 +1,4 @@
+import {reservePhotoScreening} from "./photo_screening_admission.js";
 import {awardPublishedDishImageContributionPoints} from "./contribution_points_helpers.js";
 import {createHash, randomUUID} from "node:crypto";
 import {getAuth} from "firebase-admin/auth";
@@ -103,7 +104,7 @@ function publish(tx: Transaction, db: Firestore, record: Data, dish: Data, url: 
     ...(!primary ? {primaryImageId: record.imageId, primaryImageUrl: url} : {})});
   return source;
 }
-function decode(data: Data): Buffer {
+export function decodeScreeningPhoto(data: Data): Buffer {
   if (typeof data.bytesBase64 !== "string" || data.bytesBase64.length > Math.ceil(maxBytes / 3) * 4 ||
       !/^[A-Za-z0-9+/]*={0,2}$/.test(data.bytesBase64)) throw new HttpsError("invalid-argument", "Invalid photo bytes.");
   const bytes = Buffer.from(data.bytesBase64, "base64");
@@ -122,12 +123,12 @@ export async function submitScreenedPhotoHandler(db: Firestore, request: Callabl
   if (data.expectedUserId !== uid) throw new HttpsError("permission-denied", "The signed-in account changed.");
   const dishId = exact(data.dishId), restaurantId = exact(data.restaurantId), reviewId = data.reviewId === null ? null : exact(data.reviewId);
   if (!["review", "missing", "gallery"].includes(String(data.mode)) || (data.mode === "review") !== (reviewId !== null) || typeof data.retry !== "boolean") throw new HttpsError("invalid-argument", "Invalid photo operation.");
-  const bytes = decode(data), sha256 = hash(bytes), authCreatedAt = await identity(uid, options);
+  const bytes = decodeScreeningPhoto(data), sha256 = hash(bytes), authCreatedAt = await identity(uid, options);
   const imageId = `bss_${hash(JSON.stringify([uid, dishId, restaurantId, reviewId, data.mode, data.contentType, sha256]))}`;
   const storagePath = `bitescore_user_uploads/${ownerKey(uid)}/dish_images/${dishId}/screened_${imageId}.jpg`;
   const ref = db.doc(`${screeningCollection}/${imageId}`), sourceRef = db.doc(`bitescore_dish_images/${imageId}`);
-  const now = options.now ?? Date.now, at = now(), attemptId = randomUUID(), month = new Date(at).toISOString().slice(0, 7);
-  const usageRef = db.doc(`private_bitescore_screening_usage/${month}`), slotsRef = db.doc("private_bitescore_screening_usage/concurrency");
+  const now = options.now ?? Date.now, at = now(), attemptId = randomUUID();
+  const slotsRef = db.doc("private_bitescore_screening_usage/concurrency");
   const admitted = await db.runTransaction(async tx => {
     const [runtime, old, source] = await tx.getAll(db.doc(screeningRuntimePath), ref, sourceRef);
     const value: Data = old.data() ?? {schemaVersion: 1, imageId, ownerUserId: uid, authCreatedAt, dishId, restaurantId, reviewId, mode: data.mode,
@@ -148,12 +149,7 @@ export async function submitScreenedPhotoHandler(db: Firestore, request: Callabl
     requireRuntime(runtime.data(), true);
     if (value.state === "scanning" && value.leaseUntil > at) return {result: response(value)};
     if (old.exists && (data.retry !== true || value.attempts >= maxAttempts || at < value.retryAfter)) return {result: response({...value, state: "failed"})};
-    const [usage, slots, admission] = await tx.getAll(usageRef, slotsRef, db.doc(`user_profiles/${uid}/photo_screening_state/admission`));
-    const used = count(usage.get("reservedUnits")), active: Data = {};
-    for (const [key, until] of Object.entries(slots.get("active") ?? {})) if (typeof until === "number" && until > at) active[key] = until;
-    const sameWindow = typeof admission.get("windowAt") === "number" && at - admission.get("windowAt") < 60_000;
-    const requests = sameWindow ? count(admission.get("count")) : 0;
-    if (used >= runtime.get("monthlyAllowance") || Object.keys(active).length >= 4 || requests >= 4) throw new HttpsError("resource-exhausted", "Photo checking is busy or paused. Please try later.");
+    await reservePhotoScreening(db, tx, uid, at, attemptId, runtime.get("monthlyAllowance"));
     const next: Data = {...value, state: "scanning", scanStatus: "pending", attempts: value.attempts + 1, attemptId, leaseUntil: at + leaseMs,
       retryAfter: at + leaseMs + 60_000 * 2 ** value.attempts, policyVersion: screeningPolicyVersion, updatedAt: new Date(at),
       uploadStatus: value.uploadStatus ?? "pending", queueOpen: true,
@@ -168,9 +164,6 @@ export async function submitScreenedPhotoHandler(db: Firestore, request: Callabl
         "bytesDeletedAt", "terminalAt", "failurePhase"]) delete next[key];
     }
     tx.set(ref, next);
-    tx.set(usageRef, {reservedUnits: used + 1, updatedAt: new Date(at)});
-    tx.set(slotsRef, {active: {...active, [attemptId]: at + leaseMs}});
-    tx.set(admission.ref, {windowAt: sameWindow ? admission.get("windowAt") : at, count: requests + 1});
     return {record: next};
   });
   if (admitted.result) return admitted.result;
@@ -246,6 +239,16 @@ export async function listScreeningPhotosHandler(db: Firestore, request: Callabl
   const rows = await query.get(), selected = rows.docs.slice(0, 25);
   const items = await Promise.all(selected.map(async row => {
     const value = row.data();
+    if (value.lane === "owner") {
+      const source = await db.doc(`${value.sourceType === "biteSaver" ? "restaurant_accounts" : "restaurant_menus"}/${exact(value.sourceId)}`).get();
+      return {imageId: row.id, dishId: null, restaurantId: value.sourceId, dishName: `${value.family === "managed" ? value.targetId === "gallery" ? "Restaurant gallery" : value.targetId === "board" ? "Daily Specials board" : "Manual special" : value.family} image · ${value.targetId}`,
+        restaurantName: source.get("restaurantName") ?? source.get("name") ?? "Owner menu", family: value.family,
+        sourceType: value.sourceType, sourceId: value.sourceId, targetId: value.targetId, ownerUserId: value.ownerUserId,
+        state: photoExpired(value, at) ? "expired" : value.state, scanStatus: value.scanStatus, generation: value.generation ?? null,
+        likelihoods: value.likelihoods ?? null, createdAtMillis: millis(value.createdAt), expiresAtMillis: millis(value.expiresAt), serverNowMillis: at,
+        cleanupStatus: value.cleanupStatus ?? null, cleanupError: value.cleanupError ?? null,
+        canDecide: !photoExpired(value, at) && !terminalPhotoStates.includes(value.state) && !(value.state === "scanning" && value.leaseUntil > at)};
+    }
     const [dish, restaurant] = await db.getAll(db.doc(`bitescore_dishes/${exact(value.dishId)}`), db.doc(`bitescore_restaurants/${exact(value.restaurantId)}`));
     return {imageId: row.id, dishId: value.dishId, restaurantId: value.restaurantId, dishName: dish.get("name") ?? "Unavailable dish",
       restaurantName: restaurant.get("name") ?? "Unavailable restaurant", state: photoExpired(value, at) ? "expired" : value.state, scanStatus: value.scanStatus,
@@ -264,6 +267,7 @@ export async function previewScreeningPhotoHandler(db: Firestore, request: Calla
     if (!row || row.generation !== data.generation || typeof row.generation !== "string") throw new HttpsError("not-found", "Photo unavailable.");
     if (photoExpired(row, (options.now ?? Date.now)()) || terminalPhotoStates.includes(row.state)) throw new HttpsError("failed-precondition", "This unpublished photograph has expired or been rejected.");
     await requireAccountWritable(db, tx, row.ownerUserId);
+    if (row.lane === "owner") await (await import("./owner_photo_screening.js")).requireOwnerPhotoAuthority(db, tx, row);
     return row;
   });
   try {
@@ -273,6 +277,7 @@ export async function previewScreeningPhotoHandler(db: Firestore, request: Calla
 }
 export async function decideScreeningPhotoHandler(db: Firestore, request: CallableRequest<unknown>, options: ScreeningOptions = {}): Promise<Data> {
   const data = parse(request.data, ["schemaVersion", "expectedUserId", "imageId", "generation", "decision"]), uid = admin(request, data);
+  if (typeof data.imageId === "string" && data.imageId.startsWith("bso_")) return (await import("./owner_photo_screening.js")).decideOwnerScreenedPhoto(db, request, options);
   if (!["approved", "rejected", "retry_cleanup"].includes(String(data.decision))) throw new HttpsError("invalid-argument", "Invalid decision.");
   const ref = db.doc(`${screeningCollection}/${exact(data.imageId)}`), before = (await ref.get()).data();
   if (!before || (before.generation ?? null) !== data.generation) throw new HttpsError("failed-precondition", "Photo changed. Refresh before deciding.");

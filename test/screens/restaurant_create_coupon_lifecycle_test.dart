@@ -1,3 +1,4 @@
+import 'package:coupon_app/services/owner_photo_screening_service.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -40,6 +41,62 @@ void main() {
   tearDown(() {
     LocalRestaurantProfileStore.resetProfile();
   });
+
+  testWidgets(
+    'held coupon photo preserves editable text and never publishes its bytes',
+    (tester) async {
+      final owner = _TestUser(uid: 'held-owner', email: 'held@example.test');
+      Coupon? saved;
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) async => _approvedAccount(uid: uid),
+        loadCoupons: (_) async => [_ownerCoupon(title: 'Held photo coupon')],
+        pickAndUploadCouponImage:
+            ({required uid, required couponKey, required isCurrent}) async {
+              throw OwnerPhotoCheckOutcome(
+                'needs_review',
+                discard: () async {},
+              );
+            },
+        updateCoupon: ({required uid, required coupon}) async {
+          saved = coupon;
+          return coupon;
+        },
+        testCurrentUser: owner,
+        currentUserProvider: () => owner,
+      );
+      await _ensureSectionExpanded(
+        tester,
+        'Coupon Management',
+        visibleWhenExpanded: find.text('Held photo coupon'),
+      );
+      await _tapCardAction(
+        tester,
+        cardText: 'Held photo coupon',
+        actionText: 'Edit',
+      );
+      await _invokeOutlinedButton(tester, 'Add coupon image');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('awaiting Admin review'), findsOneWidget);
+      expect(
+        tester
+            .widget<ElevatedButton>(
+              find.widgetWithText(ElevatedButton, 'Save Coupon Changes'),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      tester
+          .widget<ElevatedButton>(
+            find.widgetWithText(ElevatedButton, 'Save Coupon Changes'),
+          )
+          .onPressed!();
+      await tester.pumpAndSettle();
+      expect(saved?.title, 'Held photo coupon');
+      expect(saved?.imageUrl, null);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('missing account is a valid coupon application state', (
     tester,

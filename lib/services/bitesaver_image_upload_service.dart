@@ -1,9 +1,11 @@
 import 'dart:ui' as ui;
+import 'owner_photo_screening_service.dart';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class BiteSaverPickedImage {
   final String fileName;
@@ -217,7 +219,22 @@ class BiteSaverImageUploadService {
     required String uid,
     required BiteSaverValidatedRestaurantImage validatedImage,
     BiteSaverRestaurantImageStorageWriter? storageWriter,
-  }) {
+  }) async {
+    if (OwnerPhotoScreeningService.isEnabled && storageWriter == null) {
+      final result = await OwnerPhotoScreeningService().submit(
+        uid: uid,
+        sourceType: 'biteSaver',
+        sourceId: uid,
+        family: 'main',
+        targetId: uid,
+        bytes: validatedImage.pickedImage.bytes,
+        contentType: validatedImage._format.contentType,
+      );
+      return BiteSaverImageUploadResult(
+        imageUrl: result['imageUrl'],
+        storagePath: result['storagePath'],
+      );
+    }
     final timestamp = DateTime.now().microsecondsSinceEpoch;
     final objectPath =
         'bitesaver_restaurants/${_safePathSegment(uid)}/restaurant_images/'
@@ -256,6 +273,23 @@ class BiteSaverImageUploadService {
     required bool Function() isCurrent,
     BiteSaverCouponImageUploadDependencies? dependencies,
   }) async {
+    if (OwnerPhotoScreeningService.isEnabled &&
+        dependencies == null &&
+        _isCouponImageOperationCurrent(isCurrent)) {
+      final pending = await OwnerPhotoScreeningService().recover(
+        uid: uid,
+        sourceType: 'biteSaver',
+        sourceId: uid,
+        family: 'coupon',
+        targetId: couponKey,
+      );
+      if (!_isCouponImageOperationCurrent(isCurrent)) {
+        return const BiteSaverCouponImageUploadResult.stale();
+      }
+      if (pending != null) {
+        return BiteSaverCouponImageUploadResult.completed(pending['imageUrl']);
+      }
+    }
     final pickImage = dependencies?.pickImage ?? _pickCouponImage;
     final uploadImage =
         dependencies?.uploadImage ?? _uploadCouponImageStorageObject;
@@ -360,6 +394,21 @@ class BiteSaverImageUploadService {
       return const BiteSaverCouponImageUploadResult.stale();
     }
 
+    if (OwnerPhotoScreeningService.isEnabled && dependencies == null) {
+      final result = await OwnerPhotoScreeningService().submit(
+        uid: uid,
+        sourceType: 'biteSaver',
+        sourceId: uid,
+        family: 'coupon',
+        targetId: couponKey,
+        bytes: processedBytes,
+        contentType: _contentTypeFor(source.fileName),
+      );
+      if (!_isCouponImageOperationCurrent(isCurrent)) {
+        return const BiteSaverCouponImageUploadResult.stale();
+      }
+      return BiteSaverCouponImageUploadResult.completed(result['imageUrl']);
+    }
     final contentType = _contentTypeFor(source.fileName);
     final extension = _extensionFor(source.fileName);
     final timestamp = DateTime.now().microsecondsSinceEpoch;
@@ -512,6 +561,9 @@ class BiteSaverImageUploadService {
     required String sourceId,
     BiteSaverMenuImageUploadDependencies? dependencies,
   }) async {
+    if (OwnerPhotoScreeningService.isEnabled && dependencies == null) {
+      return _pickScreenedMenuImage(sourceType, sourceId);
+    }
     final pickedImage = await (dependencies?.pickImage ?? _pickImage)();
     if (pickedImage == null) {
       return null;
@@ -541,6 +593,45 @@ class BiteSaverImageUploadService {
       );
     }
     return result;
+  }
+
+  static Future<BiteSaverImageUploadResult?> _pickScreenedMenuImage(
+    String sourceType,
+    String sourceId,
+  ) async {
+    final uid = OwnerPhotoScreeningService.currentUid();
+    final preferences = await SharedPreferences.getInstance();
+    final key = 'owner.menu.photo.target.$uid.$sourceType.$sourceId';
+    final targetId =
+        preferences.getString(key) ?? OwnerPhotoScreeningService.newTargetId();
+    await preferences.setString(key, targetId);
+    final service = OwnerPhotoScreeningService();
+    var result = await service.recover(
+      uid: uid,
+      sourceType: sourceType,
+      sourceId: sourceId,
+      family: 'menu',
+      targetId: targetId,
+    );
+    if (result == null) {
+      final picked = await _pickImage(
+        isCurrent: () => OwnerPhotoScreeningService.currentUid() == uid,
+      );
+      if (picked == null) return null;
+      result = await service.submit(
+        uid: uid,
+        sourceType: sourceType,
+        sourceId: sourceId,
+        family: 'menu',
+        targetId: targetId,
+        bytes: picked.bytes,
+        contentType: _contentTypeFor(picked.fileName),
+      );
+    }
+    return BiteSaverImageUploadResult(
+      imageUrl: result['imageUrl'],
+      storagePath: result['storagePath'],
+    );
   }
 
   static Future<BiteSaverPickedImage?> _pickImage({

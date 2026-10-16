@@ -45,7 +45,10 @@ class _PhotoScreeningAdminScreenState extends State<PhotoScreeningAdminScreen> {
       'pending' => 'Private image deletion scheduled',
       _ => null,
     };
-    return '${item['state']}$age$expiration${cleanup == null ? '' : '\n$cleanup'}';
+    final owner = item['ownerUserId'] == null
+        ? ''
+        : '\nOwner: ${item['ownerUserId']}\nSource: ${item['sourceType']}/${item['sourceId']}\nTarget: ${item['targetId']}';
+    return '${item['state']}$age$expiration$owner${cleanup == null ? '' : '\n$cleanup'}';
   }
 
   @override
@@ -204,7 +207,9 @@ class _PhotoScreeningAdminScreenState extends State<PhotoScreeningAdminScreen> {
       });
       if (mounted && _service.isCurrent(_uid)) {
         final state = result['state'];
-        final message = state == 'approved'
+        final message = state == 'available'
+            ? 'Photo approved and available to its owner. The owner must still save it to the intended content.'
+            : state == 'approved'
             ? 'Photograph published.'
             : '${state == 'rejected' ? 'Photograph rejected.' : 'Photograph cannot be published.'} ${result['cleanupStatus'] == 'complete' ? 'Image bytes confirmed absent.' : 'Deletion is pending; the image remains private.'}';
         ScaffoldMessenger.of(

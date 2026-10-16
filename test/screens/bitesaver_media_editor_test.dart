@@ -1,3 +1,4 @@
+import 'package:coupon_app/services/owner_photo_screening_service.dart';
 import 'dart:convert';
 import 'package:coupon_app/screens/bitesaver_media_editor_screen.dart';
 import 'package:coupon_app/services/bitesaver_owner_media_service.dart';
@@ -25,6 +26,7 @@ class Backend {
   final saves = <Map<String, dynamic>>[];
   final removals = <Map<String, dynamic>>[];
   bool fail = false;
+  bool held = false;
   String? uid = 'owner';
   late final service = BiteSaverOwnerMediaService(
     currentUid: () => uid,
@@ -46,6 +48,8 @@ class Backend {
     },
   );
   Future<Map<String, dynamic>?> upload(String uid, int version) async {
+    if (held)
+      throw OwnerPhotoCheckOutcome('needs_review', discard: () async {});
     final media = data['media'] as Map;
     final id = 'photo${(media['images'] as List).length}';
     (media['images'] as List).add({
@@ -101,6 +105,29 @@ Future<void> pump(
 }
 
 void main() {
+  testWidgets(
+    'held optional special photo preserves draft and text-only Save',
+    (tester) async {
+      final backend = Backend()..held = true;
+      await pump(tester, backend);
+      await tap(tester, 'Add Another Daily Special');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Title').first,
+        'Lunch survives',
+      );
+      await tap(tester, 'Add Optional Photo');
+      expect(find.textContaining('awaiting Admin review'), findsWidgets);
+      expect(find.text('Lunch survives'), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.close).last);
+      await tester.pumpAndSettle();
+      await tap(tester, 'Save Changes');
+      final saved = (backend.saves.single['specials'] as List).single;
+      expect(saved['title'], 'Lunch survives');
+      expect(saved['imageId'], null);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'manual text-only multiple specials have no image holders and save together',
     (tester) async {

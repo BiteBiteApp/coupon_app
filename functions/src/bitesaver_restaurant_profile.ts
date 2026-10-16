@@ -1592,7 +1592,7 @@ function looksLikeLegacySubmittedApplication(
   ].every((value) => readString(value) !== null);
 }
 
-function ensureExistingBiteSaverProfile(
+export function ensureExistingBiteSaverProfile(
   data: Record<string, unknown>,
 ): void {
   if (

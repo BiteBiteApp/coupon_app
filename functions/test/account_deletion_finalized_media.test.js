@@ -159,3 +159,19 @@ test('pinned Storage SDK receives exact decimal generation and precondition with
   for(const request of requests.slice(1))assert.equal(request.qs.ifGenerationMatch,generation);
  }finally{adminStorage.getStorage=original;}
 });
+local('screened owner namespace late finalize uses durable owner tombstone after screening row purge',async()=>{
+ const name=`bitescore_user_uploads/${ownerKey('late-A')}/owner_images/screened_bso_${'a'.repeat(64)}.jpg`;
+ const meta={ownershipVersion:'1',uploaderKey:ownerKey('late-A'),screeningImageId:'bso_'+ 'a'.repeat(64)};
+ const o=fakeObjects(name,'10',meta);o.values.clear();await accept();assert.equal((await drain(o)).state,'complete');
+ assert.equal((await db.collection('private_bitescore_photo_screenings').get()).size,0);
+ o.values.set(name,{generation:'10',metadata:meta});await invoke(event(name,'10',meta),o);
+ assert.deepEqual(o.deletes,[[name,'10']]);assert.equal((await drain(o)).state,'complete');assert.ok(await identity('late-B'));
+});
+local('screened owner stale finalize never deletes replacement generation or foreign ownership',async()=>{
+ const name=`bitescore_user_uploads/${ownerKey('late-A')}/owner_images/screened_bso_${'b'.repeat(64)}.jpg`;
+ const meta={ownershipVersion:'1',uploaderKey:ownerKey('late-A')};await accept();
+ const o=fakeObjects(name,'11',meta);await invoke(event(name,'10',meta),o);assert.equal(o.deletes.length,0);assert.equal(o.values.get(name).generation,'11');
+ const other=`bitescore_user_uploads/${ownerKey('late-B')}/owner_images/screened_bso_${'c'.repeat(64)}.jpg`;
+ o.values.set(other,{generation:'12',metadata:{ownershipVersion:'1',uploaderKey:ownerKey('late-B')}});
+ await invoke(event(other,'12',{ownershipVersion:'1',uploaderKey:ownerKey('late-B')}),o);assert.equal(o.deletes.length,0);
+});

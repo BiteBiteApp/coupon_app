@@ -1,3 +1,4 @@
+import 'owner_photo_screening_service.dart';
 import 'dart:math';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -58,8 +59,15 @@ class BiteSaverOwnerMediaService {
     requireOwner(uid);
   }
 
-  Future<Map<String, dynamic>?> upload(String uid, int version) async {
+  Future<Map<String, dynamic>?> upload(
+    String uid,
+    int version, {
+    String targetId = 'gallery',
+  }) async {
     requireOwner(uid);
+    if (OwnerPhotoScreeningService.isEnabled) {
+      return _uploadScreened(uid, version, targetId);
+    }
     final preferences = await SharedPreferences.getInstance();
     final receiptKey = 'bitesaver.ownerMedia.pendingUpload.$uid';
     final receipt = preferences.getString(receiptKey);
@@ -125,6 +133,62 @@ class BiteSaverOwnerMediaService {
     );
     requireOwner(uid);
     return _registerPending(uid, preferences, receiptKey, pending!);
+  }
+
+  Future<Map<String, dynamic>?> _uploadScreened(
+    String uid,
+    int version,
+    String targetId,
+  ) async {
+    final screening = OwnerPhotoScreeningService();
+    var checked = await screening.recover(
+      uid: uid,
+      sourceType: 'biteSaver',
+      sourceId: uid,
+      family: 'managed',
+      targetId: targetId,
+    );
+    if (checked == null) {
+      final picked = await BiteSaverImageUploadService.pickRestaurantImage(
+        isCurrent: () => _currentUid() == uid,
+      );
+      requireOwner(uid);
+      if (picked == null) return null;
+      final validated =
+          await BiteSaverImageUploadService.validateRestaurantImage(picked);
+      requireOwner(uid);
+      if (validated == null) {
+        throw ArgumentError('Choose a valid JPEG or PNG photo.');
+      }
+      final bytes = validated.pickedImage.bytes;
+      checked = await screening.submit(
+        uid: uid,
+        sourceType: 'biteSaver',
+        sourceId: uid,
+        family: 'managed',
+        targetId: targetId,
+        bytes: bytes,
+        contentType: bytes[0] == 0x89 ? 'image/png' : 'image/jpeg',
+      );
+    }
+    requireOwner(uid);
+    final current = await load(uid);
+    final media = current['media'] as Map;
+    if ((media['images'] as List).cast<Map>().any(
+      (i) => i['id'] == checked!['imageId'],
+    )) {
+      await screening.acknowledge(checked['imageId'], uid);
+      return {...current, 'registeredImageId': checked['imageId']};
+    }
+    final result = await save(uid, {
+      'action': 'register',
+      'expectedVersion': media['version'],
+      'requestId': newId(),
+      'imageId': checked['imageId'],
+      'extension': 'jpg',
+    });
+    await screening.acknowledge(checked['imageId'], uid);
+    return {...result, 'registeredImageId': checked['imageId']};
   }
 
   Future<Map<String, dynamic>> _registerPending(

@@ -1,3 +1,4 @@
+import {retireDetachedOwnerPhoto} from "./owner_photo_screening.js";
 import {awardApprovedScreenedPhotoPoints, submitScreenedPhotoHandler, listScreeningPhotosHandler, previewScreeningPhotoHandler, decideScreeningPhotoHandler} from "./photo_screening.js";
 import {maintainScreeningPhotos} from "./photo_screening_retention.js";
 import {getCustomerPostingStatusHandler, getAdminPostingRestrictionHandler, setAdminPostingRestrictionHandler} from "./posting_restrictions.js";
@@ -236,10 +237,12 @@ export const maintainCustomerBiteScoreSuggestionCatalog = onDocumentWritten({
 function menuMaintenance(root: "restaurant_accounts" | "restaurant_menus",
   kind: "menu_images" | "menu_items" | "menu_sections") {
   return onDocumentWritten({serviceAccount: biteScoreCustomerRuntimeServiceAccount,
-    document: `${root}/{rootId}/${kind}/{entryId}`, retry: true}, async (event) =>
-    reconcileCustomerBiteScoreMenuGeneration(
+    document: `${root}/{rootId}/${kind}/{entryId}`, retry: true}, async (event) => {
+    if (kind === "menu_images") await retireDetachedOwnerPhoto(getFirestore(), event.data?.before.get("imageUrl"));
+    return reconcileCustomerBiteScoreMenuGeneration(
       createFirestoreCustomerBiteSaverSearchDatabase(getFirestore()),
-      `${root}/${event.params.rootId}`, kind, event.params.entryId));
+      `${root}/${event.params.rootId}`, kind, event.params.entryId);
+    });
 }
 export const maintainCustomerBiteScoreMenuImage = menuMaintenance("restaurant_menus", "menu_images");
 export const maintainCustomerBiteScoreMenuItem = menuMaintenance("restaurant_menus", "menu_items");

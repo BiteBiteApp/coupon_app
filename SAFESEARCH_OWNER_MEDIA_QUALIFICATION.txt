@@ -1,0 +1,330 @@
+BiteStar — BiteSaver owner-image SafeSearch source qualification
+
+Run ID: BS-BITESTAR-UGC-BITESAVER-MEDIA-SAFESEARCH-001
+Prompt prepared: October 16, 2026, 6:52 PM EDT (22:52 UTC)
+Role: implementation, focused verification, independent source review, checkpoint
+Source qualification completed: October 16, 2026, 7:45:23 PM EDT (23:45:23 UTC)
+Expected and actual starting HEAD: c783212377c1d1390b19300b5e0ac022ffe59849
+Starting branch: main; remote main matched that checkpoint.
+Checkpoint tag: bs-bitestar-ugc-bitesaver-media-safesearch-001 (annotated)
+The commit containing this report is the qualified checkpoint. Resolve the tag
+to obtain its full commit hash. The final owner closeout records the actual
+commit, verified remote branch/tag, completion time and backlog reconciliation.
+
+VERDICT AND BOUNDARY
+PASS for source implementation and focused local qualification across all
+requested owner-image lanes. No remaining blocking source finding or missing
+media lane was identified. Independent review passed against the frozen source
+manifest. This is not deployed, enabled, live-provider tested, physical-device
+verified, or production/store qualified.
+
+Authorized change area: narrowly combined owner-editor presentation/client
+state, trusted publication contracts, backend screening/cleanup and candidate
+Firestore/Storage Rules. No new bucket, migration, service, moderation app,
+text classifier, subscription policy or production infrastructure was added.
+All linked operating/reference documents were accessible and consulted.
+Earlier frozen SafeSearch reports remain historical evidence; this report
+supersedes their owner-image source gap and unresolved seven-day policy item.
+
+WHAT CHANGED
+- Restaurant main: the existing profile upload and Save path uses private
+  screening when the dormant client flag is enabled. It preserves the original
+  profile eligibility contract. Trusted Save validates exact approved bytes.
+- Managed gallery: up to 12 images, existing main selection, Save/Edit/Replace/
+  Remove behavior and legacy-main compatibility remain. Removing an unrelated
+  unused upload cannot detach or delete a published gallery/main image.
+- Manual Daily Specials: optional images are screened for the exact special;
+  text-only specials remain usable. First attachment and later edits retain an
+  immutable target incarnation. Deleting the special immediately denies its
+  screened bytes, even before asynchronous cleanup finishes.
+- Photographed specials board: the existing mutually exclusive board/manual
+  presentation remains; only an approved board saved by its owner is public.
+- Coupons: optional images are screened for the exact coupon. Pending or failed
+  image attachment preserves saved text and supports retry using that coupon's
+  identity. Existing expiration, subscription-return and account/session fences
+  remain; there was no Stripe operation or billing-policy change.
+- Menus: both restaurant_accounts and authoritative restaurant_menus sources
+  use the same private workflow. The public_menu_images grant route cannot
+  supply an unscreened new upload after cutover. Exact createdByUserId authority
+  and the existing Admin exception are retained; catalog/account IDs are never
+  guessed or interchanged. Historical menu reads and text authoring remain.
+- Existing Admin screening queue: owner cases identify family, exact source,
+  owner and target, age/expiry, likelihoods and private preview. Approve makes
+  an asset available to the authorized owner; it does not save an owner's draft.
+  Reject starts the existing recoverable cleanup process. Removed, expired,
+  changed-generation or stale-source assets cannot be approved/published.
+- Existing editors show checking, available, held for review, not accepted and
+  retry/unavailable/expired feedback. Private previews and durable receipt IDs
+  allow an owner to recover an approved image after reopening. Status reads
+  never scan. Explicit replacement releases the selected receipt; picker
+  cancellation retains the old selection. Account/session fencing is retained.
+
+IDENTITY, PUBLICATION AND COST CONTRACT
+Server-created objects use the EXISTING bucket and hashed owner namespace:
+  bitescore_user_uploads/<hashed-owner-key>/owner_images/screened_bso_<hash>.jpg
+The owner key uses the existing bitestar.dish-upload.v1 derivation. No raw UID
+is exposed in that public object path. No public download token is issued.
+Objects are immutable and bound to validated bytes, MIME/size/content hash,
+Storage generation, live authenticated uploader lifetime, exact source creation
+time, family and target incarnation. Clients cannot forge scan/publication
+state, supply arbitrary public URLs, or write/list/delete these private bytes.
+Private previews recheck authority and immutable generation. Public bytes require
+both approval and the exact saved reference; mere Admin approval is insufficient.
+
+The existing provider adapter and conservative-hold-v1 policy are reused:
+adult/violence/racy all VERY_UNLIKELY or UNLIKELY permits auto-approval; otherwise
+human review. Medical/spoof alone does not reject. No AI-only rejection rule.
+One existing private_bitescore_screening_usage/YYYY-MM pool admits at most
+1,000 attempts per UTC month SHARED by BiteScore and BiteSaver. Existing global
+concurrency, per-user admission, idempotency, explicit retry/backoff and pause
+limits are shared. Cleanup, triggers, galleries, status reads and Admin previews
+do not invoke Vision. Retries require explicit admission and retain the original
+deadline/attempt limit; provider failure fails closed.
+
+RETENTION AND DELETION
+Thirty days from original trusted creation applies to pending and approved but
+unused images. Rejected images enter prompt generation-safe asynchronous
+cleanup. Stored-but-failed screening has an OWNER APPROVED seven-day period for
+explicit retry, then expiration/cleanup. Absent uploads retain no imaginary
+bytes; late finalization and interrupted deletion rearm existing cleanup safely.
+These policies reuse the existing scheduler/finalize machinery, not another
+polling scheduler. Small private decision/cleanup records remain distinct from
+image bytes; final non-image retention and legal disclosure are still release
+work, not implied approval of indefinite security-record retention.
+
+Owner removal and exact source-write triggers retire detached references;
+the existing cleanup worker deletes bytes. Current references and replacement
+generations are protected. Bounded query overflow is not treated as evidence
+that a still-published child is absent. Main/legacy-gallery references protect
+each other until actually removed. Managed manual/board public byte checks use
+the exact child state; gallery checks the saved root/version. Projection service
+accounts do not acquire new Storage deletion responsibilities.
+Account deletion scans the existing hashed namespace, including owner images,
+and retains immutable generation/ownership fences. Exact screened shared-menu
+references are removed before the private screening record is purged; shared
+restaurant facts and other users' media remain. Existing tombstone/finalize
+recovery handles late uploads after screening-record removal.
+
+DEFAULT-OFF SOURCE STATE
+BITESAVER_PHOTO_SCREENING defaults false. No app feature flag was activated.
+The inert JSON candidate records OWNER APPROVED seven-day retention and the
+SHARED 1,000 allowance. enabled, ownerEnabled, ownerRequired, cleanupEnabled,
+retentionApproved and failedScreeningRetentionApproved remain false. Existing
+required=true is a fail-closed BiteScore gate, not provider enablement.
+No runtime document was written. No deployment, Vision request, API enablement,
+production photo mutation, IAM/quotas/billing/secret/signing change, new bucket,
+real-owner device/account use or Stripe operation occurred.
+
+FOCUSED VERIFICATION
+Node v24.19.0; TypeScript build passed. Scoped Flutter analysis of 12 changed
+files passed with no issues. Final diff whitespace checks passed.
+Local isolated demo-coupon-app-rules Firestore/Auth/Storage emulators and
+deterministic mocked SafeSearch were used, never the live provider. No existing
+user emulator was interrupted. Counts below overlap and must not be summed as
+a distinct-test total.
+
+- Final owner screening emulator suite: 20/20 passed, no skips. All media lanes,
+  authoring/public DTOs, pending-byte denial, wrong owner/source/target, stale
+  generations, explicit publication, pauses, shared quota/month rollover,
+  retention/retry, target recreation, raw legacy-client deletion, safe unused
+  removal and complete shared-menu account deletion were exercised.
+- Final unchanged BiteScore screening/retention emulator suite: 41/41 passed,
+  no skips, including shared allowance boundary/concurrency cases.
+- Backend/provider/retention/owner/profile/menu-authority/index/public-menu
+  regressions: 121/121 passed, no skips.
+- Expanded deletion, Report Photo, posting restrictions, Reviewer Safety and
+  Rules lifecycle integration: 122/122 passed, no skips. This includes an earlier
+  owner suite; later owner changes were independently rerun in the final 20.
+- Candidate owner/public-menu Firestore/Storage Rules: all 15 selected tests
+  passed in the expanded 76-test run; existing lifecycle Rules are also covered
+  by the 122-test group. Legacy new-upload bypasses were denied locally.
+- Final Flutter owner service/editor, coupon lifecycle and Reviewer Safety
+  group: 211/211 passed. Complementary focused screening/Admin/upload/customer
+  layout group: 73/73 passed. Existing customer narrow/large-text layouts and
+  account transitions remain covered; this is not physical-device verification.
+
+One larger emulator run had 75 passes and one existing BiteScore concurrency
+case fail with emulator error "Transaction is invalid or closed." The unchanged
+41-test BiteScore suite then passed in isolation; no acceptance criterion or
+test was weakened. Ordinary implementation/fixture issues found earlier were
+corrected and retested. No selected final suite has an unresolved failure.
+The previously documented 48 unrelated backend baseline failures were not
+reopened, and this is not a claim that the entire repository suite passes.
+
+Logs remain locally under /tmp/bs-owner-safesearch/: qualified-owner.log,
+qualified-bitescore.log, qualified-backend.log, integration.log,
+qualified-emulator.log, flutter-final.log, flutter-focused.log, analyze.log,
+build.log. Temporary logs are not committed source artifacts.
+Storage emulator does not enforce production GCS generation preconditions;
+deterministic SDK-contract/race tests supplement actual local byte/Rules tests.
+Actual SDK/IAM/ACL/token/cache/soft-delete behavior still needs separately
+authorized synthetic production and physical release checks.
+
+INDEPENDENT REVIEW AND FROZEN ARTIFACT
+An independent read-only reviewer examined authorization, public-byte exposure,
+source/target identity, costs, deletion, legacy cutover and the complete source
+changes. Findings were corrected and rereviewed, including target reuse,
+immediate denial after special deletion, receipt recovery/replacement, safe
+pruning under overflow and preserving unrelated published references.
+Final independent verdict: PASS; no blocking source finding or unapproved
+consequential decision identified. It verified all 35 source/test file hashes.
+Limitation: static source review; the reviewer did not independently execute
+the suites or validate a deployed provider/device. Implementation verification
+above includes the final unchanged BiteScore rerun after the review.
+
+SAFESEARCH_OWNER_MEDIA_FILES.sha256 freezes the 35 qualified source/test files.
+Its SHA-256 is:
+a628b2c848fc042065eeb09d129a09b624ffa1ba1e4f2df4fbb3f8399e66ff8b
+This report and the manifest itself are excluded from that source digest to
+avoid self-reference. Any later source edit requires affected requalification.
+
+MATERIAL BUG-FILTER DISPOSITION
+FIX NOW / DIRECTLY REQUIRED — public unscreened new-owner uploads, exact target
+and account-lifetime binding, immutable decision reuse, shared cost admission,
+optional-photo draft preservation, raw special removal, safe retirement,
+unrelated-photo preservation, receipt recovery and shared-menu deletion were
+necessary for this task and corrected/tested.
+FIX SEPARATELY — REAL BUG — written-review text screening remains the existing
+unresolved beta/release gap. Existing review/reviewer reports, private Admin
+moderation, posting-only restrictions and Reviewer Safety 1–2C remain applicable;
+they are not a prepublication text classifier. A separate proportional task
+must define its text policy/provider and publication behavior. No classifier,
+banned-word list or parallel public approval queue was added here.
+PRODUCT DECISION REQUIRED — later production authorization, provider cost/
+operations, final non-image retention/legal/store disclosures and supported
+client cutover remain release decisions. Seven-day failed-image retention,
+conservative-hold-v1, owner-operated queue and the shared allowance are ALREADY
+APPROVED and must not be reopened as unresolved policy choices.
+ACCEPT AND CLOSE — Stage 2D reviewer-based personal photo hiding remains closed.
+No unrelated cleanup, nationwide search, billing or moderation project began.
+
+TARGETED LATER RELEASE HANDOFF — NO DEPLOYMENT AUTHORIZED BY THIS REPORT
+1. Reconcile the actual deployed versions against BOTH prior SafeSearch source
+   reports and this checkpoint. Authorize provider/API access, minimum service
+   permissions, quotas/alerts, non-image retention/legal disclosures, operational
+   ownership and synthetic checks separately. Verify the existing bucket has
+   no IAM/ACL/download-token bypass. Application reservations are not a Google
+   billing cap; ambiguous timeouts/retries and other Firebase/Functions/Storage/
+   network/Scheduler costs still exist. Recheck current provider pricing then.
+2. Prepare a compatible client containing ALL owner upload, Save, menu and Admin
+   paths in this manifest, plus prior BiteScore prerequisites, behind default-off
+   flags. There is no numeric released version from this source task: assign and
+   enforce the minimum supported build at release. Old clients cannot retain
+   new public upload support after cutover; provide the supported upgrade or
+   maintenance-hold experience before closing their legacy upload paths.
+3. Under separately approved deployment, install the dormant backend and cleanup
+   dependencies before accepting new screened owner uploads. Targeted exports:
+     submitScreenedOwnerPhoto
+     getOwnerScreenedPhoto
+     useOwnerScreenedPhoto
+     submitScreenedBiteScorePhoto
+     listAdminScreeningPhotos
+     previewAdminScreeningPhoto
+     decideAdminScreeningPhoto
+     saveBiteSaverRestaurantProfile
+     reviewBiteSaverApplication (shared account transaction dependency)
+     removeBiteSaverOwnerImage
+     issueMenuImageUploadAuthorization
+     cleanupExpiredScreeningPhotos
+     maintainBiteSaverRestaurantSearchIndex
+     maintainBiteSaverCouponOfferSearchIndex
+     maintainBiteSaverDailySpecialSearchIndex
+     maintainCustomerBiteScoreMenuImage
+     maintainCustomerBiteScoreLinkedMenuImage
+     processAccountDeletionRequests
+     cleanupAccountDeletionFinalizedImage
+   Keep existing service identities, retry behavior and protected billing
+   dependencies intact. No broad Functions deployment is implied. Existing
+   screening owner/queue/time indexes and menu_images collection-group
+   storagePath/imageUrl indexes are reused; no index source change or new index
+   migration was required. Verify they actually exist before release.
+4. Apply a coordinated photo-write maintenance hold, drain old in-flight uploads
+   and grants, and qualify supported clients. Coordinate trusted Functions,
+   firestore.rules, storage.rules, and ownerRequired/required gates BEFORE any
+   admission or client release. Storage Rules in this commit immediately deny
+   new writes to legacy public image paths; deploying them alone breaks old
+   uploads. Conversely, enabling a client/provider alone leaves legacy bypasses.
+   Keep enabled=false and ownerEnabled=false until the entire boundary is
+   verified. Only a separately authorized runtime write may enable provider,
+   cleanup and approved retention flags. The inert JSON is not an activation
+   script. Existing historical image reads and legitimate removals are retained.
+5. While the hold remains, use separately authorized synthetic accounts/bytes
+   to prove old-client unscreened writes denied, pending bytes/DTOs private,
+   approval still requires exact owner Save, historical reads preserved, all
+   owner lanes usable, correct Admin actions, deletion/retry/late-finalize safe,
+   and shared counters/alerts correct. Verify actual devices, accessibility,
+   foreground/background/account changes and release-client cache behavior.
+   Release scanning/client flags only after that qualification and authorization.
+
+SAFE PAUSE / ROLLBACK
+Set enabled=false and ownerEnabled=false; retain required=true,
+ownerRequired=true and the private/legacy-denial Rules. Stop new photo admissions
+without reopening unscreened public writes. Keep historical published reads,
+text-only authoring and safe idempotent existing references. Keep cleanup running
+if separately authorized; otherwise retained unpublished bytes remain private
+until authorized recovery. Restore only a reviewed compatible server/client
+version or roll forward under the same gates. Do not roll back by reopening old
+public upload paths, deleting screening records or clearing required gates.
+There is no automatic mass migration, rescan or token revocation. Removing an
+app reference does not revoke an existing historical shared download URL, erase
+third-party caches, or promise immediate deletion from provider backups.
+
+BACKLOG RECONCILIATION
+Update the existing BiteStar Bug Backlog in place after verifying the pushed
+checkpoint: close the owner-image SOURCE gap, record seven-day policy as OWNER
+APPROVED and the shared pool, retain actual cutover/provider/legal/device/text
+release gaps, and leave Stage 2D closed. No duplicate backlog is created.
+Canonical backlog:
+https://docs.google.com/document/d/1BxE1RweBRUMkFoc4tuS9vKh3kIIsfdCrDzfUYAobYNU/edit
+The final owner report records whether this external reconciliation succeeded.
+
+EXACT TASK FILES (37; PROTECTED OWNER FILES EXCLUDED)
+SAFESEARCH_OWNER_MEDIA_QUALIFICATION.txt
+SAFESEARCH_OWNER_MEDIA_FILES.sha256
+firestore.rules
+firestore_rules_tests/test/bitesaver_owner_media_rules.test.js
+firestore_rules_tests/test/storage_menu_images.test.js
+functions/config/photo-screening-activation.candidate.json
+functions/src/account_deletion_cleanup.ts
+functions/src/account_deletion_finalized_media.ts
+functions/src/account_deletion_media.ts
+functions/src/bitesaver_owner_media.ts
+functions/src/bitesaver_owner_media_runtime.ts
+functions/src/bitesaver_restaurant_profile.ts
+functions/src/customer_bitescore_runtime.ts
+functions/src/index.ts
+functions/src/menu_image_upload_authorization.ts
+functions/src/owner_photo_identity.ts
+functions/src/owner_photo_screening.ts
+functions/src/photo_screening.ts
+functions/src/photo_screening_admission.ts
+functions/src/photo_screening_retention.ts
+functions/test/account_deletion_finalized_media.test.js
+functions/test/owner_photo_screening_emulator.test.js
+lib/screens/bitesaver_media_editor_screen.dart
+lib/screens/bitescore_admin_screen.dart
+lib/screens/photo_screening_admin_screen.dart
+lib/screens/restaurant_create_coupon_screen.dart
+lib/screens/restaurant_menu_management_screen.dart
+lib/services/bitesaver_image_upload_service.dart
+lib/services/bitesaver_owner_media_service.dart
+lib/services/owner_photo_screening_service.dart
+lib/services/restaurant_account_service.dart
+lib/services/restaurant_menu_service.dart
+lib/widgets/owner_photo_check_feedback.dart
+storage.rules
+test/screens/bitesaver_media_editor_test.dart
+test/screens/restaurant_create_coupon_lifecycle_test.dart
+test/services/owner_photo_screening_service_test.dart
+
+PROTECTED OWNER FILES — START AND FINAL SHA-256 IDENTICAL; NEVER STAGED
+28aa68c86b59fefd9fd9aea798cad83b52b4b80e9cabea4be324711f7d31c2ee  test/screens/customer_bitesaver_browse_screen_test.dart
+278ffbfd9f139d003baf6b03f0b6f72549e84335e102718cfd17e6ce6344dafb  test/screens/restaurant_profile_bitescore_menu_test.dart
+865f38522f833bb7a9a8a3157d49a292db627c29435093eb24f2c8e8d04581ea  APPROVAL-ADDENDUM-A2.md
+453e3b3412bcb1e35d97e3af8e2c868cbd7965f93dab75f701f13395489474f0  test/cuisine_fixture/main.dart
+b3bf2b57779323981b54aa6cf0a55ec1ab59651b202f5d9f78e0cd3887151130  test/visual_fixture/README.md
+38cda097fae724e82f02c9f4c8c1fab9c6e731283b3879bac3bedf661129fef8  test/visual_fixture/data.dart
+c753b469e78938b7e6d5a25d36100b938bf24c262fbcc9cea09ad0802b36ff5c  test/visual_fixture/main.dart
+
+Worktree intentionally remains dirty only for these pre-existing owner changes
+after the task checkpoint. Source qualification does not include those bytes.

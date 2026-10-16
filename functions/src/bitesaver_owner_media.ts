@@ -1,3 +1,4 @@
+import {ownerPhotoPath} from "./owner_photo_identity.js";
 import { createHash } from "node:crypto";
 import { HttpsError } from "firebase-functions/v2/https";
 import { requireAuthenticatedRestaurantAccountActor } from "./admin_authorization.js";
@@ -48,7 +49,7 @@ export type OwnerMediaDependencies = {
     deleteGeneration(path: string, generation: string): Promise<void>;
     timestamp(): unknown;
 };
-const imageId = /^[a-f0-9]{32}$/;
+const imageId = /^(?:[a-f0-9]{32}|bso_[a-f0-9]{64})$/;
 const recordId = /^[A-Za-z0-9_-]{1,128}$/;
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 function fail(code: "invalid-argument" | "failed-precondition" | "permission-denied" | "aborted", message: string): never { throw new HttpsError(code, message); }
@@ -71,7 +72,7 @@ export function readOwnerMedia(account: Data): OwnerMediaState {
 export function ownerMediaReferenced(state: OwnerMediaState, id: string) { return state.gallery.includes(id) || state.boardImage === id || Object.values(state.specialImages).includes(id); }
 function safeImage(state: OwnerMediaState, id: string, uid?: string): Image {
     const image = state.images.find(i => i.id === id);
-    if (!image || !imageId.test(id) || !/^\d+$/.test(image.generation) || (uid && !new RegExp(`^bitesaver_restaurants/${uid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/restaurant_images/managed_${id}\\.(jpg|png)$`).test(image.path)))
+    if (!image || !imageId.test(id) || !/^\d+$/.test(image.generation) || (uid && (id.startsWith("bso_") ? image.path !== ownerPhotoPath({ownerUserId: uid, imageId: id}) : !new RegExp(`^bitesaver_restaurants/${uid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/restaurant_images/managed_${id}\\.(jpg|png)$`).test(image.path))))
         fail("failed-precondition", "This photo cannot be safely managed.");
     return image;
 }
@@ -120,7 +121,7 @@ export async function saveOwnerMedia(request: {
         if (!imageId.test(data.imageId) || !["jpg", "png"].includes(data.extension))
             fail("invalid-argument", "Invalid uploaded image.");
         await deps.transact(uid, snapshot => { owner(snapshot, uid); return { result: null }; });
-        const path = `bitesaver_restaurants/${uid}/restaurant_images/managed_${data.imageId}.${data.extension}`;
+        const path = data.imageId.startsWith("bso_") ? ownerPhotoPath({ownerUserId: uid, imageId: data.imageId}) : `bitesaver_restaurants/${uid}/restaurant_images/managed_${data.imageId}.${data.extension}`;
         const metadata = await deps.inspect(path);
         if (metadata.mediaId !== data.imageId || !/^\d+$/.test(metadata.generation) || metadata.size <= 0 || metadata.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png"].includes(metadata.contentType) || typeof metadata.url !== "string" || metadata.url.length > 2000)
             fail("failed-precondition", "The uploaded photo could not be verified.");

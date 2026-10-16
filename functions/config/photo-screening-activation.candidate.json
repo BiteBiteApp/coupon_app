@@ -1,5 +1,5 @@
 {
-  "description": "Source-only activation candidate. Never apply automatically; seven-day failed-screening retention and deployment remain unapproved.",
+  "description": "Source-only activation candidate. Seven-day stored-but-failed-screening retention is OWNER APPROVED. All runtime enablement/retention flags remain off; never apply automatically.",
   "runtimeDocument": "private_bitescore_runtime/photo_screening",
   "runtime": {
     "required": true,
@@ -10,9 +10,14 @@
     "retentionApproved": false,
     "failedScreeningRetentionDays": 7,
     "failedScreeningRetentionApproved": false,
-    "cleanupEnabled": false
+    "cleanupEnabled": false,
+    "ownerRequired": false,
+    "ownerEnabled": false
   },
   "approvedPendingReviewDays": 30,
   "reviewOperator": "BiteStar owner through existing Admin screening queue",
-  "automaticRejection": false
+  "automaticRejection": false,
+  "approvedFailedScreeningDays": 7,
+  "allowanceScope": "SHARED: BiteScore and BiteSaver admitted attempts per UTC month",
+  "failedScreeningPolicyApproval": "OWNER APPROVED October 16, 2026; runtime authorization remains disabled"
 }

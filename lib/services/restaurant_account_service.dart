@@ -1,3 +1,4 @@
+import 'owner_photo_screening_service.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -13,6 +14,14 @@ import '../models/restaurant.dart';
 import '../models/bitesaver_cuisine.dart';
 import 'bitesaver_image_upload_service.dart';
 import 'customer_bitesaver_service.dart';
+
+class CouponPhotoAttachmentException implements Exception {
+  const CouponPhotoAttachmentException(this.savedCoupon);
+  final Coupon savedCoupon;
+  @override
+  String toString() =>
+      'The coupon text was saved. Its photograph is still private. Save again to retry attaching it.';
+}
 
 class ResolvedRestaurantAccount {
   final String documentId;
@@ -1351,12 +1360,45 @@ class RestaurantAccountService {
       couponCode: sanitizedCoupon.couponCode,
     );
 
-    final doc = couponsCollection(uid).doc();
-    return _createCouponWithUniqueNumber(
-      uid: uid,
-      doc: doc,
-      coupon: sanitizedCoupon,
+    final doc = couponsCollection(uid).doc(
+      OwnerPhotoScreeningService.isEnabled && coupon.id.isNotEmpty
+          ? coupon.id
+          : null,
     );
+    return _attachScreenedCoupon(
+      _createCouponWithUniqueNumber(
+        uid: uid,
+        doc: doc,
+        coupon: sanitizedCoupon,
+      ),
+      uid,
+    );
+  }
+
+  static Future<Coupon> _attachScreenedCoupon(
+    Future<Coupon> save,
+    String uid,
+  ) async {
+    final saved = await save;
+    if (OwnerPhotoScreeningService.imageId(saved.imageUrl) != null) {
+      try {
+        await OwnerPhotoScreeningService().use(
+          saved.imageUrl!,
+          expectedUid: uid,
+        );
+      } catch (_) {
+        throw CouponPhotoAttachmentException(saved);
+      }
+    }
+    return saved;
+  }
+
+  static Map<String, dynamic> _couponFields(Coupon coupon, String id) {
+    final fields = coupon.toFirestoreMap(id: id);
+    if (OwnerPhotoScreeningService.imageId(coupon.imageUrl) != null) {
+      fields.remove(Coupon.fieldImageUrl);
+    }
+    return fields;
   }
 
   static Future<Coupon> updateCoupon({
@@ -1382,16 +1424,22 @@ class RestaurantAccountService {
     );
     final existingCouponNumber = sanitizedCoupon.formattedCouponNumber;
     if (existingCouponNumber == null) {
-      return _updateCouponWithGeneratedNumber(
-        uid: uid,
-        couponId: couponId,
-        coupon: sanitizedCoupon,
+      return _attachScreenedCoupon(
+        _updateCouponWithGeneratedNumber(
+          uid: uid,
+          couponId: couponId,
+          coupon: sanitizedCoupon,
+        ),
+        uid,
       );
     }
-    return _updateCouponWithExistingNumber(
-      uid: uid,
-      couponId: couponId,
-      coupon: sanitizedCoupon.copyWith(couponNumber: existingCouponNumber),
+    return _attachScreenedCoupon(
+      _updateCouponWithExistingNumber(
+        uid: uid,
+        couponId: couponId,
+        coupon: sanitizedCoupon.copyWith(couponNumber: existingCouponNumber),
+      ),
+      uid,
     );
   }
 
@@ -1573,7 +1621,7 @@ class RestaurantAccountService {
           couponNumber: existingCouponNumber,
         );
         transaction.set(doc, {
-          ...numberedCoupon.toFirestoreMap(id: couponId),
+          ..._couponFields(numberedCoupon, couponId),
           Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
         transaction.update(docForUser(uid), {
@@ -1615,7 +1663,7 @@ class RestaurantAccountService {
       );
 
       transaction.set(doc, {
-        ...coupon.toFirestoreMap(id: couponId),
+        ..._couponFields(coupon, couponId),
         Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       transaction.update(docForUser(uid), {
@@ -1670,7 +1718,7 @@ class RestaurantAccountService {
         _couponNumberReservationUpdatedAtField: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       transaction.set(doc, {
-        ...numberedCoupon.toFirestoreMap(id: couponId),
+        ..._couponFields(numberedCoupon, couponId),
         if (isCreate) Coupon.fieldCreatedAt: FieldValue.serverTimestamp(),
         Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: !isCreate));
@@ -2050,6 +2098,13 @@ class RestaurantAccountService {
     String? storagePath,
   }) async {
     await _ensureCanPostCoupons(uid);
+    if (OwnerPhotoScreeningService.imageId(imageUrl) != null) {
+      final result = await OwnerPhotoScreeningService().use(imageUrl);
+      return RestaurantMenuImage.tryFromFirestore(
+        Map<String, dynamic>.from(result['image'] as Map),
+        fallbackId: (result['image'] as Map)['id'],
+      )!;
+    }
 
     final trimmedUrl = imageUrl.trim();
     if (trimmedUrl.isEmpty) {
@@ -2223,6 +2278,14 @@ class RestaurantAccountService {
       throw const RestaurantMenuImageChangedException();
     }
 
+    if (dependencies == null &&
+        OwnerPhotoScreeningService.imageId(storedImage.imageUrl) != null) {
+      await OwnerPhotoScreeningService().use(
+        storedImage.imageUrl,
+        remove: true,
+      );
+      return;
+    }
     final storagePath = storedImage.storagePath;
     if (storagePath != null && storagePath.isNotEmpty) {
       final isSafePath =
