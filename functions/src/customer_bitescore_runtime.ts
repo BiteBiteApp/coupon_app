@@ -1,3 +1,4 @@
+import {awardApprovedScreenedPhotoPoints, submitScreenedPhotoHandler, listScreeningPhotosHandler, previewScreeningPhotoHandler, decideScreeningPhotoHandler} from "./photo_screening.js";
 import {getCustomerPostingStatusHandler, getAdminPostingRestrictionHandler, setAdminPostingRestrictionHandler} from "./posting_restrictions.js";
 import {submitPhotoReportHandler, moderatePhotoReportHandler} from "./photo_reports.js";
 import {submitReviewerReportHandler, blockReviewerHandler, unblockReviewerHandler, getReviewerSafetyStatusHandler} from "./reviewer_safety.js";
@@ -206,6 +207,7 @@ export const maintainCustomerBiteScoreImage = onDocumentWritten({
   retry: true,
 }, async (event) => {
   await reconcileCustomerBiteScoreImage(getFirestore(), event.params.imageId);
+  await awardApprovedScreenedPhotoPoints(getFirestore(), event.params.imageId);
 });
 
 export const maintainCustomerBiteScoreFavoriteRestaurant = onDocumentWritten({
@@ -282,3 +284,10 @@ export const createCustomerBiteScorePhoto = onCall(mutationOptions, request => s
   createCustomerBiteScorePhotoHandler(getFirestore(), request)));
 export const toggleCustomerBiteScorePhotoVote = onCall(mutationOptions, request => safely(() =>
   toggleCustomerBiteScorePhotoVoteHandler(getFirestore(), request)));
+
+// Source-only: no defaults activate admission or a spending allowance.
+const photoScreeningOptions = {serviceAccount: biteScoreCustomerRuntimeServiceAccount, timeoutSeconds: 60, maxInstances: 2, concurrency: 2, memory: "256MiB" as const};
+export const submitScreenedBiteScorePhoto = onCall(photoScreeningOptions, request => safely(() => submitScreenedPhotoHandler(getFirestore(), request)));
+export const listAdminScreeningPhotos = onCall(reviewerSafetyOptions, request => safely(() => listScreeningPhotosHandler(getFirestore(), request)));
+export const previewAdminScreeningPhoto = onCall(photoScreeningOptions, request => safely(() => previewScreeningPhotoHandler(getFirestore(), request)));
+export const decideAdminScreeningPhoto = onCall(photoScreeningOptions, request => safely(() => decideScreeningPhotoHandler(getFirestore(), request)));

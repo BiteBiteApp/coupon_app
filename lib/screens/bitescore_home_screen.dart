@@ -14,6 +14,7 @@ import '../models/bitescore_category.dart';
 import '../models/bitescore_dish.dart';
 import '../models/bitescore_food_search.dart';
 import '../models/bitescore_restaurant.dart';
+import '../services/photo_screening_service.dart';
 import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_image_upload_service.dart';
@@ -650,6 +651,13 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         return;
       }
 
+      if (PhotoScreeningService.isEnabled) {
+        _showHomeSnackBar('Uploading and checking photograph…');
+        await PhotoScreeningService().submit(expectedUid: user.uid,
+          dishId: freshDish.id, restaurantId: entry.restaurant.id,
+          mode: 'missing', pickedImage: pickedImage);
+        if (!actorIsCurrent()) return;
+      } else {
       final uploadedImage = await BiteScoreImageUploadService.uploadDishImage(
         dishId: freshDish.id,
         expectedUid: user.uid,
@@ -663,6 +671,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         imageUrl: uploadedImage.imageUrl,
         storagePath: uploadedImage.storagePath,
       );
+      }
 
       _showHomeSnackBar('Dish image added.');
       await _refreshEntries();

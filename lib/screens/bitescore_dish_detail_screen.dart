@@ -15,6 +15,7 @@ import '../models/local_expert_badge_celebration.dart';
 import '../models/review_feedback_vote.dart';
 import '../models/rating_destructive_operation_models.dart';
 import '../services/admin_access_service.dart';
+import '../services/photo_screening_service.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_image_upload_service.dart';
 import '../services/app_mode_state_service.dart';
@@ -397,6 +398,7 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
   final BiteScoreDishDetailWriteGate? testWriteGate;
   final BiteScoreDishDetailWriteGate? testTermsGate;
   final BiteScoreDishDetailReviewSaver? testReviewSaver;
+  final PhotoScreeningService? testPhotoScreeningService;
   final Future<BiteScoreUploadedDishImage> Function({
     required String dishId,
     required String expectedUid,
@@ -426,6 +428,7 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
     @visibleForTesting this.testWriteGate,
     @visibleForTesting this.testTermsGate,
     @visibleForTesting this.testReviewSaver,
+    @visibleForTesting this.testPhotoScreeningService,
     @visibleForTesting this.testReviewImageUploader,
     @visibleForTesting this.testReviewReporter,
     @visibleForTesting this.testCurrentUserProvider,
@@ -1830,7 +1833,20 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       return const ContributionPointAwardResult();
     }
 
+    var photoPublished = false;
     try {
+      if (widget.testPhotoScreeningService != null || PhotoScreeningService.isEnabled) {
+        final screenedImage = await (widget.testPhotoScreeningService ?? PhotoScreeningService()).submit(
+          expectedUid: saveResult.review.userId, dishId: saveResult.dish.id,
+          restaurantId: saveResult.restaurant.id, reviewId: saveResult.review.id,
+          mode: 'review', pickedImage: selectedImage,
+        );
+        if (!mounted || !_isPrivateLeaseCurrent(authLease)) return const ContributionPointAwardResult();
+        photoPublished = true;
+        return await ContributionPointsService.awardDishImageContributionPoints(
+          imageId: screenedImage.id, dishId: saveResult.dish.id,
+        );
+      }
       final uploadedImage = await (widget.testReviewImageUploader ??
           BiteScoreImageUploadService.uploadDishImage)(
         dishId: saveResult.dish.id,
@@ -1854,12 +1870,13 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         return const ContributionPointAwardResult();
       }
       onFailure(
-        AppErrorText.isPostingRestriction(error)
+        photoPublished
+            ? 'Review and photograph saved. Contribution points will be updated separately.'
+            : error is PhotoScreeningOutcome
+            ? 'Review saved. ${error.message}'
+            : AppErrorText.isPostingRestriction(error)
             ? 'Review saved, but the photo was not posted. ${AppErrorText.friendly(error, fallback: 'Public posting is restricted.')}'
-            : AppErrorText.friendly(
-                error,
-                fallback: 'Review saved, but the dish image could not be uploaded.',
-              ),
+            : 'Review saved. We could not confirm the photograph’s status. ${AppErrorText.friendly(error, fallback: 'Please try the photograph again later.')}',
       );
       return const ContributionPointAwardResult();
     }
@@ -1962,6 +1979,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         return;
       }
 
+      if (PhotoScreeningService.isEnabled) {
+        _showSnackBar('Uploading and checking photograph…');
+        await PhotoScreeningService().submit(expectedUid: user.uid,
+          dishId: freshDish.id, restaurantId: restaurant.id,
+          mode: 'missing', pickedImage: pickedImage);
+      } else {
       final uploadedImage = await BiteScoreImageUploadService.uploadDishImage(
         dishId: freshDish.id,
         expectedUid: user.uid,
@@ -1977,6 +2000,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         imageUrl: uploadedImage.imageUrl,
         storagePath: uploadedImage.storagePath,
       );
+      }
 
       refreshDelivery.confirm();
       if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
@@ -3324,7 +3348,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                   style: submitButtonStyle,
                   child: Text(
                     _isSaving
-                        ? 'Saving...'
+                        ? (_selectedDishImage != null && PhotoScreeningService.isEnabled
+                            ? 'Saving and checking photo…'
+                            : 'Saving...')
                         : isEditingReview
                         ? 'Save Changes'
                         : 'Save Review',
@@ -4750,6 +4776,23 @@ class _BiteScoreDishImageGalleryScreenState
     }
     if (!_isPrivateLeaseCurrent(authLease)) {
       return null;
+    }
+
+    if (PhotoScreeningService.isEnabled) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Uploading and checking photograph…')));
+      }
+      final image = await PhotoScreeningService().submit(expectedUid: user.uid,
+        dishId: widget.dish.id, restaurantId: widget.restaurant.id,
+        mode: 'gallery', pickedImage: pickedImage);
+      if (!_isPrivateLeaseCurrent(authLease)) return null;
+      refreshDelivery.confirm();
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(content: Text('Photograph published.')));
+      }
+      return image;
     }
 
     final uploadedImage = await BiteScoreImageUploadService.uploadDishImage(

@@ -52,14 +52,18 @@ test('anonymous actor fence covers direct writes and Admin cannot recreate neste
  const anonymous=env.authenticatedContext('fake-A',{firebase:{sign_in_provider:'anonymous'}}).firestore();
  await assertFails(updateDoc(doc(anonymous,'user_profiles/fake-A'),{displayName:'late'}));
 });
-test('immutable uploader Rules bind actual owner and reject forged proof, old admission and post-fence admission',async()=>{
+test('screening cutover denies every client upload and preserves historical reads across deletion fences',async()=>{
  await seed({'bitescore_dishes/shared':{id:'shared'}});
  const a=actor('fake-A').storage(),b=actor('fake-B').storage(),bytes=new Uint8Array([1,2,3]);
  const ownerKey=uid=>require('node:crypto').createHash('sha256').update(`bitestar.dish-upload.v1:${uid}`).digest('hex');
  const nonce=require('node:crypto').randomUUID();
  const path=(uid,name)=>`bitescore_user_uploads/${ownerKey(uid)}/dish_images/shared/${name}-${nonce}.jpg`;
  const meta=uid=>({contentType:'image/jpeg',customMetadata:{ownershipVersion:'1',uploaderKey:ownerKey(uid),dishId:'shared'}});
- await assertSucceeds(uploadBytes(ref(a,path('fake-A','a')),bytes,meta('fake-A')));
+ // Historical objects were created before the source-only screening cutover.
+ await env.withSecurityRulesDisabled(async context=>{
+  await uploadBytes(ref(context.storage(),path('fake-A','a')),bytes,meta('fake-A'));
+ });
+ await assertFails(uploadBytes(ref(a,path('fake-A','new')),bytes,meta('fake-A')));
  await assertFails(uploadBytes(ref(a,path('fake-B','forged-path')),bytes,meta('fake-A')));
  await assertFails(uploadBytes(ref(a,path('fake-A','forged-owner')),bytes,meta('fake-B')));
  for(const customMetadata of [{},{ownershipVersion:'1',uploaderKey:ownerKey('fake-A'),dishId:'other'},{...meta('fake-A').customMetadata,extra:'no'}])
@@ -68,7 +72,7 @@ test('immutable uploader Rules bind actual owner and reject forged proof, old ad
  await assertFails(uploadBytes(ref(a,'bitescore_dishes/shared/images/old.jpg'),bytes,meta('fake-A')));
  await seed({'private_account_deletions/fake-A':{}});
  await assertFails(uploadBytes(ref(a,path('fake-A','late')),bytes,meta('fake-A')));
- await assertSucceeds(uploadBytes(ref(b,path('fake-B','b')),bytes,meta('fake-B')));
+ await assertFails(uploadBytes(ref(b,path('fake-B','b')),bytes,meta('fake-B')));
  await assertSucceeds(getBytes(ref(env.unauthenticatedContext().storage(),path('fake-A','a'))));
 });
 test('catalog bio authorship follows the real editor and cannot be reassigned without changing text',async()=>{

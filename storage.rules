@@ -138,15 +138,24 @@ service firebase.storage {
       allow update, delete: if false;
     }
 
+    // SOURCE CUTOVER CANDIDATE: coordinate with screened clients + backend.
+    // Historical objects stay readable; no client may create new public bytes.
     match /bitescore_user_uploads/{ownerKey}/dish_images/{dishId}/{fileName} {
-      allow read: if true;
-      // Exactly two Firestore documents: actor fence and existing dish.
-      allow create: if resource == null && deletionActorMayWrite() && ownerKey == hashing.sha256('bitestar.dish-upload.v1:' + request.auth.uid).toHexString().lower() && dishExists(dishId) && isAllowedImage()
-        && request.resource.metadata.keys().hasOnly(['ownershipVersion', 'uploaderKey', 'dishId'])
-        && request.resource.metadata.ownershipVersion == '1'
-        && request.resource.metadata.uploaderKey == ownerKey
-        && request.resource.metadata.dishId == dishId;
-      allow update, delete: if false;
+      function screenedImageId() { return fileName.replace('screened_', '').replace('.jpg', ''); }
+      function screenedPhotoIsPublic() {
+        let imageId = screenedImageId();
+        let source = firestore.get(/databases/(default)/documents/bitescore_dish_images/$(imageId)).data;
+        let screening = firestore.get(/databases/(default)/documents/private_bitescore_photo_screenings/$(imageId)).data;
+        return screening.state == 'approved' && screening.generation == string(resource.generation) &&
+          source.screeningStatus == 'approved' && source.get('moderationStatus', '') != 'removed' &&
+          source.storageGeneration == string(resource.generation) && source.dishId == dishId &&
+          source.storagePath == 'bitescore_user_uploads/' + ownerKey + '/dish_images/' + dishId + '/' + fileName &&
+          screening.storagePath == source.storagePath;
+      }
+      allow get: if !fileName.matches('screened_.*') ||
+        (fileName.matches('screened_bss_[a-f0-9]{64}[.]jpg') && screenedPhotoIsPublic());
+      allow list: if false;
+      allow create, update, delete: if false;
     }
 
     match /{allPaths=**} {

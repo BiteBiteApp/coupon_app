@@ -55,12 +55,13 @@ const families: readonly Family[] = [
   ...["createdByUid", "usedByUid", "revokedByUid", "restaurantId"].map((field) => ({collection: "restaurant_invites", field, mode: "invitation" as const})),
   // Append only: persisted stageIndex values must keep their existing meaning.
   {collection: "review_reports", field: "reportedUserId", mode: "delete"},
+  {collection: "private_bitescore_photo_screenings", field: "ownerUserId", mode: "delete"},
 ];
 function familyQuery(db: Firestore, family: Family, uid: string): Query {
   const query = db.collection(family.collection).where(family.field, "==", uid);
   return family.collection === "restaurant_invites" && family.field === "restaurantId" ? query.where("side", "==", "coupon") : query;
 }
-const children = ["favorite_restaurants", "favorite_dishes", "favorite_coupons", "local_expert_badges", "local_expert_badge_celebrations", "coupon_redemptions", "blocked_reviewers", "reviewer_safety_state", "photo_report_state", "posting_restriction_state"] as const;
+const children = ["favorite_restaurants", "favorite_dishes", "favorite_coupons", "local_expert_badges", "local_expert_badge_celebrations", "coupon_redemptions", "blocked_reviewers", "reviewer_safety_state", "photo_report_state", "posting_restriction_state", "photo_screening_state"] as const;
 const pending = (reason: Exclude<AccountDeletionReason, null>): DeletionStepResult => ({pending: reason, retry: reason === "accepted_work"});
 
 /** Exact known unresolved branches fail closed before deleting personal rows.

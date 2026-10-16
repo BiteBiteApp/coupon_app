@@ -1,5 +1,6 @@
 // ignore_for_file: depend_on_referenced_packages
 import 'dart:async';
+import 'package:coupon_app/services/photo_screening_service.dart';
 import 'dart:typed_data';
 
 import 'package:cloud_functions/cloud_functions.dart';
@@ -148,6 +149,128 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final outcome in ['needs_review', 'outage']) {
+  testWidgets(
+    'saved review preserves draft and truthful screened photo outcome: $outcome',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final picker = ImagePickerPlatform.instance;
+      ImagePickerPlatform.instance = _ReviewPhotoPicker();
+      addTearDown(() => ImagePickerPlatform.instance = picker);
+      var saves = 0;
+      var uploads = 0;
+      final savedDrafts = <List<Object>>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: BiteScoreDishDetailScreen(
+            entry: _entry(),
+            scrollToReviewSection: true,
+            testInitialLoader: () async {},
+            testCurrentUserProvider: () => _GalleryTestUser(uid: 'user-saved'),
+            testWriteGate: (_) async => true,
+            testTermsGate: (_) async => true,
+            testSuppressLocalExpertBadgeRecalculation: true,
+            testReviewSaver:
+                ({
+                  required dish,
+                  required restaurant,
+                  required overallImpression,
+                  required headline,
+                  required notes,
+                  required tastinessScore,
+                  required qualityScore,
+                  required valueScore,
+                }) async {
+                  saves++;
+                  savedDrafts.add([
+                    headline,
+                    notes,
+                    overallImpression,
+                    tastinessScore,
+                    qualityScore,
+                    valueScore,
+                  ]);
+                  return BiteScoreReviewSaveResult(
+                    dish: dish,
+                    restaurant: restaurant,
+                    review: _review(
+                      id: 'saved',
+                      headline: headline,
+                      notes: notes,
+                    ),
+                    contributionPointAward:
+                        const ContributionPointAwardResult(),
+                  );
+                },
+            testPhotoScreeningService: PhotoScreeningService(
+              currentUserId: () => 'user-saved',
+              transport: (name, data) async {
+                uploads++;
+                if (outcome == 'outage') throw FirebaseFunctionsException(code: 'unavailable', message: 'Unavailable');
+                return {'schemaVersion': 1, 'imageId': 'screened', 'state': outcome};
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(0), 'Damn good');
+      await tester.enterText(
+        find.byType(TextField).at(1),
+        'Keep this saved review',
+      );
+      final addPhoto = find.widgetWithText(OutlinedButton, 'Add dish image');
+      await tester.ensureVisible(addPhoto);
+      await tester.tap(addPhoto);
+      await tester.pumpAndSettle();
+      expect(find.text('Dish image selected'), findsOneWidget);
+      for (final slider in tester.widgetList<Slider>(find.byType(Slider))) {
+        slider.onChanged?.call(7);
+      }
+      await tester.pump();
+      final save = find.widgetWithText(ElevatedButton, 'Save Review');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(saves, 1);
+      expect(uploads, 1);
+      expect(
+        find.textContaining('Review saved.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining(outcome == 'needs_review' ? 'awaiting Admin review' : 'could not confirm'), findsOneWidget);
+      expect(find.text('Review saved.'), findsNothing);
+      expect(find.text('Dish image selected'), findsOneWidget);
+      expect(find.text('Damn good'), findsOneWidget);
+      expect(find.text('Keep this saved review'), findsOneWidget);
+      final retry = find.widgetWithText(ElevatedButton, 'Save Changes');
+      expect(tester.widget<ElevatedButton>(retry).onPressed, isNotNull);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(retry);
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+      expect(saves, 2);
+      expect(uploads, 2);
+      expect(savedDrafts[1], savedDrafts[0]);
+      expect(savedDrafts[1], [
+        'Damn good',
+        'Keep this saved review',
+        7.0,
+        7.0,
+        7.0,
+        7.0,
+      ]);
+      expect(find.textContaining('Review saved.'), findsOneWidget);
+      expect(find.textContaining(outcome == 'needs_review' ? 'awaiting Admin review' : 'could not confirm'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  }
 
   testWidgets(
     'declined Terms preserve review draft and never dispatch a save',

@@ -1470,6 +1470,14 @@ export async function awardDishImageContributionPointsCallableHandler(
   const data = readRecord(request.data);
   const imageId = readRequiredString(data.imageId, "imageId");
   const expectedDishId = readOptionalString(data.dishId);
+  return awardPublishedDishImageContributionPoints(db, uid, imageId, expectedDishId, options);
+}
+
+/** Trusted publication uses the same ledger identity as the customer callable. */
+export async function awardPublishedDishImageContributionPoints(
+  db: FirestoreLike, uid: string, imageId: string, expectedDishId: string | null,
+  options: HelperOptions = {},
+): Promise<{ok: true; result: ContributionPointAwardResult}> {
   const imageSnapshot = await db
     .collection("bitescore_dish_images")
     .doc(imageId)

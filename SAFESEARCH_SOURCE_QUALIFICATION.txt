@@ -1,0 +1,253 @@
+BiteStar — Google SafeSearch source qualification and activation boundary
+Run: BS-BITESTAR-UGC-GOOGLE-SAFESEARCH-001
+Prompt: October 16, 2026, 5:20 PM EDT
+Role: source implementation, local qualification, independent review
+Expected and actual starting main: e66180cc9020a10064cf1fe3033974e2fd788f9c
+Qualification date: October 16, 2026
+Checkpoint tag: bs-bitestar-ugc-google-safesearch-001
+The commit containing this report is the qualified checkpoint; resolve the
+annotated tag to obtain its full hash. The final owner report records remote
+verification and completion time after commit/push.
+
+VERDICT
+Source workflow complete and locally qualified with fake provider results.
+Not deployed, activated, device verified, or production qualified. No real
+Vision request, API enablement, billing/IAM/credential change, production-data
+change, paid resource, or physical-device operation occurred. All existing
+feature defaults remain unchanged; BITESCORE_PHOTO_SCREENING defaults false.
+Seven pre-existing owner files were protected and hash-verified unchanged.
+
+Permitted change area: customer photo client state/presentation, narrowly
+necessary backend contracts and logic, and Firestore/Storage Rules SOURCE.
+No new bucket, migration, general moderation platform, or provider framework.
+All four linked operating/backlog Google Docs were accessible and consulted.
+
+CUSTOMER AND ADMIN BEHAVIOR
+Five real upload entries share one backend contract: review photos in dish
+detail and Create & Rate; missing-photo uploads in Home and dish detail; and
+standalone dish gallery uploads. Approved photos use existing gallery,
+detail, review, thumbnail and search projection contracts. Existing voting,
+review-photo contribution points, Report Photo identity/removal, posting
+restrictions and account-deletion fences remain in place.
+
+The optional review saves independently. Held/unavailable photos do not claim
+publication. Detail retains the selected photo and saved review fields for a
+manual retry; Create & Rate preserves its existing successful-review navigation.
+Progress, publication, awaiting-review, rejected and unavailable messages are
+distinct. Account changes invalidate responses and sensitive overlays.
+
+Admin's existing reports area gains a separate, dormant "Photographs awaiting
+publication" entry. The queue has bounded 25-record pages, real dish/restaurant
+names, scan state and likelihoods. Its authenticated callable returns private
+preview bytes, never a public preview URL. Approval requires a decodable
+preview in the UI and exact current object identity on the server. Missing or
+invalid previews can be rejected but cannot be approved in the UI. Decisions
+record actor/time/source without making another evidence-image copy. Approve
+and reject are final; existing globally removed photos cannot be resurrected.
+
+EXACT BYTES AND PUBLICATION
+New bytes travel through the authenticated backend, capped at 5 MB, and are
+saved by Admin Storage in the existing uploader-owned namespace with no
+Firebase download token. The screened filename is reserved; clients cannot
+create, replace, delete or enumerate these objects. Object metadata retains
+the existing ownership proof and deletion namespace contract.
+
+Private screening identity includes owner, Auth account creation time, exact
+dish/restaurant/review/mode, MIME type, SHA-256 digest, and decimal generation
+string. Duplicate bytes/context reuse the same record/object. Neither client
+verdicts nor client URLs are accepted. Byte digest and generation are checked
+before publication; replacement generations cannot inherit approval.
+
+Storage Rules allow a screened tokenless GET only when two private/public
+documents agree on approval, exact generation/path, and live nonremoved source.
+Pending, held, rejected and failed objects have no public photo record, count,
+primary selection or public DTO. Publication atomically writes source, private
+decision and dish count/primary changes. Existing maintenance builds projections.
+Concurrent missing-photo submissions can publish only one; the loser is held.
+Deletion removes owned screening records/admission state through the existing
+cleanup pipeline and owned bytes through the existing namespace/finalize logic.
+
+Historical photos remain readable and are neither migrated nor rescanned.
+Storage Rules in this commit are an explicit CUTOVER CANDIDATE: deploying them
+alone would immediately stop old direct uploads. They have not been deployed.
+The required=true server/Firestore gate blocks old callable/direct publication;
+it must never be cleared as an outage workaround after activation.
+
+CLASSIFICATION AND OWNER POLICY
+Google REST images:annotate uses server ADC and SAFE_SEARCH_DETECTION only.
+A small PhotoScreeningProvider interface supports deterministic test providers.
+The real adapter refuses emulator/test environments and disables SDK retries.
+Adult, violence, racy, medical and spoof likelihoods are validated and retained
+privately. Invalid/missing responses and timeouts fail closed.
+
+Candidate conservative-hold-v1: adult, violence and racy must each be
+VERY_UNLIKELY or UNLIKELY for automatic approval. UNKNOWN/POSSIBLE/LIKELY/
+VERY_LIKELY in any of those three means human review. Medical or spoof alone
+does not block an otherwise acceptable food photo. No automatic-rejection
+threshold is implemented. Admin can reject after inspection. Owner acceptance
+of this candidate policy and review operations is required before activation.
+
+Failed scan, completed scan, awaiting review, approved, rejected and already
+removed remain distinct. Provider outages never authorize publication. A held
+result is not rescanned merely because the user repeats the request.
+
+COST, PAUSE AND RETENTION
+No spending amount is selected. Private runtime photo_screening requires:
+  required=true; enabled=true; policyVersion=conservative-hold-v1;
+  retentionApproved=true; monthlyAllowance=<owner-approved positive integer>.
+No such production document was created or changed. Missing/invalid settings
+fail closed. The existing aggregation runtime must also be valid.
+
+Atomic monthly reservedUnits is a conservative ceiling on admitted attempts,
+not a provider invoice. Reservations are never refunded. A global four-slot
+lease, four admissions/user/minute, two maximum attempts/object/context,
+explicit retry and increasing backoff prevent automatic retry storms. The
+callable has maxInstances=2, concurrency=2 and a 60-second timeout; the adapter
+uses a 20-second request timeout. Gallery reads and triggers never call Vision.
+After an unknown timeout a later intentional attempt may incur another charge;
+exactly-once billing is not claimed. Refreshing a screen does not rescan.
+
+Set enabled=false to stop new scans and in-flight automatic publication while
+keeping required=true and the restrictive Rules. Deliberate Admin decisions
+on existing held/failed photos remain available without a billable scan.
+Allowance exhaustion stops new scan admission. Provider quotas and billing
+alerts should complement application admission; alerts are not hard caps.
+
+Official pricing checked October 16, 2026: first 1,000 units/month free;
+SafeSearch-only $1.50/1,000 through five million, $0.60/1,000 above five million.
+Recheck before activation. Other Google/Firebase storage, reads, egress and
+Functions usage can also cost money; the scan allowance does not cap those.
+References: https://cloud.google.com/vision/pricing
+https://docs.cloud.google.com/vision/docs/detecting-safe-search
+
+Retention remains an OWNER DECISION. Source retains one private object and a
+minimal screening/decision record; rejection does not delete evidence. Account
+deletion cleanup is implemented, but no new age-based retention or purge period
+is chosen. Do not set retentionApproved until the owner approves pending,
+failed and rejected content retention and any resulting cleanup work is done.
+Disclosure/consent for sending photo bytes to Google also needs release review.
+
+QUALIFICATION (NODE 24.19.0; LOCAL SYNTHETIC DATA ONLY)
+- TypeScript build: passed.
+- Screening policy/provider and Firestore/Storage/Auth integration: 32 passed,
+  0 failed, 0 skipped. Covers private pending GET/metadata/token denial, exact
+  generation (including long decimal strings), clean/ambiguous/suspicious/
+  malformed/timeout, duplicate/concurrent/retry, budget and pause, Admin,
+  changed/deleted object/account/parents, restrictions, old-client bypass,
+  missing-photo race, projection count, removal and contribution-point dedupe.
+- Existing backend regression group: 153 passed, 0 failed, 31 initially skipped
+  emulator cases. Those relevant skipped groups were subsequently run below.
+- Account deletion, finalized-media and posting lifecycle emulators: 41 passed,
+  0 failed, 0 skipped, including owned screening cleanup and other-user survival.
+- Existing Report Photo suite with emulator enabled: 17 passed, 0 failed,
+  0 skipped, including exact removal, interruption recovery and projections.
+- Existing legacy photo Storage/Firestore integration: 1 passed, 0 failed.
+- Runtime boundary regression: 2 passed, 0 failed.
+- Firestore/Storage Rules regression group: 28 passed, 0 failed, 0 skipped.
+- Flutter selected service/screen/Terms/identity/Report Photo/reviewer safety
+  group: 115 passed, 0 failed. Includes four Admin UI tests, 390px width and
+  1.7 text scale, invalid preview and account change, plus optional-photo draft
+  and truthful outcome tests.
+- Scoped Flutter analysis: 0 errors, 0 warnings, 18 informational diagnostics
+  on pre-existing unchanged lines; command exits nonzero for those infos.
+- Complete intended diff and whitespace check reviewed. Seven protected owner
+  file SHA-256 values match their starting values. No broad backend suite rerun
+  or repair of the 48 previously known unrelated failures.
+
+Counts are suite results, not a deduplicated grand total. Local logs were kept
+under /tmp/bs-safesearch-local; no credentials or real customer photos were used.
+Auth/Firestore/Storage emulators were started specifically for this task on
+loopback ports 9198/8792/9298. No owner's emulator was interrupted.
+
+Independent reviewer: separate read-only security_review agent, complete final
+18-file source/config scope. Verdict: no unresolved blocking source finding.
+Final reviewed source manifest SHA-256:
+67d92598823b3581df169bb4051b0d5f98a3a80ae03e1fc647e7c29f2e73c599
+Reviewer did not independently execute the full suites, use paid Vision or
+inspect production; test execution evidence above is the implementation run's.
+
+BUG FILTER / RELEASE CHECKLIST RECONCILIATION
+FIX NOW / DIRECTLY REQUIRED — unapproved token URL exposure; duplicate/racing
+publication; delayed review-photo points; truthful optional-photo feedback;
+unreadable Admin preview approval; additional Rules lookup limit. Corrected and
+requalified. No unresolved in-scope source bug remains identified.
+
+FIX SEPARATELY — REAL BUG — distinct public photo families remain outside this
+screening gate: BiteSaver owner restaurant photos, manual Daily Specials photos
+and photographed specials boards (managed restaurant_images); coupon images;
+owner/shared/public menu images. Their current upload authority and generation
+contracts are preserved. Existing public Storage paths and their writable
+replacement behavior need separate prepublication qualification for a complete
+public-image release. Evidence: bitesaver_owner_media_service.dart upload,
+bitesaver_media_editor_screen.dart, bitesaver_image_upload_service.dart, and
+the unchanged BiteSaver/menu sections of storage.rules.
+
+PRODUCT DECISION REQUIRED — spending allowance, candidate threshold acceptance,
+human review ownership, Google disclosure and private content retention; future
+automatic rejection would require a separately approved rule. Written-review
+text filtering remains a separate unresolved UGC release requirement; no banned
+word list or paid text provider was added. No app-wide/store-compliance claim.
+
+ACCEPT AND CLOSE — reviewer-based personal photo hiding Stage 2D remains closed.
+No resurrection of that project or reopening of unrelated 48 backend failures.
+The established Google Bug Backlog is the release checklist for this
+reconciliation; the final owner closeout records the verified source checkpoint
+and these remaining release gates there. Earlier independent review/moderation
+work is preserved and not rebuilt.
+
+LATER ACTIVATION ORDER — REQUIRES SEPARATE EXPLICIT AUTHORIZATION
+1. Approve policy, retention/disclosure, operational Admin ownership and a scan
+   allowance. Recheck pricing, choose provider quotas/alerts, authorize API and
+   minimum existing service-account permissions. Verify bucket IAM/ACLs do not
+   expose the restricted objects independently of Storage Rules; verify actual
+   tokenless production SDK behavior with an authorized synthetic check.
+2. Qualify/deploy prerequisite bounded customer runtime/projections, then the
+   four new callables, legacy create gate, image-maintenance/points trigger,
+   deletion worker cleanup and changed photo-reader consumers. Named affected
+   boundaries include createCustomerBiteScorePhoto, maintainCustomerBiteScoreImage,
+   processAccountDeletionRequests, getCustomerBiteScoreDetail,
+   pageCustomerBiteScoreImages, toggleCustomerBiteScorePhotoVote, submitPhotoReport
+   and moderatePhotoReport. Resolve exact deployed dependency versions before
+   a targeted deployment; no broad Functions deploy is implied.
+3. Prepare and device-qualify the screened client and Admin path, with existing
+   bounded customer activation separately authorized. Do not activate Terms,
+   reviewer UI or photo-reporting flags as an incidental prerequisite. Because
+   old clients upload public bytes before calling the backend, require an
+   ordered supported-client cutover; do not pretend old uploads remain supported.
+4. During a coordinated upload pause, deploy the two Rules candidates and set
+   required=true, enabled=false. This closes legacy paths. Release the qualified
+   screened client, then enable scanning only with all approved runtime values.
+   Keep uploads paused until that whole boundary is in place. Existing approved
+   photo reads remain available. Verify pending bytes denied, approved bytes
+   accessible, Admin, deletion, reports, counts and cost counters before wider use.
+5. Rollback/pause: enabled=false, required=true, keep private Storage and legacy
+   publication denial. Do not restore public legacy uploads or clear the gate.
+   Retain the existing public photos; diagnose before further authorized changes.
+
+EXACT TASK FILES (OWNER-MODIFIED FILES EXCLUDED)
+SAFESEARCH_SOURCE_QUALIFICATION.txt
+firestore.rules
+storage.rules
+firestore_rules_tests/test/account_deletion_rules.test.js
+functions/package.json
+functions/package-lock.json
+functions/src/account_deletion_cleanup.ts
+functions/src/contribution_points_helpers.ts
+functions/src/customer_bitescore_photos.ts
+functions/src/customer_bitescore_reads.ts
+functions/src/customer_bitescore_runtime.ts
+functions/src/index.ts
+functions/src/photo_screening.ts
+functions/src/photo_screening_provider.ts
+functions/test/account_deletion_emulator.test.js
+functions/test/photo_screening_emulator.test.js
+functions/test/photo_screening_provider.test.js
+lib/screens/bitescore_admin_screen.dart
+lib/screens/bitescore_create_rate_screen.dart
+lib/screens/bitescore_dish_detail_screen.dart
+lib/screens/bitescore_home_screen.dart
+lib/screens/photo_screening_admin_screen.dart
+lib/services/photo_screening_service.dart
+test/screens/bitescore_dish_detail_screen_test.dart
+test/screens/photo_screening_admin_screen_test.dart
+test/services/photo_screening_service_test.dart

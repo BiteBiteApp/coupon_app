@@ -240,11 +240,17 @@ local('photo-report compatibility deletes reporter private state/cases and uploa
  await db.doc('bitescore_dish_images/a-photo').update({moderationStatus:'removed',moderatedAt:new Date()});
  await db.doc('review_reports/'+incoming.reportId).update({status:'resolved'});
  await db.doc('user_profiles/fake-A/photo_report_state/orphan').set({reportId:'absent',fingerprint:'a'.repeat(64)});
+ await db.doc('private_bitescore_photo_screenings/pending-a').set({ownerUserId:'fake-A',state:'needs_review',generation:'123',likelihoods:{adult:'POSSIBLE'}});
+ await db.doc('private_bitescore_photo_screenings/pending-b').set({ownerUserId:'fake-B',state:'needs_review'});
+ await db.doc('user_profiles/fake-A/photo_screening_state/admission').set({count:1});
  await request('fake-A');assert.equal((await run('fake-A')).state,'complete');
  assert.equal((await db.doc('review_reports/'+incoming.reportId).get()).exists,false);
  assert.equal((await db.doc('review_reports/'+outgoing.reportId).get()).exists,false);
  assert.equal((await db.doc('review_reports/'+survivor.reportId).get()).exists,true);
  assert.ok((await db.collection('user_profiles/fake-A/photo_report_state').get()).empty);
+ assert.equal((await db.doc('private_bitescore_photo_screenings/pending-a').get()).exists,false);
+ assert.equal((await db.doc('private_bitescore_photo_screenings/pending-b').get()).exists,true);
+ assert.ok((await db.collection('user_profiles/fake-A/photo_screening_state').get()).empty);
  assert.equal((await db.doc('bitescore_dish_images/a-photo').get()).exists,false);
  assert.equal((await db.doc('bitescore_dish_images/b-photo').get()).exists,true);
  assert.equal((await db.doc('bitescore_dishes/photo-dish').get()).get('imageCount'),1);

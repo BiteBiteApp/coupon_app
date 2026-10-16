@@ -318,7 +318,7 @@ export function customerBiteScoreReportableImage(imageId: string, source: Data, 
   return image ? {...image, reportTargetVersion: customerBiteScorePhotoVersion(source)} : null;
 }
 export function customerBiteScoreImage(imageId: string, source: Data, dishId: string, restaurantId: string): Data | null {
-  if (source.moderationStatus === "removed" || source.dishId !== dishId || source.restaurantId !== restaurantId) return null;
+  if ((source.screeningStatus !== undefined && source.screeningStatus !== "approved") || source.moderationStatus === "removed" || source.dishId !== dishId || source.restaurantId !== restaurantId) return null;
   const publicImage = customerPublicMenuEntry({key: imageId, kind: "menu_images", privateSourceIdentities: typeof source.uploadedByUserId === "string" ? [source.uploadedByUserId] : [], document: {id: imageId, path: `bitescore_dish_images/${imageId}`, data: {...source, sortOrder: source.sortOrder ?? 0}}});
   if (publicImage?.kind !== "image") return null;
   return {id: imageId, dishId, restaurantId, reviewId: typeof source.reviewId === "string" ? source.reviewId : null,

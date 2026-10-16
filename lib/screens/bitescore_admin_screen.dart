@@ -1,3 +1,5 @@
+import 'photo_screening_admin_screen.dart';
+import '../services/photo_screening_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -232,13 +234,20 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
                     onEditDish: _editPagedDish,
                   ),
                 RatingAdminReviewPagedView(service: widget.pagingService),
-                RatingAdminQueuePagedView(
+                Column(children: [
+                  if (PhotoScreeningService.isEnabled)
+                    TextButton.icon(icon: const Icon(Icons.image_search),
+                      label: const Text('Photographs awaiting publication'),
+                      onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PhotoScreeningAdminScreen())),
+                    ),
+                  Expanded(child: RatingAdminQueuePagedView(
                   kind: RatingAdminQueueKind.reportedReviews,
                   service: widget.pagingService,
                   operationsService: _destructiveOperationsService,
                   onEditRestaurant: _editPagedRestaurant,
                   onEditDish: _editPagedDish,
-                ),
+                )),
+                ]),
                 RatingAdminDataReportsPagedView(
                   service: widget.pagingService,
                   operationsService: _destructiveOperationsService,

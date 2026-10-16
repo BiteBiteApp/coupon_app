@@ -21,12 +21,12 @@ export type CustomerBiteScorePhotoOptions = Readonly<{
   now?: Date;
   readUploadedObject?: (storagePath: string) => Promise<CustomerBiteScoreUploadedObject>;
 }>;
-function exact(value: unknown): string {
+export function exact(value: unknown): string {
   const result = readBiteScoreCatalogRestaurantId(value);
   if (result === null || result !== value) throw new HttpsError("invalid-argument", "Invalid photo identity.");
   return result;
 }
-function parse(raw: unknown, keys: readonly string[]): Data {
+export function parse(raw: unknown, keys: readonly string[]): Data {
   if (!raw || typeof raw !== "object" || Array.isArray(raw) ||
       JSON.stringify(Object.keys(raw).sort()) !== JSON.stringify([...keys].sort()) || (raw as Data).schemaVersion !== 1) {
     throw new HttpsError("invalid-argument", "Invalid photo request.");
@@ -40,7 +40,7 @@ function signedActor(request: CallableRequest<unknown>) {
   }
   return value;
 }
-function actor(request: CallableRequest<unknown>, allowAdmin: boolean): string {
+export function actor(request: CallableRequest<unknown>, allowAdmin: boolean): string {
   const value = signedActor(request);
   if (!value.emailVerified) {
     if (!allowAdmin) throw new HttpsError("permission-denied", "Verify your email before voting.");
@@ -80,7 +80,7 @@ function storageIdentity(value: Data, dishId: string, userId: string): {storageP
   }
   return {storagePath: value.storagePath, imageUrl: value.imageUrl, bucket, token};
 }
-async function parent(
+export async function parent(
   db: Firestore, tx: Transaction, dishId: string, restaurantId: string,
 ): Promise<Data> {
   const [runtime, dish, restaurant, dishLock, restaurantLock, mergeLock] = await tx.getAll(
@@ -102,12 +102,12 @@ async function parent(
   }
   return value;
 }
-function safeImage(imageId: string, source: Data, dishId: string, restaurantId: string): Data {
+export function safeImage(imageId: string, source: Data, dishId: string, restaurantId: string): Data {
   const image = customerBiteScoreReportableImage(imageId, source, dishId, restaurantId);
   if (!image) throw new HttpsError("failed-precondition", "This photo is unavailable.");
   return image;
 }
-function count(value: unknown): number {
+export function count(value: unknown): number {
   if (value === undefined) return 0;
   if (!Number.isSafeInteger(value) || (value as number) < 0) throw new HttpsError("failed-precondition", "Invalid photo count.");
   return value as number;
@@ -126,6 +126,11 @@ export async function createCustomerBiteScorePhotoHandler(
   if (!["review", "missing", "gallery"].includes(String(value.mode)) || (value.mode !== "review" && reviewId !== null)) {
     throw new HttpsError("invalid-argument", "Invalid photo operation.");
   }
+  // Activation is deliberately one-way for legacy photo publication. Pausing
+  // scanning must leave required=true so an outage cannot reopen this path.
+  if ((await db.doc("private_bitescore_runtime/photo_screening").get()).data()?.required === true) {
+    throw new HttpsError("failed-precondition", "Update BiteStar to upload screened photos.");
+  }
   const upload = storageIdentity(value, dishId, userId);
   let object: CustomerBiteScoreUploadedObject;
   try { object = await (options.readUploadedObject ?? uploadedObject)(upload.storagePath); }
@@ -138,6 +143,9 @@ export async function createCustomerBiteScorePhotoHandler(
   }
   const now = options.now ?? new Date();
   return db.runTransaction(async (tx) => {
+    if ((await tx.get(db.doc("private_bitescore_runtime/photo_screening"))).data()?.required === true) {
+      throw new HttpsError("failed-precondition", "Update BiteStar to upload screened photos.");
+    }
     await requireAccountWritable(db, tx, userId);
     await requireCustomerPostingAllowed(db, tx, userId, now.getTime());
     const dish = await parent(db, tx, dishId, restaurantId);

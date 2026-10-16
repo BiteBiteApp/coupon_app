@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../models/bitescore_dish.dart';
 import '../models/bitescore_restaurant.dart';
+import '../services/photo_screening_service.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_image_upload_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
@@ -2769,7 +2770,20 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       return const ContributionPointAwardResult();
     }
 
+    var photoPublished = false;
     try {
+      if (PhotoScreeningService.isEnabled) {
+        final screenedImage = await PhotoScreeningService().submit(
+          expectedUid: saveResult.review.userId, dishId: saveResult.dish.id,
+          restaurantId: saveResult.restaurant.id, reviewId: saveResult.review.id,
+          mode: 'review', pickedImage: selectedImage,
+        );
+        if (!mounted || !_canUseOpeningIdentity(authLease)) return const ContributionPointAwardResult();
+        photoPublished = true;
+        return await ContributionPointsService.awardDishImageContributionPoints(
+          imageId: screenedImage.id, dishId: saveResult.dish.id,
+        );
+      }
       final uploadedImage = await BiteScoreImageUploadService.uploadDishImage(
         dishId: saveResult.dish.id,
         expectedUid: saveResult.review.userId,
@@ -2792,12 +2806,13 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         return const ContributionPointAwardResult();
       }
       onFailure(
-        AppErrorText.isPostingRestriction(error)
+        photoPublished
+            ? 'Review and photograph saved. Contribution points will be updated separately.'
+            : error is PhotoScreeningOutcome
+            ? 'Review saved. ${error.message}'
+            : AppErrorText.isPostingRestriction(error)
             ? 'Review saved, but the photo was not posted. ${AppErrorText.friendly(error, fallback: 'Public posting is restricted.')}'
-            : AppErrorText.friendly(
-                error,
-                fallback: 'Review saved, but the dish image could not be uploaded.',
-              ),
+            : 'Review saved. We could not confirm the photograph’s status. ${AppErrorText.friendly(error, fallback: 'Please try the photograph again later.')}',
       );
       return const ContributionPointAwardResult();
     }
@@ -3331,7 +3346,9 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
                                 _saveSucceeded
                                     ? 'Saved'
                                     : isSaving
-                                    ? 'Saving...'
+                                    ? (_selectedDishImage != null && PhotoScreeningService.isEnabled
+                                        ? 'Saving and checking photo…'
+                                        : 'Saving...')
                                     : isExistingDishMode
                                     ? 'Save Review'
                                     : isExistingRestaurantMode ||
