@@ -1,4 +1,5 @@
 import {createAccountDeletionObjects} from "./account_deletion_media.js";
+import {screeningPhotoFinalized} from "./photo_screening_retention.js";
 import {accountDeletionObjectFinalizedHandler, accountDeletionMediaBucket, createAccountDeletionFinalizedObjects} from "./account_deletion_finalized_media.js";
 import {onObjectFinalized} from "firebase-functions/v2/storage";
 import Stripe from "stripe";
@@ -70,4 +71,7 @@ export const cleanupAccountDeletionFinalizedImage = onObjectFinalized({
   serviceAccount: "account-deletion-media@coupon-app-29446.iam.gserviceaccount.com",
   memory: "256MiB", timeoutSeconds: 60, maxInstances: 2, concurrency: 10,
   retry: true, secrets: [],
-}, async (event) => { await accountDeletionObjectFinalizedHandler(getFirestore(), event, identity, createAccountDeletionFinalizedObjects()); });
+}, async (event) => {
+  await accountDeletionObjectFinalizedHandler(getFirestore(), event, identity, createAccountDeletionFinalizedObjects());
+  await screeningPhotoFinalized(getFirestore(), event);
+});

@@ -1,0 +1,18 @@
+{
+  "description": "Source-only activation candidate. Never apply automatically; seven-day failed-screening retention and deployment remain unapproved.",
+  "runtimeDocument": "private_bitescore_runtime/photo_screening",
+  "runtime": {
+    "required": true,
+    "enabled": false,
+    "policyVersion": "conservative-hold-v1",
+    "monthlyAllowance": 1000,
+    "retentionPolicyVersion": "photo-retention-v1",
+    "retentionApproved": false,
+    "failedScreeningRetentionDays": 7,
+    "failedScreeningRetentionApproved": false,
+    "cleanupEnabled": false
+  },
+  "approvedPendingReviewDays": 30,
+  "reviewOperator": "BiteStar owner through existing Admin screening queue",
+  "automaticRejection": false
+}

@@ -1,0 +1,309 @@
+BiteStar — SafeSearch retention, cleanup and owner policy qualification
+Run ID: BS-BITESTAR-UGC-SAFESEARCH-RETENTION-002
+Prompt prepared: October 16, 2026, 6:14 PM EDT (UTC-04:00)
+Role: source implementation, local testing, independent source review
+Expected and actual starting main, local and remote:
+19ff0fe8721734740b3fb5a222b2abe045463f89
+Qualification date: October 16, 2026
+Checkpoint: bs-bitestar-ugc-safesearch-retention-002 (annotated)
+The commit containing this report is the qualified checkpoint. Resolve the
+annotated tag for its full hash. The owner closeout records final remote
+verification and completion time after commit/push.
+
+STATUS AND SCOPE
+
+Source implementation complete; local verification and independent review
+are recorded below. Not deployed, enabled, device-tested or production-qualified.
+No production runtime/data change, actual Vision request, API enablement,
+billing/IAM/secret/signing change, paid cloud resource or Stripe action.
+All dormant feature defaults remain unchanged. No Rules or indexes changed
+in this continuation. Seven unrelated owner files remain byte-identical.
+
+Permitted changes: narrowly related photo lifecycle/backend logic, Admin and
+customer status presentation, tests, inert release configuration and disclosure
+draft. Existing private screening records, uploader namespace and account
+deletion are reused. One bounded scheduled function is added in SOURCE only;
+late-upload handling reuses the existing Storage-finalize function. No new
+bucket, migration, general moderation service or evidence-image copy.
+
+All four linked reference documents were accessible and consulted. This report
+supersedes the unresolved allowance, classification, review ownership and
+pending/rejected retention decisions in SAFESEARCH_SOURCE_QUALIFICATION.txt;
+that earlier frozen report is preserved as historical qualification evidence.
+
+IMPLEMENTED PHOTO LIFECYCLE
+
+Pending Admin review: expiresAt is 30 days after the original trusted server
+createdAt. Customer retries and Admin actions cannot extend this deadline.
+At or after expiration, server approval/publication is denied even before
+maintenance runs. The queue reports expired content as unavailable for a
+decision. A transaction marks it expired before any deletion work starts.
+
+Rejection: the authoritative rejection is committed first. With cleanup enabled,
+the callable promptly attempts physical deletion of the exact unpublished
+object. No source photo, photo count, primary selection or contribution point
+is created. A lost response or repeat rejection cannot reverse the decision.
+
+Failed upload: an unconfirmed upload waits out the existing 120-second scan
+lease before cleanup, so an interrupted put is not mistaken for permanently
+absent bytes. No bytes means a verified absent disposition. A partial/lost-ack
+object must match the immutable identity and upload ownership token before
+its exact generation can be pinned and removed. A late finalized object
+re-arms a previously completed absent check; duplicates are deduplicated.
+The finalize revision prevents an in-progress absent probe from hiding an
+object that arrived during that probe.
+
+After physical cleanup is confirmed, an explicit failed-upload retry may reuse
+the same immutable photo identity and ownership token, subject to the original
+deadline, backoff, two-attempt maximum and admission limits. It clears obsolete
+cleanup lease/generation fields. Old upload attempts cannot call the provider
+or publish under the newer attempt. Rejected/expired photos cannot be revived.
+
+Stored bytes but failed screening: remain private, with failurePhase=screening.
+Seven days is implemented as a configurable SOURCE CANDIDATE. Final owner
+approval is outstanding. New admissions require the new retention-policy
+version, explicit failed-screening approval, a valid 1-30-day value and enabled
+cleanup in addition to the existing runtime gates. A bare old retentionApproved
+flag is insufficient. Retry preserves the original deadline and all cost
+limits. A crashed stored scan becomes failed without an automatic Vision call.
+
+CLEANUP SAFETY AND RECOVERY
+
+Exact identity includes the owner, dish/restaurant/review/mode, MIME type,
+SHA-256, deterministic path/id, per-record upload token and Storage ownership
+metadata. Decimal generations remain strings, including values beyond JS
+safe integer precision. Deletion sends both the exact generation and an
+ifGenerationMatch precondition. It verifies absence afterwards, including
+checking for a replacement current object. Changed identity/generation is
+retained for attention, never guessed or deleted as a substitute.
+
+Any existing public photo source, including a globally removed source,
+excludes retention cleanup. Approved photos are not aged out. Stale due
+markers on excluded sources are cleared so they cannot block later batches.
+Deletion of a screening record during account deletion is never reversed by
+a late cleanup result or finalize event. Existing account-deletion namespace,
+finalize recovery, account identity and posting fences remain in place.
+
+The scheduled worker runs every 15 minutes, at most 25 indexed due records
+per invocation, maxInstances=1/concurrency=1. Only one record lease may act at
+a time; crashes become eligible after 120 seconds. Failures retry with bounded
+5-minute exponential backoff, at most eight automatic attempts. Exhaustion
+or identity conflict remains visible in Admin as needing attention. An
+authorized explicit Retry deletion starts a new bounded recovery sequence;
+identity checks remain mandatory. Cleanup never calls Vision.
+
+cleanupEnabled=false stops new physical cleanup claims and new scan admissions.
+It does not cancel an already issued Storage request. Rejection still commits
+a private terminal decision; cleanup waits for re-enablement. Keep this gate
+enabled during an ordinary screening outage so retention continues. Use
+enabled=false, required=true to stop scans/in-flight automatic publication
+without reopening legacy upload paths. Administrative approval of valid
+unexpired existing content remains an intentional separate action.
+
+Publication eligibility ends at the exact deadline. Physical deletion is
+asynchronous: cadence, due-page backlog, outages and Admin attention can add
+time. No claim of instantaneous deletion, all-backup/cache erasure or a hard
+30-day physical Storage deletion guarantee is made. Owner operations must
+monitor overdue/attention cases before publicly promising retention timing.
+
+Minimal private status/identity/deduplication records are retained under the
+existing account-deletion lifecycle. Completed cleanup removes the likelihood
+payload. No independent indefinite evidence-retention policy is invented.
+The final non-image retention schedule remains an owner/legal release item;
+do not purge late-upload/idempotency fences without a separately reviewed rule.
+
+ADMIN AND CUSTOMER EXPERIENCE
+
+The existing private 25-item Admin queue shows dish/restaurant names, status,
+server-derived age, UTC expiration, screening likelihoods when applicable and
+cleanup progress. Expired/terminal records have no valid Approve/Reject action
+or preview. Missing/undecodable active previews cannot be approved; they can
+be rejected. Failed deletion exposes Retry deletion to authorized Admins.
+An absent generation is represented consistently as null so failed uploads
+can recover through that queue. Completed deletions leave the active queue.
+Decision feedback distinguishes confirmed absent bytes from pending deletion.
+Customer messages distinguish expired content and upload failure; existing
+account-switch checks and sensitive overlay retirement are preserved.
+
+OWNER POLICY, ALLOWANCE AND COST
+
+Owner-approved conservative-hold-v1 is unchanged: adult, violence and racy
+must each be VERY_UNLIKELY or UNLIKELY for automatic approval; greater
+uncertainty needs human review. Medical/spoof alone do not prohibit an ordinary
+food photo. No automatic AI-only rejection threshold. The owner personally
+handles the existing Admin queue.
+
+functions/config/photo-screening-activation.candidate.json records the intended
+1,000 admitted attempts per UTC calendar month. It is not automatically read
+into production or applied by any script. enabled, cleanupEnabled,
+retentionApproved and failedScreeningRetentionApproved are false. Candidate
+failedScreeningRetentionDays is seven. No production document was written.
+
+Monthly reservations are atomic and never refunded; 999/1,000/1,001 boundaries,
+concurrent reservations and UTC rollover are tested. Existing four global
+provider leases, four admissions per user per minute, two attempts per
+immutable photo/context and explicit backoff are retained. Screen refresh,
+scheduled work, triggers and cleanup do not initiate another paid scan.
+
+1,000 application admissions do not prove zero Google charges. Prior project
+usage, ambiguous timeouts, intentional retries and then-current pricing can
+affect billing. Other Firebase, Storage, Functions, Scheduler/Eventarc and
+network costs are outside this allowance. Recheck official Vision pricing
+before activation: https://cloud.google.com/vision/pricing
+
+Recommendations only: review actual project SafeSearch/annotate quotas and
+set the lowest practical provider-side rate quota compatible with these
+bounded admissions; use project/service-specific budget alerts and review
+provider usage against reservedUnits. Quotas and alerts complement the app
+gate; alerts are not hard spending caps. No quota, alert, billing or IAM
+configuration was changed. An idle deployed scheduler still has recurring
+invocations/reads; the operational and cost authorization remains outstanding.
+
+PRIVACY DRAFT
+
+SAFESEARCH_PRIVACY_DISCLOSURE_DRAFT.txt is proposed wording for owner/legal
+review. It names Google Cloud Vision processing, authorized human review,
+ordinary publication, the 30-day decision window, prompt rejection deletion
+and asynchronous recovery. Seven-day failure retention and final non-image
+retention remain placeholders. It records Apple App Privacy and Google Play
+Data Safety review implications using official sources. No legal page,
+effective date, consent flow or store disclosure was published/changed.
+
+LOCAL QUALIFICATION — FINAL COUNTS RECORDED BELOW
+
+Node 24.19.0, deterministic fake Vision outcomes, synthetic local accounts and
+bytes. Auth/Firestore/Storage used owned loopback emulators on 9198/8792/9298;
+no owner's emulator was stopped and no physical device/account was used.
+
+- TypeScript build: passed with Node 24.19.0.
+- Final screening/provider/retention plus account-deletion, finalized-media,
+  posting, Report Photo and Reviewer Safety backend group: 129 passed,
+  0 failed, 0 skipped. Includes 60 screening/retention/provider tests.
+- Existing review aggregates, bounded photo/read DTOs, voting, contribution
+  points, account-deletion contracts, posting restrictions and runtime
+  boundaries: 91 passed, 0 failed, 0 skipped.
+- Separate actual legacy photo Storage/Firestore integration: 1 passed,
+  0 failed, using the required isolated demo-bs-adapter-retention project.
+- Existing account-deletion/photo-report/posting/reviewer Firestore and
+  Storage Rules group: 20 passed, 0 failed, 0 skipped; Rules files unchanged.
+- Flutter service/Admin plus photo identity, public review/read behavior,
+  optional review-photo submission, Terms, Report Photo, posting and Reviewer
+  Safety regressions: 174 passed, 0 failed. Includes 18 focused screening
+  service/Admin tests, account switch, missing preview, expired controls,
+  truthful retry feedback and 390px/1.7-text-scale Admin inspection.
+- Scoped Flutter analysis: no issues (0 errors/warnings/infos).
+- Complete scoped diff, whitespace and protected owner-file hashes reviewed.
+
+Counts above are selected suite results, not additional claims about the
+whole app. The focused 18 Flutter tests were also run before the broader
+174-test group and are not an additional deduplicated total.
+
+The first local test runs exposed fixture/runner issues which were corrected:
+public Storage denial is 403 even for absent bytes, so deletion tests now
+independently assert privileged object existence=false; the Rules test
+library's clearStorage only listed root items, so the guarded local fixture
+now recursively clears its bucket. A regression was initially run from the
+wrong working directory, and the legacy photo integration requires its own
+demo-bs-adapter-* project. Both were rerun with the correct configuration.
+Widget async dialog tests were adjusted to use their existing real-async
+test pattern. No production validation was weakened to make tests pass.
+
+Firebase Storage emulator 15.19.1 does not implement GCS ifGenerationMatch
+preconditions. Two late-put/stale-cleanup race tests explicitly model that
+production contract; real emulator bytes, visibility and Rules are exercised
+separately. Adapter tests verify create-only options, exact long generation
+query parameters and deletion preconditions. This is source/local qualification,
+not proof of live GCS/Eventarc delivery or production precondition behavior.
+No full unrelated backend sweep or repair of the 48 historical failures was
+undertaken. No unresolved failure remains in the qualified selected tests.
+Logs: /tmp/bs-safesearch-retention (local evidence, not committed).
+
+INDEPENDENT REVIEW
+
+Separate read-only security_review agent: no unresolved blocking source issue.
+Review focused on physical deletion, generation/ownership, deadline races,
+durable retry, Admin authority, account deletion, published-photo exclusion,
+provider/cost boundaries, customer recovery and disclosure accuracy.
+Two material findings were fixed and tested: null-generation Admin cleanup
+recovery and retrying the same photo after a confirmed failed-upload cleanup.
+The reviewer inspected code/tests and whitespace but did not execute suites,
+inspect production or call Vision. Test evidence is the implementer's.
+Final frozen source/test/config/disclosure manifest: fb201940ba3e17976df6c7e7708894368249dacc10aa4956d871c32c1ce50628
+The report itself is excluded from that digest to avoid self-reference.
+
+BUG FILTER / BACKLOG RECONCILIATION
+
+FIX NOW / DIRECTLY REQUIRED — approved age-based retention, exact rejected and
+partial-image deletion, durable retries, late finalized-object rearming,
+expiry/publication races, failed-upload retry, no-generation Admin recovery
+and stale due-page starvation are corrected in this qualified source.
+
+PRODUCT DECISION REQUIRED — final failed-screening retry period (seven-day
+candidate), final non-image retention/disclosure wording and legal/store review.
+Conservative policy acceptance, 1,000 allowance, owner-operated review,
+30-day pending window and prompt rejection deletion are now approved source
+decisions; they must no longer be described as unresolved owner choices.
+Production deployment, operational cost, API/permissions and activation remain
+separately authorized release steps. No new scope decision blocks this source.
+
+FIX SEPARATELY — REAL BUG — existing other-image-family prepublication gaps
+(BiteSaver owner photos, Daily Specials/boards, coupon/menu images) and written
+review text screening remain separately tracked release work. No repair here.
+
+ACCEPT AND CLOSE — Stage 2D reviewer-based photo hiding remains closed. Do not
+reopen it. Bounded asynchronous deletion plus visible retry/attention is used;
+no broad cleanup platform or speculative compatibility migration is added.
+The existing Google Bug Backlog receives this source checkpoint reconciliation.
+
+EXACT ADDITIONAL DEPLOYMENT DEPENDENCIES — NOT AUTHORIZED HERE
+
+The prior SAFESEARCH_SOURCE_QUALIFICATION.txt activation sequence still applies
+to the five customer entries, bounded reads, legacy publication gate, Rules,
+points/projections, supported-client cutover and account-deletion dependencies.
+This continuation additionally requires, as one coherent later qualification:
+
+1. Owner confirmation of the failed-screening period; final non-image retention
+   and disclosure review. Do not set production retentionApproved or the new
+   failedScreeningRetentionApproved as a convenience.
+2. Deploy the updated four screening callables: submitScreenedBiteScorePhoto,
+   listAdminScreeningPhotos, previewAdminScreeningPhoto,
+   decideAdminScreeningPhoto, plus updated Admin/customer client code.
+3. Separately authorize/deploy cleanupExpiredScreeningPhotos (new Scheduler
+   dependency, every 15 minutes, existing BiteScore customer service account)
+   and update cleanupAccountDeletionFinalizedImage (existing Storage-finalize
+   event and account-deletion-media service account, now also handles late
+   screening uploads). Deploying the scheduler alone is insufficient.
+4. Verify the existing identities have narrowly necessary Firestore record/
+   source/runtime reads and writes, and Storage metadata/read/exact-delete
+   permissions. This run neither inspected live IAM nor granted permissions.
+   Verify actual bucket ACL/token, soft-delete/versioning and provider-event
+   behavior before claiming live retention/deletion qualification. No new
+   bucket or composite Firestore index is introduced; the two bounded queries
+   use ordinary single-field indexes, which must remain enabled.
+5. Keep uploads paused during the prior coordinated client/Rules/runtime
+   cutover; verify actual deployed dependency versions and any pre-existing
+   screening state. This source-only checkpoint assumes the earlier screening
+   source was not activated; no legacy-record migration is bundled. Apply
+   approved runtime values only under separate explicit authorization, and
+   enable cleanup before new admissions. Never reopen old public uploads.
+6. Run an authorized synthetic production/device check of pending privacy,
+   approval, rejection/expiration deletion, late finalization, interruption
+   recovery, Admin attention and usage counters before broader activation.
+   The owner needs an operational review routine for held and overdue cases.
+
+EXACT TASK FILES (14; OWNER FILES EXCLUDED)
+
+SAFESEARCH_RETENTION_QUALIFICATION.txt
+SAFESEARCH_PRIVACY_DISCLOSURE_DRAFT.txt
+functions/config/photo-screening-activation.candidate.json
+functions/src/photo_screening_retention.ts
+functions/src/photo_screening.ts
+functions/src/customer_bitescore_runtime.ts
+functions/src/account_deletion_runtime.ts
+functions/src/index.ts
+functions/test/photo_screening_emulator.test.js
+functions/test/photo_screening_retention.test.js
+lib/services/photo_screening_service.dart
+lib/screens/photo_screening_admin_screen.dart
+test/services/photo_screening_service_test.dart
+test/screens/photo_screening_admin_screen_test.dart

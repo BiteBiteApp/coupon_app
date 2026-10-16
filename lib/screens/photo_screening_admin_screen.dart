@@ -27,6 +27,27 @@ class _PhotoScreeningAdminScreenState extends State<PhotoScreeningAdminScreen> {
   MainNavigationAuthRouteBinding? _binding;
   ModalRoute<dynamic>? _route;
   BuildContext? _overlayContext;
+  String _status(Map item) {
+    final created = item['createdAtMillis'];
+    final now = item['serverNowMillis'];
+    final age = created is int && now is int
+        ? '\nAge: ${((now - created) / Duration.millisecondsPerDay).floor().clamp(0, 100000)} days'
+        : '';
+    final expires = item['expiresAtMillis'];
+    final expiration = expires is int
+        ? '\nExpires: ${DateTime.fromMillisecondsSinceEpoch(expires, isUtc: true).toIso8601String()} UTC'
+        : '';
+    final cleanup = switch (item['cleanupStatus']) {
+      'complete' => 'Image bytes confirmed absent',
+      'attention' => 'Deletion needs attention; image remains private',
+      'retry' => 'Deletion will retry automatically; image remains private',
+      'running' => 'Deleting private image',
+      'pending' => 'Private image deletion scheduled',
+      _ => null,
+    };
+    return '${item['state']}$age$expiration${cleanup == null ? '' : '\n$cleanup'}';
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -89,7 +110,13 @@ class _PhotoScreeningAdminScreenState extends State<PhotoScreeningAdminScreen> {
     try {
       Map? preview;
       String? previewError;
+      final canDecide = item['canDecide'] == true;
       try {
+        if (!canDecide) {
+          throw StateError(
+            'This photograph is not available for a publication decision.',
+          );
+        }
         preview = await _service.request('previewAdminScreeningPhoto', _uid, {
           'imageId': item['imageId'],
           'generation': item['generation'],
@@ -133,7 +160,7 @@ class _PhotoScreeningAdminScreenState extends State<PhotoScreeningAdminScreen> {
                   else
                     Text(previewError ?? 'Photo unavailable.'),
                   Text(
-                    'Status: ${item['state']}\nScreening: ${item['scanStatus']}',
+                    'Status: ${_status(item)}\nScreening: ${item['scanStatus']}',
                   ),
                   if (item['likelihoods'] != null)
                     Text('${item['likelihoods']}'),
@@ -150,25 +177,41 @@ class _PhotoScreeningAdminScreenState extends State<PhotoScreeningAdminScreen> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () => Navigator.pop(context, 'rejected'),
+              onPressed: canDecide
+                  ? () => Navigator.pop(context, 'rejected')
+                  : null,
               child: const Text('Reject'),
             ),
             FilledButton(
-              onPressed: preview == null
+              onPressed: preview == null || !canDecide
                   ? null
                   : () => Navigator.pop(context, 'approved'),
               child: const Text('Approve'),
             ),
+            if (item['cleanupStatus'] == 'attention')
+              TextButton(
+                onPressed: () => Navigator.pop(context, 'retry_cleanup'),
+                child: const Text('Retry deletion'),
+              ),
           ],
         ),
       );
       if (decision == null || !mounted || !_service.isCurrent(_uid)) return;
-      await _service.request('decideAdminScreeningPhoto', _uid, {
+      final result = await _service.request('decideAdminScreeningPhoto', _uid, {
         'imageId': item['imageId'],
         'generation': item['generation'],
         'decision': decision,
       });
-      if (mounted) await _load();
+      if (mounted && _service.isCurrent(_uid)) {
+        final state = result['state'];
+        final message = state == 'approved'
+            ? 'Photograph published.'
+            : '${state == 'rejected' ? 'Photograph rejected.' : 'Photograph cannot be published.'} ${result['cleanupStatus'] == 'complete' ? 'Image bytes confirmed absent.' : 'Deletion is pending; the image remains private.'}';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+        await _load();
+      }
     } catch (e) {
       if (mounted && _service.isCurrent(_uid)) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -212,7 +255,7 @@ class _PhotoScreeningAdminScreenState extends State<PhotoScreeningAdminScreen> {
           for (final item in _items)
             ListTile(
               title: Text('${item['dishName']} · ${item['restaurantName']}'),
-              subtitle: Text('${item['state']}'),
+              subtitle: Text(_status(item)),
               trailing: TextButton(
                 onPressed: _busy ? null : () => _review(item),
                 child: const Text('Inspect'),

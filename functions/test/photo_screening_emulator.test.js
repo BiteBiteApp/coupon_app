@@ -18,6 +18,7 @@ const adminData=(row,extra={})=>({schemaVersion:1,expectedUserId:'admin',imageId
 const submit=(changes={},opts=options(),uid='customer')=>api.submitScreenedPhotoHandler(db,request(changes,uid),opts);
 const record=async result=>(await db.doc(`${api.screeningCollection}/${result.imageId}`).get()).data();
 const media=async row=>fetch(`http://127.0.0.1:9298/v0/b/${bucketName}/o/${encodeURIComponent(row.storagePath)}?alt=media`);
+const gone=async row=>{assert.equal((await bucket.file(row.storagePath).exists())[0],false);assert.ok([403,404].includes((await media(row)).status));};
 const client=(uid,admin=false)=>env.authenticatedContext(uid,{admin,email_verified:true,firebase:{sign_in_provider:'password'}});
 test.before(async()=>{if(!enabled)return;
  assert.equal(process.env.FIRESTORE_EMULATOR_HOST,'127.0.0.1:8792');assert.equal(process.env.FIREBASE_STORAGE_EMULATOR_HOST,'127.0.0.1:9298');assert.equal(process.env.FIREBASE_AUTH_EMULATOR_HOST,'127.0.0.1:9198');assert(!process.env.GOOGLE_APPLICATION_CREDENTIALS);
@@ -26,8 +27,8 @@ test.before(async()=>{if(!enabled)return;
  env=await initializeTestEnvironment({projectId:project,firestore:{host:'127.0.0.1',port:8792,rules:fs.readFileSync(path.resolve(__dirname,'../../firestore.rules'),'utf8')},storage:{host:'127.0.0.1',port:9298,rules:fs.readFileSync(path.resolve(__dirname,'../../storage.rules'),'utf8')}});
  for(const uid of ['customer','other','admin','owner']){try{await auth.deleteUser(uid);}catch(e){if(e.code!=='auth/user-not-found')throw e;}await auth.createUser({uid,email:`${uid}@example.test`,emailVerified:true,password:'Local-photo-12345'});if(uid==='admin')await auth.setCustomUserClaims(uid,{admin:true});}
 });
-test.beforeEach(async()=>{if(!enabled)return;await env.clearFirestore();await env.clearStorage();now=Date.now();calls=0;
- for(const [p,d]of Object.entries({[api.screeningRuntimePath]:{required:true,enabled:true,policyVersion:api.screeningPolicyVersion,retentionApproved:true,monthlyAllowance:100},'private_bitescore_runtime/aggregation':{enabled:true,version:1,epoch:'screening'},'bitescore_restaurants/restaurant':{id:'restaurant',name:'Synthetic restaurant',isActive:true,ownerUserId:'owner',isClaimed:true},'bitescore_dishes/dish':{id:'dish',name:'Synthetic dish',restaurantId:'restaurant',isActive:true,imageCount:0},'dish_reviews/review':{userId:'customer',dishId:'dish',restaurantId:'restaurant'}}))await db.doc(p).set(d);
+test.beforeEach(async()=>{if(!enabled)return;await env.clearFirestore();await bucket.deleteFiles({force:true});now=Date.now();calls=0;
+ for(const [p,d]of Object.entries({[api.screeningRuntimePath]:{required:true,enabled:true,policyVersion:api.screeningPolicyVersion,retentionApproved:true,retentionPolicyVersion:"photo-retention-v1",failedScreeningRetentionDays:7,failedScreeningRetentionApproved:true,cleanupEnabled:true,monthlyAllowance:100},'private_bitescore_runtime/aggregation':{enabled:true,version:1,epoch:'screening'},'bitescore_restaurants/restaurant':{id:'restaurant',name:'Synthetic restaurant',isActive:true,ownerUserId:'owner',isClaimed:true},'bitescore_dishes/dish':{id:'dish',name:'Synthetic dish',restaurantId:'restaurant',isActive:true,imageCount:0},'dish_reviews/review':{userId:'customer',dishId:'dish',restaurantId:'restaurant'}}))await db.doc(p).set(d);
 });
 test.after(async()=>{if(env)await env.cleanup();if(app)await app.delete();});
 local('ordinary photo: actual tokenless Storage bytes denied pending, approved on exact generation, one scan under concurrency',async()=>{
@@ -60,7 +61,7 @@ local('suspicious/ambiguous held privately; authorized preview and decision; no 
 local('rejection stays nonpublic and cannot be reversed or retried into publication',async()=>{
  const result=await submit({},options({name:'fake',screen:async()=>({...clean,violence:'POSSIBLE'})})),row=await record(result);
  await api.decideScreeningPhotoHandler(db,{auth:signed('admin'),data:adminData(row,{decision:'rejected'})},options());
- assert.equal((await submit({retry:true})).state,'rejected');assert.equal((await media(row)).status,403);
+ assert.equal((await submit({retry:true})).state,'rejected');await gone(row);assert.equal((await record(result)).cleanupStatus,'complete');
  await assert.rejects(api.decideScreeningPhotoHandler(db,{auth:signed('admin'),data:adminData(row,{decision:'approved'})},options()),{code:'failed-precondition'});
 });
 local('missing/malformed provider response and timeout fail closed; explicit bounded retry only',async()=>{
@@ -168,4 +169,200 @@ local('review-photo contribution point survives delayed Admin approval and trigg
 local('long generation strings remain exact in verdict and object checks, never converted to JS Number',async()=>{
  const generation='9007199254740993';let seen;const fakeObjects={put:async()=>generation,read:async(p,g,d)=>{seen=g;return {bytes,contentType:'image/png'};},url:p=>`https://example.test/${encodeURIComponent(p)}`};
  const result=await submit({}, {...options(),objects:fakeObjects});assert.equal(result.state,'approved');assert.equal(seen,generation);assert.equal((await record(result)).generation,generation);
+});
+
+const retention=require('../lib/photo_screening_retention');
+const day=retention.dayMs;
+const held=()=>submit({},options({name:'fake',screen:async()=>{calls++;return {...clean,adult:'POSSIBLE'};}}));
+const cleanupOptions=()=>({now:()=>now,objects:retention.screeningCleanupObjects()});
+const sweep=opts=>retention.maintainScreeningPhotos(db,opts??cleanupOptions());
+const decide=(row,decision,opts=options())=>api.decideScreeningPhotoHandler(db,{auth:signed('admin'),data:adminData(row,{decision})},opts);
+const list=after=>api.listScreeningPhotosHandler(db,{auth:signed('admin'),data:{schemaVersion:1,expectedUserId:'admin',after:after??null}},options());
+const finalized=row=>({type:'google.cloud.storage.object.v1.finalized',data:{bucket:bucketName,name:row.storagePath,generation:row.generation,metadata:retention.uploadMetadata(row)}});
+for(const extra of [0,1])local(`pending photo expires at thirty days plus ${extra}ms and exact bytes disappear`,async()=>{
+ const result=await held(),row=await record(result),expiry=row.createdAt.toMillis()+30*day;
+ assert.equal(row.expiresAt.toMillis(),expiry);now=expiry-1;assert.equal(await sweep(),0);
+ assert.equal((await list()).items[0].canDecide,true);assert.equal((await media(row)).status,403);
+ now=expiry+extra;const queue=await list();assert.equal(queue.items[0].state,'expired');assert.equal(queue.items[0].canDecide,false);
+ await assert.rejects(decide(row,'approved'),{code:'failed-precondition'});
+ await assert.rejects(api.previewScreeningPhotoHandler(db,{auth:signed('admin'),data:adminData(row)},options()),{code:'failed-precondition'});
+ await sweep();const final=await record(result);assert.equal(final.state,'expired');assert.equal(final.cleanupStatus,'complete');assert.equal(final.likelihoods,undefined);
+ await gone(row);assert.equal((await list()).items.length,0);assert.equal((await submit({retry:true})).state,'expired');assert.equal(calls,1);
+ assert.equal((await db.doc('bitescore_dishes/dish').get()).get('imageCount'),0);assert.equal(await sweep(),0);
+});
+local('approval immediately before expiry survives future maintenance; transaction crossing expiry cannot approve',async()=>{
+ const a=await held(),row=await record(a);now=row.expiresAt.toMillis()-1;
+ assert.equal((await decide(row,'approved')).state,'approved');now+=31*day;await sweep();assert.equal((await media(row)).status,200);
+ const b=await submit({},options({name:'fake',screen:async()=>({...clean,racy:'POSSIBLE'})}),'other'),other=await record(b);now=other.expiresAt.toMillis()-1;
+ const racing={...objects,read:async(...args)=>{const value=await objects.read(...args);now++;return value;}};
+ assert.equal((await decide(other,'approved',{...options(),objects:racing})).state,'expired');
+ await gone(other);assert.equal((await db.collection('bitescore_dish_images').get()).size,1);
+});
+local('rejection is final before physical delete; duplicate cleanup and rejection serialize',async()=>{
+ const result=await held(),row=await record(result),base=retention.screeningCleanupObjects();let deletes=0,release,entered;
+ const ready=new Promise(r=>entered=r),wait=new Promise(r=>release=r);
+ const slow={...base,remove:async(...args)=>{deletes++;assert.equal((await record(result)).state,'rejected');entered();await wait;await base.remove(...args);}};
+ const action=decide(row,'rejected',{...options(),cleanupObjects:slow});await ready;
+ await Promise.all([sweep({...cleanupOptions(),objects:slow}),decide(row,'rejected',{...options(),cleanupObjects:slow})]);
+ await assert.rejects(decide(row,'approved'),{code:'failed-precondition'});release();await action;
+ assert.equal(deletes,1);assert.equal((await record(result)).cleanupStatus,'complete');await gone(row);
+ await api.awardApprovedScreenedPhotoPoints(db,result.imageId);assert.equal((await db.collection('bitescore_contribution_point_ledger').get()).size,0);
+});
+local('Storage failures back off durably, stop at eight attempts, and explicit authorized retry recovers',async()=>{
+ const result=await held(),row=await record(result),base=retention.screeningCleanupObjects();let attempts=0;
+ const broken={...base,remove:async()=>{attempts++;throw Error('synthetic outage');}};
+ const rejected=await decide(row,'rejected',{...options(),cleanupObjects:broken});assert.equal(rejected.cleanupStatus,'retry');assert.equal((await media(row)).status,403);
+ await sweep({...cleanupOptions(),objects:broken});assert.equal(attempts,1);
+ for(let i=1;i<8;i++){now=(await record(result)).maintenanceAt.toMillis();await sweep({...cleanupOptions(),objects:broken});}
+ assert.equal(attempts,8);assert.equal((await record(result)).cleanupStatus,'attention');assert.equal((await record(result)).maintenanceAt,undefined);
+ assert.equal((await list()).items[0].cleanupStatus,'attention');
+ await assert.rejects(api.decideScreeningPhotoHandler(db,{auth:signed('other'),data:{...adminData(row,{decision:'retry_cleanup'}),expectedUserId:'other'}},options()),{code:'permission-denied'});
+ const done=await decide(row,'retry_cleanup');assert.equal(done.state,'rejected');assert.equal(done.cleanupStatus,'complete');await gone(row);
+});
+for(const partial of [false,true])local(`failed upload ${partial?'with lost acknowledgement':'without bytes'} cleans only its own object`,async()=>{
+ const failing={...objects,put:async(...args)=>{if(partial)await objects.put(...args);throw Error('upload failed');}};
+ const result=await submit({}, {...options(),objects:failing}),row=await record(result);assert.equal(result.state,'upload_failed');assert.equal(row.failurePhase,'upload');assert.equal(calls,0);
+ assert.equal((await bucket.file(row.storagePath).exists())[0],partial);now+=120001;await sweep();
+ assert.equal((await bucket.file(row.storagePath).exists())[0],false);assert.equal((await record(result)).cleanupStatus,'complete');
+ assert.equal((await record(result)).cleanupDisposition,partial?'generation_deleted':'absent');assert.equal((await submit({retry:true})).state,'upload_failed');assert.equal(calls,0);
+});
+local('failed screening retains real bytes for candidate seven days; retry never extends deadline',async()=>{
+ const failure=options({name:'fake',screen:async()=>{calls++;throw Error('provider unavailable');}});
+ const result=await submit({},failure),row=await record(result),expiry=row.createdAt.toMillis()+7*day;
+ assert.equal(row.uploadStatus,'stored');assert.equal(row.failurePhase,'screening');assert.equal(row.expiresAt.toMillis(),expiry);
+ now+=day;assert.equal((await submit({retry:true},failure)).state,'failed');assert.equal(calls,2);assert.equal((await record(result)).expiresAt.toMillis(),expiry);
+ now=expiry-1;await sweep();assert.equal((await media(row)).status,403);
+ now=expiry;assert.equal((await submit({retry:true},failure)).state,'expired');await sweep();await gone(row);assert.equal(calls,2);
+});
+local('cleaned failed upload permits one explicit bounded retry with the original deadline',async()=>{
+ const failed={...options(),objects:{...objects,put:async()=>{throw Error('upload unavailable');}}};
+ const result=await submit({},failed),row=await record(result);
+ now=row.retryAfter;assert.equal((await submit({retry:true})).state,'upload_failed');assert.equal(calls,0);
+ await sweep();assert.equal((await submit()).state,'upload_failed');assert.equal(calls,0);
+ const retried=await submit({retry:true},options({name:'fake',screen:async()=>{calls++;throw Error('provider unavailable');}}));
+ assert.equal(retried.state,'failed');const final=await record(result);assert.equal(final.attempts,2);assert.equal(final.expiresAt.toMillis(),row.expiresAt.toMillis());
+ now+=day;await submit({retry:true});assert.equal(calls,1);assert.equal(final.uploadToken,row.uploadToken);
+ now=row.expiresAt.toMillis();await sweep();await gone(row);assert.equal((await submit({retry:true})).state,'expired');
+});
+local('late original upload with create-only Storage contract preserves approved retry and one scan',async()=>{
+ let release,entered;const ready=new Promise(r=>entered=r),wait=new Promise(r=>release=r);
+ // Firebase Storage emulator 15.19.1 does not implement ifGenerationMatch on
+ // multipart uploads. Model its production create-only conflict here; normal
+ // Storage bytes, ownership and Rules are still exercised by the retry.
+ const pending=submit({}, {...options(),objects:{...objects,put:async(path,content,...rest)=>{
+  entered();await wait;const metadata=(await bucket.file(path).getMetadata())[0];
+  const generation=String(metadata.generation);await objects.read(path,generation,createHash('sha256').update(content).digest('hex'));return generation;
+ }}});await ready;
+ const snapshot=(await db.collection(api.screeningCollection).get()).docs[0],initial=snapshot.data();now=initial.retryAfter;await sweep();
+ const retried=await submit({retry:true});assert.equal(retried.state,'approved');release();assert.equal((await pending).state,'approved');
+ const row=await record(retried);await retention.screeningPhotoFinalized(db,finalized(row),cleanupOptions());await sweep();
+ assert.equal((await media(row)).status,200);assert.equal(calls,1);assert.equal(row.attempts,2);
+});
+local('crashed cleanup resumes after retry only against its old immutable generation',async()=>{
+ const result=await submit({}, {...options(),objects:{...objects,put:async(...args)=>{await objects.put(...args);throw Error('lost acknowledgement');}}});
+ const row=await record(result);now=row.retryAfter;let entered,release;const ready=new Promise(r=>entered=r),wait=new Promise(r=>release=r);
+ const base=retention.screeningCleanupObjects();let staleDeletes=0;
+ const delayed={...base,remove:async(path,generation)=>{entered();await wait;
+  // Model Cloud Storage's delete precondition, unsupported by local emulator.
+  if((await base.inspect(path))?.generation!==generation)throw {code:412};
+  staleDeletes++;await base.remove(path,generation);
+ }};
+ const old=sweep({...cleanupOptions(),objects:delayed});await ready;now+=120001;await sweep();
+ assert.equal((await record(result)).cleanupStatus,'complete');assert.equal((await submit({retry:true})).state,'approved');release();await old;
+ assert.equal(staleDeletes,0);assert.equal((await record(result)).state,'approved');assert.equal((await media(row)).status,200);assert.equal(calls,1);
+});
+local('cleanup pause retains terminal private status and recovery resumes without a provider call',async()=>{
+ const result=await held(),row=await record(result);await db.doc(api.screeningRuntimePath).update({cleanupEnabled:false});
+ assert.equal((await decide(row,'rejected')).cleanupStatus,'pending');assert.equal((await bucket.file(row.storagePath).exists())[0],true);
+ await retention.cleanupScreeningPhoto(db,row.imageId,cleanupOptions());assert.equal(await sweep(),0);
+ await db.doc(api.screeningRuntimePath).update({cleanupEnabled:true});await sweep();await gone(row);assert.equal(calls,1);
+});
+local('failed upload with no generation can recover cleanup through the Admin queue DTO',async()=>{
+ const result=await submit({}, {...options(),objects:{...objects,put:async()=>{throw Error('failed upload');}}});
+ const broken={...retention.screeningCleanupObjects(),inspect:async()=>{throw Error('Storage outage');}};
+ for(let i=0;i<8;i++){now=(await record(result)).maintenanceAt.toMillis();await sweep({...cleanupOptions(),objects:broken});}
+ const item=(await list()).items[0];assert.equal(item.generation,null);assert.equal(item.cleanupStatus,'attention');assert.equal(item.canDecide,false);
+ const done=await decide(item,'retry_cleanup');assert.equal(done.state,'upload_failed');assert.equal(done.cleanupStatus,'complete');assert.equal(calls,0);
+});
+local('candidate retention configuration is explicit and admission cannot use old approval flag alone',async()=>{
+ const config=require('../config/photo-screening-activation.candidate.json');assert.equal(config.runtime.monthlyAllowance,1000);assert.equal(config.runtime.enabled,false);assert.equal(config.runtime.cleanupEnabled,false);assert.equal(config.runtime.failedScreeningRetentionApproved,false);
+ for(const patch of [{failedScreeningRetentionApproved:false},{failedScreeningRetentionDays:0},{failedScreeningRetentionDays:31},{retentionPolicyVersion:'old'},{cleanupEnabled:false}]){
+  const ref=db.doc(api.screeningRuntimePath),old=(await ref.get()).data();await ref.update(patch);await assert.rejects(submit(),{code:'unavailable'});await ref.set(old);
+ }
+ assert.equal(calls,0);await db.doc(api.screeningRuntimePath).update({failedScreeningRetentionDays:2});
+ const result=await submit({},options({name:'fake',screen:async()=>{throw Error('offline');}})),row=await record(result);assert.equal(row.expiresAt.toMillis(),row.createdAt.toMillis()+2*day);
+ await db.doc(api.screeningRuntimePath).update({failedScreeningRetentionDays:7});now+=2*day;await sweep();assert.equal((await record(result)).state,'expired');
+});
+local('late provider response after cleanup cannot publish or recreate deleted bytes',async()=>{
+ let release,entered;const ready=new Promise(r=>entered=r),wait=new Promise(r=>release=r);
+ const pending=submit({},options({name:'fake',screen:async()=>{calls++;entered();return wait;}}));await ready;
+ const snapshot=(await db.collection(api.screeningCollection).get()).docs[0],row=snapshot.data();now=row.expiresAt.toMillis();await sweep();release(clean);
+ assert.equal((await pending).state,'expired');await gone(row);assert.equal((await db.collection('bitescore_dish_images').get()).size,0);assert.equal(calls,1);
+});
+local('crashed stored scan is recoverable without automatic provider calls',async()=>{
+ const result=await held(),row=await record(result);await db.doc(`${api.screeningCollection}/${result.imageId}`).update({state:'scanning',leaseUntil:now-1,expiresAt:new Date(now+7*day),maintenanceAt:new Date(now-1)});
+ await sweep();assert.equal((await record(result)).state,'failed');assert.equal(calls,1);assert.equal((await media(row)).status,403);
+});
+local('late finalize re-arms an absent failed upload and duplicate event does not restart cleanup',async()=>{
+ let release,entered;const ready=new Promise(r=>entered=r),wait=new Promise(r=>release=r);
+ const late={...objects,put:async(...args)=>{entered();await wait;return objects.put(...args);}};
+ const pending=submit({}, {...options(),objects:late});await ready;
+ const snap=(await db.collection(api.screeningCollection).get()).docs[0];now+=120001;await sweep();assert.equal((await snap.ref.get()).get('cleanupStatus'),'complete');
+ release();await pending;let row=(await snap.ref.get()).data();const actual=(await bucket.file(row.storagePath).getMetadata())[0];
+ const event=finalized({...row,generation:String(actual.generation)});await retention.screeningPhotoFinalized(db,event,cleanupOptions());
+ await gone(row);row=(await snap.ref.get()).data();const attempts=row.cleanupAttempts;
+ await retention.screeningPhotoFinalized(db,event,cleanupOptions());assert.equal((await snap.ref.get()).get('cleanupAttempts'),attempts);assert.equal(calls,0);
+});
+local('finalize arriving during an absent probe cannot be lost when cleanup completes',async()=>{
+ const fail={...objects,put:async()=>{throw Error('no acknowledgement');}};const result=await submit({}, {...options(),objects:fail}),row=await record(result);now+=120001;
+ const base=retention.screeningCleanupObjects();let entered,release,first=true;const ready=new Promise(r=>entered=r),wait=new Promise(r=>release=r);
+ const delayed={...base,inspect:async(...args)=>{if(first){first=false;entered();await wait;return null;}return base.inspect(...args);}};
+ const work=sweep({...cleanupOptions(),objects:delayed});await ready;
+ const g=await objects.put(row.storagePath,bytes,row.contentType,retention.uploadMetadata(row));
+ await retention.screeningPhotoFinalized(db,finalized({...row,generation:g}),cleanupOptions());release();await work;
+ assert.equal((await record(result)).cleanupStatus,'pending');await sweep();await gone(row);assert.equal((await record(result)).cleanupStatus,'complete');
+});
+local('replacement generation and forged ownership are retained for attention, never deleted',async()=>{
+ const result=await held(),row=await record(result);await bucket.file(row.storagePath).delete();
+ await bucket.file(row.storagePath).save(bytes,{resumable:false,metadata:{contentType:'image/png',metadata:retention.uploadMetadata(row)}});
+ const replacement=String((await bucket.file(row.storagePath).getMetadata())[0].generation);assert.notEqual(replacement,row.generation);
+ const outcome=await decide(row,'rejected');assert.equal(outcome.cleanupStatus,'attention');assert.equal(String((await bucket.file(row.storagePath).getMetadata())[0].generation),replacement);
+ const other=await submit({},options({name:'fake',screen:async()=>({...clean,violence:'POSSIBLE'})}),'other'),b=await record(other);
+ await bucket.file(b.storagePath).setMetadata({metadata:{screeningUploadToken:'forged'}});assert.equal((await decide(b,'rejected')).cleanupStatus,'attention');assert.equal((await bucket.file(b.storagePath).exists())[0],true);
+});
+local('deletion of the screening record during exact cleanup never resurrects personal state',async()=>{
+ const result=await held(),row=await record(result),base=retention.screeningCleanupObjects();
+ const concurrent={...base,remove:async(...args)=>{await db.doc(`${api.screeningCollection}/${result.imageId}`).delete();await base.remove(...args);}};
+ await decide(row,'rejected',{...options(),cleanupObjects:concurrent});assert.equal(await record(result),undefined);await gone(row);
+ await retention.screeningPhotoFinalized(db,finalized(row),cleanupOptions());assert.equal(await record(result),undefined);
+});
+local('any public source including removed excludes retention cleanup despite stale pending metadata',async()=>{
+ const result=await submit(),row=await record(result);await db.doc(`${api.screeningCollection}/${row.imageId}`).update({...retention.terminalFields('expired',now,'stale'),expiresAt:new Date(now-1)});
+ await sweep();assert.equal((await bucket.file(row.storagePath).exists())[0],true);assert.equal((await record(result)).maintenanceAt,undefined);assert.equal(await sweep(),0);
+ await db.doc(`bitescore_dish_images/${row.imageId}`).update({moderationStatus:'removed'});await sweep();assert.equal((await bucket.file(row.storagePath).exists())[0],true);
+});
+local('expired held bytes are cleaned even when parents retire, without recreating catalog data',async()=>{
+ const result=await held(),row=await record(result);
+ await db.doc('bitescore_dishes/dish').delete();await db.doc('bitescore_restaurants/restaurant').update({isActive:false});
+ await assert.rejects(decide(row,'approved'));now=row.expiresAt.toMillis();await sweep();await gone(row);
+ assert.equal((await db.doc('bitescore_dishes/dish').get()).exists,false);assert.equal((await db.collection('bitescore_dish_images').get()).size,0);assert.equal(calls,1);
+});
+local('maintenance is gated and bounded; due pages advance and Admin queue paginates',async()=>{
+ const result=await held(),base=await record(result);const ids=[];
+ for(let i=0;i<27;i++){
+  const sha256=createHash('sha256').update('synthetic-'+i).digest('hex'),imageId='bss_'+createHash('sha256').update(JSON.stringify(['customer','dish','restaurant',null,'gallery','image/png',sha256])).digest('hex');ids.push(imageId);
+  await db.doc(`${api.screeningCollection}/${imageId}`).set({...base,imageId,sha256,storagePath:base.storagePath.replace(base.imageId,imageId),...retention.terminalFields('expired',now,'fixture')});
+ }
+ const first=await list();assert.equal(first.items.length,25);assert(first.nextCursor);const second=await list(first.nextCursor);assert.equal(second.items.length,3);assert.equal(second.nextCursor,null);
+ assert.equal(new Set([...first.items,...second.items].map(x=>x.imageId)).size,28);
+ await db.doc(api.screeningRuntimePath).update({cleanupEnabled:false});assert.equal(await sweep(),0);
+ await db.doc(api.screeningRuntimePath).update({cleanupEnabled:true});assert.equal(await sweep(),25);assert.equal(await sweep(),2);assert.equal(await sweep(),0);assert.equal(calls,1);
+});
+local('1000 UTC monthly admissions: 999 permits one concurrent reservation, 1000 and 1001 deny, rollover resets',async()=>{
+ now=Date.UTC(2026,0,31,23,59,59);await db.doc(api.screeningRuntimePath).update({monthlyAllowance:1000});
+ const usage=db.doc('private_bitescore_screening_usage/2026-01');await usage.set({reservedUnits:999});
+ const results=await Promise.allSettled([submit(),submit({},options(),'other')]);assert.equal(results.filter(x=>x.status==='fulfilled').length,1);assert.equal((await usage.get()).get('reservedUnits'),1000);assert.equal(calls,1);
+ const loser=results[0].status==='rejected'?'customer':'other';await assert.rejects(submit({},options(),loser),{code:'resource-exhausted'});
+ await usage.set({reservedUnits:1001});await assert.rejects(submit({},options(),loser),{code:'resource-exhausted'});
+ now+=1001;assert.equal((await submit({},options(),loser)).state,'approved');assert.equal((await db.doc('private_bitescore_screening_usage/2026-02').get()).get('reservedUnits'),1);assert.equal(calls,2);
 });

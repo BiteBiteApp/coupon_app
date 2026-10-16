@@ -13,9 +13,102 @@ const item = {
   'restaurantName': 'Cafe',
   'state': 'needs_review',
   'scanStatus': 'completed',
+  'canDecide': true,
+  'createdAtMillis': 1000,
+  'serverNowMillis': 1000 + 29 * Duration.millisecondsPerDay,
+  'expiresAtMillis': 1000 + 30 * Duration.millisecondsPerDay,
 };
 
 void main() {
+  for (final cleanup in ['pending', 'attention']) {
+    testWidgets(
+      'expired photo has no decision or preview; cleanup $cleanup is truthful',
+      (tester) async {
+        var retries = 0;
+        final service = PhotoScreeningService(
+          currentUserId: () => 'admin',
+          transport: (name, data) async {
+            if (name == 'listAdminScreeningPhotos') {
+              return {
+                'schemaVersion': 1,
+                'items': [
+                  {
+                    ...item,
+                    'state': 'expired',
+                    'canDecide': false,
+                    'cleanupStatus': cleanup,
+                  },
+                ],
+                'nextCursor': null,
+              };
+            }
+            expect(name, 'decideAdminScreeningPhoto');
+            expect(data['decision'], 'retry_cleanup');
+            retries++;
+            return {
+              'schemaVersion': 1,
+              'state': 'expired',
+              'cleanupStatus': 'retry',
+            };
+          },
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: PhotoScreeningAdminScreen(
+              service: service,
+              expectedUid: 'admin',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Age: 29 days'), findsOneWidget);
+        await openPreview(tester);
+        expect(find.byType(Image), findsNothing);
+        expect(
+          tester
+              .widget<FilledButton>(
+                find.widgetWithText(FilledButton, 'Approve'),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(
+          tester
+              .widget<TextButton>(find.widgetWithText(TextButton, 'Reject'))
+              .onPressed,
+          isNull,
+        );
+        if (cleanup == 'attention') {
+          await tester.runAsync(() async {
+            await tester.tap(find.text('Retry deletion'));
+            await Future<void>.delayed(const Duration(milliseconds: 20));
+          });
+          await tester.pumpAndSettle();
+          expect(retries, 1);
+          expect(
+            find.textContaining(
+              'Deletion is pending; the image remains private.',
+            ),
+            findsOneWidget,
+          );
+          expect(
+            find.textContaining('Image bytes confirmed absent'),
+            findsNothing,
+          );
+        } else {
+          expect(find.text('Retry deletion'), findsNothing);
+          await tester.runAsync(() async {
+            await tester.tap(find.text('Cancel'));
+            await Future<void>.delayed(const Duration(milliseconds: 20));
+          });
+          await tester.pumpAndSettle();
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+
   for (final decision in ['approved', 'rejected']) {
     testWidgets(
       'Admin $decision applies only to the inspected generation at large text',

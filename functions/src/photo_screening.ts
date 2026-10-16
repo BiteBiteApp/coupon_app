@@ -9,10 +9,11 @@ import {requireAccountWritable} from "./account_deletion_guard.js";
 import {requireCustomerPostingAllowed} from "./posting_restriction_guard.js";
 import {actor, exact, parse, parent, safeImage, count} from "./customer_bitescore_photos.js";
 import {classifySafeSearch, parseSafeSearch, GoogleSafeSearchProvider, type PhotoScreeningProvider} from "./photo_screening_provider.js";
+import {screeningRuntimePath, screeningCollection, dayMs, pendingRetentionMs, failureRetentionDays, photoExpired,
+  terminalFields, terminalPhotoStates, uploadMetadata, millis, cleanupScreeningPhoto, type ScreeningCleanupObjects} from "./photo_screening_retention.js";
+export {screeningRuntimePath, screeningCollection} from "./photo_screening_retention.js";
 
 type Data = Record<string, any>;
-export const screeningRuntimePath = "private_bitescore_runtime/photo_screening";
-export const screeningCollection = "private_bitescore_photo_screenings";
 export const screeningPolicyVersion = "conservative-hold-v1";
 const maxBytes = 5 * 1024 * 1024, leaseMs = 120_000, maxAttempts = 2;
 const hash = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
@@ -55,6 +56,7 @@ export type ScreeningOptions = {
   now?: () => number; objects?: ScreeningObjects; provider?: PhotoScreeningProvider;
   identity?: (uid: string) => Promise<string>;
   providerTimeoutMs?: number;
+  cleanupObjects?: ScreeningCleanupObjects;
 };
 async function identity(uid: string, options: ScreeningOptions): Promise<string> {
   if (options.identity) return options.identity(uid);
@@ -63,7 +65,7 @@ async function identity(uid: string, options: ScreeningOptions): Promise<string>
 }
 function requireRuntime(data: Data | undefined, admission: boolean): void {
   if (data?.required !== true || data.policyVersion !== screeningPolicyVersion || data.retentionApproved !== true ||
-      (admission && (data.enabled !== true || !Number.isSafeInteger(data.monthlyAllowance) || data.monthlyAllowance <= 0))) {
+      (admission && (data.enabled !== true || data.cleanupEnabled !== true || failureRetentionDays(data) === null || !Number.isSafeInteger(data.monthlyAllowance) || data.monthlyAllowance <= 0))) {
     throw new HttpsError("unavailable", "Photographs cannot be checked right now. Please try later.");
   }
 }
@@ -81,7 +83,7 @@ async function eligible(db: Firestore, tx: Transaction, value: Data, now: number
 }
 function response(record: Data, source?: Data): Data {
   const state = source?.moderationStatus === "removed" || (record.state === "approved" && !source) ? "removed" : record.state;
-  return {schemaVersion: 1, imageId: record.imageId, state,
+  return {schemaVersion: 1, imageId: record.imageId, state, cleanupStatus: record.cleanupStatus ?? null,
     ...(state === "approved" && source ? {image: safeImage(record.imageId, source, record.dishId, record.restaurantId)} : {})};
 }
 function imageSource(record: Data, url: string, now: number): Data {
@@ -129,13 +131,20 @@ export async function submitScreenedPhotoHandler(db: Firestore, request: Callabl
   const admitted = await db.runTransaction(async tx => {
     const [runtime, old, source] = await tx.getAll(db.doc(screeningRuntimePath), ref, sourceRef);
     const value: Data = old.data() ?? {schemaVersion: 1, imageId, ownerUserId: uid, authCreatedAt, dishId, restaurantId, reviewId, mode: data.mode,
-      contentType: data.contentType, sha256, storagePath, attempts: 0, createdAt: new Date(at)};
+      contentType: data.contentType, sha256, storagePath, uploadToken: randomUUID(), attempts: 0, createdAt: new Date(at)};
     if (value.authCreatedAt !== authCreatedAt) throw new HttpsError("failed-precondition", "The upload account changed.");
     const dish = await eligible(db, tx, value, at);
     if (!old.exists && data.mode === "missing" && (count(dish.imageCount) > 0 || dish.primaryImageUrl)) {
       throw new HttpsError("failed-precondition", "This dish already has an image.");
     }
-    if (source.exists || ["approved", "rejected", "needs_review"].includes(value.state)) return {result: response(value, source.data())};
+    const retryCleanedUpload = value.state === "upload_failed" && value.cleanupStatus === "complete" &&
+      (millis(value.expiresAt) ?? 0) > at && data.retry === true && value.attempts < maxAttempts && at >= value.retryAfter;
+    if (source.exists || (["approved", "removed", ...terminalPhotoStates].includes(value.state) && !retryCleanedUpload)) return {result: response(value, source.data())};
+    if (old.exists && photoExpired(value, at)) {
+      const expired = {...value, ...terminalFields("expired", at, "retention_expired")};
+      tx.set(ref, expired); return {result: response(expired)};
+    }
+    if (value.state === "needs_review") return {result: response(value)};
     requireRuntime(runtime.data(), true);
     if (value.state === "scanning" && value.leaseUntil > at) return {result: response(value)};
     if (old.exists && (data.retry !== true || value.attempts >= maxAttempts || at < value.retryAfter)) return {result: response({...value, state: "failed"})};
@@ -145,8 +154,19 @@ export async function submitScreenedPhotoHandler(db: Firestore, request: Callabl
     const sameWindow = typeof admission.get("windowAt") === "number" && at - admission.get("windowAt") < 60_000;
     const requests = sameWindow ? count(admission.get("count")) : 0;
     if (used >= runtime.get("monthlyAllowance") || Object.keys(active).length >= 4 || requests >= 4) throw new HttpsError("resource-exhausted", "Photo checking is busy or paused. Please try later.");
-    const next = {...value, state: "scanning", scanStatus: "pending", attempts: value.attempts + 1, attemptId, leaseUntil: at + leaseMs,
-      retryAfter: at + leaseMs + 60_000 * 2 ** value.attempts, policyVersion: screeningPolicyVersion, updatedAt: new Date(at)};
+    const next: Data = {...value, state: "scanning", scanStatus: "pending", attempts: value.attempts + 1, attemptId, leaseUntil: at + leaseMs,
+      retryAfter: at + leaseMs + 60_000 * 2 ** value.attempts, policyVersion: screeningPolicyVersion, updatedAt: new Date(at),
+      uploadStatus: value.uploadStatus ?? "pending", queueOpen: true,
+      expiresAt: value.expiresAt ?? new Date(at + failureRetentionDays(runtime.data())! * dayMs),
+      maintenanceAt: new Date(at + leaseMs)};
+    if (retryCleanedUpload) {
+      // Keep immutable bytes/ownership identity and the original deadline. A
+      // fresh bounded attempt can start only after prior bytes are absent.
+      next.uploadStatus = "pending";
+      for (const key of ["generation", "cleanupGeneration", "cleanupStatus", "cleanupReason", "cleanupAttempts", "cleanupError",
+        "cleanupDisposition", "cleanupLeaseId", "cleanupLeaseUntil", "cleanupFinalizeRevision", "lastFinalizedGeneration",
+        "bytesDeletedAt", "terminalAt", "failurePhase"]) delete next[key];
+    }
     tx.set(ref, next);
     tx.set(usageRef, {reservedUnits: used + 1, updatedAt: new Date(at)});
     tx.set(slotsRef, {active: {...active, [attemptId]: at + leaseMs}});
@@ -157,13 +177,13 @@ export async function submitScreenedPhotoHandler(db: Firestore, request: Callabl
   const value = admitted.record!, objects = options.objects ?? screeningObjects();
   let generation: string | undefined, classification: "approved" | "needs_review" | "failed" = "failed", likelihoods: unknown = null;
   try {
-    generation = await objects.put(storagePath, bytes, String(data.contentType), {ownershipVersion: "1", uploaderKey: ownerKey(uid), dishId});
+    generation = await objects.put(storagePath, bytes, String(data.contentType), uploadMetadata(value));
     await db.runTransaction(async tx => {
       const current = await tx.get(ref);
       requireRuntime((await tx.get(db.doc(screeningRuntimePath))).data(), true);
       await eligible(db, tx, value, now());
-      if (current.get("attemptId") !== attemptId || current.get("state") !== "scanning") throw new Error("Stale screening");
-      tx.update(ref, {generation});
+      if (current.get("attemptId") !== attemptId || current.get("state") !== "scanning" || photoExpired(current.data()!, now())) throw new Error("Stale screening");
+      tx.update(ref, {generation, uploadStatus: "stored"});
     });
     const provider = options.provider ?? new GoogleSafeSearchProvider();
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -176,7 +196,7 @@ export async function submitScreenedPhotoHandler(db: Firestore, request: Callabl
     await objects.read(storagePath, generation, sha256);
     if (await identity(uid, options) !== authCreatedAt) throw new Error("Upload account changed");
   } catch { classification = "failed"; likelihoods = null; }
-  return db.runTransaction(async tx => {
+  const result = await db.runTransaction(async tx => {
     const [current, source, runtime, slots] = await tx.getAll(ref, sourceRef, db.doc(screeningRuntimePath), slotsRef);
     const active = {...(slots.get("active") ?? {})}; delete active[attemptId];
     if (!current.exists || current.get("attemptId") !== attemptId || current.get("state") !== "scanning") {
@@ -189,16 +209,27 @@ export async function submitScreenedPhotoHandler(db: Firestore, request: Callabl
     // A paused runtime also stops publication of an in-flight auto approval.
     if (runtime.get("enabled") !== true || now() >= value.leaseUntil) classification = "failed";
     const final: Data = {...current.data(), state: classification, scanStatus: likelihoods ? "completed" : "failed", likelihoods,
-      provider: options.provider?.name ?? "google-vision-safesearch-v1", updatedAt: new Date(now())};
+      provider: options.provider?.name ?? "google-vision-safesearch-v1", updatedAt: new Date(now()),
+      ...(generation ? {generation, uploadStatus: "stored"} : {})};
     let published = source.data();
     if (source.exists) final.state = source.get("moderationStatus") === "removed" ? "removed" : "failed";
+    else if (photoExpired(current.data()!, now())) Object.assign(final, terminalFields("expired", now(), "retention_expired"));
+    else if (!generation && current.get("uploadStatus") !== "stored") {
+      Object.assign(final, terminalFields("upload_failed", now(), "upload_unconfirmed"), {failurePhase: "upload", uploadStatus: "unconfirmed", maintenanceAt: new Date(Math.max(now(), value.leaseUntil))});
+    }
     else if (classification === "approved" && dish && generation) {
       if (final.mode === "missing" && (count(dish.imageCount) > 0 || dish.primaryImageUrl)) final.state = "needs_review";
       else published = publish(tx, db, final, dish, objects.url(storagePath), now());
     }
+    if (final.state === "approved") { final.queueOpen = false; delete final.expiresAt; delete final.maintenanceAt; }
+    else if (final.state === "needs_review") {
+      final.expiresAt = new Date(millis(final.createdAt)! + pendingRetentionMs); final.maintenanceAt = final.expiresAt;
+    } else if (final.state === "failed") { final.failurePhase = "screening"; final.maintenanceAt = final.expiresAt; }
     tx.set(ref, final); tx.set(slotsRef, {active});
     return response(final, published);
   });
+  if (terminalPhotoStates.includes(result.state)) await cleanupScreeningPhoto(db, imageId, {now, objects: options.cleanupObjects});
+  return result;
 }
 function admin(request: CallableRequest<unknown>, data: Data): string {
   requireRestaurantAccountAdminAccess(request);
@@ -206,18 +237,22 @@ function admin(request: CallableRequest<unknown>, data: Data): string {
   if (data.expectedUserId !== uid) throw new HttpsError("permission-denied", "The signed-in account changed.");
   return uid;
 }
-export async function listScreeningPhotosHandler(db: Firestore, request: CallableRequest<unknown>): Promise<Data> {
+export async function listScreeningPhotosHandler(db: Firestore, request: CallableRequest<unknown>, options: ScreeningOptions = {}): Promise<Data> {
   const data = parse(request.data, ["schemaVersion", "expectedUserId", "after"]), uid = admin(request, data);
   await db.runTransaction(async tx => requireAccountWritable(db, tx, uid));
-  let query = db.collection(screeningCollection).where("state", "in", ["needs_review", "failed", "scanning"]).orderBy(FieldPath.documentId()).limit(26);
+  const at = (options.now ?? Date.now)();
+  let query = db.collection(screeningCollection).where("queueOpen", "==", true).orderBy(FieldPath.documentId()).limit(26);
   if (data.after !== null) query = query.startAfter(exact(data.after));
   const rows = await query.get(), selected = rows.docs.slice(0, 25);
   const items = await Promise.all(selected.map(async row => {
     const value = row.data();
     const [dish, restaurant] = await db.getAll(db.doc(`bitescore_dishes/${exact(value.dishId)}`), db.doc(`bitescore_restaurants/${exact(value.restaurantId)}`));
     return {imageId: row.id, dishId: value.dishId, restaurantId: value.restaurantId, dishName: dish.get("name") ?? "Unavailable dish",
-      restaurantName: restaurant.get("name") ?? "Unavailable restaurant", state: value.state, scanStatus: value.scanStatus,
-      generation: value.generation ?? null, likelihoods: value.likelihoods ?? null};
+      restaurantName: restaurant.get("name") ?? "Unavailable restaurant", state: photoExpired(value, at) ? "expired" : value.state, scanStatus: value.scanStatus,
+      generation: value.generation ?? null, likelihoods: value.likelihoods ?? null,
+      createdAtMillis: millis(value.createdAt), expiresAtMillis: millis(value.expiresAt), serverNowMillis: at,
+      cleanupStatus: value.cleanupStatus ?? (photoExpired(value, at) ? "pending" : null), cleanupError: value.cleanupError ?? null,
+      canDecide: !photoExpired(value, at) && !terminalPhotoStates.includes(value.state) && !(value.state === "scanning" && value.leaseUntil > at)};
   }));
   return {schemaVersion: 1, items, nextCursor: rows.size > 25 ? selected[24].id : null};
 }
@@ -227,6 +262,7 @@ export async function previewScreeningPhotoHandler(db: Firestore, request: Calla
     await requireAccountWritable(db, tx, uid);
     const row = (await tx.get(db.doc(`${screeningCollection}/${exact(data.imageId)}`))).data();
     if (!row || row.generation !== data.generation || typeof row.generation !== "string") throw new HttpsError("not-found", "Photo unavailable.");
+    if (photoExpired(row, (options.now ?? Date.now)()) || terminalPhotoStates.includes(row.state)) throw new HttpsError("failed-precondition", "This unpublished photograph has expired or been rejected.");
     await requireAccountWritable(db, tx, row.ownerUserId);
     return row;
   });
@@ -237,29 +273,47 @@ export async function previewScreeningPhotoHandler(db: Firestore, request: Calla
 }
 export async function decideScreeningPhotoHandler(db: Firestore, request: CallableRequest<unknown>, options: ScreeningOptions = {}): Promise<Data> {
   const data = parse(request.data, ["schemaVersion", "expectedUserId", "imageId", "generation", "decision"]), uid = admin(request, data);
-  if (!["approved", "rejected"].includes(String(data.decision))) throw new HttpsError("invalid-argument", "Invalid decision.");
+  if (!["approved", "rejected", "retry_cleanup"].includes(String(data.decision))) throw new HttpsError("invalid-argument", "Invalid decision.");
   const ref = db.doc(`${screeningCollection}/${exact(data.imageId)}`), before = (await ref.get()).data();
-  if (!before || before.generation !== data.generation) throw new HttpsError("failed-precondition", "Photo changed. Refresh before deciding.");
+  if (!before || (before.generation ?? null) !== data.generation) throw new HttpsError("failed-precondition", "Photo changed. Refresh before deciding.");
   const objects = options.objects ?? screeningObjects(), now = options.now ?? Date.now;
   if (data.decision === "approved") {
+    if (photoExpired(before, now()) || terminalPhotoStates.includes(before.state)) throw new HttpsError("failed-precondition", "This photograph can no longer be approved.");
     if (typeof before.generation !== "string" || await identity(before.ownerUserId, options) !== before.authCreatedAt) throw new HttpsError("failed-precondition", "Upload account changed.");
     try { await objects.read(before.storagePath, before.generation, before.sha256); }
     catch { throw new HttpsError("failed-precondition", "The exact photo is no longer available."); }
   }
-  return db.runTransaction(async tx => {
+  const decision = await db.runTransaction(async tx => {
     await requireAccountWritable(db, tx, uid);
     const [row, source, runtime] = await tx.getAll(ref, db.doc(`bitescore_dish_images/${data.imageId}`), db.doc(screeningRuntimePath));
     const value = row.data();
-    if (!value || value.generation !== data.generation || value.attemptId !== before.attemptId) throw new HttpsError("failed-precondition", "Photo changed. Refresh before deciding.");
+    if (!value || (value.generation ?? null) !== data.generation || value.attemptId !== before.attemptId) throw new HttpsError("failed-precondition", "Photo changed. Refresh before deciding.");
+    if (data.decision === "retry_cleanup") {
+      if (source.exists || !terminalPhotoStates.includes(value.state) || value.cleanupStatus !== "attention") throw new HttpsError("failed-precondition", "Deletion is not awaiting a manual retry.");
+      const next = {...value, cleanupStatus: "pending", cleanupAttempts: 0, maintenanceAt: new Date(now())};
+      tx.set(ref, next); return response(next);
+    }
     if (value.state === data.decision) return response(value, source.data());
-    if (source.exists || ["approved", "rejected", "removed"].includes(value.state) || (value.state === "scanning" && value.leaseUntil > now())) throw new HttpsError("failed-precondition", "This photo already has a decision or is still checking.");
+    if (!source.exists && photoExpired(value, now())) {
+      const expired = {...value, ...terminalFields("expired", now(), "retention_expired")};
+      tx.set(ref, expired); return response(expired);
+    }
+    if (source.exists || ["approved", "removed", ...terminalPhotoStates].includes(value.state) || (value.state === "scanning" && value.leaseUntil > now())) throw new HttpsError("failed-precondition", "This photo already has a decision or is still checking.");
     let dish: Data | undefined;
     if (data.decision === "approved") { requireRuntime(runtime.data(), false); dish = await eligible(db, tx, value, now()); }
-    const final = {...value, state: data.decision, decidedBy: uid, decidedAt: new Date(now()), updatedAt: new Date(now()), decisionSource: "admin"};
+    const final: Data = {...value, state: data.decision, decidedBy: uid, decidedAt: new Date(now()), updatedAt: new Date(now()), decisionSource: "admin"};
+    if (data.decision === "rejected") Object.assign(final, terminalFields("rejected", now(), "admin_rejected"));
+    else { final.queueOpen = false; delete final.expiresAt; delete final.maintenanceAt; }
     const published = dish ? publish(tx, db, final, dish, objects.url(value.storagePath), now()) : undefined;
     tx.set(ref, final);
     return response(final, published);
   });
+  if (terminalPhotoStates.includes(decision.state)) {
+    await cleanupScreeningPhoto(db, exact(data.imageId), {now, objects: options.cleanupObjects});
+    const latest = (await ref.get()).data();
+    return latest ? response(latest) : decision;
+  }
+  return decision;
 }
 
 /** Reuses the existing image trigger/ledger for review-photo awards, including

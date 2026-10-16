@@ -1,0 +1,71 @@
+BiteStar — proposed photo-screening disclosure
+Run: BS-BITESTAR-UGC-SAFESEARCH-RETENTION-002
+Prepared: October 16, 2026
+OWNER / LEGAL REVIEW DRAFT — NOT PUBLISHED OR APPROVED LEGAL TEXT
+No effective date, consent popup, or published legal page is changed.
+
+PROPOSED ADDITION
+
+When you submit a customer photograph for BiteScore, BiteStar sends the
+photograph to Google Cloud Vision to help screen for inappropriate content.
+Authorized BiteStar administrators may also examine submitted photographs.
+Approved photographs are published through the existing BiteStar photo
+features. Screening is not a guarantee that every inappropriate photograph
+will be detected.
+
+Photographs awaiting an administrator's decision remain private for a review
+period of up to 30 days from submission. At the end of that period, an
+unapproved photograph expires, can no longer be published, and is scheduled
+for deletion. Rejected unpublished photographs are scheduled for prompt
+deletion. Deletion processing can take additional time, for example during
+a service interruption; these photographs remain unavailable to the public.
+
+If the upload succeeds but automated screening cannot finish, the photograph
+remains private and follows [INSERT THE SEPARATELY APPROVED RETRY AND DELETION
+PERIOD]. Minimal security, moderation and deletion-status records may remain
+for [INSERT THE FINAL APPROVED NON-IMAGE RETENTION RULE], subject to BiteStar's
+applicable account-deletion policy.
+
+DECISIONS REQUIRED BEFORE USING THIS TEXT
+
+- Seven days for uploaded-but-failed screening is an implemented, tested
+  source candidate, not final owner approval. Retries do not restart its
+  deadline. Replace the placeholder only after the owner approves the rule.
+- Reconcile the minimal non-image records with the final retention schedule
+  and existing account-deletion contract. This task adds no independent
+  indefinite evidence-retention policy or image archive. Records preserve
+  identity, status and cleanup fences needed to prevent delayed uploads or
+  retries from reviving expired/rejected content; likelihood details are
+  removed when cleanup completes. No new general record-purge policy is set.
+- Review Google processing agreements and the final product wording. This
+  draft makes no assertion about Google's own retention, use for training,
+  backups, caches, instantaneous deletion, or guaranteed screening accuracy.
+- Review deletion timing and exception handling operationally before making
+  a public retention promise. The source worker runs in bounded 25-item
+  batches every 15 minutes if separately deployed and enabled. Storage
+  failures retry with backoff and then require visible Admin attention.
+- Existing approved/public photographs follow existing product/deletion
+  behavior; the 30-day rule applies to unpublished review candidates only.
+
+STORE DISCLOSURE REVIEW — NO STORE CHANGES MADE
+
+Apple App Privacy: review the Photos or Videos user-content entry, collection
+purpose, linkage to account identity, and processing by integrated third
+parties against the actual implementation. Photo submission is account-bound
+and bytes are transmitted off the device for this screening workflow. Do not
+assume an on-device-only exception. No new mobile Google Vision SDK is added
+by this server-side REST integration; this alone does not establish that
+existing privacy manifests or App Privacy answers are complete.
+Source: https://developer.apple.com/app-store/app-privacy-details/
+
+Google Play Data Safety: review Photos and videos collection, account linkage,
+purposes, security and deletion disclosures. Whether this transfer qualifies
+for a service-provider exception to the "sharing" definition depends on the
+actual service relationship and terms; do not automatically label it either
+"no sharing" or "sharing" without that review. Keep the final policy, Data
+Safety form and real behavior consistent.
+Source: https://support.google.com/googleplay/android-developer/answer/10787469
+
+These are implementation review implications, not a legal opinion or a
+store-compliance certification. Other image families and written-review text
+remain separately tracked release work.

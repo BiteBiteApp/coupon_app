@@ -76,6 +76,8 @@ void main() {
     'scanning',
     'rejected',
     'removed',
+    'expired',
+    'upload_failed',
   ]) {
     test(
       '$state never becomes a public image or publication success',

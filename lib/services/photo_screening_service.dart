@@ -17,6 +17,10 @@ class PhotoScreeningOutcome implements Exception {
     'scanning' =>
       'Photograph is still being checked. Please try again shortly.',
     'rejected' => 'Photograph was not accepted.',
+    'expired' =>
+      'This unpublished photograph has expired and cannot be published.',
+    'upload_failed' =>
+      'The photograph could not be saved. Please try again later.',
     'removed' => 'This photograph is no longer available.',
     _ => 'Photograph could not be checked right now. Please try again later.',
   };
@@ -112,6 +116,8 @@ class PhotoScreeningService {
           'failed',
           'rejected',
           'removed',
+          'expired',
+          'upload_failed',
         ].contains(state) ||
         result['imageId'] is! String) {
       throw const FormatException('Invalid screening status.');

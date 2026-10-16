@@ -1,4 +1,4 @@
-export {submitScreenedBiteScorePhoto, listAdminScreeningPhotos, previewAdminScreeningPhoto, decideAdminScreeningPhoto} from "./customer_bitescore_runtime.js";
+export {submitScreenedBiteScorePhoto, listAdminScreeningPhotos, previewAdminScreeningPhoto, decideAdminScreeningPhoto, cleanupExpiredScreeningPhotos} from "./customer_bitescore_runtime.js";
 import {createOwnerMediaDependencies} from "./bitesaver_owner_media_runtime.js";
 import {getStorage, getDownloadURL} from "firebase-admin/storage";
 import {saveOwnerMedia, removeOwnerImage} from "./bitesaver_owner_media.js";

@@ -1,4 +1,5 @@
 import {awardApprovedScreenedPhotoPoints, submitScreenedPhotoHandler, listScreeningPhotosHandler, previewScreeningPhotoHandler, decideScreeningPhotoHandler} from "./photo_screening.js";
+import {maintainScreeningPhotos} from "./photo_screening_retention.js";
 import {getCustomerPostingStatusHandler, getAdminPostingRestrictionHandler, setAdminPostingRestrictionHandler} from "./posting_restrictions.js";
 import {submitPhotoReportHandler, moderatePhotoReportHandler} from "./photo_reports.js";
 import {submitReviewerReportHandler, blockReviewerHandler, unblockReviewerHandler, getReviewerSafetyStatusHandler} from "./reviewer_safety.js";
@@ -291,3 +292,9 @@ export const submitScreenedBiteScorePhoto = onCall(photoScreeningOptions, reques
 export const listAdminScreeningPhotos = onCall(reviewerSafetyOptions, request => safely(() => listScreeningPhotosHandler(getFirestore(), request)));
 export const previewAdminScreeningPhoto = onCall(photoScreeningOptions, request => safely(() => previewScreeningPhotoHandler(getFirestore(), request)));
 export const decideAdminScreeningPhoto = onCall(photoScreeningOptions, request => safely(() => decideScreeningPhotoHandler(getFirestore(), request)));
+
+// SOURCE ONLY. Deployment and cleanupEnabled require separate authorization.
+export const cleanupExpiredScreeningPhotos = onSchedule({
+  schedule: "every 15 minutes", timeZone: "UTC", serviceAccount: biteScoreCustomerRuntimeServiceAccount,
+  timeoutSeconds: 120, maxInstances: 1, concurrency: 1, memory: "256MiB", retryCount: 0,
+}, async () => { await maintainScreeningPhotos(getFirestore()); });
