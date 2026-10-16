@@ -195,6 +195,19 @@ class TermsOfServiceScreen extends StatelessWidget {
       LegalParagraph(
         "Third-party names, trademarks, photographs, and other materials remain the property of their respective owners.",
       ),
+      LegalSectionHeading("Governing Law and Disputes"),
+      LegalParagraph(
+        "BiteStar is owned and operated by ColeSmart LLC, a Florida limited liability company.",
+      ),
+      LegalParagraph(
+        "These Terms are governed by the laws of the State of Florida, United States, except where applicable law requires otherwise.",
+      ),
+      LegalParagraph(
+        "Disputes arising from the use of BiteStar may be brought before a court of competent jurisdiction, subject to applicable law.",
+      ),
+      LegalParagraph(
+        "Nothing in these Terms limits any consumer rights or legal remedies that cannot lawfully be waived.",
+      ),
       LegalSectionHeading("Changes to the Terms"),
       LegalParagraph("We may update the Terms as BiteStar develops."),
       LegalParagraph(

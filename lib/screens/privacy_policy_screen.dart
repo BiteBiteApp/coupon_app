@@ -127,10 +127,13 @@ class PrivacyPolicyScreen extends StatelessWidget {
         "Certain shared restaurant information, dish catalog records, and contributions belonging to other users may remain. Deletion of your account does not automatically remove independently maintained restaurant or dish listings.",
       ),
       LegalParagraph(
-        "Some records may be retained when reasonably necessary for financial reporting, legal obligations, fraud prevention, security, and documenting or completing account-deletion requests.",
+        "After account deletion, certain limited records may be retained when reasonably necessary for security, fraud prevention, enforcing coupon-usage restrictions, financial recordkeeping, legal obligations, and documenting deletion requests. These may include device-identification and anti-abuse information, coupon-use restriction records, transaction references, and deletion-processing records.",
       ),
       LegalParagraph(
-        "We retain information only as long as reasonably necessary for its applicable purposes or as otherwise required by law. Different categories of information may have different retention periods.",
+        "Information may also remain temporarily in service-provider backup or recovery systems. Retention periods vary by record type and purpose. Expiration of a session, security challenge, or other logical retention period does not necessarily result in immediate physical erasure.",
+      ),
+      LegalParagraph(
+        "We retain information only as long as reasonably necessary for its applicable purposes or as otherwise required by law.",
       ),
       LegalParagraph(
         "Deletion processing may continue after you close the app. Where available, you can check the status of your request through the account-deletion process.",
