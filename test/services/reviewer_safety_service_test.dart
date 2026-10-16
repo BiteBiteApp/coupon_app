@@ -141,6 +141,59 @@ void main() {
     },
   );
   test(
+    'cache notifications require a validated response and current account lease',
+    () async {
+      User? user = SafetyUser('A');
+      var lease = true;
+      var pending = Completer<Object?>();
+      final changes = <ReviewerSafetyChange>[];
+      void listener() => changes.add(ReviewerSafetyService.changes.value!);
+      ReviewerSafetyService.changes.addListener(listener);
+      addTearDown(() => ReviewerSafetyService.changes.removeListener(listener));
+      final service = ReviewerSafetyService(
+        currentUser: () => user,
+        boundary: (_, _) => pending.future,
+      );
+      Future<ReviewerSafetyStatus> unblock() => service.unblock(
+        expectedUserId: 'A',
+        targetUserId: 'B',
+        expectedRevision: 1,
+        leaseIsCurrent: () => lease,
+      );
+      const result = {
+        'schemaVersion': 1,
+        'targetUserId': 'B',
+        'blocked': false,
+        'revision': 2,
+      };
+      var operation = unblock();
+      user = SafetyUser('C');
+      pending.complete(result);
+      await expectLater(operation, throwsStateError);
+      expect(changes, isEmpty);
+      user = SafetyUser('A');
+      pending = Completer<Object?>();
+      operation = unblock();
+      lease = false;
+      pending.complete(result);
+      await expectLater(operation, throwsStateError);
+      expect(changes, isEmpty);
+      lease = true;
+      pending = Completer<Object?>();
+      operation = unblock();
+      pending.complete({...result, 'targetUserId': 'forged'});
+      await expectLater(operation, throwsFormatException);
+      expect(changes, isEmpty);
+      pending = Completer<Object?>();
+      operation = unblock();
+      pending.complete(result);
+      await operation;
+      expect(changes.single.viewerUserId, 'A');
+      expect(changes.single.targetUserId, 'B');
+    },
+  );
+
+  test(
     'self, guest, wrong account and expired lease dispatch no requests',
     () async {
       User? user = SafetyUser('A');

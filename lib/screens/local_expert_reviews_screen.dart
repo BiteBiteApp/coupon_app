@@ -8,6 +8,7 @@ import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_service.dart';
 import '../services/customer_bitescore_profile_service.dart';
+import '../services/reviewer_safety_service.dart';
 import '../services/customer_bitescore_reads.dart';
 import '../services/customer_bitescore_runtime.dart';
 import '../services/customer_bitescore_search_service.dart';
@@ -361,6 +362,7 @@ class _LocalExpertReviewsScreenState extends State<LocalExpertReviewsScreen> {
 
   @override
   void dispose() {
+    ReviewerSafetyService.changes.removeListener(_handleReviewerSafetyChanged);
     _boundedReviews?.dispose();
     super.dispose();
   }
@@ -370,6 +372,7 @@ class _LocalExpertReviewsScreenState extends State<LocalExpertReviewsScreen> {
   @override
   void initState() {
     super.initState();
+    ReviewerSafetyService.changes.addListener(_handleReviewerSafetyChanged);
     _refresh();
   }
 
@@ -380,6 +383,19 @@ class _LocalExpertReviewsScreenState extends State<LocalExpertReviewsScreen> {
         oldWidget.expertTypeId != widget.expertTypeId) {
       _refresh();
     }
+  }
+
+  void _handleReviewerSafetyChanged() {
+    final change = ReviewerSafetyService.changes.value;
+    if (!mounted ||
+        !_bounded ||
+        !ReviewerSafetyCustomerUi.isEnabled ||
+        change == null ||
+        change.targetUserId != widget.reviewerUserId ||
+        _boundedProfiles.currentActorKey != 'user:${change.viewerUserId}') {
+      return;
+    }
+    setState(_refresh);
   }
 
   void _refresh() {

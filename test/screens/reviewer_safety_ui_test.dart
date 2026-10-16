@@ -171,6 +171,117 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets(
+    'retained dish refreshes after unblock on a pushed private route',
+    (tester) async {
+      final user = SafetyUser('viewer');
+      var blocked = true;
+      var pages = 0;
+      final service = ReviewerSafetyService(
+        currentUser: () => user,
+        pageReader: (_, _) async =>
+            const BlockedReviewerPage([BlockedReviewer('reviewer')], null),
+        boundary: (name, request) async {
+          if (name == 'unblockReviewer') blocked = false;
+          return {
+            'schemaVersion': 1,
+            'targetUserId': 'reviewer',
+            'blocked': blocked,
+            'revision': 2,
+          };
+        },
+      );
+      await dish(
+        tester,
+        user: () => user,
+        service: service,
+        reviews: (_) async {
+          pages++;
+          return {
+            'items': blocked ? [] : [review('restored')],
+            'nextCursor': null,
+          };
+        },
+      );
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      unawaited(
+        navigator.push(
+          MaterialPageRoute<void>(
+            builder: (_) => BlockedReviewersScreen(
+              expectedUserId: user.uid,
+              service: service,
+              testCurrentUserProvider: () => user,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Unblock'));
+      await tester.pumpAndSettle();
+      navigator.pop();
+      await tester.pumpAndSettle();
+      expect(pages, 2);
+      expect(find.text('Review restored'), findsOneWidget);
+      expect(find.text('No reviews to show.'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('blocking on a second dish clears the retained first dish', (
+    tester,
+  ) async {
+    final user = SafetyUser('viewer');
+    final calls = <String>[];
+    var blocked = false;
+    final service = serviceFor(
+      () => user,
+      calls,
+      onBlock: () => blocked = true,
+    );
+    await dish(
+      tester,
+      user: () => user,
+      service: service,
+      reviews: (_) async => {
+        'items': blocked ? [] : [review('parent')],
+        'nextCursor': null,
+      },
+    );
+    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+    unawaited(
+      navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) => BiteScoreDishDetailScreen(
+            entry: CustomerBiteScorePublicData.entry(dishProjection('dish')),
+            testCurrentUserProvider: () => user,
+            testReviewerSafetyService: service,
+            testCustomerReads: CustomerBiteScoreReads(
+              actorKey: () => user.uid,
+              boundary: (name, request) async {
+                if (name == 'getCustomerBiteScoreDetail') return detail();
+                return {
+                  'items': name == 'pageCustomerBiteScoreReviews' && !blocked
+                      ? [review('child')]
+                      : [],
+                  'nextCursor': null,
+                };
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await openBlock(tester);
+    await tester.tap(find.widgetWithText(FilledButton, 'Block Reviewer'));
+    await tester.pumpAndSettle();
+    navigator.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('Review parent'), findsNothing);
+    expect(find.text('No reviews to show.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final allowed in [false, true]) {
     testWidgets(
       'guest sign-in ${allowed ? 'upgrade' : 'cancellation'} uses existing gate without a safety write',

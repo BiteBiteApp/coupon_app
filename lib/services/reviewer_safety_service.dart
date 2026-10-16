@@ -18,6 +18,13 @@ abstract final class ReviewerSafetyCustomerUi {
       (testEnabled ?? _configured) && CustomerBiteScoreRuntime.isEnabled;
 }
 
+/// A local cache invalidation, never an authorization or stored preference.
+class ReviewerSafetyChange {
+  const ReviewerSafetyChange(this.viewerUserId, this.targetUserId);
+  final String viewerUserId;
+  final String targetUserId;
+}
+
 class ReviewerSafetyStatus {
   final String targetUserId;
   final bool blocked;
@@ -55,6 +62,18 @@ class ReviewerSafetyService {
            ((uid, after) =>
                _readPage(firestore ?? FirebaseFirestore.instance, uid, after)),
        _currentUser = currentUser ?? (() => FirebaseAuth.instance.currentUser);
+
+  static final _changes = ValueNotifier<ReviewerSafetyChange?>(null);
+  static ValueListenable<ReviewerSafetyChange?> get changes => _changes;
+
+  void notifyPreferencesChanged({
+    required String expectedUserId,
+    required String targetUserId,
+    required bool Function() leaseIsCurrent,
+  }) {
+    _check(expectedUserId, leaseIsCurrent);
+    _changes.value = ReviewerSafetyChange(expectedUserId, targetUserId);
+  }
 
   static const pageSize = 25;
   final ReviewerSafetyBoundary _boundary;
@@ -104,6 +123,13 @@ class ReviewerSafetyService {
         result['revision'] is! int ||
         (result['revision'] as int) < 0) {
       throw const FormatException('Invalid reviewer safety response.');
+    }
+    if (name == 'blockReviewer' || name == 'unblockReviewer') {
+      notifyPreferencesChanged(
+        expectedUserId: expectedUserId,
+        targetUserId: targetUserId,
+        leaseIsCurrent: leaseIsCurrent,
+      );
     }
     return ReviewerSafetyStatus(
       targetUserId,

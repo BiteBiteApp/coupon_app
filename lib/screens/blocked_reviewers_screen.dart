@@ -129,6 +129,13 @@ class _BlockedReviewersScreenState extends State<BlockedReviewersScreen> {
         );
         if (!_current(lease)) return;
         if (result.blocked) throw StateError('Reviewer preferences changed.');
+      } else {
+        // Another device may already have removed this still-visible row.
+        _service.notifyPreferencesChanged(
+          expectedUserId: widget.expectedUserId,
+          targetUserId: reviewer.targetUserId,
+          leaseIsCurrent: () => _current(lease),
+        );
       }
       setState(
         () => _items.removeWhere(

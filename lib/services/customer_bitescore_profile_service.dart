@@ -17,6 +17,7 @@ class CustomerBiteScoreProfileService {
        _actorKey = actorKey;
   final CustomerBiteScoreSearchApi _api;
   final String Function()? _actorKey;
+  String get currentActorKey => (_actorKey ?? customerBiteScoreActorKey)();
   final String _clientInstanceId = customerBiteScoreRequestId();
 
   Future<BiteScorePublicReviewerProfileData> summary(String userId) async {

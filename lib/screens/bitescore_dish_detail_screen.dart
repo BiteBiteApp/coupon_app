@@ -602,6 +602,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     super.initState();
     _currentEntry = widget.entry;
     _hadManagementAccess = _canManageDish;
+    ReviewerSafetyService.changes.addListener(_handleReviewerSafetyChanged);
     _refresh();
   }
 
@@ -633,6 +634,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
 
   @override
   void dispose() {
+    ReviewerSafetyService.changes.removeListener(_handleReviewerSafetyChanged);
     _unbindAuthBoundRoute();
     _detailLoadGeneration += 1;
     _highlightTimer?.cancel();
@@ -698,6 +700,23 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     if (hadManagementAccess != hasManagementAccess) {
       setState(() {});
     }
+  }
+
+  void _handleReviewerSafetyChanged() {
+    final change = ReviewerSafetyService.changes.value;
+    final lease = _authBoundRouteBinding?.captureLease();
+    if (!mounted ||
+        !ReviewerSafetyCustomerUi.isEnabled ||
+        change == null ||
+        _currentUser?.isAnonymous != false ||
+        change.viewerUserId != _currentUser?.uid ||
+        !_isPrivateLeaseCurrent(lease) ||
+        _reviewerSafetyBusy) {
+      return;
+    }
+    // Clear retained pages immediately; existing load generations reject any
+    // pre-change requests still in flight. The active block flow refreshes itself.
+    setState(_refresh);
   }
 
   void _refresh() {

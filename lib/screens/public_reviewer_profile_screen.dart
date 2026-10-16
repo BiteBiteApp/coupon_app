@@ -8,6 +8,7 @@ import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_service.dart';
 import '../services/customer_bitescore_profile_service.dart';
+import '../services/reviewer_safety_service.dart';
 import '../services/customer_bitescore_reads.dart';
 import '../services/customer_bitescore_search_service.dart';
 import '../widgets/customer_bitescore_page_status.dart';
@@ -76,6 +77,7 @@ class _PublicReviewerProfileScreenState
 
   @override
   void dispose() {
+    ReviewerSafetyService.changes.removeListener(_handleReviewerSafetyChanged);
     _reviews?.dispose();
     super.dispose();
   }
@@ -85,6 +87,7 @@ class _PublicReviewerProfileScreenState
   @override
   void initState() {
     super.initState();
+    ReviewerSafetyService.changes.addListener(_handleReviewerSafetyChanged);
     _refresh();
   }
 
@@ -92,6 +95,19 @@ class _PublicReviewerProfileScreenState
   void didUpdateWidget(covariant PublicReviewerProfileScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userId != widget.userId) _refresh();
+  }
+
+  void _handleReviewerSafetyChanged() {
+    final change = ReviewerSafetyService.changes.value;
+    if (!mounted ||
+        !_bounded ||
+        !ReviewerSafetyCustomerUi.isEnabled ||
+        change == null ||
+        change.targetUserId != widget.userId ||
+        _boundedProfiles.currentActorKey != 'user:${change.viewerUserId}') {
+      return;
+    }
+    setState(_refresh);
   }
 
   void _refresh() {

@@ -4,6 +4,8 @@ import 'package:coupon_app/screens/public_reviewer_profile_screen.dart';
 import 'package:coupon_app/screens/local_expert_reviews_screen.dart';
 import 'package:coupon_app/services/customer_bitescore_profile_service.dart';
 import 'package:coupon_app/services/customer_bitescore_runtime.dart';
+import 'package:coupon_app/services/reviewer_safety_service.dart';
+import '../services/reviewer_safety_service_test.dart' show SafetyUser;
 import 'package:coupon_app/services/shared_location_state_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -39,6 +41,99 @@ void main() {
     CustomerBiteScoreRuntime.testEnabled = null;
     SharedLocationStateService.resetForTesting();
   });
+  for (final expert in [false, true]) {
+    testWidgets(
+      'retained ${expert ? 'expert' : 'profile'} refreshes only matching viewer and target',
+      (tester) async {
+        ReviewerSafetyCustomerUi.testEnabled = true;
+        addTearDown(() => ReviewerSafetyCustomerUi.testEnabled = null);
+        var blocked = false;
+        var viewer = 'viewer';
+        var pages = 0;
+        final api = FakeSearchApi((name, request) async {
+          if (name.contains('Summary')) return profileSummary();
+          if (name.startsWith('start')) return response();
+          pages++;
+          return response(items: blocked ? [] : [profileReview('visible')]);
+        });
+        final profiles = CustomerBiteScoreProfileService(
+          api: api,
+          actorKey: () => 'user:$viewer',
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: expert
+                ? LocalExpertReviewsScreen(
+                    reviewerUserId: 'reviewer',
+                    reviewerDisplayName: 'Reviewer',
+                    expertTypeId: 'burger',
+                    expertDisplayName: 'Burger',
+                    boundedProfileService: profiles,
+                  )
+                : PublicReviewerProfileScreen(
+                    userId: 'reviewer',
+                    boundedProfileService: profiles,
+                    badgesLoader: (_) async => [],
+                    canEditReview: (_) => false,
+                  ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(pages, 1);
+        final service = ReviewerSafetyService(
+          currentUser: () => SafetyUser('viewer'),
+          boundary: (name, request) async {
+            blocked = name == 'blockReviewer';
+            return {
+              'schemaVersion': 1,
+              'targetUserId': request['targetUserId'],
+              'blocked': blocked,
+              'revision': 2,
+            };
+          },
+        );
+        await service.block(
+          expectedUserId: 'viewer',
+          targetUserId: 'someone-else',
+          expectedRevision: 1,
+          supportingReviewId: 'r',
+          leaseIsCurrent: () => true,
+        );
+        await tester.pumpAndSettle();
+        expect(pages, 1);
+        viewer = 'other';
+        await service.block(
+          expectedUserId: 'viewer',
+          targetUserId: 'reviewer',
+          expectedRevision: 1,
+          supportingReviewId: 'r',
+          leaseIsCurrent: () => true,
+        );
+        await tester.pumpAndSettle();
+        expect(pages, 1);
+        viewer = 'viewer';
+        await service.block(
+          expectedUserId: 'viewer',
+          targetUserId: 'reviewer',
+          expectedRevision: 1,
+          supportingReviewId: 'r',
+          leaseIsCurrent: () => true,
+        );
+        await tester.pumpAndSettle();
+        expect(pages, 2);
+        expect(find.text('Dish visible'), findsNothing);
+        await service.unblock(
+          expectedUserId: 'viewer',
+          targetUserId: 'reviewer',
+          expectedRevision: 2,
+          leaseIsCurrent: () => true,
+        );
+        await tester.pumpAndSettle();
+        expect(pages, 3);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   testWidgets('public profile presents bounded pages and authoritative count', (
     tester,
   ) async {
