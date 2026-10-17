@@ -18,7 +18,7 @@ class DishReview {
     'rejected' =>
       'Rating saved; your proposed words were not accepted. Earlier published words are unchanged.',
     'expired' =>
-      'Rating saved; the unpublished text has expired. Submit your words again.',
+      'Rating saved; the unpublished text has expired. Earlier published words are unchanged.',
     'screening_failed' =>
       'Rating saved; your proposed words could not be screened and remain unpublished.',
     'superseded' =>

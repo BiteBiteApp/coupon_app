@@ -58,6 +58,7 @@ const families: readonly Family[] = [
   {collection: "private_bitescore_photo_screenings", field: "ownerUserId", mode: "delete"},
   {collection: "private_bitescore_review_text", field: "userId", mode: "delete"},
   {collection: "private_bitescore_review_text_admission", field: "userId", mode: "delete"},
+  {collection: "private_bitescore_review_text_receipts", field: "userId", mode: "delete"},
 ];
 function familyQuery(db: Firestore, family: Family, uid: string): Query {
   const query = db.collection(family.collection).where(family.field, "==", uid);

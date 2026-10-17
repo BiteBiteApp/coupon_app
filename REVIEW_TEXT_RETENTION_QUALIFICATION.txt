@@ -1,0 +1,307 @@
+BiteStar written-review retention and save integrity — source qualification
+Run ID: BS-BITESTAR-UGC-REVIEW-TEXT-RETENTION-002
+Prompt prepared: October 16, 2026, 9:19 PM EDT (UTC-04:00)
+Execution started: October 16, 2026, 9:23:29 PM EDT
+Source qualification / independent review completed: October 16, 2026, 9:44 PM EDT
+Role: source implementation, local qualification and independent source review.
+Expected/actual local and remote starting HEAD:
+a21a6e629a98dc9cb5eea0d932c431abf5a7afc8
+Branch: main. Previous annotated tag: bs-bitestar-ugc-review-text-openai-001.
+Final source checkpoint: the containing commit, identified by annotated tag
+bs-bitestar-ugc-review-text-retention-002. The final owner response and existing
+backlog record the resolved commit and subsequent remote verification.
+
+VERDICT / QUALIFICATION BOUNDARY
+PASS for the frozen source candidate. Owner-approved retention is implemented;
+confirmed review saves survive later optional points failures. Independent
+read-only review passed all 17 frozen source/test/disclosure files, including
+the final flagged-result correction. No unresolved blocking source finding.
+Reviewer inspected our test evidence, but did not independently rerun suites.
+Manifest SHA-256:
+98065fdd9277612d0cf43eafe851db82f703f301a3c4da06c6f3778bc8e85511
+
+Source-corrected, locally tested and independently reviewed are distinct from
+committed, deployed, active and production-qualified. This is SOURCE ONLY,
+default OFF. No actual OpenAI request, credential read/creation, secret binding,
+production runtime document, deployment, TTL activation, production data change,
+Auth/IAM/billing/Stripe change, physical-device run or legal publication occurred.
+The Google Vision image provider, shared 1,000 monthly image allowance, approved
+image retention and dormant Terms foundation are unchanged.
+
+PERMITTED AREA / EXECUTION PATH
+Approved backend retention logic and minimal private receipts, source Rules,
+existing cleanup/account-deletion integration, customer/Admin state and messages,
+post-save error classification, focused tests and source-only disclosure/report.
+No migration, new scheduler, broad points system or moderation architecture.
+Root AGENTS.md and the four supplied guidance documents were applied; relevant
+prior checkpoint evidence was reused. The change is necessary to enforce the
+approved deadlines and stop misleading failure messages; it is executable with
+existing transactions and recoverable through bounded cleanup and fail-closed
+publication. Seven unrelated owner files were preserved and excluded.
+
+Both review editors and all Create & Rate branches converge on existing
+BiteScoreService methods. The trusted aggregate writer calls prepareReviewText
+inside the rating transaction, then screens and calls finishReviewText. Author
+and Admin callables derive deadlines from trusted original createdAt; decisions
+remain bound to exact review/version/identity. Existing review withdrawal and
+account-deletion paths remove both proposal and receipt. The existing expiry
+worker and TTL candidate remain the only cleanup mechanisms.
+
+APPROVED POLICY / EXACT DEADLINES
+Policy openai-clean-or-human-v1 and initial provider omni-moderation-latest are
+approved. Valid clean results may publish; valid flagged results stay private
+for authorized Admin review. Negative criticism, sarcasm, slang and mild profanity
+are not locally prohibited. There is no blacklist, invented numeric category
+threshold, model-only rejection, ban or posting restriction.
+
+Versioned retention contract: review-text-retention-v2.
+- Pending human review: original trusted submission + 2,592,000 seconds
+  (30 consecutive 24-hour days).
+- Failed, unavailable, paused or admission-denied screening: original submission
+  + 604,800 seconds (seven consecutive 24-hour days).
+- Screening in flight uses the same seven-day ceiling and existing 20-second
+  attempt lease. An abandoned lease becomes a truthful failed-screening status.
+- Explicit retry within seven days preserves original time/version. A valid
+  flagged retry changes expiresAt to ORIGINAL + 30 days; a clean retry publishes
+  only if publication fences still permit it. No retry restarts either clock.
+- A valid flagged completion keeps its 30-day human-review deadline even if a
+  posting restriction arises during screening. That restriction still prevents
+  Admin approval and clean publication. Invalid/paused processing stays failed.
+- At the applicable boundary, expired words cannot publish or be returned by
+  author/Admin reads, regardless of scheduler delay. Current clocks are sampled
+  after awaited reads; delayed completions and decisions cannot cross the check.
+- Rejection strips headline/notes immediately in the decision transaction.
+  Approval also strips the private raw copy. Terminal records have no expiresAt,
+  so completed work cannot occupy the raw-text expiry queue.
+
+Rating transactions and their aggregate calculations remain unchanged. Holding,
+rejecting, failing or expiring an edit preserves legitimate ratings, helpful
+votes, photos, points and earlier approved public words. Explicit blank-field
+removal and separate authorized moderation/deletion actions still apply.
+Stale attempts, superseded edits, changed dish/restaurant identity, merge and
+operation locks, account deletion and same-ID withdrawal/recreation remain
+fenced. No historical published-word expiration was added.
+
+TTL / RECOVERY / MINIMAL RECEIPT
+The existing 25-row worker runs every 15 minutes when separately activated. It
+rechecks current expiry transactionally, strips due raw words and leaves an
+expired status; duplicate runs and crash recovery are safe. Terminal rows no
+longer crowd later work. The existing source TTL candidate on
+private_bitescore_review_text.expiresAt will provide the asynchronous backstop
+once separately deployed and verified. No index or scheduler was added here.
+
+TTL can delete the WHOLE proposal before the worker. A narrow private non-text
+receipt therefore survives separately in private_bitescore_review_text_receipts.
+It stores only review/dish/restaurant/user identity, version, content digest,
+original createdAt, retention policy version and status. It has no headline,
+notes or provider signals. Same-content resubmission after TTL remains expired;
+it cannot silently obtain a new deadline. Different proposed words create a new
+version. Withdrawal, explicit text removal and account deletion clean receipts;
+delayed withdrawal events cannot delete a matching current replacement. Rules
+deny every client role direct access. Account-deletion cleanup appends a family
+without shifting existing persisted stage indexes. Final non-image metadata
+retention remains a separate owner/legal item; no general lifetime was invented.
+
+At full batches the supplemental worker handles at most 100 rows/hour or 2,400
+rows/day. Together with TTL this is proportionate for a bounded beta, conditional
+on verifying TTL and observing actual arrivals/backlog before activation. It is
+not a guarantee for unspecified production load. Release operations must watch
+existing scheduler failures, repeatedly saturated batches, oldest overdue raw
+proposal and TTL deletion/lag metrics using existing monitoring/manual checks.
+Failures must be investigated and recovered through the same bounded worker;
+larger capacity requires evidence and separate approval, not another cleanup job.
+
+Firestore documents TTL deletion as asynchronous, typically within 24 hours, and
+uses the latest TTL field. This is not a deletion-time SLA or immediate erasure
+from backups/internal storage/device caches. No production TTL run was qualified.
+Local tests simulate whole-document TTL deletion and exercise worker recovery.
+Reference checked October 16, 2026: https://firebase.google.com/docs/firestore/ttl
+
+SAVE INTEGRITY / POINTS
+Diagnosis: milestone and created-dish award calls occur AFTER the review write.
+Their exception used to escape and display a generic save failure, encouraging
+an unnecessary retry. The same risk existed for later display/photo follow-ups.
+
+The corrected service marks optional award results unconfirmed only after a
+confirmed review response/write. Existing authoritative successful award receipts
+are retained; failures claim zero newly confirmed points and show a concise
+warning. Both editors preserve saved-review success and existing combined text/
+photo messages. All Create & Rate branches distinguish catalog-only creation
+from a confirmed saved review. True rejected review writes still fail normally.
+Legacy post-write aggregate-refresh failure is separately described as an
+unconfirmed score update; it cannot erase a confirmed review save.
+
+Lost/invalid/malformed write acknowledgements are explicitly UNCONFIRMED, never
+asserted saved or automatically rewritten. The customer is told to check their
+reviews before retrying. There is no existing authoritative exact-attempt readback
+contract proving the submitted version; a weaker raw-read fallback was not added.
+Known precommit Firebase rejection codes retain failure reporting. Account leases
+are rechecked before and after optional awards and before sensitive screen output.
+
+ContributionPointsService, backend award rules, deterministic ledger identities,
+transactional idempotency, review milestone reconciliation and existing claim
+callables are unchanged. The fix neither retries a review nor invents an award.
+Existing safe reconciliation/claim mechanisms remain available, with their
+existing triggers and eligibility. This change does not promise an automatic
+later retry of every failed created-dish award or eventual points recovery.
+Actual stored totals remain authoritative; no speculative reward policy or worker.
+
+ADMIN / CUSTOMER
+Admin sees original submitted time, age, deadline, status and screening signals
+for current unexpired proposals. A local timer updates age/removes expired words
+without additional database queries. Decisions recheck the server boundary;
+expired/stale actions give useful feedback. Account changes clear sensitive UI.
+The author sees truthful published/held/failed/rejected/expired states. Existing
+draft behavior is retained; expiry text no longer suggests identical resubmission
+will restart retention. Device caches are not claimed to be instantly erased.
+
+LOCAL QUALIFICATION (SELECTED GROUPS, NOT A DEDUPLICATED TOTAL)
+Node v24.19.0; TypeScript build PASS. Isolated Firestore 8792, Auth 9198 and
+Storage 9298; only synthetic demo projects and injected fake provider responses.
+The owner's emulator was not interrupted. No provider accuracy is established.
+- Backend final: 76/76 (38 text lifecycle + 38 provider/aggregate/Terms).
+  Exact just-before/at/after boundaries; original-time retries; clean/flagged
+  retry; lease failure; late completion; pause/admission/malformed config;
+  rejection versus retry; concurrent edits; withdrawal/merge/account fences;
+  published words/ratings/votes; whole-document TTL and crash/repeated cleanup.
+- Rules: 21/21 (13 review-text/deletion/reviewer + 8 posting-restriction cases).
+  All roles denied private receipt access; old-client bypass and pause closure.
+- Deletion/photo/reviewer/posting integration: 76/76; own receipt cleanup and
+  preservation of another author's receipt explicitly checked.
+- Owner-media integration: 20/20, preserving independent image boundaries.
+- Public/profile/points/milestone/photo-provider/index regressions: 188/188,
+  including six strict unchanged index-contract tests and award idempotency.
+- Main Flutter service/editor/Admin/auth/points/trusted-creation group: 207/207.
+- Complementary Local Expert/reporting/reviewer-safety/photo/Admin Flutter: 85/85.
+- Final new save-outcome test after formatting/lint correction: 10/10 (overlaps
+  main Flutter group). True/unknown writes, confirmed-then-award failure,
+  successful receipts, malformed acknowledgements and account switches covered.
+- Scoped analysis: zero errors/warnings, 14 confirmed existing Create & Rate
+  informational diagnostics. Newly introduced test lint findings were corrected.
+- git diff --check PASS. All 17 qualified file hashes and seven protected owner
+  hashes verified; final independent reviewer verified the frozen manifest.
+
+Routine failures were diagnosed rather than hidden: an initial emulator launch
+path was corrected; aggregate tests were rerun from their required functions
+directory; a posting Rules filename typo was corrected and all eight cases run;
+initial concurrently run Rules/integration resets interfered with the shared
+synthetic project, so final qualifying runs were isolated/sequential. New test
+fixtures were fixed for required exception messages and legitimate save timestamp
+semantics while retaining all rating/count assertions. No unresolved selected
+failure remains. Known unrelated full-backend baseline failures were not reopened;
+this is not a whole-repository clean-suite claim.
+
+Local evidence: /tmp/bs-review-retention/{build,backend-final,rules-isolated,
+posting-rules,integration-isolated,owner-media,regression,flutter-qualified,
+flutter-complementary,flutter-outcome-final,analyze-final-qualified}.log
+Node tests use --test-concurrency=1 with emulator opt-in environment variables.
+Final backend files: review_text_moderation_emulator.test.js,
+review_text_provider.test.js, bitescore_review_aggregate.test.js.
+Regression files: customer_bitescore_reads.test.js,
+customer_bitescore_profile_search.test.js, customer_bitescore_profile_summary.test.js,
+contribution_points_helpers.test.js, contribution_points_bounded_steps.test.js,
+review_milestone_reconciliation_lock.test.js, firestore_index_contract.test.js,
+photo_screening_provider.test.js.
+
+INERT CONFIGURATION / COORDINATED RELEASE ORDER (NOT EXECUTED)
+The source candidate records approved policy/durations, but required=false,
+processingEnabled=false, cleanupEnabled=false and retentionApproved=false.
+reviewTextProviderWiringEnabled=false; BITESCORE_REVIEW_TEXT_MODERATION defaults
+false; approvedBiteScoreTerms remains null. No live runtime config was written.
+Legacy retentionSeconds is no longer accepted for active v2 configuration.
+Incomplete/malformed active settings fail closed. Approval of the durations is
+not authorization to flip the production retentionApproved gate.
+
+1. Separately authorize release, finalize legal/store/13+ requirements and
+   minimal metadata retention, supported client cutoff and Admin operating plan.
+   Verify actual existing aggregate, projection, withdrawal and account-deletion
+   deployment dependencies; source presence alone is insufficient.
+2. Deploy the already-qualified index/TTL candidates and verify TTL active and
+   recoverable. No new indexes in this run. Establish monitoring/owner response
+   using existing operational facilities before retaining real unpublished words.
+3. Deploy exact qualified moderation-aware save, author/Admin, expiry, aggregate
+   trigger and account-deletion Functions. Verify the existing schedule and raw
+   cleanup with synthetic data. Do not use a broad deploy as a convenience.
+4. Release supported trusted-runtime clients with truthful text/points outcomes
+   and enforce the separately chosen legacy-client cutoff. Deploy candidate Rules
+   including receipt denial BEFORE required=true. Do not reopen direct writers
+   as a compatibility fallback. Verify every creation/editor/photo path.
+5. Separately provision the server secret and verify actual OpenAI project quotas,
+   account data controls and permissions; approve exact provider-wiring/secret
+   binding source and targeted deployment. Qualify real synthetic provider
+   outcomes/false positives, Admin operations and physical devices. Fake provider
+   tests here do not satisfy that gate. Never include secret payloads in reports.
+6. Only after those prerequisites and explicit activation authorization, create
+   the exact v2 runtime with approved policy, 2592000/604800 durations and verified
+   cleanup. required=true is the enforcement boundary. Activate processing only
+   after all release checks; do not hold real drafts without working cleanup.
+
+Safe pause: processingEnabled=false while required=true; retain blocking Rules,
+TTL, cleanup, private status/deletion and Admin capabilities. Ratings still save
+through the trusted writer; new words remain private with the seven-day ceiling.
+Never roll back to unchecked publication. A rollback of the writer must remain
+moderation-aware/fail closed or temporarily stop saves until safely restored.
+
+PRIVACY / REMAINING RELEASE GATES
+REVIEW_TEXT_PRIVACY_DISCLOSURE_DRAFT.txt is an unpublished proposal for owner/legal
+review, not accepted Terms. It covers text-only provider submission, Admin review,
+30/7-day deadlines, rejection, asynchronous cleanup and minimal metadata review.
+OpenAI's current endpoint table lists no training, abuse-monitoring retention or
+application-state retention for /v1/moderations; this is a dated documented fact,
+not a timeless guarantee or validation of a future BiteStar account setup.
+Reference checked October 16, 2026:
+https://developers.openai.com/api/docs/guides/your-data
+Open items: real-provider accuracy/acceptance and account controls; Apple App
+Privacy; Google Play Data Safety; final Terms/Privacy/deletion URLs; 13+ account
+eligibility/UGC enforcement; non-image metadata retention; Admin practices and
+cleanup monitoring; supported legacy-client cutoff; physical-device qualification
+and explicit coordinated deployment/activation. None is closed by source tests.
+
+BUG FILTER / RECONCILIATION
+FIX NOW / DIRECTLY REQUIRED — dual original-time deadlines; expiry before all
+reads/decisions; TTL deletion resurrection; clocks sampled after awaited reads;
+flagged-result ordering; truthful confirmed/unknown save handling. These affect
+reachable normal failure/race paths and received narrow tested corrections.
+The previously deferred misleading post-save points bug is now explicitly
+authorized and SOURCE-CORRECTED. Existing points recovery remains intact.
+PRODUCT DECISION REQUIRED — final minimal non-image metadata retention and legal,
+real-provider acceptance, operating/cutoff and release decisions above.
+ACCEPT AND CLOSE — existing Stage 2D remains closed; no speculative new platform,
+catalog-string moderation or unrelated baseline repair was opened.
+No new separate demonstrated bug remains from this bounded assignment.
+Existing backlog is reconciled in place after checkpoint verification, preserving
+history and superseding prior text-duration uncertainty and points-bug deferral:
+https://docs.google.com/document/d/1BxE1RweBRUMkFoc4tuS9vKh3kIIsfdCrDzfUYAobYNU/edit
+
+EXACT CHANGED-FILE INVENTORY (19 FILES)
+Frozen source/test/disclosure files (17; manifest verifies exact bytes):
+REVIEW_TEXT_PRIVACY_DISCLOSURE_DRAFT.txt
+firestore.rules
+firestore_rules_tests/test/review_text_rules.test.js
+functions/src/account_deletion_cleanup.ts
+functions/src/review_text_handlers.ts
+functions/src/review_text_moderation.ts
+functions/test/account_deletion_emulator.test.js
+functions/test/review_text_moderation_emulator.test.js
+lib/models/dish_review.dart
+lib/screens/bitescore_create_rate_screen.dart
+lib/screens/bitescore_dish_detail_screen.dart
+lib/screens/review_text_admin_screen.dart
+lib/services/bitescore_service.dart
+test/screens/bitescore_create_rate_terms_test.dart
+test/screens/bitescore_dish_detail_screen_test.dart
+test/screens/review_text_admin_screen_test.dart
+test/services/review_save_outcome_test.dart
+Checkpoint documentation (2):
+REVIEW_TEXT_RETENTION_FILES.sha256
+REVIEW_TEXT_RETENTION_QUALIFICATION.txt
+Previous checkpoint report/manifest remain frozen and unchanged.
+
+PROTECTED OWNER FILES — UNCHANGED AND EXCLUDED (SHA-256)
+865f38522f833bb7a9a8a3157d49a292db627c29435093eb24f2c8e8d04581ea  APPROVAL-ADDENDUM-A2.md
+453e3b3412bcb1e35d97e3af8e2c868cbd7965f93dab75f701f13395489474f0  test/cuisine_fixture/main.dart
+b3bf2b57779323981b54aa6cf0a55ec1ab59651b202f5d9f78e0cd3887151130  test/visual_fixture/README.md
+38cda097fae724e82f02c9f4c8c1fab9c6e731283b3879bac3bedf661129fef8  test/visual_fixture/data.dart
+c753b469e78938b7e6d5a25d36100b938bf24c262fbcc9cea09ad0802b36ff5c  test/visual_fixture/main.dart
+28aa68c86b59fefd9fd9aea798cad83b52b4b80e9cabea4be324711f7d31c2ee  test/screens/customer_bitesaver_browse_screen_test.dart
+278ffbfd9f139d003baf6b03f0b6f72549e84335e102718cfd17e6ce6344dafb  test/screens/restaurant_profile_bitescore_menu_test.dart

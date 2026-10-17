@@ -66,7 +66,31 @@ void main() {
   }
 
   for (final path in _Path.values) {
-    for (final status in ['pending', 'screening_failed', 'rejected']) {
+    testWidgets('${path.name}: saved review with unconfirmed points exits without a retry or false failure', (tester) async {
+      final h = _Harness(store, pointsUnconfirmed: true);
+      await h.run(tester, path, () async {
+        await h.submit(tester, path);
+        expect(h.writes, [_operation(path)]);
+        expect(find.byType(BiteScoreCreateRateScreen), findsNothing);
+        expect(find.textContaining('Contribution points could not be confirmed.'), findsOneWidget);
+        expect(find.textContaining('Could not save'), findsNothing);
+      });
+    });
+    testWidgets('${path.name}: failed review after catalog selection never reports a saved review', (tester) async {
+      final h = _Harness(store, reviewFailure: true);
+      await h.run(tester, path, () async {
+        await h.submit(tester, path);
+        expect(h.writes, [_operation(path)]);
+        expect(find.byType(BiteScoreCreateRateScreen), findsOneWidget);
+        expect(find.textContaining('Review write rejected'), findsOneWidget);
+        expect(find.textContaining('Contribution points'), findsNothing);
+        expect(find.text('Review saved.'), findsNothing);
+      });
+    });
+  }
+
+  for (final path in _Path.values) {
+    for (final status in ['pending', 'screening_failed', 'rejected', 'expired']) {
       testWidgets('${path.name}: $status truthfully distinguishes saved rating from held words', (tester) async {
         final h = _Harness(store, textStatus: status);
         await h.run(tester, path, () async {
@@ -409,6 +433,8 @@ class _Harness {
     this.withShell = false,
     this.postingDenied = false,
     this.textStatus,
+    this.pointsUnconfirmed = false,
+    this.reviewFailure = false,
   });
   final _Store store;
   final bool? active;
@@ -418,6 +444,8 @@ class _Harness {
   final bool withShell;
   final bool postingDenied;
   final String? textStatus;
+  final bool pointsUnconfirmed;
+  final bool reviewFailure;
   String authRealm = 'signed:A';
   final authChanges = StreamController<String>.broadcast(sync: true);
   int homeRefreshGeneration = 0;
@@ -478,8 +506,10 @@ class _Harness {
         writes.add(operation);
         uids.add(uid);
         events.add('write:$operation');
-        return textStatus == null ? _result : BiteScoreReviewSaveResult(
+        if (reviewFailure) throw ArgumentError('Review write rejected');
+        return textStatus == null && !pointsUnconfirmed ? _result : BiteScoreReviewSaveResult(
           dish: _dish, restaurant: _restaurant,
+          contributionPointsUnconfirmed: pointsUnconfirmed,
           review: DishReview(id:'review-1',dishId:'dish-1',restaurantId:'restaurant-1',userId:'A',overallImpression:8,overallBiteScore:80,textStatus:textStatus),
           contributionPointAward: const ContributionPointAwardResult());
       },

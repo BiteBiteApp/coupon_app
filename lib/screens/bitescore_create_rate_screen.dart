@@ -3008,7 +3008,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     }
 
     late final BiteScoreReviewSaveResult saveResult;
-    late final ContributionPointAwardResult combinedAward;
+    var combinedAward = const ContributionPointAwardResult();
     var coreSaveSucceeded = false;
     String? photoFailureMessage;
     final refreshDelivery = mainNavigationController.captureHomeRefreshDelivery(
@@ -3118,6 +3118,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       }
 
       coreSaveSucceeded = true;
+      combinedAward = saveResult.contributionPointAward;
       refreshDelivery.confirm();
       if (!mounted || !_canUseOpeningIdentity(authLease)) {
         return;
@@ -3146,15 +3147,16 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         return;
       }
 
-      _showSnackBar(
-        AppErrorText.isPostingRestriction(error)
-            ? 'Your review was not saved. ${AppErrorText.friendly(error, fallback: 'Public posting is restricted.')}'
-            : AppErrorText.friendly(
-                error,
-                fallback: 'Could not save your BiteScore changes right now.',
-              ),
-      );
-      return;
+      if (!coreSaveSucceeded) {
+        _showSnackBar(
+          AppErrorText.isPostingRestriction(error)
+              ? 'Your review was not saved. ${AppErrorText.friendly(error, fallback: 'Public posting is restricted.')}'
+              : AppErrorText.friendly(error, fallback: 'Could not save your BiteScore changes right now.'),
+        );
+        return;
+      }
+      photoFailureMessage ??= 'Review saved; a follow-up update could not be confirmed.';
+      _hasHomeChanges = true;
     } finally {
       if (mounted && !coreSaveSucceeded && _canUseOpeningIdentity(authLease)) {
         setState(() {
@@ -3185,13 +3187,14 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          saveResult.review.textStatusMessage == null
-              ? photoFailureMessage ?? (isExistingDishMode
-                    ? 'Review saved.'
-                    : isExistingRestaurantMode && selectedExistingDish == null
-                    ? 'Dish created and rated.'
-                    : 'Review saved.')
-              : [saveResult.review.textStatusMessage!, if (photoFailureMessage != null) photoFailureMessage!].join(' '),
+          saveResult.savedMessage(
+            fallback: isExistingDishMode
+                ? 'Review saved.'
+                : isExistingRestaurantMode && selectedExistingDish == null
+                ? 'Dish created and rated.'
+                : 'Review saved.',
+            photoMessage: photoFailureMessage,
+          ),
         ),
       ),
     );

@@ -1401,6 +1401,7 @@ service cloud.firestore {
     }
     match /private_bitescore_review_text/{document=**} { allow read, write: if false; }
     match /private_bitescore_review_text_admission/{document=**} { allow read, write: if false; }
+    match /private_bitescore_review_text_receipts/{document=**} { allow read, write: if false; }
 
     function biteScoreTrustedAggregatesEnabled() {
       return exists(/databases/$(database)/documents/private_bitescore_runtime/aggregation) &&

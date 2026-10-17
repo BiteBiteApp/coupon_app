@@ -61,6 +61,8 @@ local('A reviews and votes removed; B and shared catalog/accounting survive; orp
  await db.doc('public_usernames/name-A').set({userId:'fake-A'});await db.doc('public_usernames/reassigned').set({userId:'fake-B'});
  await db.doc('private_bitescore_review_text/held-A').set({userId:'fake-A',headline:'Private proposed words',notes:'Private notes'});
  await db.doc('private_bitescore_review_text_admission/fake-A').set({userId:'fake-A',count:1});
+ await db.doc('private_bitescore_review_text_receipts/held-A').set({userId:'fake-A',version:'v',contentDigest:'digest'});
+ await db.doc('private_bitescore_review_text_receipts/held-B').set({userId:'fake-B',version:'v',contentDigest:'other'});
  await db.doc('private_bitescore_review_text/held-B').set({userId:'fake-B',notes:'Other author'});
  await db.doc('private_device_only_security/device-A').set({opaque:true});
  const saved=await request('fake-A');assert.equal((await request('fake-A',saved.value)).status.operationId,saved.status.operationId);
@@ -69,6 +71,8 @@ local('A reviews and votes removed; B and shared catalog/accounting survive; orp
  assert.equal(await identity('fake-A'),null);assert.ok(await identity('fake-B'));
  assert.equal((await db.doc('private_bitescore_review_text/held-A').get()).exists,false);
  assert.equal((await db.doc('private_bitescore_review_text_admission/fake-A').get()).exists,false);
+ assert.equal((await db.doc('private_bitescore_review_text_receipts/held-A').get()).exists,false);
+ assert.equal((await db.doc('private_bitescore_review_text_receipts/held-B').get()).exists,true);
  assert.equal((await db.doc('private_bitescore_review_text/held-B').get()).exists,true);
  assert.ok(!(await db.doc(`dish_reviews/${aReview}`).get()).exists);assert.ok((await db.doc(`dish_reviews/${bReview}`).get()).exists);
  assert.equal((await db.doc('dish_rating_aggregates/shared-dish').get()).get('ratingCount'),1);

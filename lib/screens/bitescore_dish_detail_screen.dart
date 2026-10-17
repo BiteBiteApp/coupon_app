@@ -1369,7 +1369,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
             'screening_failed' =>
               'Your proposed words could not be screened and remain unpublished.',
             'screening' => 'Your proposed words are still being checked.',
-            'expired' => 'The unpublished draft has expired.',
+            'expired' => 'The unpublished draft has expired. Your rating and published words are unchanged.',
             _ => 'Editing your published review.',
           });
           showMessage = false;
@@ -1659,7 +1659,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     });
 
     late final BiteScoreReviewSaveResult saveResult;
-    late final ContributionPointAwardResult combinedAward;
+    var combinedAward = const ContributionPointAwardResult();
     var coreSaveSucceeded = false;
     String? photoFailureMessage;
     final refreshDelivery = mainNavigationController.captureHomeRefreshDelivery(
@@ -1741,6 +1741,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
             );
 
       coreSaveSucceeded = true;
+      combinedAward = saveResult.contributionPointAward;
       final imageAward = await _uploadSelectedDishImage(
         saveResult,
         authLease,
@@ -1774,13 +1775,15 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         return;
       }
 
-      _showSnackBar(
-        AppErrorText.friendly(
-          error,
-          fallback: 'Could not save your review right now.',
-        ),
-      );
-      return;
+      if (!coreSaveSucceeded) {
+        _showSnackBar(AppErrorText.friendly(
+          error, fallback: 'Could not save your review right now.',
+        ));
+        return;
+      }
+      photoFailureMessage ??= 'Review saved; a follow-up update could not be confirmed.';
+      _editingReview = saveResult.review;
+      _hasDishChanges = true;
     } finally {
       if (mounted && !coreSaveSucceeded && _isPrivateLeaseCurrent(authLease)) {
         setState(() {
@@ -1800,9 +1803,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     }
 
     _showSnackBar(
-      saveResult.review.textStatusMessage == null
-          ? photoFailureMessage ?? (isEditingReview ? 'Review updated.' : 'Review saved.')
-          : [saveResult.review.textStatusMessage!, if (photoFailureMessage != null) photoFailureMessage!].join(' '),
+      saveResult.savedMessage(
+        fallback: isEditingReview ? 'Review updated.' : 'Review saved.',
+        photoMessage: photoFailureMessage,
+      ),
     );
     if (!widget.testSuppressLocalExpertBadgeRecalculation) {
       unawaited(

@@ -1,0 +1,57 @@
+BiteStar written-review screening — proposed disclosure
+SOURCE-ONLY DRAFT for owner/legal review, October 16, 2026.
+Not published, not accepted Terms, and not a statement that screening is live.
+
+Proposed customer wording for a separately approved release:
+
+When written-review screening is enabled, BiteStar sends the headline and written
+notes you submit to OpenAI's Moderation service to help identify potentially
+serious inappropriate content. We do not attach your account profile, email,
+payment information or photographs to this text-screening request. Information
+you include in your own words is part of the submitted text. Please do not include
+another person's private information. Automated screening is not a reliable
+personal-information detector; the Report Review option remains available.
+
+Approved comments become public. Proposed words flagged for review remain private
+and may be reviewed by an authorized BiteStar administrator. A model flag is not
+proof of misconduct and does not automatically suspend your account. Honest
+negative reviews, ordinary slang, sarcasm and mild profanity are allowed.
+
+Unpublished words awaiting human review expire 30 consecutive 24-hour days after
+the original submission. Words that could not be screened are available privately
+for explicit retry for up to seven consecutive 24-hour days from that submission.
+Retry does not restart the clock. If a retry succeeds but flags the words, the
+human-review deadline is 30 days from the same original submission. Expired words
+cannot be published or returned as an active draft. Rejected proposed words are
+promptly removed from the current private proposal.
+
+Physical cleanup runs asynchronously. This is not a promise of immediate erasure
+from all storage, backups or device caches. Minimal non-text identity/status
+records may remain to prevent duplicate processing and stale publication and to
+support moderation auditing. Their final retention terms require separate review.
+
+Holding, rejecting or expiring proposed words does not erase your valid numerical
+rating or earlier approved public words. Your explicit removal of words and
+separate authorized moderation or account-deletion actions still apply.
+
+Provider facts for owner/legal validation, checked October 16, 2026:
+OpenAI's current endpoint table lists no training use, no abuse-monitoring retention
+and no application-state retention for /v1/moderations. These are current documented
+endpoint facts, not a perpetual guarantee or verification of BiteStar's future
+account/project settings. Recheck applicable terms, data controls and disclosures
+before activation. No real provider call or credential configuration occurred here.
+Source: https://developers.openai.com/api/docs/guides/your-data
+
+Separate release review items; none are authorized for publication by this draft:
+- Final public Privacy Policy and deletion URLs and final Terms publication.
+- Apple App Privacy and Google Play Data Safety disclosures.
+- Existing 13+ account eligibility and UGC enforcement requirements.
+- Final retention of minimal non-image metadata and deletion/backup expectations.
+- Real OpenAI accuracy/false-positive evaluation and human escalation practice.
+- Supported client cutoff, operational monitoring and physical-device checks.
+
+The owner has APPROVED the 30-day/seven-day unpublished-word durations, prompt
+rejection cleanup, and clean-or-human policy. Runtime activation remains separate:
+required, processingEnabled, cleanupEnabled and retentionApproved stay false in
+the inert source candidate; provider wiring and Flutter flag remain off. Existing
+approvedBiteScoreTerms remains null. This file approves no legal text or release.

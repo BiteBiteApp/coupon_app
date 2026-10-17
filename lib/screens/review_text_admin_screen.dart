@@ -11,10 +11,12 @@ class ReviewTextAdminScreen extends StatefulWidget {
     this.service,
     this.expectedUid,
     this.authChanges,
+    this.now,
   });
   final ReviewTextModerationService? service;
   final String? expectedUid;
   final Stream<String?>? authChanges;
+  final DateTime Function()? now;
   @override
   State<ReviewTextAdminScreen> createState() => _ReviewTextAdminScreenState();
 }
@@ -24,12 +26,37 @@ class _ReviewTextAdminScreenState extends State<ReviewTextAdminScreen> {
   late final _uid =
       widget.expectedUid ?? FirebaseAuth.instance.currentUser!.uid;
   StreamSubscription<String?>? _auth;
+  Timer? _expiryTimer;
+  DateTime get _now => widget.now?.call() ?? DateTime.now();
   MainNavigationAuthRouteBinding? _binding;
   ModalRoute<dynamic>? _route;
   List<Map> _items = [];
   String? _cursor, _error;
   bool _busy = false, _retired = false;
   bool get _current => mounted && !_retired && _service.isCurrent(_uid);
+
+  bool _unexpired(Map item) => item['expiresAtMillis'] is num &&
+      (item['expiresAtMillis'] as num) > _now.millisecondsSinceEpoch;
+
+  void _scheduleExpiry() {
+    _expiryTimer?.cancel();
+    if (!_current || _items.isEmpty) return;
+    final remaining = _items.map((item) =>
+      (item['expiresAtMillis'] as num).toInt() - _now.millisecondsSinceEpoch)
+        .reduce((a, b) => a < b ? a : b);
+    _expiryTimer = Timer(Duration(milliseconds: remaining.clamp(1, 60000)), () {
+      if (!_current) return;
+      setState(() => _items = _items.where(_unexpired).toList());
+      _scheduleExpiry();
+    });
+  }
+
+  String _timing(Map item) {
+    final submitted = DateTime.fromMillisecondsSinceEpoch((item['createdAtMillis'] as num).toInt());
+    final expires = DateTime.fromMillisecondsSinceEpoch((item['expiresAtMillis'] as num).toInt());
+    final age = _now.difference(submitted);
+    return 'Submitted: ${submitted.toLocal()}\nAge: ${age.inDays} days, ${age.inHours.remainder(24)} hours\nExpires: ${expires.toLocal()}';
+  }
   @override
   void initState() {
     super.initState();
@@ -64,6 +91,7 @@ class _ReviewTextAdminScreenState extends State<ReviewTextAdminScreen> {
 
   @override
   void dispose() {
+    _expiryTimer?.cancel();
     _auth?.cancel();
     if (_binding != null) {
       mainNavigationController.unbindAuthBoundRoute(_binding!);
@@ -84,9 +112,10 @@ class _ReviewTextAdminScreenState extends State<ReviewTextAdminScreen> {
       });
       if (!_current) return;
       setState(() {
-        _items = (page['items'] as List).cast<Map>();
+        _items = (page['items'] as List).cast<Map>().where(_unexpired).toList();
         _cursor = page['nextCursor'] as String?;
       });
+      _scheduleExpiry();
     } catch (e) {
       if (_current) {
         setState(
@@ -103,6 +132,13 @@ class _ReviewTextAdminScreenState extends State<ReviewTextAdminScreen> {
 
   Future<void> _decide(Map item, String action) async {
     if (!_current || _busy) return;
+    if (!_unexpired(item)) {
+      setState(() {
+        _items = _items.where(_unexpired).toList();
+        _error = 'This proposed text expired. Refresh the queue.';
+      });
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -160,6 +196,7 @@ class _ReviewTextAdminScreenState extends State<ReviewTextAdminScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Status: ${item['status']}'),
+                  Text(_timing(item)),
                   Text(
                     'Dish: ${item['dishId']}\nRestaurant: ${item['restaurantId']}\nReview: ${item['reviewId']}\nAuthor: ${item['userId']}',
                   ),

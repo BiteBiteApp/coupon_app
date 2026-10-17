@@ -49,17 +49,35 @@ class BiteScoreHomeEntry {
   });
 }
 
+class BiteScoreReviewSaveUnconfirmed extends StateError {
+  BiteScoreReviewSaveUnconfirmed() : super('Review write outcome unconfirmed');
+  @override
+  String toString() => 'We could not confirm whether your review saved. Check your reviews before trying again.';
+}
+
 class BiteScoreReviewSaveResult {
   final BitescoreDish dish;
   final BitescoreRestaurant restaurant;
   final DishReview review;
   final ContributionPointAwardResult contributionPointAward;
+  final bool contributionPointsUnconfirmed;
+  final bool scoreUpdateUnconfirmed;
+
+  String savedMessage({required String fallback, String? photoMessage}) => [
+    review.textStatusMessage ?? photoMessage ?? fallback,
+    if (review.textStatusMessage != null && photoMessage != null) photoMessage,
+    if (contributionPointsUnconfirmed)
+      'Contribution points could not be confirmed.',
+    if (scoreUpdateUnconfirmed) 'Score updates could not be confirmed.',
+  ].join(' ');
 
   const BiteScoreReviewSaveResult({
     required this.dish,
     required this.restaurant,
     required this.review,
     this.contributionPointAward = const ContributionPointAwardResult(),
+    this.contributionPointsUnconfirmed = false,
+    this.scoreUpdateUnconfirmed = false,
   });
 }
 
@@ -76,10 +94,14 @@ class BiteScoreDishImageSaveResult {
 class _BiteScoreReviewWriteResult {
   final DishReview review;
   final ContributionPointAwardResult milestoneAward;
+  final bool pointsUnconfirmed;
+  final bool scoreUpdateUnconfirmed;
 
   const _BiteScoreReviewWriteResult({
     required this.review,
     required this.milestoneAward,
+    required this.pointsUnconfirmed,
+    this.scoreUpdateUnconfirmed = false,
   });
 }
 
@@ -4668,20 +4690,25 @@ class BiteScoreService {
       notes: request.notes,
       expectedUserId: creatorUserId,
     );
-    final dishAward = dishResolution.wasCreated
-        ? await ContributionPointsService.awardCreatedDishContributionPoints(
-            restaurantId: restaurant.id,
-            dishId: dish.id,
-            reviewId: reviewResult.review.id,
-          )
-        : const ContributionPointAwardResult();
+    final dishAward = await confirmSavedReviewPoints(
+      requireSameAccount: () => _requireExpectedSignedInBiteScoreUser(creatorUserId),
+      award: () async => dishResolution.wasCreated
+          ? await ContributionPointsService.awardCreatedDishContributionPoints(
+              restaurantId: restaurant.id,
+              dishId: dish.id,
+              reviewId: reviewResult.review.id,
+            )
+          : const ContributionPointAwardResult(),
+    );
 
     return BiteScoreReviewSaveResult(
       dish: dish,
       restaurant: restaurant,
       review: reviewResult.review,
+      scoreUpdateUnconfirmed: reviewResult.scoreUpdateUnconfirmed,
+      contributionPointsUnconfirmed: reviewResult.pointsUnconfirmed || dishAward.unconfirmed,
       contributionPointAward: ContributionPointAwardResult.combine(
-        <ContributionPointAwardResult>[reviewResult.milestoneAward, dishAward],
+        <ContributionPointAwardResult>[reviewResult.milestoneAward, dishAward.award],
         actionGroupId: 'create_and_rate:${reviewResult.review.id}',
       ),
     );
@@ -4735,6 +4762,8 @@ class BiteScoreService {
       dish: dish,
       restaurant: restaurant,
       review: reviewResult.review,
+      scoreUpdateUnconfirmed: reviewResult.scoreUpdateUnconfirmed,
+      contributionPointsUnconfirmed: reviewResult.pointsUnconfirmed,
       contributionPointAward: reviewResult.milestoneAward,
     );
   }
@@ -5085,20 +5114,25 @@ class BiteScoreService {
       notes: notes,
       expectedUserId: creatorUserId,
     );
-    final dishAward = dishResolution.wasCreated
-        ? await ContributionPointsService.awardCreatedDishContributionPoints(
-            restaurantId: restaurant.id,
-            dishId: dish.id,
-            reviewId: reviewResult.review.id,
-          )
-        : const ContributionPointAwardResult();
+    final dishAward = await confirmSavedReviewPoints(
+      requireSameAccount: () => _requireExpectedSignedInBiteScoreUser(creatorUserId),
+      award: () async => dishResolution.wasCreated
+          ? await ContributionPointsService.awardCreatedDishContributionPoints(
+              restaurantId: restaurant.id,
+              dishId: dish.id,
+              reviewId: reviewResult.review.id,
+            )
+          : const ContributionPointAwardResult(),
+    );
 
     return BiteScoreReviewSaveResult(
       dish: dish,
       restaurant: restaurant,
       review: reviewResult.review,
+      scoreUpdateUnconfirmed: reviewResult.scoreUpdateUnconfirmed,
+      contributionPointsUnconfirmed: reviewResult.pointsUnconfirmed || dishAward.unconfirmed,
       contributionPointAward: ContributionPointAwardResult.combine(
-        <ContributionPointAwardResult>[reviewResult.milestoneAward, dishAward],
+        <ContributionPointAwardResult>[reviewResult.milestoneAward, dishAward.award],
         actionGroupId: 'create_dish_and_rate:${reviewResult.review.id}',
       ),
     );
@@ -8095,13 +8129,14 @@ class BiteScoreService {
         valueScore: valueScore!,
       );
       _requireExpectedSignedInBiteScoreUser(expectedUserId);
-      final milestoneAward =
-          await ContributionPointsService.awardReviewMilestoneContributionPoints(
-            userId: expectedUserId,
-          );
+      final milestoneAward = await confirmSavedReviewPoints(
+        requireSameAccount: () => _requireExpectedSignedInBiteScoreUser(expectedUserId),
+        award: () => ContributionPointsService.awardReviewMilestoneContributionPoints(userId: expectedUserId),
+      );
       return _BiteScoreReviewWriteResult(
         review: review,
-        milestoneAward: milestoneAward,
+        milestoneAward: milestoneAward.award,
+        pointsUnconfirmed: milestoneAward.unconfirmed,
       );
     }
 
@@ -8136,21 +8171,66 @@ class BiteScoreService {
     final reviewData = review.toFirestoreMap()..remove('createdAt');
 
     _requireExpectedSignedInBiteScoreUser(expectedUserId);
-    await reviewRef.set({
+    await confirmReviewWrite(() => reviewRef.set({
       ...reviewData,
       if (existingReview == null) 'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    }, SetOptions(merge: true)));
 
-    await _rebuildDishAggregate(dishId: dish.id, restaurantId: restaurant.id);
-    final milestoneAward =
-        await ContributionPointsService.awardReviewMilestoneContributionPoints(
-          userId: trimmedUserId,
-        );
+    // The legacy review write is confirmed; aggregate refresh is a later step.
+    var scoreUpdateUnconfirmed = false;
+    try {
+      _requireExpectedSignedInBiteScoreUser(expectedUserId);
+      await _rebuildDishAggregate(dishId: dish.id, restaurantId: restaurant.id);
+    } catch (_) {
+      scoreUpdateUnconfirmed = true;
+    }
+    final milestoneAward = await confirmSavedReviewPoints(
+      requireSameAccount: () => _requireExpectedSignedInBiteScoreUser(expectedUserId),
+      award: () => ContributionPointsService.awardReviewMilestoneContributionPoints(userId: trimmedUserId),
+    );
     return _BiteScoreReviewWriteResult(
       review: review,
-      milestoneAward: milestoneAward,
+      milestoneAward: milestoneAward.award,
+      pointsUnconfirmed: milestoneAward.unconfirmed,
+      scoreUpdateUnconfirmed: scoreUpdateUnconfirmed,
     );
+  }
+
+  @visibleForTesting
+  static Future<T> confirmReviewWrite<T>(Future<T> Function() write) async {
+    try {
+      return await write();
+    } on FirebaseException catch (error) {
+      if (const ['invalid-argument', 'unauthenticated', 'permission-denied',
+        'failed-precondition', 'not-found', 'already-exists', 'out-of-range']
+          .contains(error.code)) {
+        rethrow;
+      }
+      throw BiteScoreReviewSaveUnconfirmed();
+    } catch (_) {
+      throw BiteScoreReviewSaveUnconfirmed();
+    }
+  }
+
+  /// Called only AFTER a confirmed review write. No review or award is retried here.
+  /// Existing server ledger identities/reconciliation remain authoritative.
+  @visibleForTesting
+  static Future<({ContributionPointAwardResult award, bool unconfirmed})>
+  confirmSavedReviewPoints({
+    required Future<ContributionPointAwardResult> Function() award,
+    required void Function() requireSameAccount,
+  }) async {
+    requireSameAccount();
+    ContributionPointAwardResult result;
+    try {
+      result = await award();
+    } catch (_) {
+      requireSameAccount();
+      return (award: const ContributionPointAwardResult(), unconfirmed: true);
+    }
+    requireSameAccount();
+    return (award: result, unconfirmed: false);
   }
 
   @visibleForTesting
@@ -8182,53 +8262,57 @@ class BiteScoreService {
       'qualityScore': qualityScore,
       'valueScore': valueScore,
     };
-    final result = transport == null
+    final result = await confirmReviewWrite(() async => transport == null
         ? (await FirebaseFunctions.instance
                   .httpsCallable('saveCustomerBiteScoreReview')
-                  .call<Object?>(request))
-              .data
-        : await transport('saveCustomerBiteScoreReview', request);
-    if (result is! Map ||
-        result['schemaVersion'] != 1 ||
-        result['review'] is! Map) {
-      throw StateError('The trusted review response is invalid.');
+                  .call<Object?>(request)).data
+        : await transport('saveCustomerBiteScoreReview', request));
+    try {
+      if (result is! Map ||
+          result['schemaVersion'] != 1 ||
+          result['review'] is! Map) {
+        throw BiteScoreReviewSaveUnconfirmed();
+      }
+      final data = Map<String, dynamic>.from(result['review'] as Map);
+      final textStatus = result['textStatus'];
+      if (textStatus != null &&
+          !const [
+            'legacy',
+            'published',
+            'pending',
+            'screening',
+            'screening_failed',
+            'rejected',
+            'expired',
+            'superseded',
+          ].contains(textStatus)) {
+        throw BiteScoreReviewSaveUnconfirmed();
+      }
+      data['textStatus'] = textStatus;
+      final reviewId = exactFirestoreDocumentId(data['id']);
+      final created = data['createdAtMillis'];
+      final updated = data['updatedAtMillis'];
+      if (reviewId == null ||
+          data['dishId'] != dishId ||
+          data['restaurantId'] != restaurantId ||
+          data['userId'] != userId ||
+          created is! num ||
+          updated is! num ||
+          !created.isFinite ||
+          !updated.isFinite) {
+        throw BiteScoreReviewSaveUnconfirmed();
+      }
+      data['createdAt'] = DateTime.fromMillisecondsSinceEpoch(created.toInt());
+      data['updatedAt'] = DateTime.fromMillisecondsSinceEpoch(updated.toInt());
+      final review = DishReview.tryFromFirestore(data, fallbackId: reviewId);
+      if (review == null) {
+        throw BiteScoreReviewSaveUnconfirmed();
+      }
+      return review;
+    } catch (_) {
+      // Malformed acknowledgements cannot prove which version committed.
+      throw BiteScoreReviewSaveUnconfirmed();
     }
-    final data = Map<String, dynamic>.from(result['review'] as Map);
-    final textStatus = result['textStatus'];
-    if (textStatus != null &&
-        !const [
-          'legacy',
-          'published',
-          'pending',
-          'screening',
-          'screening_failed',
-          'rejected',
-          'expired',
-          'superseded',
-        ].contains(textStatus)) {
-      throw StateError('The review text status is invalid.');
-    }
-    data['textStatus'] = textStatus;
-    final reviewId = exactFirestoreDocumentId(data['id']);
-    final created = data['createdAtMillis'];
-    final updated = data['updatedAtMillis'];
-    if (reviewId == null ||
-        data['dishId'] != dishId ||
-        data['restaurantId'] != restaurantId ||
-        data['userId'] != userId ||
-        created is! num ||
-        updated is! num ||
-        !created.isFinite ||
-        !updated.isFinite) {
-      throw StateError('The trusted review response has a different identity.');
-    }
-    data['createdAt'] = DateTime.fromMillisecondsSinceEpoch(created.toInt());
-    data['updatedAt'] = DateTime.fromMillisecondsSinceEpoch(updated.toInt());
-    final review = DishReview.tryFromFirestore(data, fallbackId: reviewId);
-    if (review == null) {
-      throw StateError('The trusted review response is invalid.');
-    }
-    return review;
   }
 
   static String? _validateRequiredReviewScores({

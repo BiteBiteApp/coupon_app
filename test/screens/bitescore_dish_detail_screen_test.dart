@@ -23,7 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  for (final status in ['pending', 'screening_failed', 'rejected']) {
+  for (final status in ['pending', 'screening_failed', 'rejected', 'expired']) {
     testWidgets('held text $status retains draft and reports saved rating', (tester) async {
       tester.view.physicalSize = const Size(900, 1400);
       tester.view.devicePixelRatio = 1;
@@ -39,7 +39,7 @@ void main() {
           return BiteScoreReviewSaveResult(dish: dish, restaurant: restaurant,
             review: DishReview(id:'saved', dishId:dish.id, restaurantId:restaurant.id, userId:'user-saved', headline:null, notes:null,
               overallImpression:overallImpression, tastinessScore:tastinessScore, qualityScore:qualityScore, valueScore:valueScore,
-              overallBiteScore:80, textStatus:status), contributionPointAward:const ContributionPointAwardResult());
+              overallBiteScore:80, textStatus:status), contributionPointsUnconfirmed: true, contributionPointAward:const ContributionPointAwardResult());
         },
       )));
       await tester.pumpAndSettle();
@@ -50,6 +50,7 @@ void main() {
       final save = find.widgetWithText(ElevatedButton, 'Save Review');
       await tester.ensureVisible(save); await tester.tap(save); await tester.pumpAndSettle();
       expect(saves, 1); expect(find.textContaining('Rating saved;'), findsOneWidget);
+      expect(find.textContaining('Contribution points could not be confirmed.'), findsOneWidget);
       expect(find.text('Review saved.'), findsNothing);
       expect(find.text('Draft headline'), findsOneWidget); expect(find.text('Private draft notes'), findsOneWidget);
       expect(find.widgetWithText(ElevatedButton, 'Save Changes'), findsOneWidget);
