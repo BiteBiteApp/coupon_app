@@ -1,5 +1,9 @@
 import {currentBiteScorePrimaryImage} from "./customer_bitescore_search_contract.js";
 import {randomBytes} from "node:crypto";
+import {
+  buildPostgisPendingSearchBinding, postgisSearchBindingPath,
+  readPostgisSearchBinding, searchBackendMatches,
+} from "./postgis_search_binding.js";
 import type {OpaqueCursorCodec} from "./opaque_cursor.js";
 import type {
   CustomerBiteSaverSearchDatabase as SearchDatabase,
@@ -57,9 +61,10 @@ export type CustomerBiteScoreSearchContext = Readonly<{
   actorId: string;
   cursorCodec: OpaqueCursorCodec;
   nowMs?: number;
+  searchBackend?: "postgis";
 }>;
 
-type Session = {
+export type Session = {
   version: string;
   sessionId: string;
   actor: string;
@@ -169,6 +174,10 @@ async function requireCurrentSession(transaction: SearchTransaction, input: Retu
       now(context) >= Math.min(session.absoluteExpiresAtMs, session.idleExpiresAtMs)) unavailable();
   const active = await transaction.getDocument(instancePath(session.actor, session.instanceId));
   if (active?.data.sessionId !== session.sessionId || active.data.queryGeneration !== session.queryGeneration) unavailable();
+  const binding = readPostgisSearchBinding(await transaction.getDocument(
+    postgisSearchBindingPath(session.sessionId)), session.sessionId);
+  if (!searchBackendMatches(binding, context.searchBackend) ||
+      (binding !== null && binding.expiresAtMs < session.absoluteExpiresAtMs)) unavailable();
   return session;
 }
 
@@ -193,14 +202,16 @@ export async function startCustomerBiteScoreSearchHandler(database: SearchDataba
   const queryGeneration = input.queryGeneration as number;
   const id = customerBiteScoreDigest("session", actorId, instanceId, clientRequestId);
   const session = await database.runTransaction(async (transaction) => {
-    const [active, admission, previous, catalog] = await Promise.all([
+    const [active, admission, previous, catalog, backendDocument] = await Promise.all([
       transaction.getDocument(instancePath(actorId, instanceId)), transaction.getDocument(actorPath(actorId)),
       transaction.getDocument(sessionPath(id)), generations(transaction),
+      transaction.getDocument(postgisSearchBindingPath(id)),
     ]);
     if (previous !== null) {
       const prior = readSession(previous);
       if (prior.queryFingerprint !== queryFingerprint || prior.queryGeneration !== queryGeneration ||
-          active?.data.sessionId !== id || timestamp >= Math.min(prior.idleExpiresAtMs, prior.absoluteExpiresAtMs)) unavailable();
+          active?.data.sessionId !== id || timestamp >= Math.min(prior.idleExpiresAtMs, prior.absoluteExpiresAtMs) ||
+          !searchBackendMatches(readPostgisSearchBinding(backendDocument, id), context.searchBackend)) unavailable();
       return prior;
     }
     if (active !== null && (!Number.isSafeInteger(active.data.queryGeneration) ||
@@ -215,13 +226,18 @@ export async function startCustomerBiteScoreSearchHandler(database: SearchDataba
       typeof v.expiresAtMs === "number" && v.expiresAtMs > timestamp && v.instanceId !== instanceId) : [];
     if (pending.length >= 2) throw new CustomerBiteScoreSearchError("resource-exhausted", "Please finish another search first.");
     const next: Session = {version: customerBiteScoreSearchVersion, sessionId: id, actor: actorId,
-      instanceId, clientRequestId, queryGeneration, queryFingerprint, criteria, state: "preparing", attempt: 0,
+      instanceId, clientRequestId, queryGeneration, queryFingerprint, criteria,
+      state: "preparing", attempt: 0,
       generations: catalog, rangeIndex: 0, after: null, currentParent: null, dishAfter: null,
       scannedCount: 0, createdAtMs: timestamp,
       absoluteExpiresAtMs: timestamp + customerBiteScoreSessionLifetimeMs,
       idleExpiresAtMs: timestamp + customerBiteScoreIdleLifetimeMs,
       leaseId: null, leaseUntilMs: 0, expiresAt: new Date(timestamp + customerBiteScoreSessionLifetimeMs)};
     transaction.createDocument(sessionPath(id), next);
+    if (context.searchBackend === "postgis") {
+      transaction.createDocument(postgisSearchBindingPath(id),
+        buildPostgisPendingSearchBinding(id, next.absoluteExpiresAtMs));
+    }
     transaction.setDocument(instancePath(actorId, instanceId), {version: customerBiteScoreSearchVersion,
       sessionId: id, queryGeneration, expiresAt: next.expiresAt});
     transaction.setDocument(actorPath(actorId), {version: customerBiteScoreSearchVersion,
@@ -323,7 +339,7 @@ function strings(dto: CustomerBiteScorePublicDto, key: string): string[] {
   return Array.isArray(dto[key]) ? dto[key].filter((v): v is string => typeof v === "string") : [];
 }
 
-function matchAndRank(criteria: CustomerBiteScoreCriteria, dto: CustomerBiteScorePublicDto,
+export function matchAndRank(criteria: CustomerBiteScoreCriteria, dto: CustomerBiteScorePublicDto,
   parent: CustomerBiteScorePublicDto): {rank0: number; rank1: number; rank2: number; distanceMiles: number | null} | null {
   const distanceMiles = criteria.center === null ? null : exactCustomerBiteSaverDistanceMiles(criteria.center,
     {latitude: parent.latitude as number, longitude: parent.longitude as number});
@@ -378,7 +394,7 @@ function resultPath(session: Session, sourceId: string): string {
   return `${customerBiteScoreResultCollection}/${customerBiteScoreDigest("result", session.sessionId, session.attempt, sourceId)}`;
 }
 
-async function buildResults(database: SearchDatabase, session: Session, documents: readonly StoredDocument[]): Promise<Result[]> {
+export async function buildResults(database: SearchDatabase, session: Session, documents: readonly StoredDocument[]): Promise<Result[]> {
   const projections = documents.map((document) => ({document,
     projection: readCustomerBiteScorePublicProjection(document, session.criteria.kind)}));
   const parentPaths = [...new Set(projections.flatMap(({projection}) => projection === null || session.criteria.kind === "restaurant" ? [] :
@@ -413,6 +429,9 @@ export async function advanceCustomerBiteScoreSearchHandler(database: SearchData
   const leaseId = randomBytes(16).toString("hex");
   const claim = await database.runTransaction(async (transaction) => {
     const session = await requireCurrentSession(transaction, input, context);
+    // Candidate preparation is resumed by its admission bridge. It must never
+    // fall through to the serial Firestore preparation worker.
+    if (context.searchBackend === "postgis") return {session, claimed: false};
     if (session.state !== "preparing" || session.leaseUntilMs > timestamp) return {session, claimed: false};
     const admission = await transaction.getDocument(actorPath(session.actor));
     const updated = {...session, leaseId, leaseUntilMs: timestamp + customerBiteScoreLeaseLifetimeMs,

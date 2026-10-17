@@ -1,0 +1,31 @@
+{
+  "kind": "actual-flutter-widget-local-http-firestore-auth-postgis",
+  "hostedEvidence": false,
+  "sampleCountsDoNotSupportHostedTailLatencyClaims": true,
+  "observations": [
+    {
+      "flow": "bitescore-dish-home",
+      "run": 0,
+      "milliseconds": 497.957,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "first-observation"
+    },
+    {
+      "flow": "bitescore-dish-home",
+      "run": 1,
+      "milliseconds": 161.549,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "warm-observation"
+    },
+    {
+      "flow": "bitescore-dish-home",
+      "run": 2,
+      "milliseconds": 139.421,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "warm-observation"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import '../models/customer_bitesaver_search.dart';
 import '../models/customer_bitesaver_device_usage.dart';
 import '../models/customer_bitesaver_favorite.dart';
 import '../models/customer_bitesaver_saved.dart';
+import 'customer_search_candidate_runtime.dart';
 
 typedef CustomerBiteSaverCallableTransport =
     Future<Object?> Function(String callableName, Map<String, Object?> request);
@@ -130,7 +131,8 @@ final class CustomerBiteSaverService
         CustomerBiteSaverMenuApi,
         CustomerBiteSaverSavedApi {
   CustomerBiteSaverService({CustomerBiteSaverCallableTransport? transport})
-    : _transport = transport ?? _firebaseTransport;
+    : _transport = transport ?? _firebaseTransport,
+      _candidateEnabled = CustomerSearchCandidateRuntime.isEnabled;
 
   static const String region = 'us-central1';
   static const String startCallableName = 'startCustomerBiteSaverSearch';
@@ -161,6 +163,7 @@ final class CustomerBiteSaverService
   };
 
   final CustomerBiteSaverCallableTransport _transport;
+  final bool _candidateEnabled;
 
   Future<CustomerBiteSaverProfileUseContext> getProfileUseContext(
     Map<String, Object?> request,
@@ -518,7 +521,11 @@ final class CustomerBiteSaverService
     final Object? raw;
     try {
       raw = await _transport(
-        callableName,
+        CustomerSearchCandidateRuntime.endpoint(
+          callableName,
+          request,
+          enabled: _candidateEnabled,
+        ),
         Map<String, Object?>.unmodifiable(request),
       );
     } on CustomerBiteSaverServiceException {

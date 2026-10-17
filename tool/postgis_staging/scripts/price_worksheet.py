@@ -1,0 +1,11 @@
+"""Reproduce dated planning arithmetic only; no cloud calls or current price claim."""
+import json
+r={'sqlCpuHour':.0413,'sqlMemoryGiBHour':.007,'sqlSsdGiBHour':.000232877,'sqlHaSsdGiBHour':.000465753,'sqlBackupGiBHour':.000109589,'plusCpuHour':.0537,'plusMemoryGiBHour':.0091,'plusCacheGiBHour':.000219178,'alloyCpuHour':.06608,'alloyMemoryGiBHour':.0112,'alloyStorageGiBHour':.0004109,'alloyBackupGiBHour':.000137,'runCpuSecond':.000024,'runMemoryGiBSecond':.0000025,'runMillionRequests':.40,'firestoreRead100k':.03,'firestoreWrite100k':.09,'firestoreDelete100k':.01}
+items={'sqlCompute48hZonal24hHa':(4*r['sqlCpuHour']+16*r['sqlMemoryGiBHour'])*96,'sqlStorage':100*(48*r['sqlSsdGiBHour']+24*r['sqlHaSsdGiBHour']),'backup100GiB72h':100*72*r['sqlBackupGiBHour'],'requestComputeAssumed1mCpuSeconds1mGiBSeconds':26.9,'initialProjectionOutboxHeadWrites33m':33e6/1e5*.09,'remainingWrites7m':7e6/1e5*.09,'reads200m':200e6/1e5*.03,'deletes30m':30e6/1e5*.01,'ingestionComputeAllowance':10,'firestoreStorageAllowance':5,'networkAllowance':15,'logsBuildArtifactsAllowance':20,'runnerGuardianAlertsControlAndRetainedArtifactsAllowance':20}
+comparisons={}
+for host,cpu,mem,ram,st,ba in [('enterprise',.0413,.007,16,.000232877,.000109589),('enterprisePlusN2',.0537,.0091,32,.000232877,.000109589),('alloydbN2',.06608,.0112,32,.0004109,.000137)]:
+ compute=4*cpu+ram*mem
+ storage=100*st
+ comparisons[host]={'shape':f'4CPU/{ram}GiB','compute72h48zonal24ha':compute*96,'monthlyZonalWith100GiBStorageAndBackup':(compute+storage+100*ba)*730,'monthlyHaWith100GiBStorageAndBackup':(compute*2+storage*(1 if host=='alloydbN2' else 2)+100*ba)*730,'note':'Plus excludes provisioned data cache; Alloy uses shared regional storage. These shapes are not capacity equivalents.'}
+out={'historicalCheckedDateEDT':'2026-10-02','currentPricesVerified':False,'requiredBeforePaidExecution':'Refresh official regional rates, runtime support and provider billing calibration; obtain separate owner approval.','region':'us-central1','currency':'USD','noDiscountCreditsOrTaxAssumed':True,'rates':r,'items':items,'historicalModeledCost':sum(items.values()),'cleanupReserveAdditionalUsd':30,'historicalModeledCostPlusReserve':sum(items.values())+30,'planningTargetUsd':300,'notAnAuthorization':True}
+print(json.dumps(out,indent=2))

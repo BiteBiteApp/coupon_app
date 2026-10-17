@@ -1,0 +1,25 @@
+{
+  "originalPackage": "/Users/colesmart/.codex/reports/BS-SEARCH-STAGING-READINESS-AND-GUARDRAILS-001-20261001-234419-EDT",
+  "originalPackageManifestSha256": "1aebf5a69cb3c81bd5360e51d519e4cf31e3264bea57a0dc7cf2ad19da9c3a0b",
+  "originalFiles": {
+    "scripts/guard.py": "b8b25cdad5ca463f758c6c8b3be4479f9c03be2bec20f8cf27285025ecc05a90",
+    "scripts/render_watchdog.py": "b90c13ce95934e4d5d96625c1fa6b16b1f2044c9eeb0d0bf0dd65fcd20ff215c",
+    "scripts/price_worksheet.py": "0f41cf069d3a993101143a93dcb8bafc71e0512c3a7339ed883f0dc75dd9ad42",
+    "scripts/test_guard.py": "a66dc5dee37d8c213d93f8128be0bd0101728a3b42058b698b0561bf174706d3",
+    "config/staging.json": "0c1824b005fd43c6ad7328cc4c3be929a83d64c291e89432dc1737385aff7568",
+    "config/resource-plan.json": "0fc00a6719f2daadc500475afad8d876ffbab90e077fa2c0829f61baceadbd3b",
+    "config/approval.template.json": "2667f905f3134119c8d987c862604764fda2f98ad3ebf17c570c09cd79fdc903",
+    "config/bootstrap.template.json": "8c2bb02699a82fbdc2afe3d4e891b8e1c5d5b0dec9476a7771f8d05eea93f359",
+    "config/resource-receipt.template.json": "ad34b3ba744b28f485682566458fcd393a5fc2d56208606406d4ad32e54f802d",
+    "config/sql-instance.DRAFT.json": "ec9c4c3f3cf19b58259bbcdc7881d6d2cf6605ce342d5579f506e60023322c43",
+    "config/cloud-run-job.DRAFT.json": "1b8e6f4ead7e46df957abc099c63d7abbd1108569f0337a2d05c24812aa1b3b4"
+  },
+  "previousProof": "296/296 historical prototype checks; 32/32 historical guard tests. These are not present integration verification.",
+  "historicalEstimate": {
+    "revisedScenarioUsd": 225.54,
+    "cleanupReserveUsd": 30,
+    "pricingDate": "2026-10-01",
+    "currentPriceVerified": false
+  },
+  "historicalAppHead": "f6e2cbe3df8ff53b2bb13bc8e6898c7a6b5f2612"
+}

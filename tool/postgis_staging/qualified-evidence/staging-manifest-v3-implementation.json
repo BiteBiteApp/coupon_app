@@ -1,0 +1,35 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001",
+  "amendment": "explicit versioned manifest selection for final v3",
+  "completedAtUtc": "2026-10-17T18:19:21.955774+00:00",
+  "author": "query_client",
+  "changeArea": "source-only offline staging guard CLI, tests and documentation",
+  "changes": [
+    "Optional --manifest passes an explicit Path to verify_artifacts; no option retains original candidate-manifest.json.",
+    "No automatic latest selection or fallback to another manifest. Verification still resolves declared source paths under the repository root.",
+    "README no-cost command explicitly selects candidate-manifest.v3.json; root creates v3 after independent review.",
+    "Execute mode still rejects even with a valid explicitly selected manifest."
+  ],
+  "tests": {
+    "passed": 49,
+    "failed": 0,
+    "log": "track-b/staging-manifest-v3-tests.log",
+    "focusedCases": [
+      "explicit valid manifest despite stale default and newer filenames",
+      "selected tampered manifest rejected without fallback",
+      "no-option original default behavior",
+      "selected valid manifest execute mode denied"
+    ],
+    "diffCheck": "passed"
+  },
+  "sourceSha256": {
+    "tool/postgis_staging/scripts/guard.py": "35727623fdb0caeec1666e672cd684785a60288d2837f0cf898d6e11dd32eb6d",
+    "tool/postgis_staging/scripts/test_gate0_controls.py": "ae6a1ddf0170b28d29dde7df4979005d68413e354a9b927df976a2387abc0df8",
+    "tool/postgis_staging/README.md": "04bb9d665848a33b91b3584937ccf8ffd41dafef223131428ea50ee7d41b6479"
+  },
+  "preservedManifestSha256": {
+    "tool/postgis_staging/candidate-manifest.json": "51c3d67c0dcdfdd79d15de874bdebb7ff6fc29c8b63ecacb3e797ae0aab4302e",
+    "tool/postgis_staging/candidate-manifest.v2.json": "8747ba47d516328a8f0f406fe4f2da7d2701f6a79ad4917f058efe620c7d7316"
+  },
+  "status": "implemented and tested; independent review assigned to staging_recovery; no prior finalized evidence receipt overwritten; no cloud actions"
+}

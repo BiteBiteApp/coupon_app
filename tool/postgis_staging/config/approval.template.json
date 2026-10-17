@@ -1,0 +1,12 @@
+{
+  "approved": false,
+  "ownerApprovalReference": null,
+  "runId": "bs-postgis-gate0-001",
+  "projectId": null,
+  "configDigest": null,
+  "candidateDigest": null,
+  "validUntil": null,
+  "approvedGates": [],
+  "note": "A JSON boolean does not grant authority. Populate only from explicit later owner instruction after Gate 0 and package re-review.",
+  "supervisedControlBootstrap": false
+}

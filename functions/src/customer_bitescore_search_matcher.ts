@@ -18,7 +18,7 @@ export function normalizeBiteScoreFood(value: string): string {
     .replace(/[^a-z0-9]+/gu, " ").replace(/\s+/gu, " ").trim();
 }
 
-function singular(value: string): string {
+export function singular(value: string): string {
   if (value.length > 3 && value.endsWith("ies")) return `${value.slice(0, -3)}y`;
   if (value.length > 4 && /(?:ches|shes|sses|xes|zes)$/u.test(value)) {
     return value.slice(0, -2);
@@ -62,7 +62,7 @@ function aliasValueTerms(value: string): Set<string> {
   return terms;
 }
 
-const aliases = new Map<string, Set<string>>();
+export const aliases = new Map<string, Set<string>>();
 function addAliasGroup(from: readonly string[], to: readonly string[]): void {
   const lookups = new Set(from.flatMap((v) => [...biteScoreFoodTerms(v)]));
   const expanded = new Set([...from, ...to].flatMap((v) => [...aliasValueTerms(v)]));
@@ -76,7 +76,7 @@ for (const group of foodAliasGroups) addAliasGroup(group, []);
 for (const group of foodDirectionalAliasGroups) addAliasGroup(group.from_, group.to);
 const stopWords = new Set(["and", "the", "with"]);
 
-function queryTerms(normalized: string): string[] {
+export function queryTerms(normalized: string): string[] {
   if (normalized.includes(" ")) {
     const tokens = normalized.split(" ").filter((v) => v && !stopWords.has(v));
     return tokens.length === 0 ? [normalized] : tokens;
@@ -94,7 +94,7 @@ function sourceMatches(source: Set<string>, candidates: Iterable<string>): boole
   return false;
 }
 
-function fuzzy(query: string, candidate: string): boolean {
+export function fuzzy(query: string, candidate: string): boolean {
   if (query === candidate || query.length < 4 || candidate.length < 4) {
     return query === candidate;
   }

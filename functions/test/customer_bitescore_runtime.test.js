@@ -17,11 +17,17 @@ test('Terms callables use verified Firebase actor, never spoofed payload identit
   const app = initializeApp({projectId: 'demo-terms-local-test'});
   const api = require('../lib/customer_bitescore_runtime.js');
   const metadata = require('./fixtures/customer_bitescore_runtime_metadata.json');
+  const store = require('../lib/rating_destructive_job_store.js');
+  const originalStore = store.createFirestoreRatingDestructivePrivateDatabase;
+  // Current dormant Terms still reads account-deletion/runtime policy. Keep
+  // this callable wiring test local without weakening either native check.
+  store.createFirestoreRatingDestructivePrivateDatabase = () => ({
+    runTransaction: operation => operation({getDocument: async () => null}),
+  });
   try {
     for (const name of ['getCustomerBiteScoreTerms', 'acceptCustomerBiteScoreTerms']) {
       assert.deepEqual(JSON.parse(JSON.stringify(api[name].__endpoint)), metadata[name]);
       for (const auth of [undefined,
-        {uid: 'A', token: {email_verified: false}},
         {uid: 'A', token: {email_verified: true, firebase: {sign_in_provider: 'anonymous'}}},
         {uid: 'B', token: {email_verified: true}}]) {
         await assert.rejects(api[name].run({auth, data: {expectedUserId: 'A', uid: 'A', emailVerified: true}}),
@@ -31,7 +37,10 @@ test('Terms callables use verified Firebase actor, never spoofed payload identit
     const auth = {uid: 'A', token: {email_verified: true, firebase: {sign_in_provider: 'password'}}};
     assert.deepEqual(await api.getCustomerBiteScoreTerms.run({auth, data: {expectedUserId: 'A'}}),
       {schemaVersion: 1, enabled: false, userId: 'A'});
+    const phone = {uid: 'A', token: {email_verified: false, firebase: {sign_in_provider: 'phone'}}};
+    assert.deepEqual(await api.getCustomerBiteScoreTerms.run({auth: phone, data: {expectedUserId: 'A'}}),
+      {schemaVersion: 1, enabled: false, userId: 'A'});
     await assert.rejects(api.acceptCustomerBiteScoreTerms.run({auth, data: {expectedUserId: 'A', version: 'draft'}}),
       {code: 'failed-precondition'});
-  } finally { await deleteApp(app); }
+  } finally { store.createFirestoreRatingDestructivePrivateDatabase = originalStore; await deleteApp(app); }
 });

@@ -1,0 +1,174 @@
+{
+  "pass": true,
+  "taskOwnedCluster": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001-20261017/local-postgres/pgdata",
+  "sameSyntheticDatasetPreserved": true,
+  "activeQueryFailure": {
+    "code": "57P01",
+    "message": "terminating connection due to administrator command"
+  },
+  "oldConnectionError": "Connection terminated unexpectedly",
+  "oldConnectionRejected": true,
+  "boundedPoolReconnected": true,
+  "elapsedMs": 291,
+  "before": {
+    "meta": {
+      "database": "bsgate0_flutter",
+      "owner": "bsgate0",
+      "address": "127.0.0.1/32",
+      "directory": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001-20261017/local-postgres/pgdata",
+      "version": "PostgreSQL 18.6 (Postgres.app) on aarch64-apple-darwin23.6.0, compiled by Apple clang version 15.0.0 (clang-1500.3.9.4), 64-bit",
+      "started_at": "2026-10-17T18:08:43.017Z"
+    },
+    "publication": {
+      "revision": "3",
+      "fence": [
+        12,
+        18,
+        19,
+        19,
+        11,
+        14,
+        13,
+        30,
+        23,
+        23,
+        14,
+        22,
+        18,
+        25,
+        19,
+        25
+      ]
+    },
+    "counts": {
+      "entities": 305,
+      "heads": 185,
+      "pins": 272
+    },
+    "sourceHeadsHash": "f0bd494408d4cd4b9840216cbe3036ab6bd5859f6dcb3869e95994b1101e71a3",
+    "entitiesHash": "34f763ca24eef5eac94e55ae218fd79f3b0b60766c26b472a00f5ba4b55fda1a",
+    "pinsHash": "3f773c7d633404689da068d712589fcc7c431766d26d7e9b65a8b632eac9700b",
+    "activePin": {
+      "id": "000ced9f78366e4b40dd7a490b874b5922d880ebc7396354d8e1329ccc874946",
+      "revision": "3",
+      "expires_ms": "1792263690125",
+      "lease_ms": "0"
+    },
+    "orderedIds": [
+      "gate0-score-0000000",
+      "gate0-score-0000001",
+      "gate0-score-0000002",
+      "gate0-score-0000003",
+      "gate0-score-0000004",
+      "gate0-score-0000005",
+      "gate0-score-0000006",
+      "gate0-score-0000007",
+      "gate0-score-0000008",
+      "gate0-score-0000009",
+      "gate0-score-0000010",
+      "gate0-score-0000011",
+      "gate0-score-0000012",
+      "gate0-score-0000013",
+      "gate0-score-0000014",
+      "gate0-score-0000015",
+      "gate0-score-0000016",
+      "gate0-score-0000017",
+      "gate0-score-0000018",
+      "gate0-score-0000019",
+      "gate0-score-0000020",
+      "gate0-score-0000021",
+      "gate0-score-0000022",
+      "gate0-score-0000023",
+      "gate0-score-0000024"
+    ],
+    "boundary": [
+      0.16600973931246565,
+      0,
+      0,
+      "00730079006e00740068006500740069006300200067006100740065003000200063006100740061006c006f006700200030003000300030003000320034",
+      "00670061007400650030002d00730063006f00720065002d0030003000300030003000320034"
+    ]
+  },
+  "after": {
+    "meta": {
+      "database": "bsgate0_flutter",
+      "owner": "bsgate0",
+      "address": "127.0.0.1/32",
+      "directory": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001-20261017/local-postgres/pgdata",
+      "version": "PostgreSQL 18.6 (Postgres.app) on aarch64-apple-darwin23.6.0, compiled by Apple clang version 15.0.0 (clang-1500.3.9.4), 64-bit",
+      "started_at": "2026-10-17T18:09:34.753Z"
+    },
+    "publication": {
+      "revision": "3",
+      "fence": [
+        12,
+        18,
+        19,
+        19,
+        11,
+        14,
+        13,
+        30,
+        23,
+        23,
+        14,
+        22,
+        18,
+        25,
+        19,
+        25
+      ]
+    },
+    "counts": {
+      "entities": 305,
+      "heads": 185,
+      "pins": 272
+    },
+    "sourceHeadsHash": "f0bd494408d4cd4b9840216cbe3036ab6bd5859f6dcb3869e95994b1101e71a3",
+    "entitiesHash": "34f763ca24eef5eac94e55ae218fd79f3b0b60766c26b472a00f5ba4b55fda1a",
+    "pinsHash": "3f773c7d633404689da068d712589fcc7c431766d26d7e9b65a8b632eac9700b",
+    "activePin": {
+      "id": "000ced9f78366e4b40dd7a490b874b5922d880ebc7396354d8e1329ccc874946",
+      "revision": "3",
+      "expires_ms": "1792263690125",
+      "lease_ms": "0"
+    },
+    "orderedIds": [
+      "gate0-score-0000000",
+      "gate0-score-0000001",
+      "gate0-score-0000002",
+      "gate0-score-0000003",
+      "gate0-score-0000004",
+      "gate0-score-0000005",
+      "gate0-score-0000006",
+      "gate0-score-0000007",
+      "gate0-score-0000008",
+      "gate0-score-0000009",
+      "gate0-score-0000010",
+      "gate0-score-0000011",
+      "gate0-score-0000012",
+      "gate0-score-0000013",
+      "gate0-score-0000014",
+      "gate0-score-0000015",
+      "gate0-score-0000016",
+      "gate0-score-0000017",
+      "gate0-score-0000018",
+      "gate0-score-0000019",
+      "gate0-score-0000020",
+      "gate0-score-0000021",
+      "gate0-score-0000022",
+      "gate0-score-0000023",
+      "gate0-score-0000024"
+    ],
+    "boundary": [
+      0.16600973931246565,
+      0,
+      0,
+      "00730079006e00740068006500740069006300200067006100740065003000200063006100740061006c006f006700200030003000300030003000320034",
+      "00670061007400650030002d00730063006f00720065002d0030003000300030003000320034"
+    ]
+  },
+  "pgCtlOutput": "waiting for server to shut down.... done\nserver stopped\nwaiting for server to start.... done\nserver started",
+  "restartKind": "actual PostgreSQL server fast restart; no data reset",
+  "qualification": "local only; no hosted failover or crash/power-loss claim"
+}

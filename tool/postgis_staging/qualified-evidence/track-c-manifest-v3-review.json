@@ -1,0 +1,30 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001",
+  "reviewer": "track-C/staging_recovery (independent of B implementation)",
+  "reviewedAt": "2026-10-17T18:20:01.283382+00:00",
+  "scope": "Narrow offline guard CLI manifest selection, four real subprocess regressions and documented current-version invocation",
+  "verdict": "PASS",
+  "materialFindings": [],
+  "resolvedFinding": "README dry-run can explicitly select forthcoming immutable v3 manifest instead of failing against superseded v1 report bytes.",
+  "checks": [
+    "Exact caller-supplied Path reaches existing verifier; source path confinement, SHA and aggregate digest validation unchanged.",
+    "No implicit latest selection and no fallback on selected tamper; default original name remains explicit documented compatibility.",
+    "Missing manifest cannot produce candidateVerified or cloudReady; execute mode refuses regardless of valid selected candidate.",
+    "No spend authorization, target config, provider action, timer, ledger, watchdog, runtime or search semantics changed.",
+    "Offline tests use temporary synthetic directories and invoke actual CLI subprocesses; no historical artifact overwritten."
+  ],
+  "tests": {
+    "passed": 49,
+    "failed": 0,
+    "independentlyRerun": true,
+    "log": "track-c-manifest-v3-tests.log",
+    "logSha256": "63422b4d19d2f5532cd6ebb5cc20f81aae59c3ab35cca0f4c3158f8f5f7d57c3",
+    "diffCheck": "PASS"
+  },
+  "sourceSha256": {
+    "tool/postgis_staging/scripts/guard.py": "35727623fdb0caeec1666e672cd684785a60288d2837f0cf898d6e11dd32eb6d",
+    "tool/postgis_staging/scripts/test_gate0_controls.py": "ae6a1ddf0170b28d29dde7df4979005d68413e354a9b927df976a2387abc0df8",
+    "tool/postgis_staging/README.md": "04bb9d665848a33b91b3584937ccf8ffd41dafef223131428ea50ee7d41b6479"
+  },
+  "v3Freeze": "Integrator creates after this receipt; current deployment readiness remains BLOCKED."
+}

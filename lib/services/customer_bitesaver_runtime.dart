@@ -24,6 +24,7 @@ import 'customer_bitesaver_saved_coordinator.dart';
 import 'customer_bitesaver_search_coordinator.dart';
 import 'customer_bitesaver_service.dart';
 import 'customer_session_service.dart';
+import 'customer_search_candidate_runtime.dart';
 
 /// Source-only selection, following the BiteScore selector. Server authority is
 /// still required for every operation. Public profile reads grant no coupon use.
@@ -38,7 +39,8 @@ abstract final class CustomerBiteSaverRuntime {
   @visibleForTesting
   static CustomerBiteSaverComposition? testComposition;
 
-  static bool get isEnabled => testEnabled ?? _configured;
+  static bool get isEnabled =>
+      testEnabled ?? (_configured || CustomerSearchCandidateRuntime.isEnabled);
   static Future<CustomerBiteSaverComposition>? _production;
 
   static Future<CustomerBiteSaverComposition> get _composition =>

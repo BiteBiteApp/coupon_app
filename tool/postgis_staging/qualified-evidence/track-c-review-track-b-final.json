@@ -1,0 +1,94 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001",
+  "reviewer": "track-C/staging_recovery (independent of Track B implementation)",
+  "reviewedAt": "2026-10-17T18:10:59.988335+00:00",
+  "head": "56e5e1a165cc5797b1d0e99404f4acfada0e598e",
+  "scope": "Final read-only review of native edited-offer/guest evidence fixes, PostGIS facade and backend binding authority, and dormant Flutter endpoint selection. No broad suite rerun or repository edit.",
+  "verdict": "PASS \u2014 no unresolved material findings in this scoped review",
+  "files": {
+    "functions/src/customer_bitesaver_search_session.ts": "6f988ed73754eff0ced7961e8f4a3475f1ba55a5ae06eb37cd6012ad1cfd3073",
+    "functions/src/customer_bitescore_search.ts": "7f76262df04e19c2a4afaa806d7699257503239d46f487f67225e3e1927f6cc8",
+    "functions/src/postgis_handlers.ts": "94eb93a362b84132d886c60827a6c797b57884d1f4830bf9343fdf70a5a37021",
+    "functions/src/postgis_search_binding.ts": "659edbdbce094605826d1cba88d194ca86e96c185380c91361b6e4ad041d1a9c",
+    "lib/services/customer_search_candidate_runtime.dart": "965010f9b52cffaf3705b2a6a4afc9c29980963f227e371e885a6fb3982012ee",
+    "lib/services/customer_bitesaver_runtime.dart": "136c2a39f380caf3708c482a65f64c373413738b51002f62e2af98716c450300",
+    "lib/services/customer_bitesaver_service.dart": "e6ecef90a08b230c691bdc73593f6a994fa30cc22e4525c0516955013981bde6",
+    "lib/services/customer_bitescore_runtime.dart": "fe92b42d84c6a8f4075e24929d640b296651dc3a12e4138c0406aa779a98228d",
+    "lib/services/customer_bitescore_search_service.dart": "fe9326606457291debdf0b5b03b5ddd537591461e6bde4fa325f0da422f7d82b",
+    "functions/test/customer_bitesaver_search_handlers.test.js": "f35d111748fc3f35198909ed0a57fa1fdfe604368e6cf99b8b08fd5edc1b271c",
+    "functions/test/postgis_handlers.test.js": "f77732c84829edfdcf404e9e9ba11b547bee7440e8bfd042d0c8deffb807b7b4",
+    "functions/test/postgis_integration.test.js": "a6ce205334ff56b4603860579d820e8c6864a99e917d084d9ce2c10cc773eee9",
+    "test/services/customer_search_candidate_runtime_test.dart": "349327d7d869dd30664a043218f403db2ef6c6125d3838357858b34231ee9e7d",
+    "test/screens/customer_bitesaver_runtime_test.dart": "99bbca14ea7e7a536642154ba7ddceca096d3d59ff15f6fe97c1a5f2fa0a161c"
+  },
+  "evidence": {
+    "track-b/native-handlers-after-real.log": "b8ded0c5e5c517f35a8d53da37fbe16c4031c3f6a95be37c38cb4e48628cda2d",
+    "track-b/integration-tests.log": "b270f5288adf06c4f1b1f47c8c25749353b8131b72d0602d9a5cc61bff0db1f9",
+    "track-b/integration-evidence.json": "5f79019ceb1780319d28532215e089007f47dc64c201809da47f55a4f213dd18",
+    "track-b/flutter-core.log": "53d6bc4fec3b322bd2be5590237c4700a70a948de47d12a6f7f72bce937d0b1c",
+    "track-b/flutter-runtime-fixed.log": "3db58618e2ffa756a90cac9be9573acd4ea24bcb5e869bda7f15b96986ac0580",
+    "postgis-flutter-useful-pages-final.log": "31a20734223ea9c4d463ca8b89b376d616f5c5e5dc947a7446c1b40f1f901f76",
+    "postgis-flutter-useful-pages-final.json": "378885530084c68ee61abaa7e53e4b659a25860365291a4309a56cc158b9aee5",
+    "track-b/TRACK_B_QUALIFICATION.txt": "4378fbf039aec9e6245fcd59b8a8973b4fe8fa930b670468e7bd283e505189a6"
+  },
+  "findings": [],
+  "resolvedChangesReviewed": [
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "change": "Edited same-ID prepared offer previously suppressed its newer current version. Identity-to-fingerprint dedup now permits a different live fingerprint only when no current offer for that identity was accepted. Native raw-source reconstruction, matching, coherent parent checks, current availability/usage, consumption bounds and occurrence identity remain active. Negative match/withdrawn/expired/used cases and immutable prepared-result regression are present."
+    },
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "change": "Initial guest restaurant/offer/redemption evidence now captures the authorized current parent fingerprint, after native prepared membership checks. Guest answers, continuation/replay and redemption preparation still require exact current catalog+projection+offer evidence; later changes invalidate. No redemption execution or device proof is added."
+    }
+  ],
+  "authorityReview": [
+    "Native caller/capability/actor/session checks and admission limits precede SQL pin and membership work. Wrong caller, expiry and account/criteria replacement tests ensure provider is not consulted.",
+    "Native preparing session and deterministic private backend marker are created atomically; candidate Saver creates no legacy worker job. SQL pin retries keep original pin and absolute expiry. Ready session+revision marker publish in one Firestore transaction.",
+    "Legacy/candidate admission and membership paging reject a different backend marker; Score advance cannot start a serial Firestore worker for candidate sessions.",
+    "Facade intercepts only native result-collection queries, validates unique bounded result identities and paths, and caches only requested rows. All other reads/transactions remain native Firestore authority, including current source/usage, delivered Menu and offer identity, favorites and redemption.",
+    "Offer-page and redemption continuations intentionally retain native authority independently of membership backend; restaurant-page guest continuation enforces backend because it can request further membership rows."
+  ],
+  "clientReview": [
+    "BITESTAR_POSTGIS_SEARCH defaults false. Each service snapshots selection at construction to keep a session on one backend.",
+    "Only eight discovery endpoint names append V2. BiteSaver multiplexed kind requests (profile/profile-use/media) retain original route; Menu, Saved, favorites, redemption, Score detail/profile/suggestions remain original.",
+    "No query field, ID, DTO, route, QR identity, auth behavior or screen/controller implementation is changed by selection. Existing Firebase transport region remains us-central1.",
+    "Production index/config contain no PostGIS/V2 registration or enabled flag. Existing runtime test change follows current AppUpdateOpening.child shape and changes no product code."
+  ],
+  "verificationReused": [
+    {
+      "log": "track-b/native-handlers-after-real.log",
+      "passed": 319,
+      "failed": 0
+    },
+    {
+      "log": "track-b/integration-tests.log",
+      "passed": 9,
+      "failed": 0,
+      "note": "8 scenario subtests plus parent; actual loopback HTTP + verified Auth emulator + Firestore source/authority + PostgreSQL/PostGIS, including signed/guest same-ID edit, usage suppression, later source race, Menu, Score and Finder"
+    },
+    {
+      "log": "track-b/flutter-core.log",
+      "passed": 23,
+      "failed": 0,
+      "note": "Includes default/candidate service and controller/coordinator paths with fixtures"
+    },
+    {
+      "log": "track-b/flutter-runtime-fixed.log",
+      "passed": 40,
+      "failed": 0
+    },
+    {
+      "log": "postgis-flutter-useful-pages-final.log",
+      "passed": 4,
+      "failed": 0,
+      "note": "12 actual useful rendered pages over local HTTP; separate root-owned UI evidence"
+    }
+  ],
+  "qualificationNotes": [
+    "Three final Track B recorded hashes (session source, integration test, runtime widget test) matched the reviewed bytes.",
+    "Earlier failing reproductions remain evidence; final passing logs listed above supersede preliminary flutter-candidate/flutter-services failures.",
+    "No hosted Linux/runtime, cloud capacity, production activation, device-level performance, redemption execution or physical device proof qualification is inferred.",
+    "This receipt freezes the listed reviewed bytes; later modifications require affected re-review."
+  ]
+}

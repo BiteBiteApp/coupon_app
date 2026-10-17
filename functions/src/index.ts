@@ -8,6 +8,8 @@ import {getStorage, getDownloadURL} from "firebase-admin/storage";
 import {saveOwnerMedia, removeOwnerImage} from "./bitesaver_owner_media.js";
 import {verifyAdminUserDirectoryHandler} from "./admin_user_directory_recovery.js";
 import {randomBytes} from "node:crypto";
+import {customerBiteSaverCallableIdentity} from "./customer_search_callable_context.js";
+import {readSearchIndexEventSnapshotData} from "./search_index_event_snapshot.js";
 import {createDeletionAwareCheckout, queueAccountDeletionSubscription, reserveAccountDeletionCheckoutIntent, requireOwnedAccountDeletionSubscription} from "./account_deletion_billing.js";
 import {accountDeletionRequested, requireAccountWritable} from "./account_deletion_guard.js";
 import { initializeApp } from "firebase-admin/app";
@@ -256,7 +258,6 @@ import {
   getCustomerBiteSaverSearchPageHandler,
   getCustomerBiteSaverSearchStatusHandler,
   startCustomerBiteSaverSearchHandler,
-  type CustomerBiteSaverCallableIdentity,
   type CustomerBiteSaverSessionContext,
   validateCustomerBiteSaverOfferRedemptionStartHandler,
 } from "./customer_bitesaver_search_session.js";
@@ -450,16 +451,6 @@ type CustomerBiteSaverCallableHandler<Response> = (
   rawRequest: unknown,
   context: CustomerBiteSaverSessionContext,
 ) => Promise<Response>;
-
-function customerBiteSaverCallableIdentity(
-  request: CallableRequest<unknown>,
-): CustomerBiteSaverCallableIdentity {
-  return Object.freeze({
-    authUid: request.auth?.uid ?? null,
-    authIsAnonymous:
-      request.auth?.token.firebase?.sign_in_provider === "anonymous",
-  });
-}
 
 function customerBiteSaverHttpsError(error: unknown): HttpsError {
   if (error instanceof CustomerBiteSaverContractError) {
@@ -5494,33 +5485,6 @@ export const maintainBiteSaverRestaurantGeohash = onDocumentWritten(
     });
   },
 );
-
-function readSearchIndexEventSnapshotData(
-  snapshot: unknown,
-): Record<string, unknown> | null | undefined {
-  try {
-    if (snapshot === null || typeof snapshot !== "object") {
-      return undefined;
-    }
-    const exists = (snapshot as { exists?: unknown }).exists;
-    if (exists === false) {
-      return null;
-    }
-    if (exists !== true) {
-      return undefined;
-    }
-    const readData = (snapshot as { data?: unknown }).data;
-    if (typeof readData !== "function") {
-      return undefined;
-    }
-    const data = readData.call(snapshot);
-    return data !== null && typeof data === "object" && !Array.isArray(data)
-      ? data as Record<string, unknown>
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 export const maintainBiteSaverRestaurantSearchIndex = onDocumentWritten(
   {

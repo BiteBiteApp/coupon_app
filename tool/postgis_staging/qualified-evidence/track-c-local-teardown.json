@@ -1,0 +1,38 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001",
+  "recordedAt": "2026-10-17T18:17:56.488044+00:00",
+  "scope": "Task-local HTTP and Auth emulator teardown only",
+  "processes": [
+    {
+      "pid": 20395,
+      "listener": "127.0.0.1:8188",
+      "identity": "qualified Node test/support/postgis_flutter_host.cjs",
+      "signal": "SIGTERM"
+    },
+    {
+      "pid": 16523,
+      "listener": "127.0.0.1:9099",
+      "identity": "firebase emulators:start --only auth --project demo-bs-postgis-integration --config exact report-local firebase.json",
+      "signal": "SIGINT"
+    }
+  ],
+  "portChecks": {
+    "8188": {
+      "listeners": "",
+      "lsofExitCode": 1,
+      "closed": true
+    },
+    "9099": {
+      "listeners": "",
+      "lsofExitCode": 1,
+      "closed": true
+    }
+  },
+  "bothPidsAbsent": true,
+  "filesDeleted": false,
+  "logsAndConfigurationPreserved": true,
+  "authEmulatorState": "Synthetic process memory only; no persisted files deleted and no credentials logged.",
+  "postgresAndFirestore": "Separate Track A cleanup; untouched by this action.",
+  "historicalRuntimes": "Untouched",
+  "cloudActions": false
+}

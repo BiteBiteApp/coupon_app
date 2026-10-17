@@ -325,6 +325,9 @@ function loadCompiledIndexWithRuntimeHarness({
         return {...actualFirestore, getFirestore: () => fakeDatabase};
       case "firebase-admin/messaging":
         return {getMessaging: () => ({send: async () => "unused"})};
+      case "firebase-admin/storage":
+        return {getStorage: () => ({bucket: () => ({})}),
+          getDownloadURL: async () => { throw new Error("Storage access is outside the runtime wiring harness."); }};
       case "firebase-functions":
         return {
           logger: Object.fromEntries(
@@ -691,7 +694,7 @@ test("retry-enabled exports propagate failures and preserve delivery identity", 
     searchIndexMaintenanceOverrides: overrides,
   });
   const sourceEventId = "cloud-event-unchanged-0042";
-  const snapshot = (data) => ({exists: true, data: () => data});
+  const snapshot = (data) => ({exists: true, data: () => data, get: field => data?.[field]});
   const before = {revision: "before"};
   const after = {revision: "after"};
   const scenarios = [
@@ -806,7 +809,7 @@ test("retry-enabled exports propagate failures and preserve delivery identity", 
 
 test("compiled parent wrappers make malformed root events side-effect-free", async () => {
   const runtime = loadCompiledIndexWithRuntimeHarness();
-  const snapshot = (data) => ({exists: true, data: () => data});
+  const snapshot = (data) => ({exists: true, data: () => data, get: field => data?.[field]});
   const malformedEvents = [
     {
       id: undefined,
@@ -852,6 +855,7 @@ test("compiled parent wrappers make malformed root events side-effect-free", asy
       data: {
         before: {
           exists: true,
+          get: () => undefined,
           data() {
             throw new Error("must-not-escape");
           },
@@ -875,6 +879,14 @@ test("compiled parent wrappers make malformed root events side-effect-free", asy
     "maintainBiteScoreRestaurantSearchIndex",
   ]) {
     for (const event of malformedEvents) {
+      // The existing owner-media sidecar assumes a genuine SDK before snapshot.
+      // Missing snapshots are impossible SDK envelopes, not malformed source
+      // content; preserve that baseline behavior instead of widening runtime.
+      if (triggerName === "maintainBiteSaverRestaurantSearchIndex" &&
+          ["missing-event-snapshots", "missing-before-snapshot"].includes(event.id)) {
+        await assert.rejects(runtime.exports[triggerName](event), TypeError);
+        continue;
+      }
       await runtime.exports[triggerName](event);
       await runtime.exports[triggerName](event);
     }

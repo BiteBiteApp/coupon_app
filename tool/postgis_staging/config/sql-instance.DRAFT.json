@@ -1,0 +1,45 @@
+{
+  "name": "bs-postgis-gate0-001-db",
+  "project": null,
+  "databaseVersion": "POSTGRES_18",
+  "region": "us-central1",
+  "settings": {
+    "edition": "ENTERPRISE",
+    "tier": "db-custom-4-16384",
+    "availabilityType": "ZONAL",
+    "dataDiskType": "PD_SSD",
+    "dataDiskSizeGb": "100",
+    "storageAutoResize": false,
+    "deletionProtectionEnabled": false,
+    "activationPolicy": "ALWAYS",
+    "userLabels": {
+      "bs-run": "bs-postgis-gate0-001"
+    },
+    "ipConfiguration": {
+      "ipv4Enabled": false,
+      "privateNetwork": null,
+      "sslMode": "ENCRYPTED_ONLY"
+    },
+    "databaseFlags": [
+      {
+        "name": "cloudsql.iam_authentication",
+        "value": "on"
+      }
+    ],
+    "backupConfiguration": {
+      "enabled": true,
+      "pointInTimeRecoveryEnabled": true,
+      "transactionLogRetentionDays": 1,
+      "startTime": "04:00",
+      "backupRetentionSettings": {
+        "retainedBackups": 3,
+        "retentionUnit": "COUNT"
+      }
+    },
+    "retainBackupsOnDelete": false,
+    "finalBackupConfig": {
+      "enabled": false
+    },
+    "pricingPlan": "PER_USE"
+  }
+}

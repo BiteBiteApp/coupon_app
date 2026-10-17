@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import '../models/bitescore_restaurant.dart';
 import '../models/customer_bitescore_search.dart';
 import 'bitescore_service.dart' show BiteScoreHomeEntry;
+import 'customer_search_candidate_runtime.dart';
 
 typedef CustomerBiteScoreTransport =
     Future<Object?> Function(String name, Map<String, Object?> request);
@@ -39,9 +40,11 @@ abstract interface class CustomerBiteScoreSearchApi {
 final class CustomerBiteScoreSearchService
     implements CustomerBiteScoreSearchApi {
   CustomerBiteScoreSearchService({CustomerBiteScoreTransport? transport})
-    : _transport = transport ?? _firebaseTransport;
+    : _transport = transport ?? _firebaseTransport,
+      _candidateEnabled = CustomerSearchCandidateRuntime.isEnabled;
 
   final CustomerBiteScoreTransport _transport;
+  final bool _candidateEnabled;
 
   static Future<Object?> _firebaseTransport(
     String name,
@@ -55,7 +58,14 @@ final class CustomerBiteScoreSearchService
     String operation,
     Map<String, Object?> request,
   ) async {
-    final response = await _transport(operation, request);
+    final response = await _transport(
+      CustomerSearchCandidateRuntime.endpoint(
+        operation,
+        request,
+        enabled: _candidateEnabled,
+      ),
+      request,
+    );
     if (response is! Map) {
       throw const FormatException('Invalid BiteScore response.');
     }

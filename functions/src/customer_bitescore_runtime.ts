@@ -9,12 +9,13 @@ import {submitPhotoReportHandler, moderatePhotoReportHandler} from "./photo_repo
 import {submitReviewerReportHandler, blockReviewerHandler, unblockReviewerHandler, getReviewerSafetyStatusHandler} from "./reviewer_safety.js";
 import {customerBiteScoreTerms} from "./bitescore_terms.js";
 import {createHmac} from "node:crypto";
+import {customerBiteScoreCallableContext} from "./customer_search_callable_context.js";
+export {customerBiteScoreActorBinding} from "./customer_search_callable_context.js";
 import {getFirestore} from "firebase-admin/firestore";
 import {defineSecret} from "firebase-functions/params";
 import {onDocumentWritten} from "firebase-functions/v2/firestore";
 import {type CallableRequest, HttpsError, onCall} from "firebase-functions/v2/https";
 import {onSchedule} from "firebase-functions/v2/scheduler";
-import {requireRestaurantAccountAdminAccess} from "./admin_authorization.js";
 import {decodeCouponAdminCursorKey, couponAdminCursorSecretName} from "./coupon_admin_paging.js";
 import {OpaqueCursorCodec, OpaqueCursorError} from "./opaque_cursor.js";
 import {createFirestoreCustomerBiteSaverSearchDatabase} from "./customer_bitesaver_search_store.js";
@@ -93,26 +94,8 @@ export const getReviewerSafetyStatus = onCall(reviewerSafetyOptions, (request) =
 
 // Signed-in admission is shared across screen instances. Guest public reading
 // retains the existing per-installation binding without introducing a login gate.
-export function customerBiteScoreActorBinding(key: Uint8Array, uid: string | null, instance: string): string {
-  return createHmac("sha256", key).update(JSON.stringify(uid === null
-    ? ["bitestar.customer-bitescore.actor.v1", "guest", instance]
-    : ["bitestar.customer-bitescore.actor.v1", "user", uid])).digest("hex");
-}
-
 function readContext(request: CallableRequest<unknown>) {
-  const raw = request.data as {clientInstanceId?: unknown} | null;
-  const instance = raw?.clientInstanceId;
-  if (typeof instance !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(instance)) {
-    throw new HttpsError("invalid-argument", "Invalid BiteScore client binding.");
-  }
-  const root = decodeCouponAdminCursorKey(cursorSecret.value());
-  const key = createHmac("sha256", root)
-    .update("bitestar.customer-bitescore.cursor-key.v1").digest();
-  const uid = request.auth?.uid ?? null;
-  const actorId = customerBiteScoreActorBinding(key, uid, instance);
-  let isAdmin = false;
-  try { requireRestaurantAccountAdminAccess(request); isAdmin = true; } catch { /* public caller */ }
-  return {actorId, cursorCodec: new OpaqueCursorCodec({key}), userId: uid, isAdmin};
+  return customerBiteScoreCallableContext(request, () => decodeCouponAdminCursorKey(cursorSecret.value()));
 }
 
 async function safely<T>(operation: () => Promise<T>): Promise<T> {

@@ -107,6 +107,10 @@ import {
 } from "./customer_bitesaver_search_matcher.js";
 import { createQueryFingerprint } from "./query_fingerprint.js";
 import {
+  buildPostgisPendingSearchBinding, postgisSearchBindingPath,
+  readPostgisSearchBinding, searchBackendMatches,
+} from "./postgis_search_binding.js";
+import {
   biteSaverOfferCatalogUpdatedAtField,
   biteSaverOfferCatalogUpdatedAtOrderKeyField,
   buildBiteSaverCouponOfferIndex,
@@ -172,6 +176,7 @@ export type CustomerBiteSaverSessionContext = Readonly<{
   identity: CustomerBiteSaverCallableIdentity;
   now?: () => number;
   randomSource?: (size: number) => Uint8Array;
+  searchBackend?: "postgis";
 }>;
 
 function requireCustomerBiteSaverIdentityKey(
@@ -1285,6 +1290,12 @@ export async function startCustomerBiteSaverSearchHandler(
     const candidateSessions = await transaction.getDocuments(
       candidateSessionIds.map(sessionPath),
     );
+    const candidateBindings = candidateSessionIds.length === 0 ? [] :
+      await transaction.getDocuments(candidateSessionIds.map(postgisSearchBindingPath));
+    const backendMatches = (id: string): boolean => searchBackendMatches(
+      readPostgisSearchBinding(candidateBindings[candidateSessionIds.indexOf(id)] ?? null, id),
+      context.searchBackend,
+    );
     const sessionsById = new Map<string, CustomerBiteSaverSessionDocument>();
     for (const candidate of candidateSessions) {
       const session = parseSession(candidate);
@@ -1319,7 +1330,8 @@ export async function startCustomerBiteSaverSearchHandler(
         prior.callerBindingHash !== callerBindingHash ||
         prior.criteriaFingerprint !== criteriaFingerprint ||
         prior.absoluteExpiresAt.getTime() !==
-          startReplay.absoluteExpiresAt.getTime()
+          startReplay.absoluteExpiresAt.getTime() ||
+        !backendMatches(prior.sessionId)
       ) {
         throw new CustomerBiteSaverContractError(
           "failed-precondition",
@@ -1346,6 +1358,7 @@ export async function startCustomerBiteSaverSearchHandler(
       const prior = sessionsById.get(repeatedRequest.sessionId) ?? null;
       if (isLiveSession(prior, nowMs)) {
         if (
+          !backendMatches(prior.sessionId) ||
           prior.criteria.timeZone !== criteria.timeZone ||
           prior.criteria.utcOffsetMinutes !== criteria.utcOffsetMinutes
         ) {
@@ -1378,6 +1391,7 @@ export async function startCustomerBiteSaverSearchHandler(
     if (
       !request.freshSearch &&
       isLiveSession(pointed, nowMs) &&
+      backendMatches(pointed.sessionId) &&
       pointed.criteriaFingerprint === criteriaFingerprint &&
       pointed.callerBindingHash === callerBindingHash &&
       pointed.criteria.timeZone === criteria.timeZone &&
@@ -1537,10 +1551,15 @@ export async function startCustomerBiteSaverSearchHandler(
       }
     }
     transaction.createDocument(sessionPath(proposedSessionId), session);
-    transaction.createDocument(path(
-      privateCustomerBiteSaverJobCollection,
-      initialJobId,
-    ), job);
+    if (context.searchBackend === "postgis") {
+      transaction.createDocument(postgisSearchBindingPath(proposedSessionId),
+        buildPostgisPendingSearchBinding(proposedSessionId, absoluteExpiresAt.getTime()));
+    } else {
+      transaction.createDocument(path(
+        privateCustomerBiteSaverJobCollection,
+        initialJobId,
+      ), job);
+    }
     transaction.setDocument(path(
       privateCustomerBiteSaverActiveSessionCollection,
       controlId,
@@ -1734,6 +1753,19 @@ async function touchStatusSession(
   });
 }
 
+async function requireCustomerBiteSaverSearchBackend(
+  context: CustomerBiteSaverSessionContext,
+  session: CustomerBiteSaverSessionDocument,
+): Promise<void> {
+  const binding = readPostgisSearchBinding(await context.database.getDocument(
+    postgisSearchBindingPath(session.sessionId)), session.sessionId);
+  if (!searchBackendMatches(binding, context.searchBackend) ||
+      (binding !== null && binding.expiresAtMs < session.absoluteExpiresAt.getTime())) {
+    throw new CustomerBiteSaverContractError("failed-precondition",
+      "This search requires its original search service. Refresh the search.");
+  }
+}
+
 export async function getCustomerBiteSaverSearchStatusHandler(
   rawRequest: unknown,
   context: CustomerBiteSaverSessionContext,
@@ -1748,6 +1780,7 @@ export async function getCustomerBiteSaverSearchStatusHandler(
     let session = await readAuthorizedSession(request, context, nowMs, {
       allowExpired: true,
     });
+    await requireCustomerBiteSaverSearchBackend(context, session);
     const response = (): CustomerBiteSaverStatusResponse => {
       const completedRanges = session.progress.completedRestaurantRanges +
         session.progress.completedOfferRanges;
@@ -1792,7 +1825,7 @@ export async function getCustomerBiteSaverSearchStatusHandler(
         const current = await touchStatusSession(request, context, session);
         if (current === null) return null;
         session = current;
-        if (session.state === "preparing") {
+        if (session.state === "preparing" && context.searchBackend !== "postgis") {
           const jobSnapshot = await context.database.getDocument(path(
             privateCustomerBiteSaverJobCollection,
             session.currentJobId,
@@ -4389,15 +4422,19 @@ async function resolvePreviewOffers(value: {
   }
   candidatesConsumed += initialSeeds.length;
   usageGenerationParts.push(...initial.usageGenerationParts);
-  const initiallySeen = new Map<string, Set<string>>();
+  const initiallySeen = new Map<string, Map<string, string>>();
   for (const seed of initialSeeds) {
     const publicRestaurantId = seed.parent.result.publicRestaurantId;
-    const seen = initiallySeen.get(publicRestaurantId) ?? new Set<string>();
-    seen.add(offerIdentityKey({
+    const seen = initiallySeen.get(publicRestaurantId) ?? new Map<string, string>();
+    const identity = offerIdentityKey({
       authoritativeAccountId: seed.parent.result.authoritativeAccountId,
       offerType: seed.candidate.offerType,
       sourceDocumentId: seed.candidate.sourceDocumentId,
-    }));
+    });
+    // A rejected prepared version must not suppress a newer live version of
+    // the same identity. Remember its fingerprint without weakening any of the
+    // current-source, matching, availability, or usage checks below.
+    seen.set(identity, seed.candidate.sourceFingerprint);
     initiallySeen.set(publicRestaurantId, seen);
   }
   for (let parentIndex = 0; parentIndex < includedParents; parentIndex += 1) {
@@ -4439,7 +4476,7 @@ async function resolvePreviewOffers(value: {
           parent.result.authoritativeAccountId).every((offer) =>
         offer.decision.usageState !== "unknown");
     const seen = initiallySeen.get(parent.result.publicRestaurantId) ??
-      new Set<string>();
+      new Map<string, string>();
     const retainedInvalidated = continuation !== undefined &&
       continuation.retainedCandidates.some((candidate) => {
         const offer = currentByIdentity.get(offerIdentityKey({
@@ -4492,10 +4529,11 @@ async function resolvePreviewOffers(value: {
             offerType: candidate.offerType,
             sourceDocumentId: candidate.sourceDocumentId,
           });
-          if (seen.has(identity)) {
+          if (seen.get(identity) === candidate.sourceFingerprint ||
+              currentByIdentity.has(identity)) {
             return [];
           }
-          seen.add(identity);
+          seen.set(identity, candidate.sourceFingerprint);
           newlyConsumed += 1;
           return [{parent, candidate}];
         });
@@ -5342,6 +5380,7 @@ async function getCustomerBiteSaverSearchPageCompletedHandler(
     });
   }
   let session = await readAuthorizedSession(request, context, nowMs);
+  await requireCustomerBiteSaverSearchBackend(context, session);
   if (session.state !== "ready" || session.phase !== "ready") {
     throw new CustomerBiteSaverContractError(
       "failed-precondition",
@@ -13357,7 +13396,10 @@ async function processGuestRestaurantPage(value: {
         sortTuple,
         authoritativeAccountId: result.authoritativeAccountId,
         parentCatalogFingerprint: parent.offerCatalogFingerprint,
-        parentProjectionFingerprint: result.parentProjectionFingerprint,
+        // Membership is already checked against the prepared result above.
+        // Fence this new guest operation to the authorized current parent:
+        // offer maintenance may have advanced its catalog marker since admission.
+        parentProjectionFingerprint: parent.projection.sourceFingerprint as string,
         liveBoundary: null,
         retainedOffers: Object.freeze([] as
           CustomerBiteSaverGuestStoredOffer[]),
@@ -14361,7 +14403,7 @@ async function startGuestOfferPage(value: {
         authoritativeAccountId: result.authoritativeAccountId,
         matchingMode,
         parentCatalogFingerprint: parent.offerCatalogFingerprint,
-        parentProjectionFingerprint: result.parentProjectionFingerprint,
+        parentProjectionFingerprint: parent.projection.sourceFingerprint as string,
         scanBoundary: parsedBoundary,
         readyOffers: Object.freeze([]),
         sourceExhausted: false,
@@ -14606,8 +14648,8 @@ async function startGuestRedemption(value: {
         resolution.result.id !== currentResolution.result.id ||
         resolution.parent.offerCatalogFingerprint !==
           currentResolution.parent.offerCatalogFingerprint ||
-        resolution.result.parentProjectionFingerprint !==
-          currentResolution.result.parentProjectionFingerprint ||
+        resolution.parent.projection.sourceFingerprint !==
+          currentResolution.parent.projection.sourceFingerprint ||
         !sameGuestStoredOffer(
           guestStoredOffer(resolution.offer),
           guestStoredOffer(currentResolution.offer),
@@ -14655,7 +14697,7 @@ async function startGuestRedemption(value: {
           existingProgress.parentCatalogFingerprint !==
             resolution.parent.offerCatalogFingerprint ||
           existingProgress.parentProjectionFingerprint !==
-            resolution.result.parentProjectionFingerprint ||
+            resolution.parent.projection.sourceFingerprint ||
           !sameGuestStoredOffer(existingProgress.offer, currentStoredOffer)
         ) {
           const retry = guestRetryDocument(
@@ -14678,7 +14720,7 @@ async function startGuestRedemption(value: {
         offerId: value.request.offerId,
         authoritativeAccountId: resolution.result.authoritativeAccountId,
         parentCatalogFingerprint: resolution.parent.offerCatalogFingerprint,
-        parentProjectionFingerprint: resolution.result.parentProjectionFingerprint,
+        parentProjectionFingerprint: resolution.parent.projection.sourceFingerprint as string,
         offer: guestStoredOffer(resolution.offer),
         locallyUnavailable: null,
       });
@@ -14836,6 +14878,7 @@ export async function getCustomerBiteSaverSearchPageHandler(
       "The BiteSaver search is not ready.",
     );
   }
+  await requireCustomerBiteSaverSearchBackend(context, session);
   return startGuestRestaurantPage({
     request,
     session,
@@ -14976,6 +15019,9 @@ export async function continueCustomerBiteSaverGuestOfferCheckHandler(
       "not-found",
       "The BiteSaver guest offer check is unavailable.",
     );
+  }
+  if (document.operation === "restaurantPage") {
+    await requireCustomerBiteSaverSearchBackend(context, session);
   }
   if (
     document.sessionId !== session.sessionId ||

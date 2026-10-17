@@ -1,0 +1,113 @@
+{
+  "status": "PROPOSED_IDS_NOT_APPROVED_OR_CREATED",
+  "projectId": null,
+  "runId": "bs-postgis-gate0-001",
+  "resources": [
+    {
+      "kind": "sql.instance",
+      "name": "bs-postgis-gate0-001-db",
+      "disposable": true,
+      "uid": null,
+      "createTime": null,
+      "expiration": "run deadline"
+    },
+    {
+      "kind": "sql.instance",
+      "name": "bs-postgis-gate0-001-restore",
+      "disposable": true,
+      "uid": null,
+      "createTime": null,
+      "expiration": "run deadline; only Gate4 if separately approved"
+    },
+    {
+      "kind": "firestore.database",
+      "name": "search-qualification",
+      "disposable": true,
+      "uid": null,
+      "createTime": null,
+      "expiration": "run deadline"
+    },
+    {
+      "kind": "run.service",
+      "name": "bs-postgis-gate0-001-search",
+      "disposable": true,
+      "uid": null,
+      "createTime": null,
+      "expiration": "run deadline"
+    },
+    {
+      "kind": "run.job",
+      "name": "bs-postgis-gate0-001-load",
+      "disposable": true,
+      "uid": null,
+      "createTime": null,
+      "expiration": "run deadline; each attempt600s"
+    },
+    {
+      "kind": "workflows.workflow",
+      "name": "bs-postgis-gate0-001-guardian",
+      "disposable": true,
+      "uid": null,
+      "createTime": null,
+      "expiration": "after verified workload deletion; max7d control follow-up"
+    },
+    {
+      "kind": "scheduler.job",
+      "name": "bs-postgis-gate0-001-watch",
+      "disposable": true,
+      "uid": null,
+      "createTime": null,
+      "expiration": "after verified workload deletion; max7d control follow-up"
+    },
+    {
+      "kind": "artifactregistry.repository",
+      "name": "bs-postgis-gate0-001",
+      "disposable": true,
+      "uid": null,
+      "createTime": null,
+      "expiration": "images delete after7d; retain local digest/evidence"
+    },
+    {
+      "kind": "compute.network",
+      "name": "bs-postgis-gate0-001",
+      "disposable": true,
+      "uid": null,
+      "createTime": null,
+      "expiration": "after private access resources removed"
+    },
+    {
+      "kind": "compute.subnet",
+      "name": "bs-postgis-gate0-001",
+      "disposable": true,
+      "uid": null,
+      "createTime": null,
+      "expiration": "after private access resources removed"
+    },
+    {
+      "kind": "storage.bucket",
+      "name": null,
+      "disposable": true,
+      "uid": null,
+      "createTime": null,
+      "expiration": "exact globally unique name required; objects7d lifecycle"
+    },
+    {
+      "kind": "storage.bucket",
+      "name": null,
+      "disposable": true,
+      "uid": null,
+      "createTime": null,
+      "expiration": "exact control bucket required; heartbeat/state retained until verified cleanup+7d"
+    }
+  ],
+  "missing": [
+    "exact project ID and number",
+    "bucket names",
+    "private services allocation/connection identifiers",
+    "runtime/ingestion/loader/guardian/scheduler service-account emails",
+    "cloud resource UID/createTime receipts",
+    "alert channel IDs",
+    "image digests",
+    "SQL IAM user and database grants"
+  ]
+}

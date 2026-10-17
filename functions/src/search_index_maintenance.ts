@@ -56,6 +56,11 @@ import {
 import type {
   CustomerBiteSaverIdentityKeyV1,
 } from "./customer_bitesaver_public_identity.js";
+import {
+  createFirestorePostgisSource,
+  type PostgisSourceConfiguration,
+} from "./postgis_source_firestore.js";
+import type {PostgisSourceCollection} from "./postgis_source.js";
 
 export type SearchIndexStoredDocument = Readonly<{
   id: string;
@@ -92,6 +97,11 @@ export interface SearchIndexTransaction {
   setDocument(path: string, data: SearchIndexDocument): void;
   deleteDocument(path: string): void;
   updateExistingDocumentServerTimestamp(path: string, field: string): void;
+  recordPostgisProjectionMutation?(
+    collection: PostgisSourceCollection,
+    indexDocumentId: string,
+    document: SearchIndexDocument | null,
+  ): Promise<void>;
 }
 
 function recordData(value: DocumentData | undefined): SearchIndexSourceData | null {
@@ -100,7 +110,12 @@ function recordData(value: DocumentData | undefined): SearchIndexSourceData | nu
 
 export function createFirestoreSearchIndexDatabase(
   database: Firestore,
+  options: Readonly<{postgisSource?: PostgisSourceConfiguration}> = {},
 ): SearchIndexDatabase {
+  // Source-only candidate: all existing callers remain OFF. Candidate wiring
+  // must supply the explicit nonproduction project allowlist and source epoch.
+  const postgisSource = options.postgisSource === undefined ? null :
+    createFirestorePostgisSource(database, options.postgisSource);
   return {
     async getDocument(path) {
       const snapshot = await database.doc(path).get();
@@ -165,6 +180,15 @@ export function createFirestoreSearchIndexDatabase(
               [field]: FieldValue.serverTimestamp(),
             });
           },
+          ...(postgisSource === null ? {} : {
+            async recordPostgisProjectionMutation(
+              collection: PostgisSourceCollection,
+              indexDocumentId: string,
+              document: SearchIndexDocument | null,
+            ) {
+              await postgisSource.recordMutation(transaction, collection, indexDocumentId, document);
+            },
+          }),
         }));
     },
   };
@@ -315,6 +339,11 @@ async function applyCurrentIndex(
     }
   }
 
+  await transaction.recordPostgisProjectionMutation?.(
+    collection as PostgisSourceCollection,
+    indexDocumentId,
+    document,
+  );
   if (document === null) {
     transaction.deleteDocument(path);
   } else {
@@ -1066,6 +1095,7 @@ async function reconcileSelectedBiteScoreCleanupCandidate(
       currentIndex.restaurantSourceDocumentId ===
         job.parentSourceDocumentId
     ) {
+      await transaction.recordPostgisProjectionMutation?.(dishSearchIndexCollection, indexDocumentId, null);
       transaction.deleteDocument(
         documentPath(dishSearchIndexCollection, indexDocumentId),
       );
@@ -1082,6 +1112,7 @@ async function reconcileSelectedBiteScoreCleanupCandidate(
       currentIndex.restaurantSourceDocumentId ===
         job.parentSourceDocumentId
     ) {
+      await transaction.recordPostgisProjectionMutation?.(dishSearchIndexCollection, indexDocumentId, null);
       transaction.deleteDocument(
         documentPath(dishSearchIndexCollection, indexDocumentId),
       );
@@ -1121,6 +1152,7 @@ async function reconcileSelectedBiteSaverCleanupCandidate(
     (sourceKind !== "biteSaverCoupon" &&
       sourceKind !== "biteSaverDailySpecial")
   ) {
+    await transaction.recordPostgisProjectionMutation?.(biteSaverOfferIndexCollection, indexDocumentId, null);
     transaction.deleteDocument(
       documentPath(biteSaverOfferIndexCollection, indexDocumentId),
     );
@@ -1133,6 +1165,7 @@ async function reconcileSelectedBiteSaverCleanupCandidate(
     sourceDocumentId: offerId,
   });
   if (expectedIndexDocumentId !== indexDocumentId) {
+    await transaction.recordPostgisProjectionMutation?.(biteSaverOfferIndexCollection, indexDocumentId, null);
     transaction.deleteDocument(
       documentPath(biteSaverOfferIndexCollection, indexDocumentId),
     );

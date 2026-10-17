@@ -1795,6 +1795,64 @@ function resultFromCandidate(
   return Object.freeze({id, data});
 }
 
+/** Build the native membership row from a pinned SQL projection snapshot.
+ * Delivery still uses the ordinary current Firestore authority handlers.
+ */
+export function createPostgisBiteSaverResultBuilder(
+  context: CustomerBiteSaverWorkerContext,
+  session: CustomerBiteSaverSessionDocument,
+  parent: CustomerBiteSaverStoredDocument,
+  checkpoint: CustomerBiteSaverStoredDocument | null = null,
+) {
+  const initial = buildRestaurantCandidate(context, session, parent, session.createdAt);
+  if (initial === null) throw new Error("Invalid pinned BiteSaver restaurant projection.");
+  let candidate: CandidateDocument = checkpoint === null ? initial : parseCandidate(checkpoint, session)!;
+  if (candidate === null || candidate.candidateDocumentId !== initial.candidateDocumentId ||
+      candidate.parentProjectionFingerprint !== initial.parentProjectionFingerprint) {
+    throw new Error("Invalid pinned BiteSaver accumulator checkpoint.");
+  }
+  return {
+  snapshot(): CustomerBiteSaverStoredDocument {
+    const id = candidate.candidateDocumentId;
+    return {id, path: `${privateCustomerBiteSaverCandidateCollection}/${id}`, data: candidate};
+  },
+  addOffers(offers: readonly CustomerBiteSaverStoredDocument[]) {
+  // Caller streams canonical geohash/index-document order. The accumulator
+  // retains only the native three-offer summary, count and catalog witness.
+  for (const offer of offers) {
+    const preview = previewCandidate(offer);
+    if (preview === null || exactOfferParentId(offer.data.restaurantAccountId) !== candidate.authoritativeAccountId ||
+        offer.data.customerOfferProjectionVersion !== customerBiteSaverOfferProjectionVersion ||
+        offer.data.customerDiscoverable !== true ||
+        offer.data.customerParentEligibilityFingerprint !== candidate.customerParentEligibilityFingerprint) continue;
+    if (offer.data.searchMatchComplete !== true) {
+      throw new CustomerBiteSaverTerminalPreparationError("preparation_failed", "The candidate offer projection needs repair.");
+    }
+    const availability = workerOfferAvailability({offerType: preview.offerType, offer: offer.data,
+      parentEligible: true, now: session.createdAt, timeZone: session.criteria.timeZone,
+      locationMode: session.criteria.locationMode,
+      restaurantCoordinates: validRestaurantCoordinates(candidate.latitude, candidate.longitude),
+      currentCoordinates: session.criteria.locationMode === "current"
+        ? {latitude: session.criteria.latitude, longitude: session.criteria.longitude} : null, usage: null});
+    if (!availability.visible) continue;
+    const matches = offerMatches(session, offer.data, null);
+    if (session.criteria.normalizedSearchQuery.length > 0 && !candidate.parentMatches && !matches) continue;
+    const summary = retainedPreviewCandidateSummary(
+      preview.offerType === "dailySpecial" ? [...candidate.previewDailyCandidates, preview] : candidate.previewDailyCandidates,
+      preview.offerType === "coupon" ? [...candidate.previewCouponCandidates, preview] : candidate.previewCouponCandidates);
+    candidate = {...candidate, offerMatches: candidate.offerMatches || matches,
+      usableOfferCount: candidate.usableOfferCount + 1, ...summary,
+      offerCatalogFingerprint: digest(`${candidate.offerCatalogFingerprint}\0${preview.sourceFingerprint}`)};
+  }
+  },
+  finish(): CustomerBiteSaverStoredDocument | null {
+  const result = resultFromCandidate(context, session, candidate!, session.createdAt);
+  return result === null ? null : {id: result.id,
+    path: `${privateCustomerBiteSaverResultCollection}/${result.id}`, data: result.data};
+  },
+  };
+}
+
 async function processFinalization(
   lease: Lease,
   context: CustomerBiteSaverWorkerContext,

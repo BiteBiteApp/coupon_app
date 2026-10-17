@@ -1,0 +1,37 @@
+{
+  "observedAt": "2026-10-17T14:06:52.671600-04:00",
+  "runtime": {
+    "node": "v24.21.0",
+    "v8": "13.6.233.17-node.53",
+    "platform": "darwin",
+    "arch": "arm64",
+    "binarySha256": "e4b5a3af0e05c75de2eae013904145f40fe7fc2a6e6f17510128bf45cca4e79b"
+  },
+  "hardware": {
+    "hw.model": "Mac17,3",
+    "hw.memsize": "17179869184",
+    "hw.physicalcpu": "10",
+    "hw.logicalcpu": "10",
+    "machdep.cpu.brand_string": "Apple M5"
+  },
+  "rssSnapshotNotPeak": "10108   3936 /Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/Postgres.app/Contents/Versions/18/bin/postgres\n20395  97824 /Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node",
+  "scope": "Only the task PostgreSQL postmaster and loopback HTTP host; not all PG children, shared memory, emulators, total process tree or peak RSS. No cache eviction or independently cold device/system run performed.",
+  "runtimeReview": {
+    "verdict": "No material issue found",
+    "files": {
+      "postgis_staging_runtime.ts": "c6b64500ff00741cc168b0440aca350551a0c6fc74eaaf4101ef889af9efcc05",
+      "customer_search_callable_context.ts": "4d69aaa73281f1a8fba91658e81d231e0d1ff1352db92e161b9d32c5727d147e",
+      "search_index_event_snapshot.ts": "57230d9d3549759f2cb0c642fc081b95783da5ab795c4786adcd6a763da3f4ed",
+      "customer_bitescore_runtime.ts": "0c8a328dad15178549522b038876c97f959d81567153c9dfde61ff50420f99a5"
+    },
+    "checks": [
+      "exact actual Firestore/Auth demo project and single allowlist",
+      "loopback emulators and local-only bounded SQL pool",
+      "inert eleven callable and seven source/job registrations",
+      "verified Auth token to native caller identity",
+      "bounded explicit lifecycle maintenance, no automatic schedule",
+      "legacy actor/cursor derivation and snapshot null/undefined extraction equivalent",
+      "Latest lazy root-key getter preserves legacy invalid-client validation before secret decoding"
+    ]
+  }
+}

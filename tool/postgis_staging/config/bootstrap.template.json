@@ -1,0 +1,12 @@
+{
+  "syntheticOnly": true,
+  "projectId": null,
+  "databaseId": "search-qualification",
+  "candidateDigest": null,
+  "datasetDigest": null,
+  "partition": null,
+  "fence": null,
+  "countsByNamespaceAndKind": null,
+  "checkpoint": null,
+  "status": "MISSING_REAL_IMPORTER"
+}

@@ -1,0 +1,103 @@
+{
+  "kind": "actual-flutter-widget-local-http-firestore-auth-postgis",
+  "hostedEvidence": false,
+  "sampleCountsDoNotSupportHostedTailLatencyClaims": true,
+  "observations": [
+    {
+      "flow": "bitesaver-guest",
+      "run": 0,
+      "milliseconds": 3193.27,
+      "httpCalls": 28,
+      "errors": 0,
+      "phase": "first-observation"
+    },
+    {
+      "flow": "bitesaver-guest",
+      "run": 1,
+      "milliseconds": 2716.111,
+      "httpCalls": 28,
+      "errors": 0,
+      "phase": "warm-observation"
+    },
+    {
+      "flow": "bitesaver-guest",
+      "run": 2,
+      "milliseconds": 2739.232,
+      "httpCalls": 28,
+      "errors": 0,
+      "phase": "warm-observation"
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 0,
+      "milliseconds": 270.342,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "first-observation"
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 1,
+      "milliseconds": 263.86,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation"
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 2,
+      "milliseconds": 261.273,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation"
+    },
+    {
+      "flow": "bitescore-dish-home",
+      "run": 0,
+      "milliseconds": 131.227,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "first-observation"
+    },
+    {
+      "flow": "bitescore-dish-home",
+      "run": 1,
+      "milliseconds": 108.576,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "warm-observation"
+    },
+    {
+      "flow": "bitescore-dish-home",
+      "run": 2,
+      "milliseconds": 104.548,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "warm-observation"
+    },
+    {
+      "flow": "create-rate-finder",
+      "run": 0,
+      "milliseconds": 453.838,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "first-observation"
+    },
+    {
+      "flow": "create-rate-finder",
+      "run": 1,
+      "milliseconds": 419.951,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "warm-observation"
+    },
+    {
+      "flow": "create-rate-finder",
+      "run": 2,
+      "milliseconds": 415.344,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "warm-observation"
+    }
+  ]
+}

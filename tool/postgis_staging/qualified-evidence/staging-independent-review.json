@@ -1,0 +1,89 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001",
+  "reviewer": "track-C/staging_recovery",
+  "time": "2026-10-17T18:01:19.920488+00:00",
+  "scope": "Focused independent query/store/membership/native builder/source recovery review; no production or hosted qualification",
+  "files": {
+    "functions/src/postgis_store.ts": "3c7f49cc9d57acb4ad26d39448f9f2af26af5b6078dad5336269fcd9afa7469c",
+    "functions/src/postgis_query.ts": "309e27651e330a1fd04fd3c9063605c59b2bce83d8364e98bd85c6b8803dacdf",
+    "functions/src/postgis_semantics.ts": "1338d5b77d5d21db418221d1c0b9dd118b4b097bf8433feb8650e353731aaf7c",
+    "functions/src/postgis_membership.ts": "75bb996e00cfd1c02ad80e937332a39068afc526c2e73010168a0adffdefdfc0",
+    "functions/src/customer_bitesaver_search_worker.ts": "230810e57ec60efbdc8623b45a78425a2ac0cd2097cecf1b0a7b5287717238ec",
+    "functions/src/postgis_source_firestore.ts": "620eeaded115ce6767302967b80bc79fd8bb593aefdacadea165c519588fd7ed",
+    "functions/src/postgis_source_recovery.ts": "6b2f29a9584a1db46d4b64ec1c61e3019bac9a33e68db94df51092f7d618f2d4",
+    "functions/src/postgis_snapshot.ts": "c9bcd4835209018388ec4c290e2163828eebb09f38f00bb1cfb7804958e2faf2"
+  },
+  "findings": [
+    {
+      "id": "C1",
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "finding": "Exact numeric query bound required the recovered runtime binary and safe launch flags.",
+      "resolution": "Exact Node/V8/platform/architecture/binary SHA guard plus original NODE_OPTIONS/execArgv rejection; safe tests use isolation=none.",
+      "status": "resolved"
+    },
+    {
+      "id": "C2",
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "finding": "Native Saver byte ID cursor and SQL UTF-16BE ID bytes differed; tied parent later pages could disappear.",
+      "resolution": "Decode native ID then encode SQL UTF-16BE boundary; actual provider 30 identical-name/coordinate parent regression passes.",
+      "status": "resolved"
+    },
+    {
+      "id": "C3",
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "finding": "Full per-parent offer materialization retained thousands of full projections and could repeatedly hit work cap.",
+      "resolution": "Stream75 rows into native three-preview accumulator, persist exact progress and resume bounded requests; offer-heavy native checkpoint test passes.",
+      "status": "resolved"
+    },
+    {
+      "id": "C4",
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "finding": "Valid-digest but semantically bad projection could block the same immutable target forever without a repair path.",
+      "resolution": "Durable ordered poison witness blocks publication; explicit monotonic expansion to source repair fence permits only later same-identity repair/delete, preserving receipt and manifest checks; both regressions pass.",
+      "status": "resolved"
+    }
+  ],
+  "sourceRecoveryReview": "No additional material issue in exact-project journal, atomic projection/event writes, enrollment reread/capture, validated recovery snapshot, acknowledgment/prune, interrupted restore and final partition publication. Crash partial snapshot names may require new ID and never become successful recovery.",
+  "latestSQLTests": {
+    "passed": 18,
+    "failed": 0,
+    "transport": "synthetic in-memory ordered source events",
+    "database": "real local PostgreSQL18.6/PostGIS3.6.3 bsgate0_query",
+    "log": "postgis-query-tests.log"
+  },
+  "stagingControls": {
+    "passed": 45,
+    "failed": 0,
+    "cloudReady": false,
+    "timerStarted": false,
+    "log": "staging-controls-tests.log",
+    "resolvedOtherReviewerFinding": "B found early $100 checkpoint omitted delayed, holding and cleanup forecast. Guard now uses identical conservative total at $100 and $300; exact-boundary regression added and passed."
+  },
+  "ownChangesRequireOtherReviewer": [
+    "functions/src/postgis_staging_runtime.ts",
+    "functions/src/customer_search_callable_context.ts",
+    "functions/src/search_index_event_snapshot.ts",
+    "tool/postgis_staging/"
+  ],
+  "limitations": [
+    "No hosted/Linux numeric/runtime qualification",
+    "No provider CAS/watchdog/alert/cleanup execution",
+    "No production deployment or source activation",
+    "100-sample API timing is distinct from actual Flutter render and hosted tail acceptance"
+  ],
+  "gate0VerdictOwner": "integrating agent after combined final qualification",
+  "runtimeQualification": {
+    "passed": 3,
+    "failed": 0,
+    "log": "runtime-final-qualified.log",
+    "commandNote": "BS_POSTGIS_RUNTIME_TEST=1 pinned node --test --test-isolation=none test/postgis_staging_runtime.test.js"
+  },
+  "legacyWiringQualification": {
+    "passed": 32,
+    "failed": 0,
+    "log": "runtime-final-legacy.log",
+    "commandNote": "pinned node --test test/customer_bitescore_runtime.test.js test/search_index_runtime_wiring.test.js; default process isolation",
+    "diagnosticLimitation": "Combining real-module candidate tests and legacy Module._load mock harness under test-isolation=none causes one mock class/cache identity collision; separate qualified/default-isolated commands pass. Failed combined diagnostic retained in runtime-final-tests.log."
+  },
+  "lastVerificationAt": "2026-10-17T18:08:28.639002+00:00"
+}

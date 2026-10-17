@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:coupon_app/main.dart';
+import 'package:coupon_app/widgets/app_update_opening.dart';
 import 'package:coupon_app/services/bitescore_service.dart';
 import 'package:coupon_app/models/customer_bitesaver_saved.dart';
 import 'package:coupon_app/services/customer_bitesaver_device_use_service.dart';
@@ -206,7 +207,8 @@ void main() {
     );
     final app = const CouponApp().build(context) as MaterialApp;
     final route = app.onGenerateInitialRoutes!('/').single as MaterialPageRoute;
-    final shell = route.builder(context) as MainNavigationScreen;
+    final opening = route.builder(context) as AppUpdateOpening;
+    final shell = opening.child as MainNavigationScreen;
     expect(shell.biteSaverBrowseHomeBuilder, isNull);
     expect(shell.biteSaverSavedAccountBuilder, isNull);
     expect(DemoRedemptionStore.legacyWritesEnabled, isTrue);

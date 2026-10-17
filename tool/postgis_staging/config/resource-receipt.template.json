@@ -1,0 +1,12 @@
+{
+  "projectId": null,
+  "runId": "bs-postgis-gate0-001",
+  "approvalReference": null,
+  "firstBillableAt": null,
+  "deadline": null,
+  "alertAndShutdownTestPassed": false,
+  "controlBucket": null,
+  "heartbeatObjectMediaUrl": null,
+  "resources": [],
+  "note": "Record exact API resource names, immutable UID/createTime and ownership immediately after creation. No wildcard or inferred name deletion."
+}

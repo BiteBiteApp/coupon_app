@@ -1,0 +1,31 @@
+{
+  "reviewer": "track-C/staging_recovery",
+  "reviewedAt": "2026-10-17T18:17:56.488044+00:00",
+  "scope": "Read-only frozen deliverable factual/integrity check; report-only v2 amendment",
+  "verdict": "PASS after warmup-count correction",
+  "candidateDigest": "732b9379e1cc76097ef21b6b541e32af0e999ba049ac35f26175cab67d6d3dc1",
+  "sourceCount": 426,
+  "changedSinceFirstFreeze": [
+    "tool/postgis_staging/GATE0-QUALIFICATION.md"
+  ],
+  "runtimeSourceTestsMeasurementsChanged": false,
+  "checks": [
+    "All 426 current candidate hashes verified",
+    "Compiled JavaScript hashes verified",
+    "Raw evidence hashes and byte sizes verified",
+    "Candidate/configuration/evidence index linked hashes verified",
+    "First candidate/readiness/report bytes preserved and amendment hashes verified",
+    "Local PASS versus hosted BLOCKED accurate; guest warm target remains unmet; no hosted/cold/device acceptance claimed",
+    "Exact fixture sizes, useful-page timings and benchmark percentiles match evidence"
+  ],
+  "materialCorrectionsResolved": [
+    "Five warmup clients per flow, ten total, not ten per flow"
+  ],
+  "remainingFindings": [],
+  "boundedOperationalNote": "guard.py default verifies retained original candidate-manifest.json and now fails closed on superseded report bytes. Current verification succeeds with python3 tool/postgis_staging/scripts/freeze.py --manifest tool/postgis_staging/candidate-manifest.v2.json. Integrator notified; frozen source not edited.",
+  "finalHashes": {
+    "tool/postgis_staging/GATE0-QUALIFICATION.md": "c6c1851639ade76cde20d29135d01919137507be528c183006c7a5100cbbac9b",
+    "tool/postgis_staging/candidate-manifest.v2.json": "8747ba47d516328a8f0f406fe4f2da7d2701f6a79ad4917f058efe620c7d7316",
+    "tool/postgis_staging/readiness-manifest.v2.json": "caac9214de7e234c00c3548d5b24fd6b5dd9dd52fa7547edab8f781b1b676094"
+  }
+}

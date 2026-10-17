@@ -91,6 +91,8 @@ const nowMs = Date.parse("2026-09-09T12:00:00.000Z");
 const discoveryKey = Buffer.alloc(32, 17);
 const identityKeyV1 = Buffer.alloc(32, 23);
 const defaultSignedUid = "handler-test-customer";
+const {createPostgisSearchHandlers} = require("../lib/postgis_handlers.js");
+const {postgisSearchBindingPath} = require("../lib/postgis_search_binding.js");
 
 function compareValues(left, right) {
   const leftValue = left instanceof Date ? left.getTime() : typeof left?.toMillis === "function" ? left.toMillis() : left;
@@ -2052,6 +2054,166 @@ test("one live gate serializes status and page continuations per session", async
   assert.equal(gateWriteIndex, 0);
   assert.ok(sessionTouchIndex > gateWriteIndex);
   assert.ok(replayWriteIndex > sessionTouchIndex);
+});
+
+test("signed preview rechecks an edited same-ID offer instead of losing its restaurant", async (t) => {
+  for (const offerCount of [1, 2]) {
+    await t.test(`${offerCount} prepared coupon(s)`, async () => {
+      const {database, context, response: started} = await startSession(undefined, {
+        request: {searchText: "coupon"},
+      });
+      const session = markSessionReady(database, started);
+      const seeded = addReadyRestaurant(database, session, 0, {
+        offerCount,
+        onlyCoupons: true,
+      });
+      const frozenCandidate = {...seeded.coupons[0]};
+      const edited = replaceReadyCoupon(database, seeded, 0, {
+        title: "Edited current coupon",
+      });
+      assert.notEqual(edited.candidate.sourceFingerprint, frozenCandidate.sourceFingerprint);
+      assert.equal(edited.candidate.sourceCreatedAtOrderKey, frozenCandidate.sourceCreatedAtOrderKey);
+
+      const page = await getCustomerBiteSaverSearchPageHandler(pageRequest(started), context);
+      assert.equal(page.restaurants.length, 1);
+      assert.equal(page.restaurants[0].restaurantId, seeded.publicRestaurantId);
+      assert.equal(page.restaurants[0].offers.length, offerCount);
+      assert.equal(page.restaurants[0].usableOfferCount, offerCount);
+      assert.equal(page.restaurants[0].offers[0].title, "Edited current coupon");
+      const occurrence = new CustomerBiteSaverOfferOccurrenceCodec({
+        key: discoveryKey,
+        now: () => nowMs,
+      }).open(page.restaurants[0].offers[0].offerOccurrence);
+      assert.equal(occurrence.sourceFingerprint, edited.candidate.sourceFingerprint);
+      assert.equal(occurrence.sourceCreatedAtOrderKey, frozenCandidate.sourceCreatedAtOrderKey);
+      assert.deepEqual(database.documents.get(seeded.resultPath), seeded.result);
+    });
+  }
+});
+
+test("edited same-ID offers still require current matching, visibility, and signed usage", async (t) => {
+  for (const scenario of [
+    {name: "no longer matches the offer-only query", changes: {title: "Unrelated dessert"}},
+    {name: "withdrawn", changes: {isActive: false, active: false}},
+    {name: "expired", changes: {endTime: new Date(nowMs - 1)}},
+    {name: "already used", changes: {usageRule: "Once per customer"}, used: true},
+  ]) {
+    await t.test(scenario.name, async () => {
+      const {database, context, response: started} = await startSession(undefined, {
+        request: {searchText: "needle"},
+      });
+      const session = markSessionReady(database, started);
+      const seeded = addReadyRestaurant(database, session, 0, {
+        offerCount: 1,
+        onlyCoupons: true,
+        offerOverrides: {title: "Needle coupon"},
+      });
+      replaceReadyCoupon(database, seeded, 0, scenario.changes);
+      if (scenario.used) {
+        const offerId = customerBiteSaverOpaqueOfferId(identityKeyV1,
+          seeded.accountId, "coupon", seeded.coupons[0].sourceDocumentId);
+        database.documents.set(`customer_redemptions/${defaultSignedUid}/coupon_redemptions/${offerId}`,
+          canonicalCouponUsage(defaultSignedUid, seeded.publicRestaurantId, offerId));
+      }
+      const page = await getCustomerBiteSaverSearchPageHandler(pageRequest(started), context);
+      assert.equal(page.restaurants.length, 0);
+      assert.equal(page.hasMore, false);
+    });
+  }
+});
+
+test("candidate admission resumes a failed pin without jobs or deadline extension", async () => {
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database);
+  const pins = [];
+  let fail = true;
+  let queries = 0;
+  const api = createPostgisSearchHandlers({database, provider: {
+    async pinRevision(input) {
+      pins.push(input);
+      assert.equal([...database.documents.keys()].some(key => key.startsWith(`${privateCustomerBiteSaverJobCollection}/`)), false);
+      if (fail) throw new Error("injected pin interruption");
+      return {revision: "17"};
+    },
+    async queryResults({query, revision}) {
+      queries++;
+      assert.equal(revision, "17");
+      return database.queryDocuments(query);
+    },
+  }});
+  const request = startRequest({searchText: ""});
+  await assert.rejects(api.startCustomerBiteSaverSearchV2(request, context), /injected pin interruption/);
+  const pending = [...database.documents.entries()].find(([key]) => key.startsWith(`${privateCustomerBiteSaverSearchSessionCollection}/`))[1];
+  assert.equal(pending.state, "preparing");
+  assert.equal(database.documents.get(postgisSearchBindingPath(pending.sessionId)).state, "preparing");
+  fail = false;
+  const pendingStart = await startCustomerBiteSaverSearchHandler(request, {...context, searchBackend: "postgis"});
+  const resumedStatus = await api.getCustomerBiteSaverSearchStatusV2(boundRequest(pendingStart), context);
+  assert.equal(resumedStatus.state, "ready");
+  const started = await api.startCustomerBiteSaverSearchV2(request, context);
+  assert.equal(started.state, "ready");
+  assert.equal(started.sessionId, pending.sessionId);
+  assert.deepEqual(pins[0], pins[1]);
+  assert.equal(pins.length, 2);
+  assert.equal(pins[1].expiresAtMs, pending.absoluteExpiresAt.getTime());
+  const session = database.documents.get(`${privateCustomerBiteSaverSearchSessionCollection}/${started.sessionId}`);
+  const seeded = addReadyRestaurant(database, session, 0, {offerCount: 1, onlyCoupons: true});
+  const result = await api.getCustomerBiteSaverSearchPageV2(pageRequest(started), context);
+  assert.equal(result.restaurants.length, 1);
+  assert.equal(result.restaurants[0].restaurantId, seeded.publicRestaurantId);
+  assert.ok(queries > 0);
+  assertNoPrivateCanaries(result);
+  const menu = await getCustomerBiteSaverMenuPageHandler(menuPageRequest(started, seeded.publicRestaurantId), context);
+  assert.equal(menu.state, "available");
+  await assert.rejects(getCustomerBiteSaverSearchPageHandler(pageRequest(started), context), /original search service/);
+  await assert.rejects(startCustomerBiteSaverSearchHandler(request, context), error => assertContractError(error, "failed-precondition"));
+  const before = queries;
+  await assert.rejects(api.getCustomerBiteSaverSearchPageV2(pageRequest(started),
+    {...context, identity: {authUid: "another-customer", authIsAnonymous: false}}));
+  assert.equal(queries, before);
+});
+
+test("candidate admission rejects excess starts before requesting revision pins", async () => {
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database);
+  let pins = 0;
+  const api = createPostgisSearchHandlers({database, provider: {
+    async pinRevision() { pins++; throw new Error("index temporarily unavailable"); },
+    async queryResults() { throw new Error("must not query"); },
+  }});
+  for (let index = 0; index < 2; index++) {
+    await assert.rejects(api.startCustomerBiteSaverSearchV2(startRequest({
+      clientRequestId: `candidate-admission-${index.toString().padStart(4, "0")}`,
+    }), context), /index temporarily unavailable/);
+  }
+  await assert.rejects(api.startCustomerBiteSaverSearchV2(startRequest({clientRequestId: "candidate-admission-0003"}), context),
+    error => assertContractError(error, "resource-exhausted"));
+  assert.equal(pins, 2);
+});
+
+test("candidate guest discovery retains explicit bounded history challenges", async () => {
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {identity: guestIdentity()});
+  const api = createPostgisSearchHandlers({database, provider: {
+    async pinRevision() { return {revision: "22"}; },
+    async queryResults({query}) { return database.queryDocuments(query); },
+  }});
+  const started = await api.startCustomerBiteSaverSearchV2(startRequest({searchText: ""}), context);
+  const session = database.documents.get(`${privateCustomerBiteSaverSearchSessionCollection}/${started.sessionId}`);
+  const seeded = addReadyRestaurant(database, session, 0, {
+    offerCount: 2, onlyCoupons: true, offerOverrides: {usageRule: "Once per customer"},
+  });
+  replaceReadyCoupon(database, seeded, 0, {title: "Guest edited coupon"});
+  const first = await api.getCustomerBiteSaverSearchPageV2(pageRequest(started, {guestStateRevision: 3}), context);
+  assert.equal(first.outcome, "guestCheckRequired");
+  assert.ok(first.candidates.length <= 75);
+  const suppressed = first.candidates[0].offerId;
+  const completed = await api.continueCustomerBiteSaverGuestOfferCheckV2(
+    guestAnswerRequest(started, first, [suppressed]), context);
+  assert.equal(completed.outcome, "complete");
+  assert.equal(completed.result.restaurants.length, 1);
+  assert.equal(completed.result.restaurants[0].offers.length, 1);
+  assert.notEqual(completed.result.restaurants[0].offers[0].offerId, suppressed);
 });
 
 test("restaurant membership query uses the exact ordered 26-row contract", async () => {

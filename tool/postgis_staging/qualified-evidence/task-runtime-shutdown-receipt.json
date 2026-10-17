@@ -1,0 +1,31 @@
+{
+  "completedAt": "2026-10-17T14:17:30.089530-04:00",
+  "taskPgData": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001-20261017/local-postgres/pgdata",
+  "stoppedPostgresPid": 23456,
+  "postgresPort": 55441,
+  "postgresStopMode": "fast, wait, task data directory only",
+  "stoppedFirestorePid": 11633,
+  "firestorePort": 8088,
+  "firestoreSession": 18997,
+  "firestoreStopSignal": "SIGTERM",
+  "listenersAfter": {
+    "55441": [],
+    "8088": [],
+    "55439": []
+  },
+  "original55439": "No listener before or after; no command targeted the historical cluster",
+  "preservedFiles": [
+    "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001-20261017/local-postgres/pgdata/PG_VERSION",
+    "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001-20261017/local-postgres/pgdata/global/pg_control",
+    "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001-20261017/local-postgres/postgres.log",
+    "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001-20261017/recovery-snapshot-Nn1FWZ/qualified.manifest.json",
+    "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001-20261017/recovery-snapshot-Nn1FWZ/qualified.rows.jsonl",
+    "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001-20261017/recovery-snapshot-Nn1FWZ/qualified.offsets.json"
+  ],
+  "dataRemoved": false,
+  "paidOrProductionResourcesTouched": false,
+  "postgresLog": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001-20261017/task-postgres-shutdown.log",
+  "firestoreSessionExitCode": 143,
+  "firestoreSessionOutputExcerpt": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001-20261017/firestore-emulator-session-shutdown.log",
+  "firestoreCapturedOutputWasTruncated": true
+}

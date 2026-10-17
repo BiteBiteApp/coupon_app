@@ -1,0 +1,21 @@
+{
+  "kind": "current-serving-expression deterministic regression plus independently retained exact-rational interval audit",
+  "runtime": {
+    "node": "v24.21.0",
+    "v8": "13.6.233.17-node.53",
+    "platform": "darwin",
+    "arch": "arm64",
+    "nodeSha256": "e4b5a3af0e05c75de2eae013904145f40fe7fc2a6e6f17510128bf45cca4e79b"
+  },
+  "server": "PostgreSQL 18.6 (Postgres.app) on aarch64-apple-darwin23.6.0, compiled by Apple clang version 15.0.0 (clang-1500.3.9.4), 64-bit",
+  "querySha256": "309e27651e330a1fd04fd3c9063605c59b2bce83d8364e98bd85c6b8803dacdf",
+  "unchangedAuthoritativeGeometrySha256": "626346013693e751c92f3b070a7d8e8eac56d78a76cc1078b18a98fc37f64144",
+  "combinedBoundVectors": 318,
+  "positiveBounds": 257,
+  "radiusEdgeVectors": 1512,
+  "acceptedRadiusEdgeVectors": 730,
+  "missed": 0,
+  "finiteSamplesAreNotUniversalProof": true,
+  "proofArtifact": "distance-arithmetic-reproduced.json",
+  "historical296ChecksNotRerun": true
+}

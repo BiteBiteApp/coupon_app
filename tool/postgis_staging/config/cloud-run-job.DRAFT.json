@@ -1,0 +1,31 @@
+{
+  "name": null,
+  "labels": {
+    "bs-run": "bs-postgis-gate0-001"
+  },
+  "template": {
+    "taskCount": 1,
+    "parallelism": 1,
+    "template": {
+      "serviceAccount": null,
+      "maxRetries": 0,
+      "timeout": "600s",
+      "containers": [
+        {
+          "image": null,
+          "resources": {
+            "limits": {
+              "cpu": "1",
+              "memory": "1Gi"
+            }
+          },
+          "args": [
+            "--mode=execute",
+            "--approved-project=REQUIRED",
+            "--approved-candidate-digest=REQUIRED"
+          ]
+        }
+      ]
+    }
+  }
+}
