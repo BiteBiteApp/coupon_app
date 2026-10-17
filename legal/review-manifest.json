@@ -1,28 +1,28 @@
 {
   "ownerApproved": true,
-  "published": false,
+  "published": true,
   "publicOrigin": "https://app.colesmartllc.com",
   "approvedTermsVersion": "bitestar-terms-v1",
-  "effectiveDate": null,
+  "effectiveDate": "2026-10-17",
   "effectiveDatePolicy": "first-publication",
   "documents": {
     "privacy-policy": {
       "title": "BiteStar Privacy Policy",
       "path": "/privacy-policy.html",
       "textFile": "legal/privacy-policy.txt",
-      "textSha256": "7c83d1ca48e9eedf407a27329bf1d1547bfc6ebae17a6a8426d9da45970866a6"
+      "textSha256": "6a9cf454948823597d4ea540a763ec80fad232c124512f988c4c230d8d246898"
     },
     "terms-of-service": {
       "title": "BiteStar Terms of Service",
       "path": "/terms-of-service.html",
       "textFile": "legal/terms-of-service.txt",
-      "textSha256": "c1f616413547f3f3083522b2416573805f8251823ac1ea02435b6df62e9a7e2c"
+      "textSha256": "d47ef4416d17ff016a3c967e415a8d0d77f07672a24fdae8112e6d5fabb39155"
     },
     "delete-account": {
       "title": "BiteStar Account Deletion",
       "path": "/delete-account.html",
       "textFile": "legal/delete-account.txt",
-      "textSha256": "2a4b7f673b77d5348bcd8f88127f008e5fd61b614e4a8ba06ad86656a515dfdb"
+      "textSha256": "504e363d35d3124d6a253546ba22169321adf1b18ec1b0c957c19e6cc0b99633"
     }
   }
 }

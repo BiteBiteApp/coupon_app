@@ -57,6 +57,9 @@ class LocalFirebaseCore extends FirebasePlatform {
 }
 class LocalPhoneAuth extends auth_platform.FirebaseAuthPlatform {
   @override
+  auth_platform.UserPlatform? get currentUser => null;
+
+  @override
   auth_platform.FirebaseAuthPlatform delegateFor({required FirebaseApp app}) => this;
   @override
   auth_platform.FirebaseAuthPlatform setInitialValues({auth_platform.InternalUserDetails? currentUser, String? languageCode}) => this;

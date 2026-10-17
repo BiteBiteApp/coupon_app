@@ -1,0 +1,51 @@
+BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003 — APPROVED RELEASE COMPLETE
+Owner continuation: 7e191a6d-5db0-49f2-b9df-99aa8096df86, October17,2026.
+Prompt timestamp not supplied; execution began2026-10-17T15:53:29Z.
+Role: root implementation/release integrator with three independent review tracks.
+Expected and actual starting main:1200c828f68a05d3b4bec6ae03438a645c4c0b80.
+Source qualification completed October17,2026; final independent Hosting read16:30:03Z.
+Successful checkpoint name:bs-bitestar-web-release-prerequisites-003.
+Actual commit and remote peeled-tag verification are recorded in the separate Git receipt and canonical backlog after this report is committed; no self-referential commit hash is asserted here.
+
+WHAT CHANGED?
+The authorized backend and existing technical/legal website release completed.
+- Firestore cloud.firestore now points to ruleset53828191-28b8-46d1-8ef1-fc3cbdee09a9, updated16:19:50.925131Z. Its source SHA2568fcae3e7205961bcb2329db4fd7caa44a5814ceee842cb5bae6daff4adeb8a20 is exactly the tested11-predicate correction to the actual live baseline. Repository-root Rules were not deployed.
+- getCustomerBiteSaverSearchPage now runs the frozen deployed-baseline restaurantMedia backport, revisiongetcustomerbitesaversearchpage-00004-viy, sourcegeneration1792253724629520. Runtime identity, bounds and version1 secret references remain unchanged; prior Ready revision00001-tuz remains retained.
+- Created only listRatingAdminDishSuggestionsPage, applyRatingAdminDishSuggestionGroup, rejectRatingAdminDishSuggestionGroup, approveRestaurantNameChange, getAdminPostingRestriction and setAdminPostingRestriction. Exact source archives match frozen candidate603b67372de378a53627786f66250633eea557c6c9e77227b2649f8ab50cafae. Existing reviewed runtime identities/key references and max10 revision/Function limits are preserved. The new services' service-level default cap is20; the effective configured revision cap remains10.
+- Restored only listCouponAdminCouponsPage to external ingress, automatic scaling, zero minimum/default and service max10. Its full revision specification, traffic, sourcegeneration1790137656101865 and revision00001-wam remained identical. The v2 update was rejected409 without changing production; an independently reviewed v1 metadata-only dry run and update succeeded. No new coupon revision or image redeployment occurred.
+- Added only roles/run.invoker memberallUsers at service level to the seven approved Admin services. Application Admin authority remains unchanged. No project IAM or service-account permissions changed.
+- Created the single source-declared private_dish_edit_proposal_groups COLLECTION composite, resolutionIdentitiesValid ASC, oldestTrustedServerCreateTime ASC, automatic__name__ ASC. IndexCICAgNiZnYEK is READY. No other index/TTL operation.
+- Published web version0192679e04c373da/release1792254366721000 at16:26:06.721Z, then verified the live deletion entry before publishing legal version4a31356a19073baf/release1792254469691000 at16:27:49.691Z.
+- The final site has72 ACTIVE files: all67 previous paths retained,59 original compressed hashes retained,8 approved replacements and5 additions. Configuration, reserved Firebase init files, QR/invite routes, Stripe/Portal pages and association files are preserved. The three legal pages use the October17,2026 effective date and bitestar-terms-v1; approved legal wording is unchanged apart from the publication date.
+- Final generator/manifest publication metadata is true only after public verification. This is publication bookkeeping, not Terms or other runtime activation.
+Public pages:
+https://app.colesmartllc.com/privacy-policy.html
+https://app.colesmartllc.com/terms-of-service.html
+https://app.colesmartllc.com/delete-account.html
+Secure browser entry:https://app.colesmartllc.com/#/account/delete
+
+DOES IT WORK?
+PASS for this bounded, authorized release; independent Tracks A,B,C all PASS.
+- Live signed-out deletion entry opens directly, survives reload, shows existing email/Google/phone choices and receipt guidance, and dismisses phone sign-in without sending a code. The published information-page link opens this same form. Existing116 deletion and14 browser tests remain prior qualification; no real account was deleted and no production sign-in/SMS was used to manufacture an end-to-end claim.
+- Fresh independent deployed Rules read matches the tested source byte-for-byte. Reversing11 insertions exactly reproduces the independently re-read retained baseline. Existing15 focused Rules checks remain applicable.
+- All21 live Admin probes return only expected UNAUTHENTICATED/PERMISSION_DENIED callable errors: missing authentication, forged body authority and invalid tokens for each of7 endpoints. All8 browser CORS preflights pass for the7 Admin endpoints and media endpoint.
+- Before exposure, actual wrappers denied35 missing/customer/owner/forged-identity cases using verified local Auth-emulator customer and restaurant-owner tokens; positive/identity/deletion/idempotency paths retain prior tests. Immutable deployed source provenance ties those tests to production. Signed-in production customer/owner/Admin sessions and Admin mutations were not exercised; this limitation is explicit.
+- The exact indexed Dish Suggestions query succeeds,limit26,0rows. A bounded actual coupon child query succeeds,2rows/limit26, with only document names selected and no identifiers or content recorded. These use the existing operator read identity; they are not signed-in application Admin sessions. Cursor/count/authority behavior remains supported by matching deployed source and qualified tests.
+- Public restaurantMedia HTTP200 returns the exact public DTO for an eligible real BiteSaver sample in manual mode. Photo/manual/version-race behavior is covered by303 frozen backend checks and3 Flutter consumer tests; no photo-mode production sample or complete live Home walkthrough is claimed.
+- Reused402 focused prerequisite checks. This continuation additionally passed67 dated legal tests,6 expanded Admin emulator tests,15 local Hosting checks,7 post-publication artifact tests,21 live denials,8 CORS preflights and15 live exact-byte routes. Release build, scoped analysis, generator parity and Git diff checks pass. Counts overlap where suites were expanded/repeated; they are not a unique combined test total.
+- The historical broader suite remains712pass/13 previously classified stale failures; it was not rerun or represented as all green.
+- Three public HTML responses equal the frozen dated files. Mobile390px checks show no horizontal overflow. Publication bookkeeping did not change deployed HTML or app inputs.
+- Seven owner files remain byte-identical.244/245 protected service/config snapshots remain identical; the sole authorized change is the Dish Suggestions runtime option in functions/src/index.ts. Prior blocker reports and unrelated work remain preserved. No branch/reset/stash/force operation.
+- Existing recovery versions/revisions/source archives are retained. Recovery was reviewed, not executed. The API's immediate before/after release checks are not an atomic compare-and-swap; any future recovery must first verify current release still belongs to this run.
+
+WHAT REMAINS?
+No unresolved blocker or owner decision remains for this authorized technical-host web/legal release.
+The canonical customer-facing bitestar.app apex launch remains unverified and was outside authorized DNS/domain changes. The existing app-updates/ios.json HTML-response defect remains FIX SEPARATELY — REAL BUG, unchanged and tracked; it was not made an invented blocker for legal publication.
+Terms enforcement, age enforcement, AI screening, moderation/cleanup activation and bounded customer-search cutovers remain OFF. Existing unrelated holds, account identity, billing/Stripe, signing and secret payloads were not changed. Existing active worker/aggregation behavior was preserved; this is not a claim that every subsystem is OFF.
+Source, tests, independent review, deployment and default activation are separate states. This release is deployed/verified; dormant policies remain dormant. No additional legal-writing, visual-redesign or unrelated bug project was opened.
+
+Detailed immutable identities, source hashes, limits and routine preparation corrections:
+WEB_RELEASE_003_COMPLETION_EVIDENCE.json
+Durable packages, requests, operation receipts, screenshots, logs and independent reviews:
+/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/approved-continuation
+Historical prerequisites and earlier blocker reports retain their original conclusions as dated history; this completion report supersedes their current release status.

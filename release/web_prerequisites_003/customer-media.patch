@@ -1,0 +1,415 @@
+--- /dev/null
++++ b/src/bitesaver_customer_media.ts
+@@ -0,0 +1,47 @@
++import { buildBiteSaverRestaurantIndex, buildBiteSaverDailySpecialOfferIndex, biteSaverOfferParentFingerprint, customerBiteSaverPublicImageUrl } from "./search_index_builders.js";
++import { restaurantSearchIndexCollection } from "./search_index_contract.js";
++import { customerBiteSaverOpaqueRestaurantId, customerBiteSaverOpaqueOfferId } from "./customer_bitesaver_public_identity.js";
++import { CustomerBiteSaverContractError } from "./customer_bitesaver_search_contract.js";
++import { publicOwnerGallery, readOwnerMedia, ownerMediaBoardId, managedSpecialForPublication } from "./bitesaver_owner_media.js";
++import type { CustomerBiteSaverSessionContext } from "./customer_bitesaver_search_session.js";
++export type CustomerRestaurantMedia = {
++    schemaVersion: 1;
++    kind: "restaurantMedia";
++    restaurantId: string;
++    boardOfferId: string;
++    gallery: string[];
++    mode: "manual" | "photo";
++    board: Record<string, unknown> | null;
++    specialImages: Record<string, string>;
++};
++export async function getCustomerRestaurantMedia(raw: Record<string, unknown>, context: CustomerBiteSaverSessionContext): Promise<CustomerRestaurantMedia> {
++    if (Object.keys(raw).sort().join(',') !== 'kind,restaurantId,schemaVersion' || raw.kind !== 'restaurantMedia' || raw.schemaVersion !== 1 || typeof raw.restaurantId !== 'string' || !/^bsr_[A-Za-z0-9_-]{43}$/.test(raw.restaurantId))
++        throw new CustomerBiteSaverContractError('invalid-argument');
++    const docs = await context.database.queryDocuments({ collectionPath: restaurantSearchIndexCollection, filters: [{ field: 'publicRestaurantId', operation: '==', value: raw.restaurantId }], orders: [], limit: 2 });
++    const key = context.identityKeyV1;
++    const id = docs.length === 1 ? docs[0].data.sourceDocumentId : null;
++    if (!key || typeof id !== 'string' || !id || id.includes('/') || docs[0].data.source !== 'biteSaver' || customerBiteSaverOpaqueRestaurantId(key, id) !== raw.restaurantId)
++        throw new CustomerBiteSaverContractError('not-found');
++    const account = await context.database.getDocument(`restaurant_accounts/${id}`);
++    const projection = account ? buildBiteSaverRestaurantIndex({ sourceDocumentId: id, source: account.data, now: new Date(context.now?.() ?? Date.now()), identityKeyV1: key }) : null;
++    if (!account || projection?.publicVisible !== true || projection.publicRestaurantId !== raw.restaurantId)
++        throw new CustomerBiteSaverContractError('not-found');
++    const state = readOwnerMedia(account.data);
++    let board: Record<string, unknown> | null = null;
++    if (state.mode === 'photo') {
++        const doc = await context.database.getDocument(`restaurant_accounts/${id}/daily_specials/${ownerMediaBoardId}`);
++        const source = doc ? managedSpecialForPublication(account.data, ownerMediaBoardId, doc.data) : null;
++        const indexed = source ? buildBiteSaverDailySpecialOfferIndex({ restaurantAccountId: id, sourceDocumentId: ownerMediaBoardId, offer: source, restaurant: account.data, now: new Date(context.now?.() ?? Date.now()) }) : null;
++        if (source && indexed?.publicVisible === true) {
++            const expiration = source.expiresAt as {
++                toMillis?: () => number;
++            } | Date | null;
++            board = { title: source.title, imageUrl: source.imageUrl, isActive: source.isActive, availabilityMode: source.availabilityMode, daysOfWeek: source.daysOfWeek, allDay: source.allDay, startTime: source.startTime, endTime: source.endTime, hideWhenUnavailable: source.hideWhenUnavailable, expiresAt: expiration instanceof Date ? expiration.getTime() : expiration?.toMillis?.() ?? null };
++        }
++    }
++    const finalAccount = await context.database.getDocument(`restaurant_accounts/${id}`);
++    const finalProjection = finalAccount ? buildBiteSaverRestaurantIndex({ sourceDocumentId: id, source: finalAccount.data, now: new Date(context.now?.() ?? Date.now()), identityKeyV1: key }) : null;
++    if (!finalAccount || finalProjection?.publicVisible !== true || finalProjection.publicRestaurantId !== raw.restaurantId || biteSaverOfferParentFingerprint(finalAccount.data) !== biteSaverOfferParentFingerprint(account.data) || readOwnerMedia(finalAccount.data).version !== state.version)
++        throw new CustomerBiteSaverContractError('failed-precondition');
++    return { schemaVersion: 1, kind: 'restaurantMedia', restaurantId: raw.restaurantId, boardOfferId: customerBiteSaverOpaqueOfferId(key, id, 'dailySpecial', ownerMediaBoardId), gallery: account.data.ownerMedia == null ? (typeof projection.primaryImageUrl === "string" ? [projection.primaryImageUrl] : []) : publicOwnerGallery(account.data).map(customerBiteSaverPublicImageUrl).filter((url): url is string => url !== null), mode: state.mode, board, specialImages: {} };
++}
+--- /dev/null
++++ b/src/bitesaver_owner_media.ts
+@@ -0,0 +1,294 @@
++import {ownerPhotoPath} from "./owner_photo_identity.js";
++import { createHash } from "node:crypto";
++import { isDeepStrictEqual } from "node:util";
++import { HttpsError } from "firebase-functions/v2/https";
++import { requireAuthenticatedRestaurantAccountActor } from "./admin_authorization.js";
++export const ownerMediaPhotoLimit = 12;
++export const ownerMediaSpecialLimit = 50;
++export const ownerMediaBoardId = "bitesaver_managed_board";
++type Data = Record<string, any>;
++type Image = {
++    id: string;
++    path: string;
++    generation: string;
++    url: string;
++    registrationVersion: number;
++    state: "ready" | "deleting";
++};
++export type OwnerMediaState = {
++    version: number;
++    images: Image[];
++    gallery: string[];
++    legacyMain: string | null;
++    mode: "manual" | "photo";
++    boardImage: string | null;
++    specialImages: Record<string, string>;
++    legacySpecialImages?: Record<string, string>;
++    lastRequest?: string;
++    lastFingerprint?: string;
++};
++export type OwnerMediaSnapshot = {
++    account: Data;
++    specials: Record<string, Data>;
++    specialsOverflow?: boolean;
++};
++export type OwnerMediaDecision<T> = {
++    result: T;
++    account?: Data;
++    specials?: Record<string, Data>;
++    removeSpecials?: string[];
++};
++export type OwnerMediaDependencies = {
++    transact<T>(uid: string, evaluate: (snapshot: OwnerMediaSnapshot) => OwnerMediaDecision<T>, rootOnly?: boolean): Promise<T>;
++    inspect(path: string): Promise<{
++        generation: string;
++        size: number;
++        contentType: string;
++        mediaId: string;
++        url: string;
++    }>;
++    deleteGeneration(path: string, generation: string): Promise<void>;
++    timestamp(): unknown;
++};
++const imageId = /^(?:[a-f0-9]{32}|bso_[a-f0-9]{64})$/;
++const recordId = /^[A-Za-z0-9_-]{1,128}$/;
++const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
++function fail(code: "invalid-argument" | "failed-precondition" | "permission-denied" | "aborted", message: string): never { throw new HttpsError(code, message); }
++function object(value: unknown): Data { if (!value || typeof value !== "object" || Array.isArray(value))
++    fail("invalid-argument", "Invalid media request."); return value as Data; }
++function exact(value: Data, keys: string[]) { if (Object.keys(value).some(k => !keys.includes(k)))
++    fail("invalid-argument", "Unsupported media fields."); }
++function owner(snapshot: OwnerMediaSnapshot, uid: string) {
++    if (snapshot.account.uid !== uid || snapshot.account.couponApplicationSubmitted !== true || snapshot.account.approvalStatus !== "approved" || snapshot.account.couponPostingEnabled !== true)
++        fail("permission-denied", "An eligible restaurant owner is required.");
++}
++export function readOwnerMedia(account: Data): OwnerMediaState {
++    if (account.ownerMedia == null)
++        return { version: 0, images: [], gallery: typeof account.mainImageUrl === "string" && account.mainImageUrl ? ["legacy-main"] : [], legacyMain: typeof account.mainImageUrl === "string" ? account.mainImageUrl : null, mode: "manual", boardImage: null, specialImages: {} };
++    const value = object(account.ownerMedia);
++    if (!Number.isSafeInteger(value.version) || !Array.isArray(value.images) || !Array.isArray(value.gallery) || !["manual", "photo"].includes(value.mode) || !value.specialImages)
++        fail("failed-precondition", "Restaurant media needs review.");
++    return structuredClone(value) as OwnerMediaState;
++}
++export function ownerMediaReferenced(state: OwnerMediaState, id: string) { return state.gallery.includes(id) || state.boardImage === id || Object.values(state.specialImages).includes(id); }
++/** A full-state save also writes timestamps and private upload registrations.
++ * Consent applies to new/substantive public content, never removal-only saves. */
++export function ownerMediaPublishes(snapshot: OwnerMediaSnapshot, decision: OwnerMediaDecision<unknown>): boolean {
++    const next = decision.account?.ownerMedia as OwnerMediaState | undefined;
++    if (!next) return false;
++    const previous = readOwnerMedia(snapshot.account);
++    // Removing gallery entries while retaining order is a withdrawal. Reordering
++    // changes the public main selection and requires current consent.
++    let cursor = 0;
++    for (const id of next.gallery) {
++        const index = previous.gallery.indexOf(id, cursor);
++        if (index < 0) return true;
++        cursor = index + 1;
++    }
++    if (next.mode !== previous.mode ||
++        (next.boardImage !== previous.boardImage && next.boardImage !== null)) return true;
++    for (const [id, value] of Object.entries(decision.specials ?? {})) {
++        const old = snapshot.specials[id];
++        if (!old) return true;
++        for (const key of new Set([...Object.keys(old), ...Object.keys(value)])) {
++            if (["updatedAt", "createdAt", "id", "ownerUid", "restaurantId", "screeningTargetToken"].includes(key)) continue;
++            const before = old[key] ?? null, after = value[key] ?? null;
++            if (isDeepStrictEqual(before, after) || (dateMillis(before) !== null && dateMillis(before) === dateMillis(after))) continue;
++            if ((key === "isActive" && after === false) ||
++                (["imageUrl", "details"].includes(key) && (after === null || after === ""))) continue;
++            return true;
++        }
++    }
++    return false;
++}
++function safeImage(state: OwnerMediaState, id: string, uid?: string): Image {
++    const image = state.images.find(i => i.id === id);
++    if (!image || !imageId.test(id) || !/^\d+$/.test(image.generation) || (uid && (id.startsWith("bso_") ? image.path !== ownerPhotoPath({ownerUserId: uid, imageId: id}) : !new RegExp(`^bitesaver_restaurants/${uid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/restaurant_images/managed_${id}\\.(jpg|png)$`).test(image.path))))
++        fail("failed-precondition", "This photo cannot be safely managed.");
++    return image;
++}
++function ready(state: OwnerMediaState, id: unknown): string {
++    if (typeof id !== "string" || safeImage(state, id).state !== "ready")
++        fail("failed-precondition", "Choose an available uploaded photo.");
++    return id;
++}
++function dateMillis(value: any): number | null { return value instanceof Date ? value.getTime() : typeof value?.toMillis === "function" ? value.toMillis() : null; }
++function response(snapshot: OwnerMediaSnapshot, state: OwnerMediaState) {
++    return { schemaVersion: 1, media: state, specialsOverflow: snapshot.specialsOverflow === true, contentFingerprint: hash(snapshot.specials), specials: Object.entries(snapshot.specials).map(([id, data]) => ({ ...data, id, expiresAt: dateMillis(data.expiresAt), createdAt: dateMillis(data.createdAt), updatedAt: dateMillis(data.updatedAt) })) };
++}
++function validateSpecial(raw: unknown, uid: string, state: OwnerMediaState, now: unknown): Data {
++    const value = object(raw);
++    exact(value, ["id", "title", "details", "isActive", "availabilityMode", "daysOfWeek", "allDay", "startTime", "endTime", "hideWhenUnavailable", "expiresAtMillis", "imageId", "removeLegacyImage"]);
++    if (typeof value.id !== "string" || !recordId.test(value.id) || typeof value.title !== "string" || !value.title.trim() || value.title.length > 200 || (value.details != null && (typeof value.details !== "string" || value.details.length > 2000)))
++        fail("invalid-argument", "Enter a title and shorter special details.");
++    if (!["todayOnly", "specificDays"].includes(value.availabilityMode) || !Array.isArray(value.daysOfWeek) || value.daysOfWeek.length > 7 || value.daysOfWeek.some((d: unknown) => !Number.isInteger(d) || (d as number) < 1 || (d as number) > 7) || (value.availabilityMode === "specificDays" && !value.daysOfWeek.length))
++        fail("invalid-argument", "Select the special's available days.");
++    for (const key of ["isActive", "allDay", "hideWhenUnavailable"])
++        if (typeof value[key] !== "boolean")
++            fail("invalid-argument", "Invalid special settings.");
++    const time = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
++    if (!value.allDay && (!time.test(value.startTime) || !time.test(value.endTime) || value.endTime <= value.startTime))
++        fail("invalid-argument", "Enter a valid start and later end time.");
++    if (value.availabilityMode === "todayOnly" && (!Number.isSafeInteger(value.expiresAtMillis) || value.expiresAtMillis <= 0))
++        fail("invalid-argument", "Choose a valid expiration date.");
++    const mediaId = value.imageId == null ? null : ready(state, value.imageId);
++    return { id: value.id, restaurantId: uid, ownerUid: uid, title: value.title.trim(), details: value.details?.trim() || null, isActive: value.isActive, availabilityMode: value.availabilityMode, daysOfWeek: value.daysOfWeek, allDay: value.allDay, startTime: value.allDay ? null : value.startTime, endTime: value.allDay ? null : value.endTime, hideWhenUnavailable: value.hideWhenUnavailable, expiresAt: value.availabilityMode === "todayOnly" ? new Date(value.expiresAtMillis) : null, imageUrl: mediaId ? safeImage(state, mediaId).url : null, updatedAt: now };
++}
++/** Routed by the existing owner profile callable; no new authority surface. */
++export async function saveOwnerMedia(request: {
++    auth?: unknown;
++    data: unknown;
++}, deps: OwnerMediaDependencies) {
++    const uid = requireAuthenticatedRestaurantAccountActor(request).uid;
++    const data = object(request.data);
++    exact(data, ["intent", "action", "expectedVersion", "requestId", "imageId", "extension", "gallery", "mode", "boardImage", "specials", "board", "contentFingerprint", "section"]);
++    if (data.action === "load")
++        return deps.transact(uid, snapshot => { owner(snapshot, uid); return { result: response(snapshot, readOwnerMedia(snapshot.account)) }; });
++    if (!Number.isSafeInteger(data.expectedVersion) || typeof data.requestId !== "string" || !recordId.test(data.requestId))
++        fail("invalid-argument", "Invalid media save.");
++    const fingerprint = hash(data);
++    let upload: Image | undefined;
++    if (data.action === "register") {
++        if (!imageId.test(data.imageId) || !["jpg", "png"].includes(data.extension))
++            fail("invalid-argument", "Invalid uploaded image.");
++        await deps.transact(uid, snapshot => { owner(snapshot, uid); return { result: null }; });
++        const path = data.imageId.startsWith("bso_") ? ownerPhotoPath({ownerUserId: uid, imageId: data.imageId}) : `bitesaver_restaurants/${uid}/restaurant_images/managed_${data.imageId}.${data.extension}`;
++        const metadata = await deps.inspect(path);
++        if (metadata.mediaId !== data.imageId || !/^\d+$/.test(metadata.generation) || metadata.size <= 0 || metadata.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png"].includes(metadata.contentType) || typeof metadata.url !== "string" || metadata.url.length > 2000)
++            fail("failed-precondition", "The uploaded photo could not be verified.");
++        upload = { id: data.imageId, path, generation: metadata.generation, url: metadata.url, registrationVersion: -1, state: "ready" };
++    }
++    else if (data.action !== "publish")
++        fail("invalid-argument", "Unsupported media action.");
++    return deps.transact(uid, snapshot => {
++        owner(snapshot, uid);
++        const state = readOwnerMedia(snapshot.account);
++        if (snapshot.specialsOverflow && (snapshot.account.ownerMedia == null || data.section === "specials"))
++            fail("failed-precondition", "Use the existing Daily Specials list to reduce your saved entries to 50 before editing media.");
++        if (snapshot.account.ownerMedia == null)
++            state.legacySpecialImages = Object.fromEntries(Object.entries(snapshot.specials).filter(([, special]) => typeof special.imageUrl === 'string').map(([id, special]) => [id, special.imageUrl]));
++        if (state.lastRequest === data.requestId) {
++            if (state.lastFingerprint !== fingerprint)
++                fail("invalid-argument", "Retry the original save.");
++            return { result: response(snapshot, state) };
++        }
++        if (state.version !== data.expectedVersion)
++            fail("aborted", "Restaurant media changed. Reload before saving.");
++        let writes: Record<string, Data> | undefined;
++        let removed: string[] | undefined;
++        if (upload) {
++            if (state.images.some(i => i.id === upload!.id || i.path === upload!.path) || state.images.length >= 100)
++                fail("failed-precondition", "Remove unused photos before adding more.");
++            upload.registrationVersion = state.version + 1;
++            state.images.push(upload);
++        }
++        else {
++            if (!["photos", "specials"].includes(data.section))
++                fail("invalid-argument", "Choose a media section.");
++            if (data.section === "specials" && data.contentFingerprint !== hash(snapshot.specials))
++                fail("aborted", "Daily Specials changed. Reload before saving.");
++            if (!Array.isArray(data.gallery) || data.gallery.length > ownerMediaPhotoLimit || new Set(data.gallery).size !== data.gallery.length || (data.section === "specials" && (!["manual", "photo"].includes(data.mode) || !Array.isArray(data.specials) || data.specials.length > ownerMediaSpecialLimit)))
++                fail("invalid-argument", "Too many photos or specials.");
++            state.gallery = data.gallery.map((id: unknown) => id === "legacy-main" && state.legacyMain ? id : ready(state, id));
++            if (data.section === "specials") {
++                state.boardImage = data.boardImage == null ? null : ready(state, data.boardImage);
++                if (data.mode === "photo" && !state.boardImage)
++                    fail("invalid-argument", "Choose a board photo before publishing.");
++                state.mode = data.mode;
++                state.specialImages = {};
++                writes = {};
++                for (const raw of data.specials) {
++                    const special = validateSpecial(raw, uid, state, deps.timestamp());
++                    if (special.id === ownerMediaBoardId || writes[special.id])
++                        fail("invalid-argument", "Duplicate special.");
++                    if (raw.imageId != null)
++                        state.specialImages[special.id] = ready(state, raw.imageId);
++                    if (raw.removeLegacyImage === true)
++                        delete state.legacySpecialImages?.[special.id];
++                    if (raw.imageId == null)
++                        special.imageUrl = state.legacySpecialImages?.[special.id] ?? null;
++                    writes[special.id] = { ...snapshot.specials[special.id], ...special, createdAt: snapshot.specials[special.id]?.createdAt ?? deps.timestamp() };
++                }
++                if (state.boardImage) {
++                    const previous = snapshot.specials[ownerMediaBoardId];
++                    if (previous && previous.managedBoard !== true)
++                        fail("failed-precondition", "An existing special uses the board identifier.");
++                    const board = validateSpecial({ ...object(data.board), id: ownerMediaBoardId, imageId: state.boardImage }, uid, state, deps.timestamp());
++                    writes[ownerMediaBoardId] = { ...board, managedBoard: true, createdAt: previous?.createdAt ?? deps.timestamp() };
++                }
++                removed = Object.keys(snapshot.specials).filter(id => !writes![id]);
++                for (const id of removed)
++                    delete state.legacySpecialImages?.[id];
++            }
++        }
++        state.version++;
++        state.lastRequest = data.requestId;
++        state.lastFingerprint = fingerprint;
++        const nextSpecials = writes ?? snapshot.specials;
++        return { result: response({ ...snapshot, specials: nextSpecials }, state), account: { ownerMedia: state, updatedAt: deps.timestamp() }, specials: writes, removeSpecials: removed };
++    });
++}
++/** Only registered, unreferenced owner media. Requests never supply paths/generations. */
++export async function removeOwnerImage(request: {
++    auth?: unknown;
++    data: unknown;
++}, deps: OwnerMediaDependencies) {
++    const uid = requireAuthenticatedRestaurantAccountActor(request).uid;
++    const data = object(request.data);
++    exact(data, ["imageId", "registrationVersion"]);
++    if (!Number.isSafeInteger(data.registrationVersion))
++        fail("invalid-argument", "Invalid photo version.");
++    if (!imageId.test(data.imageId))
++        fail("invalid-argument", "Invalid photo.");
++    const intent = await deps.transact(uid, snapshot => {
++        owner(snapshot, uid);
++        const state = readOwnerMedia(snapshot.account);
++        const existing = state.images.find(i => i.id === data.imageId);
++        if (!existing)
++            return { result: null }; // acknowledged retry; never derives a path
++        const image = safeImage(state, data.imageId, uid);
++        if (image.registrationVersion !== data.registrationVersion)
++            fail("aborted", "This photo has been replaced.");
++        if (ownerMediaReferenced(state, image.id))
++            fail("failed-precondition", "Save the photo removal before deleting its file.");
++        if (image.state !== "deleting") {
++            image.state = "deleting";
++            state.version++;
++        }
++        return { result: { ...image }, account: { ownerMedia: state } };
++    }, true);
++    if (intent === null)
++        return { removed: true };
++    // Adapter deletes this generation only, treating only exact-object 404 as success.
++    await deps.deleteGeneration(intent.path, intent.generation);
++    await deps.transact(uid, snapshot => {
++        owner(snapshot, uid);
++        const state = readOwnerMedia(snapshot.account);
++        const current = state.images.find(i => i.id === intent.id);
++        if (current && (current.path !== intent.path || current.generation !== intent.generation || current.state !== "deleting" || ownerMediaReferenced(state, current.id)))
++            fail("aborted", "The photo changed; reload to continue.");
++        state.images = state.images.filter(i => i.id !== intent.id);
++        state.version++;
++        return { result: null, account: { ownerMedia: state } };
++    }, true);
++    return { removed: true };
++}
++/** Publication authority is protected root state, never directly writable special metadata. */
++export function managedSpecialForPublication(account: Data, specialId: string, special: Data): Data | null {
++    if (account.ownerMedia == null)
++        return special;
++    const state = readOwnerMedia(account);
++    if ((state.mode === "photo") !== (specialId === ownerMediaBoardId))
++        return null;
++    const id = specialId === ownerMediaBoardId ? state.boardImage : state.specialImages[specialId];
++    const image = id ? state.images.find(i => i.id === id && i.state === "ready") : null;
++    if (specialId === ownerMediaBoardId && !image)
++        return null;
++    return { ...special, imageUrl: image?.url ?? state.legacySpecialImages?.[specialId] ?? null };
++}
++export function publicOwnerGallery(account: Data): string[] {
++    if (account.ownerMedia == null)
++        return [];
++    const state = readOwnerMedia(account);
++    return state.gallery.slice(0, ownerMediaPhotoLimit).map(id => id === "legacy-main" ? state.legacyMain : state.images.find(i => i.id === id && i.state === "ready")?.url).filter((url): url is string => typeof url === "string" && url.length > 0 && url.length <= 2000);
++}
+--- a/src/customer_bitesaver_search_session.ts
++++ b/src/customer_bitesaver_search_session.ts
+@@ -1,3 +1,4 @@
++import {getCustomerRestaurantMedia, type CustomerRestaurantMedia} from "./bitesaver_customer_media.js";
+ import {
+   startCustomerBiteSaverProfileUseContext,
+   authenticateCustomerBiteSaverProfileChallengeAuthority,
+@@ -14728,10 +14729,13 @@
+ export async function getCustomerBiteSaverSearchPageHandler(
+   rawRequest: unknown,
+   context: CustomerBiteSaverSessionContext,
+-): Promise<CustomerBiteSaverProfileUseContextResult | CustomerBiteSaverPublicProfileResult | CustomerBiteSaverMenuPageResult |
++): Promise<CustomerRestaurantMedia | CustomerBiteSaverProfileUseContextResult | CustomerBiteSaverPublicProfileResult | CustomerBiteSaverMenuPageResult |
+   CustomerBiteSaverRestaurantPageResult |
+   CustomerBiteSaverSignedResponse<CustomerBiteSaverRestaurantPageResult> |
+   CustomerBiteSaverGuestOperationResponse> {
++  if (isPlainRecord(rawRequest) && rawRequest.kind === "restaurantMedia") {
++    return getCustomerRestaurantMedia(rawRequest, context);
++  }
+   if (isPlainRecord(rawRequest) && rawRequest.kind === "publicProfileUse") {
+     return startCustomerBiteSaverProfileUseContext(rawRequest, context);
+   }
+--- /dev/null
++++ b/src/owner_photo_identity.ts
+@@ -0,0 +1,43 @@
++import {createHash} from "node:crypto";
++type Data = Record<string, any>;
++export const ownerPhotoHash = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
++export function ownerPhotoId(row: Data): string {
++  return `bso_${ownerPhotoHash(JSON.stringify([row.uploaderUserId, row.authCreatedAt, row.ownerUserId, row.sourceType, row.sourceId,
++    row.sourceVersion, row.family, row.targetId, row.targetVersion, row.contentType, row.sha256]))}`;
++}
++export function ownerPhotoPath(row: Data): string {
++  return `bitescore_user_uploads/${ownerPhotoHash(`bitestar.dish-upload.v1:${row.ownerUserId}`)}/owner_images/screened_${row.imageId}.jpg`;
++}
++export function validOwnerPhotoIdentity(row: Data): boolean {
++  return row.lane === "owner" && typeof row.ownerUserId === "string" && /^[^/\u0000-\u001f]{1,128}$/.test(row.ownerUserId) &&
++    row.imageId === ownerPhotoId(row) && row.storagePath === ownerPhotoPath(row) && /^[a-f0-9]{64}$/.test(row.sha256 ?? "");
++}
++export function ownerPhotoMetadata(row: Data): Record<string, string> {
++  return {ownershipVersion: "1", screeningImageId: row.imageId, screeningSha256: row.sha256,
++    screeningUploadToken: row.uploadToken, uploaderKey: ownerPhotoHash(`bitestar.dish-upload.v1:${row.ownerUserId}`)};
++}
++export function ownerPhotoTargetPath(row: Data): string {
++  const root = `${row.sourceType === "biteSaver" ? "restaurant_accounts" : "restaurant_menus"}/${row.sourceId}`;
++  return row.family === "menu" ? `${root}/menu_images/${row.targetId}` : row.family === "coupon" ? `${root}/coupons/${row.targetId}` : root;
++}
++export function ownerPhotoBoundTargetPath(row: Data): string {
++  return row.family === "managed" && !["gallery", "board"].includes(row.targetId) ?
++    `restaurant_accounts/${row.sourceId}/daily_specials/${row.targetId}` : ownerPhotoTargetPath(row);
++}
++export function ownerPhotoPublicationPath(row: Data): string {
++  return row.family === "managed" && row.targetId === "board" ?
++    `restaurant_accounts/${row.sourceId}/daily_specials/bitesaver_managed_board` : ownerPhotoBoundTargetPath(row);
++}
++export function ownerPhotoIsAttached(row: Data, target: Data | undefined): boolean {
++  if (!target || row.state !== "approved") return false;
++  if (row.family === "managed") {
++    if (row.targetId !== "gallery") return target.imageUrl === row.publicUrl &&
++      (row.targetId === "board" || target.screeningTargetToken === row.targetToken);
++    const media = target.ownerMedia;
++    return !!media && media.images?.some((i: Data) => i.id === row.imageId && i.generation === row.generation && i.state === "ready") &&
++      (media.gallery?.includes(row.imageId) || media.boardImage === row.imageId || Object.values(media.specialImages ?? {}).includes(row.imageId));
++  }
++  if (row.family === "main") return target.mainImageUrl === row.publicUrl ||
++    (target.ownerMedia?.legacyMain === row.publicUrl && target.ownerMedia?.gallery?.includes("legacy-main"));
++  return target.imageUrl === row.publicUrl;
++}

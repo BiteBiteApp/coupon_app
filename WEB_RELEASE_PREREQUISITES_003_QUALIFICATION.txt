@@ -1,0 +1,57 @@
+BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003
+Prepared: October17,2026 (owner prompt has no time). Execution started2026-10-17T15:19:20Z.
+Role: sole integrating implementer; three independent initially read-only review tracks.
+Expected/actual starting/current local+remote main:1200c828f68a05d3b4bec6ae03438a645c4c0b80.
+VERDICT: SAFE SOURCE/TEST PREPARATION COMPLETE; COORDINATED PRODUCTION RELEASE BLOCKED ON ONE COMBINED OWNER DECISION.
+
+WHAT CHANGED
+Prepared the exact-live-baseline deletion Rules correction, minimal existing restaurantMedia contract backport, and existing-runtime assignment for Dish Suggestions listing. Qualified all six existing Admin callables and investigated the specific coupon hold to its original execution record. Added focused security, emulator and cross-language Specials regression tests. Saved complete candidate packages, original source/recovery evidence, exact hashes and independent reviews. No production mutation, deploy, publication, date claim, source-only activation, staging/commit/tag/push or success checkpoint.
+
+Permitted areas declared before edits: bounded Rules authorization, one existing backend media contract, exact six Admin endpoint deployment options, targeted held-service runtime preparation, and existing web/legal release preparation. No app behavior/source change or new architecture. Sanity checks applied once: real demonstrated customer/security consequences; sufficient access for safe preparation but IAM/index are explicitly excluded; narrow fixes required by frozen web; exact baseline/revision/source/Hosting recovery retained. No generalized hardening project.
+
+A — Rules: release/web_prerequisites_003/firestore.rules is derived from current live ruleset8e3dd55a-edb0-4eb1-af12-d6547f9d223f, not root firestore.rules. Eleven predicate insertions fence deletion-marked actors and targets on user_profiles/public_reviewer_profiles/public_usernames/restaurant_accounts. Original reads, ownership/Admin alternatives, child rules, disabled paths, billing/content holds and root restaurant deletion denial are preserved. Reverse patch reproduces exact baselineSHA4ac78070148af5b8478f0fb06d51392a46479a4ac2a58b607621ec8dd366d06e. CandidateSHA8fcae3e7205961bcb2329db4fd7caa44a5814ceee842cb5bae6daff4adeb8a20. Existing trusted cleanup bypasses client Rules and retains durable marker; no deletion backend redeploy.
+
+B — Media: exact deployed source archive generation1790098334138122,105TS modules and locked package inputs captured without environment files. Patch changes only old session import/type/restaurantMedia dispatch and adds3 existing helper modules, with a media-local ownerMedia.version recheck. Existing general search builders/status/other kinds remain byte-identical. No whole-current-source search rollout. Main default Home data loader -> actual callable request -> candidate handler JSON -> actual Flutter decoder -> Specials consumer is exercised, including manual/photo selection, account-document identity and photo enlargement. Network seams are injected; this is not a live full Home/profile browsing test. Prior navigation/compiled-web qualification remains separate.
+
+C — Admin: exact list/apply/reject Dish Suggestions, name approval, get/set posting restrictions exports/callers and live absence verified. Single root source edit assigns listRatingAdminDishSuggestionsPage to existing bitestar-admin-support-runtime, which already has datastore/cursor access. No account object, permission or secret changed. Existing email/claim Admin policies preserved. Current worker processDishProposalResolutionWork revision00002-his and scheduler are already active; no worker rollout needed while Terms OFF. Normal users/unsigned callers fail all6 exact wrappers; synthetic name approval and posting workflows preserve identity/deletion/version/idempotency protections.
+
+D — Coupon: original Sept23 Admin-paging completion report proves private/internal/MANUAL0 was a deliberate staged opening gate after source defects were fixed. Sept25 customer activation deliberately left Admin management held. Core deployed paging and authorization modules match current qualified source. Existing service00001-wam is internal-only,MANUAL0,empty invoker policy; restoring scaling alone is insufficient. Permanent coupon deletion remains locked; unrelated holds preserved. No held service was changed.
+
+DOES IT WORK — LOCAL/EMULATOR QUALIFICATION
+402 distinct focused checks passed,0unresolved failures:
+- Exact Rules candidate:15 real Rules/Auth emulator tests. All4 stale-token root recreations denied403 after synthetic Auth removal; actor/target states, Admin/normal authorities, private markers, unrelated roots, billing/held children, cleanup and multi-write budgets covered.
+- Exact deployed-baseline media candidate:295 original contract/cursor/handler regressions +6 existing media-specific handler cases +2 new fixture/version-race cases =303. Baseline tests captured from immutable generation; external shared JSON fixture predates it. Existing two tests that demand newer unrelated builder behavior were intentionally excluded; builders remain old and unchanged.
+- Admin/coupon:75 existing contract/security/paging tests +6 actual Firestore/Auth emulator tests =81. The6 combine3 existing posting tests and3 new exact-wrapper/name tests. Real Auth verification is in posting tests; all6 wrappers are directly exercised, not HTTP-smoked live.
+- Flutter:3 cross-language/manual/photo/failure Specials consumer tests passed. Failure test independently corrected to assert no hidden manual-loader call. Scoped analysis clean.
+Both TypeScript candidates compile; backend final suites use Node24.19.0 matching deployed major. Earlier harness failures were missing copied external fixture, incorrect expected existing Admin error code/request shape, and duplicate header finder; corrected without changing production behavior or weakening assertions. Final suites pass. Root Node24 suite also verifies new media fixture tests against current source; candidate-specific run explicitly sets BITESTAR_RELEASE_FUNCTIONS_ROOT.
+Google Rules compile-only projects:test returnsHTTP200,zero errors;71warnings match baseline exactly. This is validation, not a production ruleset/release change.
+
+Independent reviews: A PASS exact Rules/security/hash; B PASS media/Admin/coupon source/test scopes and supported recovery, BLOCK production on protected IAM/index; C PASS retained Hosting/domain preservation and corrected consumer tests, final dated publication qualification still required. No reviewer deployed or mutated production.
+Reused prior qualification without broad rerun:116deletion tests,14Chrome tests,15Hosting checks, actual compiled direct+reload deletion; broader712pass/13historically classified stale tests. Four existing deletion Functions Ready with recent worker200s remain established evidence, not a new real account deletion. No real deletion/SMS/payment or Admin-data mutation performed.
+
+LIVE / GIT / PRESERVATION
+Recorded live Rules8e3dd55a-edb0-4eb1-af12-d6547f9d223f (updatedOct3); media revisiongetcustomerbitesaversearchpage-00001-tuz; couponlistcouponadmincouponspage-00001-wam; six Admin endpoints absent. Hosting release1789853843090000/version6d56d4182157afd7 remains the recorded live baseline. No mutation by this run. Browser deletion remains unreleased on that old website; three legal HTML pages remain unpublished. Daily Specials/Admin fixes are locally qualified, not operating live through the newer web candidate.
+Seven owner files unchanged;22legal manifest entries unchanged;244/245 protected service/config files unchanged, sole authorized index.ts option exception. Rootfirestore.rules unchanged. Previous4blocker evidence files,2broader-run reports and3-line phone-auth fake retained byte-for-byte. Local/remote main and existing annotated legal tag verified unchanged. Dirty owner work remains intact; new release artifacts are uncommitted. Legal wording/version remains finalized and undated pending actual publication.
+Old70-file web stage retained/hash-verified; main.dart.js SHAe0a6b2bdac345d8747c5a9fa5ca5b5d27dd9a64c278f085381d9bf3c65d405db. Date insertion will require affected parity tests and new build/hashes; no false final-publication freeze.
+
+WHAT REMAINS — ONE COMBINED OWNER DECISION
+Authorize only (1) roles/run.invoker -> allUsers for the six specified new Admin services plus existing listCouponAdminCouponsPage and (2) the one existing Dish Suggestions collection composite on private_dish_edit_proposal_groups (resolutionIdentitiesValid ASC,oldestTrustedServerCreateTime ASC,implicit__name__ ASC). Firebase callable application Admin authorization remains unchanged. These are necessary for browser invocation and ordered Admin paging; the prompt expressly forbids new IAM and index deployment, so no production lane began. No additional legal/product wording decision was found.
+After that decision, recheck frozen inputs/current live baselines and finish existing targeted backend/web/legal release in this same assignment. No broader audit or new project. Exact service IDs/index/recovery/order are in release/web_prerequisites_003/RELEASE_PLAN.txt.
+
+DOMAIN DISTINCTION
+app.colesmartllc.com is the existing technical Hosting and approved legal destination. app.bitestar.app is already another active alias on that same site; six aliases share the site release. Intended canonical customer-facing https://bitestar.app remains definitive; apex/www are not bound within this project and their global live launch is unverified. No DNS/binding/redirect change; existing technical/legal publication need not wait for an invented canonical-domain project.
+
+RECOVERY
+Exact old Rules/source archives and Hosting version retained. Old media/coupon registry images return404, but retained existing Ready revisions support traffic rollback; Cloud Run uses its imported copies and does not re-pull at instance startup. This supported plan is not an executed rollback or an available old-image redeployment. Media old revision00001-tuz must be retained; coupon recovery restores original controls on00001-wam; newly created Admin services can be held without customer mutation. No production recovery performed. Official semantics cited in release plan/reviewer evidence.
+
+BUG FILTER
+FIX NOW / DIRECTLY REQUIRED: demonstrated root-recreation Rules guard, missing restaurantMedia contract, dish-list existing-runtime option — safe source preparation finished.
+PRODUCT DECISION REQUIRED: exact7invoker bindings and1existing index under explicit prompt exclusion — one combined release gate.
+ACCEPT AND CLOSE: resolved coupon staged-hold purpose; old image404 as unsupported runtime-outage claim; unrelated holds/dormant features; closed legal/UI projects.
+FIX SEPARATELY — REAL BUG: earlier held/missing ios.json endpoint remains recorded unchanged, no expansion.
+
+Durable packages/review/log evidence: /Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017
+Exact machine-readable evidence: WEB_RELEASE_PREREQUISITES_003_EVIDENCE.json
+
+Completion evidence timestamp: 2026-10-17T15:44:03.185363+00:00
+Existing canonical backlog updated with guarded revision; full prior history verified unchanged.

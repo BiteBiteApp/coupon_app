@@ -1,0 +1,37 @@
+BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003 — frozen preparation, NOT deployed
+Prepared October 17, 2026. Base main1200c828f68a05d3b4bec6ae03438a645c4c0b80.
+
+The coordinated release is blocked only on two newly discovered protected approvals:
+1. Service-level roles/run.invoker membership allUsers on exactly these seven Cloud Run services in project coupon-app-29446/us-central1:
+   listratingadmindishsuggestionspage
+   applyratingadmindishsuggestiongroup
+   rejectratingadmindishsuggestiongroup
+   approverestaurantnamechange
+   getadminpostingrestriction
+   setadminpostingrestriction
+   listcouponadmincouponspage
+   This lets Firebase callable browser requests reach existing Admin authorization. It does not grant application Admin authority. Six services do not yet exist; coupon exists with empty invoker policy. Do not disable invoker IAM checking as a substitute.
+2. One existing source-declared Firestore COLLECTION composite on private_dish_edit_proposal_groups: resolutionIdentitiesValid ASCENDING, oldestTrustedServerCreateTime ASCENDING, implicit __name__ ASCENDING. Deploy only this definition; wait for READY. No other index or TTL changes.
+
+Scope already authorized, conditional on the full package:
+A. Point only cloud.firestore release to the compiled/reviewed Rules candidate in this directory. Exact live baseline ruleset8e3dd55a-edb0-4eb1-af12-d6547f9d223f, SHA4ac78070148af5b8478f0fb06d51392a46479a4ac2a58b607621ec8dd366d06e. Eleven predicate insertions retain all other bytes; candidateSHA8fcae3e7205961bcb2329db4fd7caa44a5814ceee842cb5bae6daff4adeb8a20. Never deploy repository-root firestore.rules.
+B. Update only getCustomerBiteSaverSearchPage from the media-candidate package. The patch reconstructs exactly four-file delta against immutable deployed source generation1790098334138122. Preserve deployed index/options, runtime Node24, browse runtime identity, existing version1 key references, original builders and other request kinds. Do not deploy the current repository's whole search implementation.
+C. Create only the six named existing Admin callables from the frozen six-admin-candidate source. Only source option corrected is listRatingAdminDishSuggestionsPage -> existing bitestar-admin-support-runtime. No runtime grant, identity creation, key payload read or secret change is needed. Apply/reject/name use existing compute runtime; posting pair uses existing bitescore-customer-runtime. Existing worker processDishProposalResolutionWork remains unchanged/active. Use exact targets; no broad Functions deploy or generic predeploy that might fetch environment payloads or alter unrelated IAM.
+D. Release only listCouponAdminCouponsPage's staged hold: retain existing code/revision00001-wam; restore external ingress and automatic zero-minimum scaling with existing max10,256Mi,concurrency80,60s. Its documented original paging/runtime defects were resolved before it was created held. Existing permanent coupon-deletion lock remains. Preserve every other hold.
+
+Recovery (prepare, re-read and verify before production; no recovery executed):
+- Rules: retained exact old ruleset/release and local baseline source allow release-pointer rollback. A rollback restores the old recreation gap; keep new web unpublished/roll it back as a coordinated action.
+- Media: retain getcustomerbitesaversearchpage-00001-tuz and exact current runtime dependencies/config. Recheck retained revision Ready immediately before mutation. Primary recovery routes100% traffic to that existing revision; withhold/rollback the new web because old media rejects restaurantMedia. Cloud Run imports images at deployment and existing-revision traffic rollback does not require another registry pull. Old registry digest404 is not proof the revision is down; it also is not a redeployable image. Exact baseline source/package is secondary recovery, not a byte-identical image claim.
+- Coupon: retain00001-wam; recover the original MANUAL0/internal ingress and remove only this run's added invoker binding. Do not redeploy its missing old image. If any planned operation would create a new revision, requalify that exact recovery first.
+- New Admin services: before use, retain service state/policy. On failed qualification, stop exposure of only the created six by removing only their newly added allUsers bindings and holding them internal/MANUAL0; leave exact failed resources for evidence. No customer-data rollback/deletion or broad IAM operation.
+- Index: failed creation/readiness stops subsequent lanes. No deletion/recreation of unrelated indexes. A newly created unused composite can remain while release is held; do not undo through a blanket index deployment.
+- Hosting: retained finalized version6d56d4182157afd7/release1789853843090000. Rollback creates a release referencing the previous version only if current release still belongs to this run; abort on concurrent unrelated changes.
+Official recovery semantics: https://docs.cloud.google.com/run/docs/deploying and https://docs.cloud.google.com/run/docs/rollouts-rollbacks-traffic-migration. These support the plan; no live rollback was tested.
+
+Publication continuation after the two approvals (same assignment, no legal rewrite):
+Recheck main, owner hashes, exact source/package hashes, live revisions/policies/index absence, Rules release, Hosting version and retained recovery. Resolve any concurrent changes before mutation. Finalize actual first-publication date consistently in authoritative Dart and generated three HTML/TXT/manifest copies; keep bitestar-terms-v1 and Terms acceptance OFF. Rebuild frozen web with that date overlay; rerun only affected legal/parity/route checks, then independent final byte review. The existing undated stage is qualified rehearsal, not final dated publication bytes.
+Once the entire coordinated package is ready: exact index READY; targeted backend changes in reviewed order; verify runtime identities, unauthenticated rejection, authorized read-only paging where available, no destructive live smoke tests; only then release the reviewed web overlay cloned from the current Hosting baseline. Preserve reserved Firebase init files, rewrites/headers, QR/invites, Stripe/Portal, associations and held ios.json behavior. Verify real browser deletion direct/reload/identity/cancel/status and affected Specials/Admin paths. Clone that verified web version and add only three dated legal HTML files; verify all public content/links/mobile behavior. No success checkpoint until the whole authorized release actually passes.
+
+Domains: existing technical/legal host app.colesmartllc.com; same current site also serves app.bitestar.app,go.bitestar.app,app.biteranger.com,go.biteranger.com,go.colesmartllc.com. A site release affects these existing aliases. Intended canonical customer website remains https://bitestar.app. Apex/www are absent from this project's bindings, not proved absent globally. Canonical launch is unverified and no DNS/domain work is authorized or made a prerequisite to existing technical/legal publication.
+
+Dormant Terms, age, text/image screening, moderation/cleanup and bounded customer selectors remain OFF. No deletion-service redeploy, production account deletion, billing/Auth/store/config/schema migration, unrelated service activation or new website architecture.

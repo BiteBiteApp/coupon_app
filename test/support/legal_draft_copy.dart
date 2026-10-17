@@ -1,7 +1,7 @@
 // Exact owner-directed final visible copy; source/HTML parity is checked separately.
 const privacyExpectedText = <String>[
   "BiteStar Privacy Policy",
-  "Effective date: On first public publication.",
+  "Effective date: October 17, 2026.",
   "BiteStar is owned and operated by ColeSmart LLC (\"ColeSmart,\" \"we,\" \"us,\" or \"our\").",
   "We respect your privacy. This Privacy Policy explains what information BiteStar collects, why we use it, when it may be shared, and what choices you have regarding your information.",
   "Information We Collect",
@@ -107,7 +107,7 @@ const privacyExpectedHeadings = <String>[
 const termsExpectedText = <String>[
   "BiteStar Terms of Service",
   "Terms version: bitestar-terms-v1",
-  "Effective date: On first public publication.",
+  "Effective date: October 17, 2026.",
   "Welcome to BiteStar, a service owned and operated by ColeSmart LLC.",
   "These Terms explain the rules and conditions for accessing and using BiteStar. They cover customers, restaurant owners and authorized contributors, including contributors to shared menus.",
   "These Terms take effect on the effective date shown with the published version, with any required acceptance or notice.",

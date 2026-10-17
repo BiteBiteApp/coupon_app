@@ -2771,7 +2771,10 @@ export const listRatingAdminContributionLedgerPage = onCall(
 );
 
 export const listRatingAdminDishSuggestionsPage = onCall(
-  { secrets: [searchPaginationCursorKey] },
+  {
+    serviceAccount: adminSupportRuntimeServiceAccount,
+    secrets: [searchPaginationCursorKey],
+  },
   async (request) => {
     const admin = requireRatingAdminDishSuggestionAccess(request);
     return listRatingAdminDishSuggestionsPageHandler(request.data, {

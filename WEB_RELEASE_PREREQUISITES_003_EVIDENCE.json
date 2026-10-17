@@ -1,0 +1,1038 @@
+{
+  "runId": "BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003",
+  "promptPrepared": "2026-10-17 (time not supplied)",
+  "startedAt": "2026-10-17T15:19:20Z",
+  "completedAt": "2026-10-17T15:44:03.185363+00:00",
+  "verdict": "SAFE_PREPARATION_COMPLETE_BLOCKED_ON_EXACT_INVOKER_IAM_AND_INDEX_APPROVAL",
+  "permittedChangeAreas": [
+    "bounded Firestore authorization on exact live baseline",
+    "existing restaurantMedia backend contract",
+    "exact Admin endpoint runtime option",
+    "held coupon and Hosting/legal release preparation"
+  ],
+  "branch": "main",
+  "expectedStartingHead": "1200c828f68a05d3b4bec6ae03438a645c4c0b80",
+  "actualStartingHead": "1200c828f68a05d3b4bec6ae03438a645c4c0b80",
+  "currentHead": "1200c828f68a05d3b4bec6ae03438a645c4c0b80",
+  "remoteMainVerified": "1200c828f68a05d3b4bec6ae03438a645c4c0b80",
+  "newCommit": null,
+  "newTag": null,
+  "pushed": false,
+  "productionMutations": [],
+  "protectedDecision": {
+    "invoker": {
+      "project": "coupon-app-29446",
+      "region": "us-central1",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "services": [
+        "listratingadmindishsuggestionspage",
+        "applyratingadmindishsuggestiongroup",
+        "rejectratingadmindishsuggestiongroup",
+        "approverestaurantnamechange",
+        "getadminpostingrestriction",
+        "setadminpostingrestriction",
+        "listcouponadmincouponspage"
+      ],
+      "applicationAdminAuthorizationUnchanged": true
+    },
+    "index": {
+      "collectionGroup": "private_dish_edit_proposal_groups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "resolutionIdentitiesValid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "oldestTrustedServerCreateTime",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING",
+          "automatic": true
+        }
+      ]
+    }
+  },
+  "sourceStatus": {
+    "rules": "prepared_tested_reviewed_not_deployed",
+    "media": "prepared_tested_reviewed_not_deployed",
+    "sixAdmin": "existing_source_qualified_one_runtime_option_corrected_not_created",
+    "coupon": "staged_hold_reason_resolved_readiness_prepared_not_released",
+    "web": "prior_undated_candidate_preserved_final_date_build_pending",
+    "legal": "final_content_unchanged_not_published",
+    "canonicalWebsite": "bitestar.app_launch_unverified_no_dns_change"
+  },
+  "rules": {
+    "runId": "BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003",
+    "readAt": "2026-10-17T15:21:17.476Z",
+    "productionMutations": [],
+    "release": {
+      "ok": true,
+      "data": {
+        "name": "projects/coupon-app-29446/releases/cloud.firestore",
+        "rulesetName": "projects/coupon-app-29446/rulesets/8e3dd55a-edb0-4eb1-af12-d6547f9d223f",
+        "createTime": "2026-03-24T06:13:18.785504Z",
+        "updateTime": "2026-10-03T03:10:21.039224Z"
+      }
+    },
+    "ruleset": {
+      "name": "projects/coupon-app-29446/rulesets/8e3dd55a-edb0-4eb1-af12-d6547f9d223f",
+      "createTime": "2026-10-03T03:10:20.244207Z",
+      "metadata": {
+        "services": [
+          "cloud.firestore"
+        ]
+      },
+      "files": [
+        {
+          "name": "firestore.bitesaver-content.rules",
+          "bytes": 46944,
+          "sha256": "4ac78070148af5b8478f0fb06d51392a46479a4ac2a58b607621ec8dd366d06e"
+        }
+      ]
+    },
+    "priorBaselineSha256": "4ac78070148af5b8478f0fb06d51392a46479a4ac2a58b607621ec8dd366d06e",
+    "priorBaselineUnchanged": true,
+    "permissions": {
+      "requested": [
+        "firebaserules.releases.get",
+        "firebaserules.releases.update",
+        "firebaserules.rulesets.create",
+        "firebaserules.rulesets.get",
+        "firebaserules.rulesets.test",
+        "serviceusage.services.use"
+      ],
+      "granted": [
+        "firebaserules.releases.get",
+        "firebaserules.releases.update",
+        "firebaserules.rulesets.create",
+        "firebaserules.rulesets.get",
+        "firebaserules.rulesets.test",
+        "serviceusage.services.use"
+      ]
+    },
+    "deletionMarkerTtlFields": {
+      "ok": true,
+      "data": {}
+    }
+  },
+  "functions": {
+    "observedAt": "2026-10-17T15:21:07.844Z",
+    "names": [
+      "getCustomerBiteSaverSearchPage",
+      "listRatingAdminDishSuggestionsPage",
+      "applyRatingAdminDishSuggestionGroup",
+      "rejectRatingAdminDishSuggestionGroup",
+      "approveRestaurantNameChange",
+      "getAdminPostingRestriction",
+      "setAdminPostingRestriction",
+      "listCouponAdminCouponsPage"
+    ],
+    "absent": [
+      "listRatingAdminDishSuggestionsPage",
+      "applyRatingAdminDishSuggestionGroup",
+      "rejectRatingAdminDishSuggestionGroup",
+      "approveRestaurantNameChange",
+      "getAdminPostingRestriction",
+      "setAdminPostingRestriction"
+    ],
+    "targets": [
+      {
+        "id": "getCustomerBiteSaverSearchPage",
+        "function": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/getCustomerBiteSaverSearchPage",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "getCustomerBiteSaverSearchPage",
+            "dockerRepository": "projects/coupon-app-29446/locations/us-central1/repositories/gcf-artifacts",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "getCustomerBiteSaverSearchPage/function-source.zip",
+                "generation": "1790098334138122"
+              }
+            },
+            "serviceAccount": "projects/coupon-app-29446/serviceAccounts/253983587346-compute@developer.gserviceaccount.com"
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitesaversearchpage",
+            "timeoutSeconds": 120,
+            "maxInstanceCount": 10,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "secretEnvironmentVariables": [
+              {
+                "key": "BITESAVER_CUSTOMER_DISCOVERY_KEY",
+                "secret": "BITESAVER_CUSTOMER_DISCOVERY_KEY",
+                "version": "1"
+              },
+              {
+                "key": "BITESAVER_CUSTOMER_IDENTITY_KEY_V1",
+                "secret": "BITESAVER_CUSTOMER_IDENTITY_KEY_V1",
+                "version": "1"
+              }
+            ],
+            "revision": "getcustomerbitesaversearchpage-00001-tuz",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-22T17:33:33.499428099Z"
+        },
+        "service": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitesaversearchpage",
+          "createTime": "2026-09-22T17:33:00.066448Z",
+          "updateTime": "2026-09-26T03:54:01.724210Z",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 10
+            },
+            "serviceAccount": "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "containers": [
+              {
+                "image": "us-central1-docker.pkg.dev/coupon-app-29446/gcf-artifacts/coupon--app--29446__us--central1__get_customer_bite_saver_search_page:version_1"
+              }
+            ]
+          },
+          "scaling": {
+            "scalingMode": "AUTOMATIC",
+            "maxInstanceCount": 10
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-26T03:54:03.413639Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitesaversearchpage/revisions/getcustomerbitesaversearchpage-00001-tuz",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "getcustomerbitesaversearchpage-00001-tuz",
+              "percent": 100
+            }
+          ]
+        },
+        "revision": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitesaversearchpage/revisions/getcustomerbitesaversearchpage-00001-tuz",
+          "createTime": "2026-09-22T17:33:00.208149Z",
+          "updateTime": "2026-09-22T17:33:00.612518Z",
+          "service": "getcustomerbitesaversearchpage",
+          "scaling": {
+            "maxInstanceCount": 10
+          },
+          "serviceAccount": "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com",
+          "containers": [
+            {
+              "image": "us-central1-docker.pkg.dev/coupon-app-29446/gcf-artifacts/coupon--app--29446__us--central1__get_customer_bite_saver_search_page@sha256:6e43ec22d942beb94e9c3a4d64157907266a862161724038f0ae459bd516020e"
+            }
+          ],
+          "conditions": [
+            {
+              "type": "Ready",
+              "state": "CONDITION_SUCCEEDED",
+              "message": "Updating revision scaling succeeded.",
+              "lastTransitionTime": "2026-09-26T03:54:03.265862Z"
+            },
+            {
+              "type": "Active",
+              "state": "CONDITION_SUCCEEDED",
+              "lastTransitionTime": "2026-09-22T17:33:31.780377Z",
+              "severity": "INFO"
+            },
+            {
+              "type": "ResourcesAvailable",
+              "state": "CONDITION_SUCCEEDED",
+              "message": "Provisioning imported containers completed in 23.32s. Checking container health. This will wait for up to 4m for the configured startup probe, including an initial delay of 0s.",
+              "lastTransitionTime": "2026-09-22T17:33:25.932623Z"
+            },
+            {
+              "type": "ContainerReady",
+              "state": "CONDITION_SUCCEEDED",
+              "message": "Container image import completed in 1.3s.",
+              "lastTransitionTime": "2026-09-22T17:33:02.615123Z"
+            },
+            {
+              "type": "ContainerHealthy",
+              "state": "CONDITION_SUCCEEDED",
+              "message": "Containers became healthy in 5.03s.",
+              "lastTransitionTime": "2026-09-22T17:33:31.594227Z"
+            }
+          ]
+        }
+      },
+      {
+        "id": "listCouponAdminCouponsPage",
+        "function": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/listCouponAdminCouponsPage",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "listCouponAdminCouponsPage",
+            "dockerRepository": "projects/coupon-app-29446/locations/us-central1/repositories/gcf-artifacts",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "listCouponAdminCouponsPage/function-source.zip",
+                "generation": "1790137656101865"
+              }
+            },
+            "serviceAccount": "projects/coupon-app-29446/serviceAccounts/253983587346-compute@developer.gserviceaccount.com"
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/listcouponadmincouponspage",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 10,
+            "ingressSettings": "ALLOW_INTERNAL_ONLY",
+            "serviceAccountEmail": "bitestar-admin-support-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "secretEnvironmentVariables": [
+              {
+                "key": "SEARCH_PAGINATION_CURSOR_KEY",
+                "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+                "version": "1"
+              }
+            ],
+            "revision": "listcouponadmincouponspage-00001-wam",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-23T04:27:49.189999684Z"
+        },
+        "service": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/listcouponadmincouponspage",
+          "createTime": "2026-09-23T04:27:36.921800Z",
+          "updateTime": "2026-09-23T04:29:11.596545Z",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 10
+            },
+            "serviceAccount": "bitestar-admin-support-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "containers": [
+              {
+                "image": "us-central1-docker.pkg.dev/coupon-app-29446/gcf-artifacts/coupon--app--29446__us--central1__search_coupon_admin_restaurants_page:version_1"
+              }
+            ]
+          },
+          "scaling": {
+            "scalingMode": "MANUAL",
+            "manualInstanceCount": 0
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-23T04:29:11.959791Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/listcouponadmincouponspage/revisions/listcouponadmincouponspage-00001-wam",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "listcouponadmincouponspage-00001-wam",
+              "percent": 100
+            }
+          ]
+        },
+        "revision": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/listcouponadmincouponspage/revisions/listcouponadmincouponspage-00001-wam",
+          "createTime": "2026-09-23T04:27:37.031165Z",
+          "updateTime": "2026-09-23T04:27:37.350392Z",
+          "service": "listcouponadmincouponspage",
+          "scaling": {
+            "maxInstanceCount": 10
+          },
+          "serviceAccount": "bitestar-admin-support-runtime@coupon-app-29446.iam.gserviceaccount.com",
+          "containers": [
+            {
+              "image": "us-central1-docker.pkg.dev/coupon-app-29446/gcf-artifacts/coupon--app--29446__us--central1__search_coupon_admin_restaurants_page@sha256:3aff7113b8913fe50b2905143bd93662bd56ab645fde5f8dab0822e5e9985ff5"
+            }
+          ],
+          "conditions": [
+            {
+              "type": "Ready",
+              "state": "CONDITION_SUCCEEDED",
+              "message": "Updating revision scaling succeeded.",
+              "lastTransitionTime": "2026-09-23T04:29:11.859615Z"
+            },
+            {
+              "type": "Active",
+              "state": "CONDITION_SUCCEEDED",
+              "lastTransitionTime": "2026-09-23T04:27:47.762390Z",
+              "severity": "INFO"
+            },
+            {
+              "type": "ResourcesAvailable",
+              "state": "CONDITION_SUCCEEDED",
+              "message": "Provisioning imported containers completed in 1.89s. Checking container health. This will wait for up to 4m for the configured startup probe, including an initial delay of 0s.",
+              "lastTransitionTime": "2026-09-23T04:27:42.227606Z"
+            },
+            {
+              "type": "TrafficShutDown",
+              "state": "CONDITION_SUCCEEDED",
+              "lastTransitionTime": "2026-09-23T04:29:11.796377Z",
+              "severity": "INFO"
+            },
+            {
+              "type": "ContainerReady",
+              "state": "CONDITION_SUCCEEDED",
+              "message": "Container image import completed in 2.4s.",
+              "lastTransitionTime": "2026-09-23T04:27:40.338484Z"
+            },
+            {
+              "type": "ContainerHealthy",
+              "state": "CONDITION_SUCCEEDED",
+              "message": "Containers became healthy in 4.87s.",
+              "lastTransitionTime": "2026-09-23T04:27:47.586332Z"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "recovery": {
+    "readAt": "2026-10-17T15:22:33.302Z",
+    "productionMutations": [],
+    "artifacts": [
+      {
+        "id": "getCustomerBiteSaverSearchPage",
+        "image": "us-central1-docker.pkg.dev/coupon-app-29446/gcf-artifacts/coupon--app--29446__us--central1__get_customer_bite_saver_search_page@sha256:6e43ec22d942beb94e9c3a4d64157907266a862161724038f0ae459bd516020e",
+        "result": {
+          "ok": false,
+          "httpStatus": 404
+        }
+      },
+      {
+        "id": "listCouponAdminCouponsPage",
+        "image": "us-central1-docker.pkg.dev/coupon-app-29446/gcf-artifacts/coupon--app--29446__us--central1__search_coupon_admin_restaurants_page@sha256:3aff7113b8913fe50b2905143bd93662bd56ab645fde5f8dab0822e5e9985ff5",
+        "result": {
+          "ok": false,
+          "httpStatus": 404
+        }
+      }
+    ],
+    "invokerPolicies": [
+      {
+        "id": "getCustomerBiteSaverSearchPage",
+        "ok": true,
+        "etag": "BwZcWshuv3Q=",
+        "roles": [
+          {
+            "role": "roles/run.invoker",
+            "allUsers": true,
+            "allAuthenticatedUsers": false,
+            "memberCount": 1
+          }
+        ]
+      },
+      {
+        "id": "listCouponAdminCouponsPage",
+        "ok": true,
+        "etag": "ACAB",
+        "roles": []
+      }
+    ],
+    "sourceArchives": [
+      {
+        "id": "getCustomerBiteSaverSearchPage",
+        "bucket": "gcf-v2-sources-253983587346-us-central1",
+        "object": "getCustomerBiteSaverSearchPage/function-source.zip",
+        "generation": "1790098334138122",
+        "result": {
+          "ok": true,
+          "data": {
+            "name": "getCustomerBiteSaverSearchPage/function-source.zip",
+            "generation": "1790098334138122",
+            "size": "3017181",
+            "md5Hash": "hspwoZigj/2JY7cC6naDNg==",
+            "crc32c": "tWpLSw=="
+          }
+        },
+        "verifiedBy": "deployed-source.json exact generation metadata and selective ZIP range reads"
+      },
+      {
+        "id": "listCouponAdminCouponsPage",
+        "bucket": "gcf-v2-sources-253983587346-us-central1",
+        "object": "listCouponAdminCouponsPage/function-source.zip",
+        "generation": "1790137656101865",
+        "result": {
+          "ok": true,
+          "data": {
+            "name": "listCouponAdminCouponsPage/function-source.zip",
+            "generation": "1790137656101865",
+            "size": "3029771",
+            "md5Hash": "mqnzpqrm4VFrB35+QvVR4g==",
+            "crc32c": "5NIJ+A=="
+          }
+        },
+        "verifiedBy": "deployed-source.json exact generation metadata and selective ZIP range reads"
+      }
+    ],
+    "worker": {
+      "ok": true,
+      "data": {
+        "name": "projects/coupon-app-29446/locations/us-central1/functions/processDishProposalResolutionWork",
+        "buildConfig": {
+          "sourceProvenance": {
+            "resolvedStorageSource": {
+              "bucket": "gcf-v2-sources-253983587346-us-central1",
+              "object": "processDishProposalResolutionWork/function-source.zip",
+              "generation": "1790214711668380"
+            }
+          }
+        },
+        "serviceConfig": {
+          "service": "projects/coupon-app-29446/locations/us-central1/services/processdishproposalresolutionwork",
+          "serviceAccountEmail": "253983587346-compute@developer.gserviceaccount.com",
+          "revision": "processdishproposalresolutionwork-00002-his"
+        },
+        "state": "ACTIVE",
+        "updateTime": "2026-09-24T01:52:52.026502213Z"
+      }
+    },
+    "workerService": {
+      "ok": true,
+      "data": {
+        "name": "projects/coupon-app-29446/locations/us-central1/services/processdishproposalresolutionwork",
+        "scaling": {
+          "maxInstanceCount": 20
+        },
+        "terminalCondition": {
+          "type": "Ready",
+          "state": "CONDITION_SUCCEEDED",
+          "lastTransitionTime": "2026-09-24T01:52:51.783101Z"
+        },
+        "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/processdishproposalresolutionwork/revisions/processdishproposalresolutionwork-00002-his"
+      }
+    },
+    "workerScheduler": {
+      "ok": true,
+      "data": {
+        "name": "projects/coupon-app-29446/locations/us-central1/jobs/firebase-schedule-processDishProposalResolutionWork-us-central1",
+        "state": "ENABLED",
+        "status": {},
+        "lastAttemptTime": "2026-10-17T15:22:04.824274Z",
+        "schedule": "every 1 minutes"
+      }
+    },
+    "requiredRuntimeBindings": [
+      {
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "bindings": [
+          {
+            "role": "projects/coupon-app-29446/roles/bitestarBiteScoreAuthRead",
+            "condition": null
+          },
+          {
+            "role": "roles/datastore.user",
+            "condition": null
+          },
+          {
+            "role": "roles/eventarc.eventReceiver",
+            "condition": null
+          }
+        ]
+      },
+      {
+        "serviceAccount": "bitestar-admin-support-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "bindings": [
+          {
+            "role": "roles/datastore.user",
+            "condition": null
+          }
+        ]
+      },
+      {
+        "serviceAccount": "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "bindings": [
+          {
+            "role": "roles/datastore.user",
+            "condition": null
+          },
+          {
+            "role": "roles/eventarc.eventReceiver",
+            "condition": null
+          }
+        ]
+      },
+      {
+        "serviceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "bindings": [
+          {
+            "role": "roles/editor",
+            "condition": null
+          },
+          {
+            "role": "roles/eventarc.eventReceiver",
+            "condition": null
+          },
+          {
+            "role": "roles/run.invoker",
+            "condition": null
+          }
+        ]
+      }
+    ],
+    "roles": [
+      {
+        "role": "projects/coupon-app-29446/roles/bitestarBiteScoreAuthRead",
+        "result": {
+          "ok": true,
+          "data": {
+            "name": "projects/coupon-app-29446/roles/bitestarBiteScoreAuthRead",
+            "includedPermissions": [
+              "firebaseauth.users.get"
+            ],
+            "stage": "GA"
+          }
+        }
+      }
+    ],
+    "correctedArtifactReadAt": "2026-10-17T15:30:57.765Z",
+    "correction": "Prior malformed full-image resource IDs and generation-in-path query yielded non-evidence errors; superseded by correct resource IDs and verified archive metadata."
+  },
+  "domains": {
+    "runId": "BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003",
+    "readAt": "2026-10-17T15:20:39.684Z",
+    "scope": {
+      "project": "coupon-app-29446",
+      "allSitesInProjectListed": true,
+      "allCustomDomainsPaginated": true,
+      "otherFirebaseProjectsNotInspected": true
+    },
+    "sites": [
+      {
+        "name": "projects/coupon-app-29446/sites/coupon-app-29446",
+        "type": "DEFAULT_SITE",
+        "defaultUrl": "https://coupon-app-29446.web.app",
+        "customDomains": [
+          {
+            "name": "projects/253983587346/sites/coupon-app-29446/customDomains/app.bitestar.app",
+            "hostState": "HOST_ACTIVE",
+            "ownershipState": "OWNERSHIP_ACTIVE",
+            "certState": "CERT_ACTIVE",
+            "redirectTarget": null,
+            "reconciling": false
+          },
+          {
+            "name": "projects/253983587346/sites/coupon-app-29446/customDomains/go.bitestar.app",
+            "hostState": "HOST_ACTIVE",
+            "ownershipState": "OWNERSHIP_ACTIVE",
+            "certState": "CERT_ACTIVE",
+            "redirectTarget": null,
+            "reconciling": false
+          },
+          {
+            "name": "projects/253983587346/sites/coupon-app-29446/customDomains/app.biteranger.com",
+            "hostState": "HOST_ACTIVE",
+            "ownershipState": "OWNERSHIP_ACTIVE",
+            "certState": "CERT_ACTIVE",
+            "redirectTarget": null,
+            "reconciling": false
+          },
+          {
+            "name": "projects/253983587346/sites/coupon-app-29446/customDomains/go.biteranger.com",
+            "hostState": "HOST_ACTIVE",
+            "ownershipState": "OWNERSHIP_ACTIVE",
+            "certState": "CERT_ACTIVE",
+            "redirectTarget": null,
+            "reconciling": false
+          },
+          {
+            "name": "projects/253983587346/sites/coupon-app-29446/customDomains/app.colesmartllc.com",
+            "hostState": "HOST_ACTIVE",
+            "ownershipState": "OWNERSHIP_ACTIVE",
+            "certState": "CERT_ACTIVE",
+            "redirectTarget": null,
+            "reconciling": false
+          },
+          {
+            "name": "projects/253983587346/sites/coupon-app-29446/customDomains/go.colesmartllc.com",
+            "hostState": "HOST_ACTIVE",
+            "ownershipState": "OWNERSHIP_ACTIVE",
+            "certState": "CERT_ACTIVE",
+            "redirectTarget": null,
+            "reconciling": false
+          }
+        ]
+      }
+    ],
+    "requestedDomains": [
+      {
+        "domain": "bitestar.app",
+        "bindings": []
+      },
+      {
+        "domain": "www.bitestar.app",
+        "bindings": []
+      },
+      {
+        "domain": "app.bitestar.app",
+        "bindings": [
+          {
+            "site": "projects/coupon-app-29446/sites/coupon-app-29446",
+            "name": "projects/253983587346/sites/coupon-app-29446/customDomains/app.bitestar.app",
+            "hostState": "HOST_ACTIVE",
+            "ownershipState": "OWNERSHIP_ACTIVE",
+            "certState": "CERT_ACTIVE",
+            "redirectTarget": null,
+            "reconciling": false
+          }
+        ]
+      },
+      {
+        "domain": "app.colesmartllc.com",
+        "bindings": [
+          {
+            "site": "projects/coupon-app-29446/sites/coupon-app-29446",
+            "name": "projects/253983587346/sites/coupon-app-29446/customDomains/app.colesmartllc.com",
+            "hostState": "HOST_ACTIVE",
+            "ownershipState": "OWNERSHIP_ACTIVE",
+            "certState": "CERT_ACTIVE",
+            "redirectTarget": null,
+            "reconciling": false
+          }
+        ]
+      }
+    ],
+    "live": {
+      "channel": "projects/coupon-app-29446/sites/coupon-app-29446/channels/live",
+      "release": "projects/coupon-app-29446/sites/coupon-app-29446/channels/live/releases/1789853843090000",
+      "releaseTime": "2026-09-19T21:37:23.090Z",
+      "version": "projects/coupon-app-29446/sites/coupon-app-29446/versions/6d56d4182157afd7",
+      "versionStatus": "FINALIZED"
+    },
+    "permissions": {
+      "allowed": [
+        "firebase.projects.get",
+        "firebasehosting.sites.get",
+        "firebasehosting.sites.update"
+      ],
+      "missing": [],
+      "passed": true
+    },
+    "productionMutations": [],
+    "conclusion": "Bindings are authoritative only within the inspected authorized Firebase project. No claim of global absence or canonical website launch."
+  },
+  "hosting": {
+    "recordedLiveRelease": "1789853843090000",
+    "recordedLiveVersion": "6d56d4182157afd7",
+    "newRelease": null,
+    "newVersion": null,
+    "productionFileDelta": 0,
+    "reusedCandidateMainSha256": "e0a6b2bdac345d8747c5a9fa5ca5b5d27dd9a64c278f085381d9bf3c65d405db",
+    "undatedStageFiles": 70,
+    "finalDatedPublicationQualified": false
+  },
+  "tests": {
+    "rulesEmulator": {
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0
+    },
+    "mediaBaseline": {
+      "passed": 295,
+      "failed": 0,
+      "skipped": 0
+    },
+    "mediaSpecificAndRace": {
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0
+    },
+    "adminContract": {
+      "passed": 75,
+      "failed": 0,
+      "skipped": 0
+    },
+    "adminEmulator": {
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0
+    },
+    "flutterSpecials": {
+      "passed": 3,
+      "failed": 0
+    },
+    "distinctTotal": 402,
+    "finalBackendNode": "24.19.0",
+    "typescriptBuilds": "pass",
+    "scopedFlutterAnalysis": "pass",
+    "googleRulesCompile": {
+      "errors": 0,
+      "warnings": 71,
+      "baselineWarningParity": true
+    },
+    "unresolvedNewFailures": 0,
+    "liveAdminMutations": false,
+    "liveAccountDeletion": false
+  },
+  "priorVerificationReused": {
+    "deletion": 116,
+    "browser": 14,
+    "hosting": 15,
+    "broaderClientPassed": 712,
+    "previouslyClassifiedHistoricalFailures": 13,
+    "source": "/Users/colesmart/dev/coupon_app/WEB_BETA_RELEASE_002_EVIDENCE.json",
+    "sha256": "99440601239ebcd4fc4af8d0fc14e24e3dbd721b3fb0811957428c4a686ae6ae"
+  },
+  "sourceArtifacts": [
+    {
+      "path": "functions/src/index.ts",
+      "sha256": "040998fba8b335eb9dbc0b8df28b1d9d6758160088756dee1278d51912c0516e",
+      "bytes": 198769
+    },
+    {
+      "path": "firestore_rules_tests/test/web_release_prerequisites_rules.test.js",
+      "sha256": "f9c659005ba468b8a2ae1a78581a7c92899083efac64fccba53e8b9c14e83988",
+      "bytes": 11304
+    },
+    {
+      "path": "functions/test/web_release_admin_emulator.test.js",
+      "sha256": "3d3a36279188ed7445e6ecd0402c24e4441a67a8913f1624ff2d527ed69f450f",
+      "bytes": 4053
+    },
+    {
+      "path": "functions/test/web_release_media.test.js",
+      "sha256": "64811902c54685d849302e678f6be43e6cdc68a6267eb39b15b6187371afac1b",
+      "bytes": 1540
+    },
+    {
+      "path": "functions/test/helpers/web_release_media_fixture.js",
+      "sha256": "763415aa91d7a9d50e04824dda2f7355149c3c16a94714c48714242b401a4ab2",
+      "bytes": 2705
+    },
+    {
+      "path": "test/fixtures/web_release_specials_media.json",
+      "sha256": "5c0e3ef784f9efaca7a3e5e926947b857c627248eca5446fadfb049455308e1d",
+      "bytes": 1212
+    },
+    {
+      "path": "test/screens/web_release_specials_contract_test.dart",
+      "sha256": "5e1f5e3e094406a36f17eba966c54d7a7676bd0929b4cb2bb151fa7385e761ac",
+      "bytes": 5833
+    },
+    {
+      "path": "release/web_prerequisites_003/firestore.rules",
+      "sha256": "8fcae3e7205961bcb2329db4fd7caa44a5814ceee842cb5bae6daff4adeb8a20",
+      "bytes": 47857
+    },
+    {
+      "path": "release/web_prerequisites_003/firestore-patch.json",
+      "sha256": "3751af23248963c1d03a89bb8cb25f48113bc6df3ad5851df6269eb0ad30bd05",
+      "bytes": 3123
+    },
+    {
+      "path": "release/web_prerequisites_003/customer-media.patch",
+      "sha256": "063af9d15627eea754203750832ad63be472555bcbb5d30111d6ad99b2ab83f3",
+      "bytes": 28901
+    },
+    {
+      "path": "release/web_prerequisites_003/candidate-manifest.json",
+      "sha256": "10341d5e12c3f23729ef6202958d823f810c2fbac565ef8ba78608f156736e01",
+      "bytes": 3285
+    },
+    {
+      "path": "release/web_prerequisites_003/RELEASE_PLAN.txt",
+      "sha256": "b7a9a3b2c3379fa8baf21584d3bcd2228326426eb5120b859d06f0fe3516df89",
+      "bytes": 7309
+    },
+    {
+      "path": "WEB_RELEASE_PREREQUISITES_003_QUALIFICATION.txt",
+      "sha256": "15de748de452cdaac40cc6471bb79c9f0c8de5bf0fc849b59d585df9ccd34e05",
+      "bytes": 11265
+    }
+  ],
+  "packages": {
+    "runId": "BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003",
+    "baseCommit": "1200c828f68a05d3b4bec6ae03438a645c4c0b80",
+    "productionDeployed": false,
+    "packagePolicy": "Only TypeScript source, generated JavaScript, package.json, package-lock.json and tsconfig.json. No .env, credential or secret payloads. Not generic Firebase deployment packages. Exact callable/config restrictions apply.",
+    "fullManifest": {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/package-manifest.json",
+      "sha256": "167a09029a5fa1159e7bd16dafd56c43989a639ce3e2c03478cd58dd93b1c0ab"
+    },
+    "packages": {
+      "media-baseline": {
+        "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/packages/media-baseline.zip",
+        "sha256": "3d95775b932b2849d19126aa2470f9642360f4d95f30e5eee275e71d49ff7976",
+        "bytes": 1231389,
+        "fileCount": 213
+      },
+      "media-candidate": {
+        "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/packages/media-candidate.zip",
+        "sha256": "90cb52c9afdcd3ebc4d2d0db713c4dfbc2be61ce20d6480cfae974849bd8ff99",
+        "bytes": 1248154,
+        "fileCount": 219
+      },
+      "six-admin-candidate": {
+        "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/packages/six-admin-candidate.zip",
+        "sha256": "603b67372de378a53627786f66250633eea557c6c9e77227b2649f8ab50cafae",
+        "bytes": 1471260,
+        "fileCount": 281
+      }
+    },
+    "mediaBaseline": {
+      "bucket": "gcf-v2-sources-253983587346-us-central1",
+      "object": "getCustomerBiteSaverSearchPage/function-source.zip",
+      "generation": "1790098334138122",
+      "sourceManifest": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/contracts/media-baseline-manifest.json",
+      "sourceManifestSha256": "6fe0694891a2d976daf305e3f7e3056d7faca7b63986260e246c80b4e655e31c"
+    },
+    "reviewedSource": {
+      "reviewedAt": "2026-10-17T15:35:06.850357+00:00",
+      "verdict": "PASS focused source review; root tests and protected live prerequisites remain separate",
+      "patchSha256": "063af9d15627eea754203750832ad63be472555bcbb5d30111d6ad99b2ab83f3",
+      "patchReconstructsExactBaselineToCandidateDiff": true,
+      "sourceFiles": {
+        "/Users/colesmart/dev/coupon_app/functions/src/index.ts": "040998fba8b335eb9dbc0b8df28b1d9d6758160088756dee1278d51912c0516e",
+        "/tmp/bs-prereq-003/media-candidate/src/bitesaver_customer_media.ts": "26f88f98a9f73aefbc31acd908128d3d5f603c6779f8a3427c2a30a354bf9b4f",
+        "/tmp/bs-prereq-003/media-candidate/src/bitesaver_owner_media.ts": "64d0ab350018cae5be4a5159f149135e5180015f2387cdc73f0e756c8910432a",
+        "/tmp/bs-prereq-003/media-candidate/src/customer_bitesaver_search_session.ts": "2d7c1af62d60882d4016ed6a4ba08864c31921e9799588dde1b3e3def452a5dd",
+        "/tmp/bs-prereq-003/media-candidate/src/owner_photo_identity.ts": "d2e6f28355cb5d5c1be56264a46c509ea19e851b9a39de379ce43bb78f1bb898"
+      },
+      "baselinePreserved": [
+        "src/index.ts",
+        "src/search_index_builders.ts",
+        "src/customer_bitesaver_search_contract.ts",
+        "src/customer_bitesaver_search_store.ts",
+        "package.json",
+        "package-lock.json",
+        "tsconfig.json"
+      ]
+    }
+  },
+  "testLogs": [
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/logs/rules-tests.log",
+      "sha256": "1e273dacda250ec89b6c31e2cbadcccda5819a29ea71be7fe620829686f3a280"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/logs/admin-node24-contract-tests.log",
+      "sha256": "5c97db33c9461553d78f264bffe9896d6c247c3c9e7ee6f34ce1d9c8a1a49af5"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/logs/admin-node24-emulator.log",
+      "sha256": "721da4f248cb1d8e7974c392d6667402c0d0a1f5844fd381e354fa072a26336c"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/logs/media-node24-regressions.log",
+      "sha256": "ccea1d3b79c8c78a7fb0cf229b1b6f39f2420f8825ce78203d9bec1d2d4a38c2"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/logs/media-node24-handlers.log",
+      "sha256": "25b9084a45c4d2fd5817478f3c42b51e501139e9744ad1c304979c7e080a9c7f"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/logs/media-node24-version-fixture.log",
+      "sha256": "0b669ff6f0c6b86def40b1aec2a98e73d5901809ad5dfd19c649a4ba70d1ce8f"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/logs/flutter-specials.log",
+      "sha256": "e25ca16a42a3aa22b64301de01352bf15f92274eb84db5ad14cd5e431a0596db"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/logs/flutter-specials-analysis.log",
+      "sha256": "48aa547eecd07c5688add8c7fde78e90660aae319e972806dc3260ba3b70b1a1"
+    }
+  ],
+  "independentReviews": [
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/rules/independent-final-review.txt",
+      "sha256": "39d4463e22a2a335dc5e9bf7b1de6485f5b8ea98ff724b7171092f4f2874dafd",
+      "text": "BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003 \u2014 Track A final source/security review\nVerdict: PASS for prepared Rules candidate; NOT deployed and NOT coordinated-release approval.\n\nCandidate: release/web_prerequisites_003/firestore.rules\nSHA256:8fcae3e7205961bcb2329db4fd7caa44a5814ceee842cb5bae6daff4adeb8a20\nBaseline ruleset:8e3dd55a-edb0-4eb1-af12-d6547f9d223f\nBaseline SHA256:4ac78070148af5b8478f0fb06d51392a46479a4ac2a58b607621ec8dd366d06e\n\nIndependently read full baseline/candidate diff and patch manifest. Exactly eleven\npredicate insertions across the four authorized root matches. Reverse application\nreconstructed the exact captured live Rules bytes, not merely semantically similar\nsource. Existing read clauses, maintenance holds, billing-protected fields, child\nmatches, other paths and restaurant-account delete=false remain unchanged.\nAdmin OR alternatives are parenthesized behind both actor and target guards.\nUsername updates guard existing and proposed ownership; no new ownership grant.\nClient delete guards preserve active-account Admin deletions while trusted existing\nworker cleanup bypasses client Rules through its established Admin SDK/IAM path.\nExisting durable existence markers remain sufficient; no TTL/schema change needed.\n\nReviewed focused suite source and /tmp/bs-prereq-003/logs/rules-tests.log:\n15pass,0fail,0skip. Coverage includes all four stale-token root creations denied403\nafter local Auth removal, all marker states, active/marked Admin claim and beta-email\nactors/targets, ordinary customer/owner writes, unrelated-user preservation,\nforeign/signed-out denial, username reassignment, read/marker privacy, held content\nand protected billing fields, restored owner-child writes, trusted cleanup, normal\nusername transaction and ten-target Admin batch. Existing116 deletion tests remain\napplicable; this patch does not change worker source or trusted backend permissions.\nNo material missing test or source correction identified.\n\nAccess budget: changed UID-root rules add at most two marker exists calls per\noperation; username update at most three, normally the same cached UID. Relevant\nexisting predicates use local fields/tokens. Both supported multi-write transaction\nand ten-target Admin batch passed; no new access-budget failure identified.\n\nRead-only Google projects:test compilation: HTTP200,zeroERROR,71WARNING. Exact old\nbaseline compilation has the identical71-warning severity/description multiset;\nthese inherited held/unused-function warnings are not introduced by this patch.\nEvidence:google-validation.json and google-baseline-validation.json. No ruleset\ncreation or release update occurred. No production operation executed by reviewer.\n\nCoordinated release remains blocked by the integrating agent's identified service\nIAM/index prerequisites. This PASS freezes only the stated source hash and focused\nsecurity qualification; re-review affected changes if those bytes change. Before\nany later authorized rollout, re-read live identity, validate coordinated gates,\nand follow preserved release/recovery procedure. Do not deploy this lane alone.\n"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/contracts/track-b-review.txt",
+      "sha256": "b129f6a7ee6552daf1ac935ad43f3c0e6dfc7e47f1dca0f7f7fa1894d1851c42",
+      "text": "BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003 \u2014 Track B independent read-only contract review\nReview date: 2026-10-17; live projected metadata 15:21\u201315:31 UTC.\nRepository: /Users/colesmart/dev/coupon_app. Starting main: 1200c828f68a05d3b4bec6ae03438a645c4c0b80.\nScope: customer restaurantMedia, exact six missing Admin callables, held listCouponAdminCouponsPage; their necessary runtime/recovery prerequisites only. No repository edits, suite runs, production mutations, invocations, secret payloads or customer records by this reviewer. Root owns implementation/testing/deployment.\n\nVERDICT / PROTECTED DECISION\nSafe source preparation can proceed. Production remains blocked under this prompt's explicit no-new-IAM/no-index-deployment boundary:\n1. The normal callable deployment creates roles/run.invoker -> allUsers on EACH of six new Cloud Run services. The existing held coupon service has an EMPTY service IAM policy and needs the same binding to support a Firebase callable from the web. This is seven exact service-level invocation bindings, not Admin application authorization and not new runtime database grants. Do not disable invoker IAM checking to evade this gate.\n2. listRatingAdminDishSuggestionsPage requires the existing source-declared collection-scope composite on private_dish_edit_proposal_groups: resolutionIdentitiesValid ASC, oldestTrustedServerCreateTime ASC, __name__ ASC (implicit). It is absent live; the available autoEligible/dueAt composite cannot satisfy the ordered page. No index create/deploy is authorized.\nRecovery limitation, separate from those two protected approvals: Both original image digests return404 from correct Artifact Registry image-resource requests. Exact immutable source archives and existing Ready revisions are available. Retained-revision traffic rollback is supported without Registry re-pull (documented below). Do not claim the original digest can be redeployed or that rollback was tested. Root should retain the source baseline/package as secondary recovery evidence.\n\nSmallest combined owner decision: authorize those exact seven run.invoker bindings and that one existing composite. Qualify and retain the exact recovery plan below before production. Then finish only the already requested service scopes: narrow existing media update, exact six Admin creations, and release only listCouponAdminCouponsPage internal/MANUAL0 hold. Preserve all other holds, flags, IAM roles/accounts, secret versions, TTLs, Rules permission boundaries and unrelated services. Do not call a whole Functions/index deployment.\nExact seven service IDs in us-central1 (project coupon-app-29446):\n  listratingadmindishsuggestionspage\n  applyratingadmindishsuggestiongroup\n  rejectratingadmindishsuggestiongroup\n  approverestaurantnamechange\n  getadminpostingrestriction\n  setadminpostingrestriction\n  listcouponadmincouponspage\nExisting media getcustomerbitesaversearchpage already has allUsers run.invoker.\nCLI evidence: /opt/homebrew/Cellar/firebase-cli/15.19.1/libexec/lib/node_modules/firebase-tools/lib/deploy/functions/release/fabricator.js:361\u2013364 and lib/gcp/run.js:116\u2013128.\n\nACTUAL CALLER -> CONTRACT -> CONSUMER\n- lib/services/rating_admin_dish_suggestions_service.dart:45,118,128 -> listRatingAdminDishSuggestionsPage / applyRatingAdminDishSuggestionGroup / rejectRatingAdminDishSuggestionGroup -> existing exact page/actions. functions/src/index.ts:428 aliases guard to requireAdminInviteAccess; wrappers at2773,2845,2853. Paging is strict 25-row signed caller/direction-bound cursor, canonical identity projection and bounded enrichment. Actions validate group identity/fingerprint/membership generation/resolution sequence and claim once, then run one bounded step (dish_proposal_runtime_integration.ts:470\u2013521).\n- Direct continuation dependency processDishProposalResolutionWork exists ACTIVE/Ready, revision processdishproposalresolutionwork-00002-his, source generation1790214711668380; its every-minute scheduler is ENABLED. Actual deployed integration module is byte-identical current. Current resolution-jobs difference is Terms-conditional rename validation; Terms OFF keeps deployed worker compatible for this release. No extra worker deployment/activation is required. Worker job index is READY.\n- lib/services/restaurant_account_service.dart:490\u2013500 -> approveRestaurantNameChange -> restaurant_name_approval.ts:8\u201337 derives owner UID/name solely from pending request, requires Admin authority, transaction checks actor+owner deletion guards, account identity and owner's Terms if activated; exact completed approval is idempotent. No client-supplied name/UID authority. Terms stays OFF.\n- lib/services/posting_restriction_service.dart:135\u2013167 -> getAdminPostingRestriction / setAdminPostingRestriction -> customer_bitescore_runtime.ts:74\u201380 + posting_restrictions.ts:55\u2013111. Existing Admin token authority; exact signed-in expected UID; report-to-current-content identity checks; target/actor deletion fences; expectedRevision and idempotency; bounded single state record; release allowed from exact known target when report has disappeared. No report body/display-name identity, public content deletion, score mutation, or screening activation. Existing customer guards enforce restrictions where already deployed; do not imply activation of dormant reviewer-safety UI.\n- lib/services/coupon_admin_paging_service.dart:45\u201351 -> listCouponAdminCouponsPage -> index.ts:2610\u20132623 + coupon_admin_paging.ts. Strict restaurant-scoped read-only 25-row page, query limit26, exact count, signed caller/criteria/direction/expiry boundaries, timestamp precision, bounded response allowlist. Its deployed coupon_admin_paging.ts and admin_authorization.ts are byte-identical current (contract-parity.json). Releasing read access does not authorize permanent coupon deletion.\n- Admin guards differ by established path: dish/coupon require the existing allowlisted Admin email and nonanonymous identity via requireAdminInviteAccess; name/posting accept the established Admin token claim or allowlisted email via requireRestaurantAccountAdminAccess. Do not inaccurately describe all six as custom-claim-only. No authority policy change proposed.\n\nRUNTIME / LIVE METADATA\nSix named Admin functions are authoritatively absent in live inventory. metadata.json contains projected exact existing function/service/revision state.\n- Existing media: Node24, revision getcustomerbitesaversearchpage-00001-tuz; 120s/256Mi/concurrency80, max10, automatic, ALLOW_ALL; bitesaver-browse-runtime; existing two key references version1. Preserve them exactly.\n- Held coupon: Node24, revision listcouponadmincouponspage-00001-wam; 60s/256Mi/concurrency80, revision max10; service MANUAL/manualInstanceCount0; ALLOW_INTERNAL_ONLY; empty service policy; bitestar-admin-support-runtime; cursor key version1. Restoring automatic scaling alone cannot make a web callable work; internet ingress and invocation binding are separately required.\n- Existing adminSupport has datastore.user and exact cursor secretAccessor. Root's one-source-option correction assigns Dish Suggestions list to this existing account; no new grant. Default compute (other three handlers apply/reject/name approval) has existing unconditional Editor; existing BiteScore runtime (posting pair) has datastore.user and Auth-read role. This is confirmation of needed existing capability, not a least-privilege endorsement or new-IAM suggestion.\n- operational.json shows only the autoEligible/dueAt group index, and existing status/updatedAt jobs index, both READY. Required oldestTrustedServerCreateTime page composite is absent. Source query evidence rating_admin_dish_suggestions_paging.ts:493\u2013536; source declaration firestore.indexes.json:363\u2013369.\n\nORIGINAL COUPON HOLD \u2014 RESOLVED PROVENANCE\nOriginal execution: /Users/colesmart/.codex/reports/BS-BITESTAR-ADMIN-PAGING-CLOSE-001-20260923-000523-EDT/FINAL-REPORT.md.\nIt records a PASS source/backend completion: six Admin pagination targets were created private/internal from creation and MANUAL0 as an intentional staged maintenance/coordinated reopening gate. Timestamp boundary loss and runtime-secret access were corrected first; 62 focused units,16 Firestore tests,107 Flutter tests and30 rejected wrapper authority envelopes were recorded. No unresolved coupon paging source issue was the hold reason. This coupon service did not belong to the earlier Sept19 original content hold set; it was created held Sept23.\nThe Sep25 customer activation report /Users/colesmart/.codex/reports/BS-PREBETA-CUSTOMER-SYSTEMS-ACTIVATE-001-20260925-232116-EDT/FINAL-REPORT.md:267 explicitly kept it held because Admin coupon management was outside normal customer activation.\nLater owner requirements /Users/colesmart/.codex/attachments/109d5a12-3f7a-4c7b-9cab-c5d11e9eddc1/Pasted text.txt:59\u201381 reject restoring permanent Admin coupon deletion and favor the deletion lock. Preserve it. Current task explicitly requests the existing coupon expansion/listing; releasing only its read service is consistent with that requirement, subject to protected prerequisites above.\n\nMINIMAL MEDIA CANDIDATE / BASELINE\nExact generation1790098334138122 captured from getCustomerBiteSaverSearchPage/function-source.zip; no environment files were fetched. media-baseline/ contains105 src/*.ts plus package.json/package-lock.json/tsconfig.json. Relative TS import closure has no missing files. No file-read/JSON-import/nonsecret asset dependency was found. The package's generic predeploy references separate deployment-safety scripts; root must use controlled candidate preparation rather than blindly invoking generic hooks.\nMinimal patch: preserve deployed index.ts/options and all original search builders/session logic; add restaurantMedia dispatch/type/import to deployed customer_bitesaver_search_session.ts; add existing bitesaver_customer_media.ts, bitesaver_owner_media.ts, owner_photo_identity.ts. Add media-local final ownerMedia.version recheck because the old general parent fingerprint did not include it. Do not copy the whole current search session/builders: those include unrelated status/cuisine/catalog/managed-publication changes. The new media reader explicitly calls managedSpecialForPublication and publicOwnerGallery; legacy fallback derives only validated public primaryImageUrl. Pure helper/module definitions do not deploy owner provider handlers.\nExact deployed baseline regression files also captured read-only: test/customer_bitesaver_search_contract.test.js, customer_bitesaver_search_cursor.test.js, customer_bitesaver_search_handlers.test.js plus four test/helpers files. media-baseline-tests-manifest.json contains hashes. Root owns compilation and baseline regressions, current six media cases and added media-version race fixture. This reviewer has not run or claimed those results.\n\nRECOVERY / EVIDENCE FILES\nmetadata.json: exact projected target state and six absence list.\nrecovery.json: actual image metadata404; exact immutable archives present; current invocation policies, worker/scheduler state, selected runtime grants. Corrected resource format15:30:57 UTC supersedes earlier malformed request errors; those errors are not evidence.\noperational.json: exact relevant indexes and cursor grant projection. Initial audit-log metadata attempts failed400/500; original hold rationale comes from recovered execution reports, not those failures.\ndeployed-source.json: generation-specific metadata plus selected source/compiled module hashes for media,coupon,worker.\nmedia-baseline-manifest.json:108 exact baseline files; media-baseline-tests-manifest.json:7 exact test/helper files.\ncontract-parity.json: coupon core+Admin guard and worker integration byte equality.\nMedia immutable archive: size3017181; generation1790098334138122; md5 hspwoZigj/2JY7cC6naDNg==.\nCoupon immutable archive: size3029771; generation1790137656101865; md5 mqnzpqrm4VFrB35+QvVR4g==.\nOriginal media image sha256:6e43ec22d942beb94e9c3a4d64157907266a862161724038f0ae459bd516020e.\nOriginal coupon image sha256:3aff7113b8913fe50b2905143bd93662bd56ab645fde5f8dab0822e5e9985ff5.\nReady service/revision metadata is not a new live behavioral smoke test; no real Admin/customer action was invoked.\n\nFOCUSED EXISTING VERIFICATION RECOMMENDATIONS (root runs, no duplicate reviewer suites)\n- Exact media baseline contract/cursor/handlers; current media-specific handler tests + final version race; client customer-media response mapping.\n- rating_admin_dish_suggestions.test.js and dish_proposal_resolution_jobs.test.js for exact paging/action gates/one-step continuation; actual wrappers authority rejection.\n- posting_restrictions.test.js + posting_restrictions_emulator.test.js for report identity/revision/idempotency/deletion fences; actual wrappers.\n- admin_authorization.test.js; shared_owner_terms_emulator.test.js existing name approval cases, Terms OFF preserved.\n- coupon_admin_paging.test.js and existing timestamp precision tests; unchanged source parity makes re-running broad search/deployment suites unnecessary absent further change.\n\nBug filter: missing bindings/index and recovery qualification are PRODUCT DECISION REQUIRED under explicit current exclusions. Dish-list existing-runtime assignment is FIX NOW / DIRECTLY REQUIRED and root has made it without new grants. Unrelated holds, default-off features, permanent coupon deletion and broad status/search changes ACCEPT AND CLOSE for this task. No repository cleanup or other remediation proposed.\n\nFINAL FOCUSED SOURCE REVIEW / RECOVERY ADDENDUM\nSource PASS: dish-list index.ts diff changes only the new endpoint's serviceAccount option to existing adminSupport. Candidate patch exactly reconstructs the baseline-to-candidate diff across the four listed modules; unchanged original105-module closure except the one session dispatch file. Existing owner-media/photo-identity modules match current source. New read route invokes only read helpers; other existing owner mutation definitions are present but neither called nor exported as Functions. No provider binding/activation. Media-local final version guard prevents returning gallery/board from a changed managed-media state while leaving old shared builder fingerprint unchanged. Actual reviewed hashes: focused-source-review.json. Root owns all tests; no duplicate suites run here.\n\nEvidence-backed recovery plan:\nA. Before deployment, retain exact old revision names/config references and recheck that each revision still exists and is Ready; never delete the revision. Existing media100% allocation is getcustomerbitesaversearchpage-00001-tuz. Cloud Run imports images at deployment and starts new instances from its imported copy, without pulling the Registry image again. Its documented rollback is a traffic-only update naming an existing revision. Thus routing the media service back to this retained revision is a viable primary rollback mechanism despite original registry404. It restores the old behavior, including no restaurantMedia support; the new web candidate must also be rolled back/withheld accordingly. Recheck external dependencies and secret version references; traffic rollback does not automatically rerun deployment health checks. No production rollback was tested.\nB. Coupon service is a hold-release operation, so code should remain its existing revision listcouponadmincouponspage-00001-wam. Recovery is to reapply its exact MANUAL0 + internal ingress and remove only the newly authorized invocation binding, preserving existing policy. If any implementation step unexpectedly creates a new coupon revision, explicitly retain the previous revision and qualify traffic restoration before continuing. No need to redeploy missing old image merely to restore the hold.\nC. For each six-new-service rollback, the pre-state was ABSENT. Stop new functionality by the agreed exact invocation/ingress/scaling rollback before considering deletion; no broad service or IAM rollback. Root's release plan must specify exact controls. This review does not authorize additional production actions.\nD. Immutable source archives plus allowlisted baseline package provide a secondary rebuild path. Original image digests are not retrievable; do not claim byte-identical rebuilt container or build provenance from source equality. No rollback image was created by this reviewer.\nOfficial documentation read2026-10-17:\nhttps://docs.cloud.google.com/run/docs/deploying (container image import and no startup Registry pull)\nhttps://docs.cloud.google.com/run/docs/rollouts-rollbacks-traffic-migration (existing-revision traffic rollback; no rerun health/dependency checks)\nThese documented semantics plus live retained Ready revisions support the plan; they are not a live behavioral verification.\n"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/contracts/final-test-review.txt",
+      "sha256": "ee6fd50b1f8b0559744148ad3c129b935342485116a26da82414539848ec799f",
+      "text": "BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003 \u2014 final Track B test review\nPASS. Independent read-only review of the four requested new test/fixture files found no weakened authorization, fake identity acceptance, changed production contract, or test workaround hiding the identified media/version issue. Actual reviewed SHA256s are final-test-review.json. No tests rerun and no source/production edits by reviewer.\n\nAdmin: new tests import the actual compiled index exports, call exact six wrappers, and assert missing/ordinary authority rejection. Name approval runs against local Firestore, exercises stored request identity/name, unrelated-field preservation, idempotent retry, rejected caller-supplied UID, actor/target deletion fences and changed account identity. Guarded exact local hosts/demo project and no GOOGLE_APPLICATION_CREDENTIALS assertion prevent accidental production fixture writes. No authorization guard is mocked/replaced.\nThe observed six-pass emulator log combines three new tests and three existing posting-restriction tests. Real Auth emulator sign-in, verified token, Admin custom claim and actual wrapper calls occur in the existing posting suite; the new six-wrapper denial cases use explicit auth envelopes. This qualifies wrapper/transaction behavior, not live HTTPS, IAM invocation or live index readiness. Do not describe all six as end-to-end real-token network invocations.\n\nMedia: static cross-language JSON is compared to real handler responses; managed published image wins over conflicting unapproved special metadata. Manual/photo modes feed the real Flutter service parser, Home restaurant assembly and actual Specials screen, including photo viewer; separate failure case preserves restaurant while suppressing stale Specials. Version-race test alters only ownerMedia.version on the final account read and demands failed-precondition with no database writes. Existing general fingerprint remains byte-preserved in candidate; its old implementation cannot accidentally satisfy the new version guard test.\nThe helper intentionally accepts BITESTAR_RELEASE_FUNCTIONS_ROOT and otherwise defaults to repository compiled lib. Candidate-specific qualification must record the explicit candidate path /tmp/bs-prereq-003/media-candidate; default repo execution alone does not establish deployed-baseline compatibility. Root reported candidate-specific execution and is finalizing Node24 reruns. Reviewer saw 2-pass new media log and 6-pass Admin combined log, without asserting unfinished Node24 results.\n\nReviewed adjacent evidence: three existing posting emulator tests establish real Auth and posting effects; Flutter contract test and log show three passes. Baseline original contract/handler/cursor tests remain unchanged; missing compatibility-fixture staging correction does not weaken them. Exact original baseline/source/test manifests remain separate evidence. No new requirement for broad suites, provider activation or live customer writes.\n\nPreviously recorded focused source PASS remains applicable: index source SHA040998fba8b335eb9dbc0b8df28b1d9d6758160088756dee1278d51912c0516e; media patch SHA063af9d15627eea754203750832ad63be472555bcbb5d30111d6ad99b2ab83f3. Protected production prerequisites remain seven exact invocation bindings plus one existing Dish Suggestions composite. See track-b-review.txt for original coupon hold rationale and documented retained-revision recovery plan. Passing tests do not remove these authorization gates.\n"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/hosting/track-c-initial-review.txt",
+      "sha256": "6b5d916597e3c4b8212a551c451e56436f2cea7dc5f3596a09f51404d2025859",
+      "text": "BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003\nTrack C \u2014 initial independent Hosting/domain/publication review\nRead-only production inspection; root remains sole implementer/deployer.\n\nDOMAIN FINDINGS\nAt the recorded read timestamp, the authorized Firebase project coupon-app-29446\ncontains one Hosting site, coupon-app-29446. All custom-domain pages were listed.\napp.colesmartllc.com and app.bitestar.app are both active bindings to this site:\nHOST_ACTIVE, OWNERSHIP_ACTIVE, CERT_ACTIVE, no redirect target, no reconciliation.\nOther existing active aliases on that same site: go.bitestar.app,\napp.biteranger.com, go.biteranger.com and go.colesmartllc.com.\nA site release affects all six existing aliases. No mapping/redirect/DNS change\nis needed or authorized. Do not describe the release as affecting only one alias.\n\nNeither bitestar.app nor www.bitestar.app is bound to a Hosting site in this\nproject. Other Firebase projects, registrar records and public DNS were not\ninspected; absence from this project's bindings does not prove global absence.\nThe intended canonical customer identity remains https://bitestar.app.\nIts canonical launch is not verified. app.bitestar.app is a distinct subdomain.\nThe existing technical site/legal destination may be released under the present\nsite authorization after all dependency gates pass; apex-domain launch need not\nbe invented as a prerequisite to that approved technical/legal release.\nDo not rewrite finalized legal contact/site wording to change this distinction.\n\nLIVE TARGET / ACCESS\nRelease1789853843090000, version6d56d4182157afd7 FINALIZED, remains live.\nExisting account passed firebase.projects.get, firebasehosting.sites.get and\nfirebasehosting.sites.update checks. Site-list/custom-domain reads succeeded.\nThis is evidence of available access, not a successful deployment exercise.\nThe same preserved67-file baseline remains the comparison/recovery reference.\nNo production candidate/version/release, DNS, redirect or IAM mutation occurred.\n\nSUPPORTED RELEASE METHOD\nUse Hosting REST version cloning with finalize:false. Wait for the clone\noperation to complete; verify exact baseline config and all paginated file hashes.\nPopulate only the explicitly reviewed overlay using SHA256 of the exact gzip\nbytes to be uploaded. Do not replace raw-identical assetlinks just because gzip\nencoding differs. Preserve reserved /__/firebase/init.js and init.json entries.\nKeep exact live rewrites/headers. Omit /app-updates/ios.json and its newer headers\nfrom the release stage, preserving the existing root-shell response.\nVerify the complete candidate map/config before finalization, then recheck live\nidentity immediately before release. Abort and reassess on a concurrent change.\nAvoid the hosting:clone CLI command, which creates the release automatically.\nDo not run ordinary repository-wide firebase deploy as a shortcut.\n\nRECOVERY\nRetain exact prior finalized version and release metadata. A rollback is a new\nrelease referencing that prior version. Do so only if current live release AND\nversion still match this task's release; never replace an intervening legitimate\nrelease. Verify saved baseline remains available before any live mutation.\nNo recovery deployment has been exercised. Browser max-age3600 can retain prior\nassets until revalidation even when Hosting invalidates CDN cache; qualify fresh\nand revalidated contexts, and do not claim instant updates to all open browsers.\n\nDATE / REBUILD / PARITY\nThe old70-file stage manifest was independently rechecked with no mismatches.\nIt is still undated rehearsal evidence, not final publication bytes.\nActual effective date belongs in lib/legal/legal_documents.dart. Generator\nmetadata currently has effectiveDate:null; update date metadata consistently,\nkeep bitestar-terms-v1, retain acceptance defaults and record publication state\nhonestly. Date preparation alone is not evidence of first publication.\nChanging that Dart metadata changes in-app legal copy: regenerate the three HTML\nand three TXT files plus review manifest, update date-specific test expectations,\nrun affected qualification, and rebuild the whole web app from the frozen source\nplus exact authorized date overlay. The old main.dart.js hash cannot establish\nparity with a newly dated authoritative source. Record base commit plus overlay\nhashes until the eventual authorized coherent source checkpoint exists.\n\nExisting useful checks (root to run; reviewer did not duplicate):\n- dart run tool/generate_legal_pages.dart --check\n- test/legal/legal_artifacts_test.dart\n- test/screens/legal_information_screens_test.dart\n- test/screens/legal_information_navigation_test.dart\n- functions/test/legal_terms_copy.test.js\n- already qualified exact-stage15route Hosting harness\nUpdate only actual-date fixture expectations, including test/support/legal_draft_copy.dart.\nThe repository tool/test_legal_hosting.py currently assumes placeholder date and\nnew ios.json/no-store behavior; its unmodified expectations do not describe this\npreserving release. Keep exact-stage expected ios response as baseline index HTML.\nEmulator Cache-Control null does not prove production default CDN headers.\n\nThe current task's sequence verifies live web/deletion before legal publication.\nA direct fit is: prepare/date/build once; withhold the three legal HTML files from\nthe first exact web overlay; release and verify secure deletion on the approved\ntechnical host; clone that newly verified version and add only the three frozen\nlegal HTML files. Verify their full contents, dates, bitestar-terms-v1, relative\nnavigation, secure deletion link and mobile layout. This uses supported site\nreleases and no new application architecture. Recheck concurrency for each release.\nRecompute the final byte delta after rebuilding; do not inherit old hashes/counts.\n\nVERDICT\nNo Hosting/domain permission blocker identified for the already authorized site.\nCanonical apex launch remains separate and unverified. Final release PASS depends\non exact new dated artifacts, affected tests and the integrating A/B dependency\nreviews. No source edits, builds, test runs or production writes by this track.\nOnly sanitized evidence files under /tmp/bs-prereq-003/hosting were written.\n\nOfficial references:\nhttps://firebase.google.com/docs/reference/hosting/rest/v1beta1/projects.sites.customDomains/list\nhttps://firebase.google.com/docs/reference/hosting/rest/v1beta1/sites.versions/clone\nhttps://firebase.google.com/docs/reference/hosting/rest/v1beta1/sites.versions/populateFiles\nhttps://firebase.google.com/docs/reference/hosting/rest/v1beta1/sites.releases/create\nhttps://firebase.google.com/docs/projects/iam/permissions\nhttps://firebase.google.com/docs/hosting/manage-cache\n\nBinding read timestamp: 2026-10-17T15:20:39.684Z\nBinding evidence SHA256: 7579418280dbe5b4251c757ca1f9fc401d5ebb2a74cb16927dd1d0a6fa3288c4\n"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/hosting/track-c-specials-final-review.txt",
+      "sha256": "6182da00181e0b128ba246b00069cba1546e7706055cb34f466ff23ae31856d0",
+      "text": "Independent Track C final focused review \u2014 BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003\nVerdict: PASS for reviewed local contract-test scope; no additional blocking finding.\n\nReviewed the final corrected Flutter test and shared media-response fixture, together with the actual RestaurantAccountService Home data-loader, CustomerBiteSaverService response parser, RestaurantSpecialsScreen consumer and photo viewer, plus the shared Node fixture producer/contract comparison. The three cases exercise manual mode, photo mode with viewer opening, and failed media lookup preserving the restaurant without loading stale manual Specials. Failure case now increments a counter and returns a real special; explicit manualLoads == 0 detects an unwanted fallback despite the production catch boundary. This corrects the earlier swallowed-exception test weakness.\n\nCoverage is precisely default Home data-loader -> actual media parser -> Specials consumer using existing injection seams. It is not full Home widget navigation, actual image delivery, a live callable test, or proof of deployed behavior. The existing Home bubble route was inspected as source only. Reviewed /tmp/bs-prereq-003/logs/flutter-specials.log reporting 3/3 passed for these final bytes; independent reviewer did not rerun tests.\n\nPreviously frozen 70-file web candidate hashes were reverified during this review task, with no candidate/app-source changes. Prior 14 browser and 15 local Hosting checks are reused, not rerun and not upgraded to live qualification. Production publication remains blocked by root-reported seven invoker bindings and one index prerequisite. This review does not independently requalify those backend findings. No production mutation was performed by this reviewer.\n\nDomain distinction remains: app.colesmartllc.com is the existing approved technical/legal host; app.bitestar.app is an existing alias on the same Firebase Hosting site. Intended canonical apex bitestar.app and www.bitestar.app were not bound in the inspected project. A site release affects all six existing aliases. No global domain absence or canonical public-site launch is claimed.\n\nThe legal effective date remains the unpublished placeholder. Do not claim a final dated/release-qualified bundle. Once publication is permitted, finalize the authoritative legal date, regenerate artifacts, recompile the whole web app, recheck affected copy/route tests, freeze exact resulting bytes, and perform the supported guarded Hosting release sequence. Source/test approval here does not authorize new IAM/index/DNS or other production changes.\n\nReviewed file SHA-256:\n5e1f5e3e094406a36f17eba966c54d7a7676bd0929b4cb2bb151fa7385e761ac  test/screens/web_release_specials_contract_test.dart\n5c0e3ef784f9efaca7a3e5e926947b857c627248eca5446fadfb049455308e1d  test/fixtures/web_release_specials_media.json\n"
+    }
+  ],
+  "preservation": {
+    "owner": {
+      "count": 7,
+      "mismatches": []
+    },
+    "contracts": {
+      "count": 245,
+      "mismatches": [
+        "functions/src/index.ts"
+      ],
+      "authorizedExpectedChanges": [
+        "functions/src/index.ts"
+      ]
+    },
+    "prior": {
+      "count": 4,
+      "mismatches": []
+    },
+    "previousRunHashes": {
+      "WEB_BETA_RELEASE_002_QUALIFICATION.txt": {
+        "sha256": "a349006dc30190b8f71a0768131421eeb3c8e9a7ba6bca05a7eb8b5ed6274457",
+        "matches": true
+      },
+      "WEB_BETA_RELEASE_002_EVIDENCE.json": {
+        "sha256": "99440601239ebcd4fc4af8d0fc14e24e3dbd721b3fb0811957428c4a686ae6ae",
+        "matches": true
+      },
+      "test/account_deletion_route_browser_test.dart": {
+        "sha256": "2e35c6a8a1757df32710bef758d5a869e018c216d2be75adf6d70ca3ea80e33b",
+        "matches": true
+      }
+    },
+    "legal": {
+      "count": 22,
+      "mismatches": []
+    },
+    "git": {
+      "branch": "main",
+      "head": "1200c828f68a05d3b4bec6ae03438a645c4c0b80",
+      "status": " M functions/src/index.ts\n M test/account_deletion_route_browser_test.dart\n M test/screens/customer_bitesaver_browse_screen_test.dart\n M test/screens/restaurant_profile_bitescore_menu_test.dart\n?? APPROVAL-ADDENDUM-A2.md\n?? LEGAL_HOSTING_PUBLICATION_BASELINE.json\n?? LEGAL_HOSTING_PUBLICATION_BLOCKER.txt\n?? WEB_BETA_RELEASE_002_EVIDENCE.json\n?? WEB_BETA_RELEASE_002_QUALIFICATION.txt\n?? WEB_DELETION_RELEASE_BLOCKER.txt\n?? WEB_DELETION_RELEASE_EVIDENCE.json\n?? WEB_RELEASE_PREREQUISITES_003_QUALIFICATION.txt\n?? firestore_rules_tests/test/web_release_prerequisites_rules.test.js\n?? functions/test/helpers/web_release_media_fixture.js\n?? functions/test/web_release_admin_emulator.test.js\n?? functions/test/web_release_media.test.js\n?? release/\n?? test/cuisine_fixture/\n?? test/fixtures/web_release_specials_media.json\n?? test/screens/web_release_specials_contract_test.dart\n?? test/visual_fixture/\n"
+    }
+  },
+  "backlog": {
+    "documentId": "1BxE1RweBRUMkFoc4tuS9vKh3kIIsfdCrDzfUYAobYNU",
+    "beforeRevision": "AHj4eMRunaTgLXkn5u8yifw9O8TlT4-qfrlsLDuOb0Nt0Ij-ljylaMTCDTdE_NOajvY0hOenAau8WNp4blcIClTEuTB3cp6E3D93hKi_V_o",
+    "afterRevision": "AHj4eMTyrR_EnIlot1Vn3995LdHZ43Q4YH2tXjEdt6fxsDDBdZvbEaXekQDuVQXWOQAFilkZElri2dAIODJwuRqPG-eQQrl-smWgCJA9z9I",
+    "previousHistoryPreserved": true,
+    "appendedRunOccurrences": 1,
+    "beforeCharacters": 153800,
+    "afterCharacters": 158608
+  },
+  "officialRecoveryReferences": [
+    "https://docs.cloud.google.com/run/docs/deploying",
+    "https://docs.cloud.google.com/run/docs/rollouts-rollbacks-traffic-migration"
+  ],
+  "bugFilter": {
+    "FIX NOW / DIRECTLY REQUIRED": [
+      "deletion Rules fences",
+      "media request contract",
+      "dish-list existing runtime selection"
+    ],
+    "PRODUCT DECISION REQUIRED": [
+      "seven invoker service bindings and one existing required composite"
+    ],
+    "FIX SEPARATELY \u2014 REAL BUG": [
+      "previously recorded ios.json endpoint gap"
+    ],
+    "ACCEPT AND CLOSE": [
+      "resolved coupon hold provenance",
+      "old-image missing does not prove runtime outage",
+      "unrelated holds/dormant systems/closed legal and UI work"
+    ]
+  }
+}

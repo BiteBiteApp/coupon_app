@@ -6,6 +6,9 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:coupon_app/legal/legal_documents.dart';
 
+// Set only after the three public URLs have been verified at publication.
+const legalPublicationVerified = true;
+
 String escape(String value) => const HtmlEscape().convert(value);
 
 String documentText(LegalDocument doc) => [
@@ -91,7 +94,7 @@ void main(List<String> args) {
     };
   }
   outputs['legal/review-manifest.json'] =
-      '${const JsonEncoder.withIndent('  ').convert({'ownerApproved': legalOwnerApproved, 'published': false, 'publicOrigin': legalPublicOrigin, 'approvedTermsVersion': legalTermsVersion, 'effectiveDate': null, 'effectiveDatePolicy': 'first-publication', 'documents': records})}\n';
+      '${const JsonEncoder.withIndent('  ').convert({'ownerApproved': legalOwnerApproved, 'published': legalPublicationVerified, 'publicOrigin': legalPublicOrigin, 'approvedTermsVersion': legalTermsVersion, 'effectiveDate': legalEffectiveDate, 'effectiveDatePolicy': 'first-publication', 'documents': records})}\n';
   for (final entry in outputs.entries) {
     final file = File(entry.key);
     if (args.contains('--check')) {
@@ -106,7 +109,7 @@ void main(List<String> args) {
   }
   if (exitCode == 0) {
     stdout.writeln(
-      '${outputs.length} legal artifacts ${args.contains('--check') ? 'match' : 'generated'}; source final, unpublished, no activation.',
+      '${outputs.length} legal artifacts ${args.contains('--check') ? 'match' : 'generated'}; source final, publication verified: $legalPublicationVerified, no activation.',
     );
   }
 }

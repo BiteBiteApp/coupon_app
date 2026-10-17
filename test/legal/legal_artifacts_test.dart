@@ -35,10 +35,11 @@ void main() {
               as Map;
       expect(legalOwnerApproved, true);
       expect(manifest['ownerApproved'], true);
-      expect(manifest['published'], false);
+      expect(manifest['published'], generator.legalPublicationVerified);
       expect(manifest['approvedTermsVersion'], 'bitestar-terms-v1');
       expect(manifest['publicOrigin'], 'https://app.colesmartllc.com');
-      expect(manifest['effectiveDate'], isNull);
+      expect(manifest['effectiveDate'], '2026-10-17');
+      expect(manifest['effectiveDate'], legalEffectiveDate);
       expect(manifest['effectiveDatePolicy'], 'first-publication');
       expect(
         generator.documentText(termsOfService),

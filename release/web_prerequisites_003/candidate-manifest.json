@@ -1,0 +1,59 @@
+{
+  "runId": "BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003",
+  "baseCommit": "1200c828f68a05d3b4bec6ae03438a645c4c0b80",
+  "productionDeployed": false,
+  "packagePolicy": "Only TypeScript source, generated JavaScript, package.json, package-lock.json and tsconfig.json. No .env, credential or secret payloads. Not generic Firebase deployment packages. Exact callable/config restrictions apply.",
+  "fullManifest": {
+    "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/package-manifest.json",
+    "sha256": "167a09029a5fa1159e7bd16dafd56c43989a639ce3e2c03478cd58dd93b1c0ab"
+  },
+  "packages": {
+    "media-baseline": {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/packages/media-baseline.zip",
+      "sha256": "3d95775b932b2849d19126aa2470f9642360f4d95f30e5eee275e71d49ff7976",
+      "bytes": 1231389,
+      "fileCount": 213
+    },
+    "media-candidate": {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/packages/media-candidate.zip",
+      "sha256": "90cb52c9afdcd3ebc4d2d0db713c4dfbc2be61ce20d6480cfae974849bd8ff99",
+      "bytes": 1248154,
+      "fileCount": 219
+    },
+    "six-admin-candidate": {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/packages/six-admin-candidate.zip",
+      "sha256": "603b67372de378a53627786f66250633eea557c6c9e77227b2649f8ab50cafae",
+      "bytes": 1471260,
+      "fileCount": 281
+    }
+  },
+  "mediaBaseline": {
+    "bucket": "gcf-v2-sources-253983587346-us-central1",
+    "object": "getCustomerBiteSaverSearchPage/function-source.zip",
+    "generation": "1790098334138122",
+    "sourceManifest": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/contracts/media-baseline-manifest.json",
+    "sourceManifestSha256": "6fe0694891a2d976daf305e3f7e3056d7faca7b63986260e246c80b4e655e31c"
+  },
+  "reviewedSource": {
+    "reviewedAt": "2026-10-17T15:35:06.850357+00:00",
+    "verdict": "PASS focused source review; root tests and protected live prerequisites remain separate",
+    "patchSha256": "063af9d15627eea754203750832ad63be472555bcbb5d30111d6ad99b2ab83f3",
+    "patchReconstructsExactBaselineToCandidateDiff": true,
+    "sourceFiles": {
+      "/Users/colesmart/dev/coupon_app/functions/src/index.ts": "040998fba8b335eb9dbc0b8df28b1d9d6758160088756dee1278d51912c0516e",
+      "/tmp/bs-prereq-003/media-candidate/src/bitesaver_customer_media.ts": "26f88f98a9f73aefbc31acd908128d3d5f603c6779f8a3427c2a30a354bf9b4f",
+      "/tmp/bs-prereq-003/media-candidate/src/bitesaver_owner_media.ts": "64d0ab350018cae5be4a5159f149135e5180015f2387cdc73f0e756c8910432a",
+      "/tmp/bs-prereq-003/media-candidate/src/customer_bitesaver_search_session.ts": "2d7c1af62d60882d4016ed6a4ba08864c31921e9799588dde1b3e3def452a5dd",
+      "/tmp/bs-prereq-003/media-candidate/src/owner_photo_identity.ts": "d2e6f28355cb5d5c1be56264a46c509ea19e851b9a39de379ce43bb78f1bb898"
+    },
+    "baselinePreserved": [
+      "src/index.ts",
+      "src/search_index_builders.ts",
+      "src/customer_bitesaver_search_contract.ts",
+      "src/customer_bitesaver_search_store.ts",
+      "package.json",
+      "package-lock.json",
+      "tsconfig.json"
+    ]
+  }
+}

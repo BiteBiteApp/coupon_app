@@ -1,0 +1,945 @@
+{
+  "runId": "BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003",
+  "ownerAuthorizationAttachment": "7e191a6d-5db0-49f2-b9df-99aa8096df86",
+  "promptTimestamp": "not supplied",
+  "continuationStart": "2026-10-17T15:53:29Z",
+  "evidencePreparedAt": "2026-10-17T16:31:16.285864+00:00",
+  "expectedAndActualStartingHead": "1200c828f68a05d3b4bec6ae03438a645c4c0b80",
+  "branch": "main",
+  "plannedAnnotatedCheckpoint": "bs-bitestar-web-release-prerequisites-003",
+  "scope": [
+    "exact Rules11predicatepatch",
+    "restaurantMedia deployed-baseline backport",
+    "six existing Admin callables",
+    "single coupon hold controls",
+    "seven service-level run.invoker allUsers additions",
+    "single declared composite",
+    "dated Flutter web and three legal HTML pages"
+  ],
+  "rules": {
+    "release": {
+      "name": "projects/coupon-app-29446/releases/cloud.firestore",
+      "rulesetName": "projects/coupon-app-29446/rulesets/53828191-28b8-46d1-8ef1-fc3cbdee09a9",
+      "createTime": "2026-03-24T06:13:18.785504Z",
+      "updateTime": "2026-10-17T16:19:50.925131Z"
+    },
+    "sha256": "8fcae3e7205961bcb2329db4fd7caa44a5814ceee842cb5bae6daff4adeb8a20",
+    "sourceFileName": "firestore.bitesaver-content.rules"
+  },
+  "adminFunctions": [
+    {
+      "name": "listRatingAdminDishSuggestionsPage",
+      "revision": "listratingadmindishsuggestionspage-00001-rug",
+      "source": {
+        "bucket": "gcf-v2-sources-253983587346-us-central1",
+        "object": "listRatingAdminDishSuggestionsPage/function-source.zip",
+        "generation": "1792253708118281"
+      },
+      "runtimeServiceAccount": "bitestar-admin-support-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "sourceArchiveMd5": "LAtO2SM35hKRB8l9PJMegw==",
+      "sourceArchiveBytes": "1471260",
+      "invokerAfter": {
+        "version": 1,
+        "etag": "BwZeC6sHD8A=",
+        "bindings": [
+          {
+            "role": "roles/run.invoker",
+            "members": [
+              "allUsers"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "applyRatingAdminDishSuggestionGroup",
+      "revision": "applyratingadmindishsuggestiongroup-00001-hep",
+      "source": {
+        "bucket": "gcf-v2-sources-253983587346-us-central1",
+        "object": "applyRatingAdminDishSuggestionGroup/function-source.zip",
+        "generation": "1792253709892570"
+      },
+      "runtimeServiceAccount": "253983587346-compute@developer.gserviceaccount.com",
+      "sourceArchiveMd5": "LAtO2SM35hKRB8l9PJMegw==",
+      "sourceArchiveBytes": "1471260",
+      "invokerAfter": {
+        "version": 1,
+        "etag": "BwZeC6sqRvY=",
+        "bindings": [
+          {
+            "role": "roles/run.invoker",
+            "members": [
+              "allUsers"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "rejectRatingAdminDishSuggestionGroup",
+      "revision": "rejectratingadmindishsuggestiongroup-00001-zon",
+      "source": {
+        "bucket": "gcf-v2-sources-253983587346-us-central1",
+        "object": "rejectRatingAdminDishSuggestionGroup/function-source.zip",
+        "generation": "1792253711692028"
+      },
+      "runtimeServiceAccount": "253983587346-compute@developer.gserviceaccount.com",
+      "sourceArchiveMd5": "LAtO2SM35hKRB8l9PJMegw==",
+      "sourceArchiveBytes": "1471260",
+      "invokerAfter": {
+        "version": 1,
+        "etag": "BwZeC6tIVK0=",
+        "bindings": [
+          {
+            "role": "roles/run.invoker",
+            "members": [
+              "allUsers"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "approveRestaurantNameChange",
+      "revision": "approverestaurantnamechange-00001-laf",
+      "source": {
+        "bucket": "gcf-v2-sources-253983587346-us-central1",
+        "object": "approveRestaurantNameChange/function-source.zip",
+        "generation": "1792253713326194"
+      },
+      "runtimeServiceAccount": "253983587346-compute@developer.gserviceaccount.com",
+      "sourceArchiveMd5": "LAtO2SM35hKRB8l9PJMegw==",
+      "sourceArchiveBytes": "1471260",
+      "invokerAfter": {
+        "version": 1,
+        "etag": "BwZeC6trTcs=",
+        "bindings": [
+          {
+            "role": "roles/run.invoker",
+            "members": [
+              "allUsers"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "getAdminPostingRestriction",
+      "revision": "getadminpostingrestriction-00001-buj",
+      "source": {
+        "bucket": "gcf-v2-sources-253983587346-us-central1",
+        "object": "getAdminPostingRestriction/function-source.zip",
+        "generation": "1792253715252317"
+      },
+      "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "sourceArchiveMd5": "LAtO2SM35hKRB8l9PJMegw==",
+      "sourceArchiveBytes": "1471260",
+      "invokerAfter": {
+        "version": 1,
+        "etag": "BwZeC6ua/0k=",
+        "bindings": [
+          {
+            "role": "roles/run.invoker",
+            "members": [
+              "allUsers"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "setAdminPostingRestriction",
+      "revision": "setadminpostingrestriction-00001-nag",
+      "source": {
+        "bucket": "gcf-v2-sources-253983587346-us-central1",
+        "object": "setAdminPostingRestriction/function-source.zip",
+        "generation": "1792253716910831"
+      },
+      "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "sourceArchiveMd5": "LAtO2SM35hKRB8l9PJMegw==",
+      "sourceArchiveBytes": "1471260",
+      "invokerAfter": {
+        "version": 1,
+        "etag": "BwZeC6u6too=",
+        "bindings": [
+          {
+            "role": "roles/run.invoker",
+            "members": [
+              "allUsers"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "listCouponAdminCouponsPage",
+      "revision": "listcouponadmincouponspage-00001-wam",
+      "source": {
+        "bucket": "gcf-v2-sources-253983587346-us-central1",
+        "object": "listCouponAdminCouponsPage/function-source.zip",
+        "generation": "1790137656101865"
+      },
+      "runtimeServiceAccount": "bitestar-admin-support-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "sourceArchiveMd5": "mqnzpqrm4VFrB35+QvVR4g==",
+      "sourceArchiveBytes": "3029771",
+      "invokerAfter": {
+        "version": 1,
+        "etag": "BwZeC6vZZHM=",
+        "bindings": [
+          {
+            "role": "roles/run.invoker",
+            "members": [
+              "allUsers"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "media": {
+    "verified": true,
+    "function": {
+      "name": "projects/coupon-app-29446/locations/us-central1/functions/getCustomerBiteSaverSearchPage",
+      "buildConfig": {
+        "runtime": "nodejs24",
+        "entryPoint": "getCustomerBiteSaverSearchPage",
+        "dockerRepository": "projects/coupon-app-29446/locations/us-central1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-253983587346-us-central1",
+            "object": "getCustomerBiteSaverSearchPage/function-source.zip",
+            "generation": "1792253724629520"
+          }
+        },
+        "serviceAccount": "projects/coupon-app-29446/serviceAccounts/253983587346-compute@developer.gserviceaccount.com"
+      },
+      "serviceConfig": {
+        "service": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitesaversearchpage",
+        "timeoutSeconds": 120,
+        "maxInstanceCount": 10,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://getcustomerbitesaversearchpage-ytabvgq6fq-uc.a.run.app",
+        "serviceAccountEmail": "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "availableMemory": "256Mi",
+        "secretEnvironmentVariables": [
+          {
+            "key": "BITESAVER_CUSTOMER_DISCOVERY_KEY",
+            "projectId": "coupon-app-29446",
+            "secret": "BITESAVER_CUSTOMER_DISCOVERY_KEY",
+            "version": "1"
+          },
+          {
+            "key": "BITESAVER_CUSTOMER_IDENTITY_KEY_V1",
+            "projectId": "coupon-app-29446",
+            "secret": "BITESAVER_CUSTOMER_IDENTITY_KEY_V1",
+            "version": "1"
+          }
+        ],
+        "revision": "getcustomerbitesaversearchpage-00004-viy",
+        "maxInstanceRequestConcurrency": 80,
+        "availableCpu": "1"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-10-17T16:16:17.964102964Z"
+    },
+    "service": {
+      "name": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitesaversearchpage",
+      "updateTime": "2026-10-17T16:16:05.935403Z",
+      "ingress": "INGRESS_TRAFFIC_ALL",
+      "template": {
+        "scaling": {
+          "maxInstanceCount": 10
+        },
+        "serviceAccount": "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "containers": [
+          {
+            "image": "us-central1-docker.pkg.dev/coupon-app-29446/gcf-artifacts/coupon--app--29446__us--central1__get_customer_bite_saver_search_page:version_1"
+          }
+        ]
+      },
+      "scaling": {
+        "scalingMode": "AUTOMATIC",
+        "maxInstanceCount": 10
+      },
+      "terminalCondition": {
+        "type": "Ready",
+        "state": "CONDITION_SUCCEEDED",
+        "lastTransitionTime": "2026-10-17T16:16:17.643351Z"
+      },
+      "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitesaversearchpage/revisions/getcustomerbitesaversearchpage-00004-viy",
+      "trafficStatuses": [
+        {
+          "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+          "revision": "getcustomerbitesaversearchpage-00004-viy",
+          "percent": 100
+        }
+      ],
+      "etag": "\"CMW-ztYGEPi7hL4D/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvZ2V0Y3VzdG9tZXJiaXRlc2F2ZXJzZWFyY2hwYWdl\""
+    },
+    "iam": {
+      "version": 1,
+      "etag": "BwZcWshuv3Q=",
+      "bindings": [
+        {
+          "role": "roles/run.invoker",
+          "members": [
+            "allUsers"
+          ]
+        }
+      ]
+    },
+    "sourceArchive": {
+      "name": "getCustomerBiteSaverSearchPage/function-source.zip",
+      "generation": "1792253724629520",
+      "size": "1248154",
+      "md5Hash": "ceru7s2zJInWdtzca/XmNA=="
+    },
+    "packageSha256": "90cb52c9afdcd3ebc4d2d0db713c4dfbc2be61ce20d6480cfae974849bd8ff99",
+    "oldReadyRevision": {
+      "name": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitesaversearchpage/revisions/getcustomerbitesaversearchpage-00001-tuz",
+      "conditions": [
+        {
+          "type": "Ready",
+          "state": "CONDITION_SUCCEEDED",
+          "message": "Updating revision scaling succeeded.",
+          "lastTransitionTime": "2026-10-17T16:16:17.685978Z",
+          "revisionReason": "RETIRED"
+        },
+        {
+          "type": "Active",
+          "state": "CONDITION_FAILED",
+          "message": "Revision retired.",
+          "lastTransitionTime": "2026-10-17T16:16:17.685978Z",
+          "severity": "INFO",
+          "revisionReason": "RETIRED"
+        },
+        {
+          "type": "ResourcesAvailable",
+          "state": "CONDITION_RECONCILING",
+          "message": "Revision retired.",
+          "lastTransitionTime": "2026-10-17T16:16:17.685978Z",
+          "revisionReason": "RETIRED"
+        },
+        {
+          "type": "ContainerReady",
+          "state": "CONDITION_SUCCEEDED",
+          "message": "Container image import completed in 1.3s.",
+          "lastTransitionTime": "2026-09-22T17:33:02.615123Z"
+        },
+        {
+          "type": "ContainerHealthy",
+          "state": "CONDITION_SUCCEEDED",
+          "message": "Containers became healthy in 5.03s.",
+          "lastTransitionTime": "2026-09-22T17:33:31.594227Z"
+        }
+      ]
+    }
+  },
+  "couponPreservation": {
+    "at": "2026-10-17T16:20:49.611Z",
+    "action": "apply",
+    "resourceVersion": "AAZcHuzN+O8",
+    "revision": "listcouponadmincouponspage-00001-wam",
+    "originalSpecSha256": "8ace5857e13e3a72e1d72df385df7fa41690547e87e08bc79041fa70076038da",
+    "requestSpecSha256": "8ace5857e13e3a72e1d72df385df7fa41690547e87e08bc79041fa70076038da",
+    "changed": [
+      "run.googleapis.com/ingress",
+      "run.googleapis.com/manualInstanceCount",
+      "run.googleapis.com/maxScale",
+      "run.googleapis.com/scalingMode"
+    ],
+    "changes": {
+      "run.googleapis.com/ingress": {
+        "before": "internal",
+        "after": "all"
+      },
+      "run.googleapis.com/manualInstanceCount": {
+        "before": "0",
+        "after": null
+      },
+      "run.googleapis.com/maxScale": {
+        "before": null,
+        "after": "10"
+      },
+      "run.googleapis.com/scalingMode": {
+        "before": "manual",
+        "after": "automatic"
+      }
+    },
+    "pass": true,
+    "resultResourceVersion": "AAZeC6n/BiQ",
+    "resultSpecSha256": "8ace5857e13e3a72e1d72df385df7fa41690547e87e08bc79041fa70076038da",
+    "latestReadyRevisionName": "listcouponadmincouponspage-00001-wam",
+    "latestCreatedRevisionName": "listcouponadmincouponspage-00001-wam",
+    "conditions": [
+      {
+        "type": "Ready",
+        "status": "True",
+        "lastTransitionTime": "2026-09-23T04:29:11.959791Z"
+      },
+      {
+        "type": "BaseImageValidated",
+        "status": "True",
+        "severity": "Info"
+      },
+      {
+        "type": "ConfigurationsReady",
+        "status": "True",
+        "lastTransitionTime": "2026-09-23T04:27:40.440840Z"
+      },
+      {
+        "type": "RoutesReady",
+        "status": "True",
+        "lastTransitionTime": "2026-09-23T04:29:11.918644Z"
+      }
+    ]
+  },
+  "indexAndQuery": {
+    "at": "2026-10-17T16:14:57.539Z",
+    "index": {
+      "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/private_dish_edit_proposal_groups/indexes/CICAgNiZnYEK",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "resolutionIdentitiesValid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "oldestTrustedServerCreateTime",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "state": "READY",
+      "density": "SPARSE_ALL"
+    },
+    "query": {
+      "pass": true,
+      "returned": 0,
+      "limit": 26,
+      "projection": "__name__ only; identifiers not recorded",
+      "identity": "existing operator OAuth read; not signed-in application Admin"
+    }
+  },
+  "liveDenials": {
+    "at": "2026-10-17T16:22:56.152Z",
+    "pass": true,
+    "results": [
+      {
+        "name": "listRatingAdminDishSuggestionsPage",
+        "scenario": "no-auth",
+        "httpStatus": 403,
+        "code": "PERMISSION_DENIED"
+      },
+      {
+        "name": "listRatingAdminDishSuggestionsPage",
+        "scenario": "forged-body",
+        "httpStatus": 403,
+        "code": "PERMISSION_DENIED"
+      },
+      {
+        "name": "listRatingAdminDishSuggestionsPage",
+        "scenario": "invalid-token",
+        "httpStatus": 401,
+        "code": "UNAUTHENTICATED"
+      },
+      {
+        "name": "applyRatingAdminDishSuggestionGroup",
+        "scenario": "no-auth",
+        "httpStatus": 403,
+        "code": "PERMISSION_DENIED"
+      },
+      {
+        "name": "applyRatingAdminDishSuggestionGroup",
+        "scenario": "forged-body",
+        "httpStatus": 403,
+        "code": "PERMISSION_DENIED"
+      },
+      {
+        "name": "applyRatingAdminDishSuggestionGroup",
+        "scenario": "invalid-token",
+        "httpStatus": 401,
+        "code": "UNAUTHENTICATED"
+      },
+      {
+        "name": "rejectRatingAdminDishSuggestionGroup",
+        "scenario": "no-auth",
+        "httpStatus": 403,
+        "code": "PERMISSION_DENIED"
+      },
+      {
+        "name": "rejectRatingAdminDishSuggestionGroup",
+        "scenario": "forged-body",
+        "httpStatus": 403,
+        "code": "PERMISSION_DENIED"
+      },
+      {
+        "name": "rejectRatingAdminDishSuggestionGroup",
+        "scenario": "invalid-token",
+        "httpStatus": 401,
+        "code": "UNAUTHENTICATED"
+      },
+      {
+        "name": "approveRestaurantNameChange",
+        "scenario": "no-auth",
+        "httpStatus": 401,
+        "code": "UNAUTHENTICATED"
+      },
+      {
+        "name": "approveRestaurantNameChange",
+        "scenario": "forged-body",
+        "httpStatus": 401,
+        "code": "UNAUTHENTICATED"
+      },
+      {
+        "name": "approveRestaurantNameChange",
+        "scenario": "invalid-token",
+        "httpStatus": 401,
+        "code": "UNAUTHENTICATED"
+      },
+      {
+        "name": "getAdminPostingRestriction",
+        "scenario": "no-auth",
+        "httpStatus": 401,
+        "code": "UNAUTHENTICATED"
+      },
+      {
+        "name": "getAdminPostingRestriction",
+        "scenario": "forged-body",
+        "httpStatus": 401,
+        "code": "UNAUTHENTICATED"
+      },
+      {
+        "name": "getAdminPostingRestriction",
+        "scenario": "invalid-token",
+        "httpStatus": 401,
+        "code": "UNAUTHENTICATED"
+      },
+      {
+        "name": "setAdminPostingRestriction",
+        "scenario": "no-auth",
+        "httpStatus": 401,
+        "code": "UNAUTHENTICATED"
+      },
+      {
+        "name": "setAdminPostingRestriction",
+        "scenario": "forged-body",
+        "httpStatus": 401,
+        "code": "UNAUTHENTICATED"
+      },
+      {
+        "name": "setAdminPostingRestriction",
+        "scenario": "invalid-token",
+        "httpStatus": 401,
+        "code": "UNAUTHENTICATED"
+      },
+      {
+        "name": "listCouponAdminCouponsPage",
+        "scenario": "no-auth",
+        "httpStatus": 403,
+        "code": "PERMISSION_DENIED"
+      },
+      {
+        "name": "listCouponAdminCouponsPage",
+        "scenario": "forged-body",
+        "httpStatus": 403,
+        "code": "PERMISSION_DENIED"
+      },
+      {
+        "name": "listCouponAdminCouponsPage",
+        "scenario": "invalid-token",
+        "httpStatus": 401,
+        "code": "UNAUTHENTICATED"
+      }
+    ],
+    "scope": "Live noauth, forged-body without auth, invalid-token middleware; verified customer/owner roles separately through exact-source local Auth-emulator tests"
+  },
+  "liveCors": {
+    "pass": true,
+    "at": "2026-10-17T16:23:00.783Z",
+    "rows": [
+      {
+        "name": "listRatingAdminDishSuggestionsPage",
+        "httpStatus": 204,
+        "origin": "https://app.colesmartllc.com",
+        "methods": "POST",
+        "headers": "authorization,content-type"
+      },
+      {
+        "name": "applyRatingAdminDishSuggestionGroup",
+        "httpStatus": 204,
+        "origin": "https://app.colesmartllc.com",
+        "methods": "POST",
+        "headers": "authorization,content-type"
+      },
+      {
+        "name": "rejectRatingAdminDishSuggestionGroup",
+        "httpStatus": 204,
+        "origin": "https://app.colesmartllc.com",
+        "methods": "POST",
+        "headers": "authorization,content-type"
+      },
+      {
+        "name": "approveRestaurantNameChange",
+        "httpStatus": 204,
+        "origin": "https://app.colesmartllc.com",
+        "methods": "POST",
+        "headers": "authorization,content-type"
+      },
+      {
+        "name": "getAdminPostingRestriction",
+        "httpStatus": 204,
+        "origin": "https://app.colesmartllc.com",
+        "methods": "POST",
+        "headers": "authorization,content-type"
+      },
+      {
+        "name": "setAdminPostingRestriction",
+        "httpStatus": 204,
+        "origin": "https://app.colesmartllc.com",
+        "methods": "POST",
+        "headers": "authorization,content-type"
+      },
+      {
+        "name": "listCouponAdminCouponsPage",
+        "httpStatus": 204,
+        "origin": "https://app.colesmartllc.com",
+        "methods": "POST",
+        "headers": "authorization,content-type"
+      },
+      {
+        "name": "getCustomerBiteSaverSearchPage",
+        "httpStatus": 204,
+        "origin": "https://app.colesmartllc.com",
+        "methods": "POST",
+        "headers": "authorization,content-type"
+      }
+    ]
+  },
+  "liveMedia": {
+    "at": "2026-10-17T16:19:16.664Z",
+    "pass": true,
+    "httpStatus": 200,
+    "kind": "restaurantMedia",
+    "mode": "manual",
+    "keys": [
+      "board",
+      "boardOfferId",
+      "gallery",
+      "kind",
+      "mode",
+      "restaurantId",
+      "schemaVersion",
+      "specialImages"
+    ],
+    "responseSha256": "d4d0f1e1e4162fda49e120ec028b79372284897834af17efd4dcc76b652ac7a5",
+    "dataWritten": false,
+    "identity": "unauthenticated public callable"
+  },
+  "liveCouponQuery": {
+    "at": "2026-10-17T16:19:14.313Z",
+    "pass": true,
+    "count": 2,
+    "limit": 26,
+    "projection": "__name__ only; identities not recorded",
+    "identity": "operator OAuth; not application Admin",
+    "dataWritten": false
+  },
+  "hosting": {
+    "baseline": {
+      "channel": "projects/coupon-app-29446/sites/coupon-app-29446/channels/live",
+      "release": "projects/coupon-app-29446/sites/coupon-app-29446/channels/live/releases/1789853843090000",
+      "releaseTime": "2026-09-19T21:37:23.090Z",
+      "version": "projects/coupon-app-29446/sites/coupon-app-29446/versions/6d56d4182157afd7",
+      "versionStatus": "FINALIZED"
+    },
+    "web": {
+      "release": "projects/coupon-app-29446/sites/coupon-app-29446/channels/live/releases/1792254366721000",
+      "version": "projects/coupon-app-29446/sites/coupon-app-29446/versions/0192679e04c373da",
+      "releaseTime": "2026-10-17T16:26:06.721Z"
+    },
+    "legal": {
+      "release": "projects/coupon-app-29446/sites/coupon-app-29446/channels/live/releases/1792254469691000",
+      "version": "projects/coupon-app-29446/sites/coupon-app-29446/versions/4a31356a19073baf",
+      "releaseTime": "2026-10-17T16:27:49.691Z"
+    },
+    "webFiles": 69,
+    "finalFiles": 72,
+    "liveRoutes": [
+      {
+        "route": "/",
+        "expectedFile": "index.html",
+        "status": 200,
+        "sha256": "81e46f2c80be5e605abc79d4c52378d979b68675c4d986a042a62bbddada0e4b",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "/account/delete",
+        "expectedFile": "index.html",
+        "status": 200,
+        "sha256": "81e46f2c80be5e605abc79d4c52378d979b68675c4d986a042a62bbddada0e4b",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "/privacy-policy.html",
+        "expectedFile": "privacy-policy.html",
+        "status": 200,
+        "sha256": "8c53184c9ea0c36aa047f618ff35630cef6fb06046fc05cecec62c08972572a6",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "/terms-of-service.html",
+        "expectedFile": "terms-of-service.html",
+        "status": 200,
+        "sha256": "ac7905c2b31a81e14a9668d41e1d9af361079b7e2b9885cabf397d851747a51c",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "/delete-account.html",
+        "expectedFile": "delete-account.html",
+        "status": 200,
+        "sha256": "d38cbb71b477a81dc12662cdb617b710e27d3ec0bda32bfdf1828384318cfab4",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "/r/coupons/release-check",
+        "expectedFile": "qr-fallback.html",
+        "status": 200,
+        "sha256": "78ee5c8491cf6a19543ef91a7fbe7bba59487fc2bf0311a08d23c9c6af4b7b27",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "/r/bitescore/release-check",
+        "expectedFile": "qr-fallback.html",
+        "status": 200,
+        "sha256": "78ee5c8491cf6a19543ef91a7fbe7bba59487fc2bf0311a08d23c9c6af4b7b27",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "/invite/coupon/release-check",
+        "expectedFile": "qr-fallback.html",
+        "status": 200,
+        "sha256": "78ee5c8491cf6a19543ef91a7fbe7bba59487fc2bf0311a08d23c9c6af4b7b27",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "/invite/bitescore/release-check",
+        "expectedFile": "qr-fallback.html",
+        "status": 200,
+        "sha256": "78ee5c8491cf6a19543ef91a7fbe7bba59487fc2bf0311a08d23c9c6af4b7b27",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "/stripe-success.html",
+        "expectedFile": "stripe-success.html",
+        "status": 200,
+        "sha256": "5b699e169bd0ab6b864023127ac3a5063d67efe0c8298e063f4d5aca24b6c99a",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "/stripe-cancel.html",
+        "expectedFile": "stripe-cancel.html",
+        "status": 200,
+        "sha256": "16f763b6f833a07c6ac42a8a65eaa2e9b2253ad5bb40d6da7a31e746a48872d9",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "/subscription/portal-return",
+        "expectedFile": "subscription-portal-return.html",
+        "status": 200,
+        "sha256": "772604b137c734c2155dc1a55072747cf37759c7f4bdad16c95656a4503fc32d",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "/.well-known/assetlinks.json",
+        "expectedFile": ".well-known/assetlinks.json",
+        "status": 200,
+        "sha256": "55a1e557e9ce4921ba67c8249f79c0cbd459eb79ff07436188a9860629441a50",
+        "contentType": "application/json"
+      },
+      {
+        "route": "/.well-known/apple-app-site-association",
+        "expectedFile": ".well-known/apple-app-site-association",
+        "status": 200,
+        "sha256": "c96904bdf0794e9837bc7f0ec6d1ca97f3de9c7367dbc1a024a77f4a0c60bbb8",
+        "contentType": "application/json"
+      },
+      {
+        "route": "/app-updates/ios.json",
+        "expectedFile": "index.html",
+        "status": 200,
+        "sha256": "81e46f2c80be5e605abc79d4c52378d979b68675c4d986a042a62bbddada0e4b",
+        "contentType": "text/html; charset=utf-8"
+      }
+    ],
+    "liveDeletionBrowser": {
+      "release": "projects/coupon-app-29446/sites/coupon-app-29446/channels/live/releases/1792254366721000",
+      "version": "projects/coupon-app-29446/sites/coupon-app-29446/versions/0192679e04c373da",
+      "releaseTime": "2026-10-17T16:26:06.721Z",
+      "pass": true,
+      "at": "2026-10-17T16:27:31.737341+00:00",
+      "url": "https://app.colesmartllc.com/#/account/delete",
+      "directAndReload": true,
+      "emailGooglePhoneVisible": true,
+      "phoneDialogOpenedAndDismissed": true,
+      "savedReceiptExplanationVisible": true,
+      "signedIn": false,
+      "smsRequested": false,
+      "deletionAttempted": false,
+      "screenshotSha256": "82abd49c83bd14a12bfb9d83395c210b3e73b610e89656562b9bac65189d0026",
+      "mainSha256": "01d84644f46fe0d09e31ebfb875e60af5b4e4455f21ee524e312154d84176ac0"
+    },
+    "mobile": {
+      "pass": true,
+      "checks": [
+        {
+          "page": "privacy-policy",
+          "pageWidth": 375,
+          "title": "BiteStar Privacy Policy",
+          "viewport": 390
+        },
+        {
+          "page": "terms-of-service",
+          "pageWidth": 375,
+          "title": "BiteStar Terms of Service",
+          "viewport": 390
+        },
+        {
+          "page": "delete-account",
+          "pageWidth": 375,
+          "title": "BiteStar Account Deletion",
+          "viewport": 390
+        }
+      ],
+      "legalLinkReachedDeletionForm": true,
+      "at": "2026-10-17T16:28:57.234Z"
+    },
+    "frozenDatedPackage": {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/approved-continuation/dated-web-and-legal.zip",
+      "sha256": "09433577fc0cdf15fa4c01b6d2af85284f7df73339fbc0d8ba39f5445ffa2431",
+      "bytes": 37581059,
+      "files": 70,
+      "baseCommit": "1200c828f68a05d3b4bec6ae03438a645c4c0b80",
+      "mainSha256": "01d84644f46fe0d09e31ebfb875e60af5b4e4455f21ee524e312154d84176ac0",
+      "publicationDate": "2026-10-17"
+    }
+  },
+  "tests": {
+    "priorFocusedReused": 402,
+    "datedLegalPass": 67,
+    "expandedAdminEmulatorPass": 6,
+    "localHostingRoutesPass": 15,
+    "postpublicationArtifactPass": 7,
+    "liveDenialsPass": 21,
+    "liveCorsPass": 8,
+    "liveHostingRoutesPass": 15,
+    "releaseBuild": "PASS",
+    "scopedAnalysis": "PASS",
+    "generatorCheck": "PASS",
+    "historicalBroadSuite": "712pass13previouslyclassifiedstale failures; unchanged/reused, not a fresh all-green broad suite"
+  },
+  "limits": [
+    "No production authenticated customer/owner/Admin sessions exercised; exact source Auth-emulator role checks + live SDK/application denial chain",
+    "No real account deletion, SMS, production Admin data mutation or payment smoke test",
+    "Index query returned0; coupon query2/26; publicmedia manual-mode sample; photo mode covered by frozen tests",
+    "Canonical bitestar.app apex launch unverified; no DNS or domain bindings changed",
+    "Retained revision/version recovery verified; rollback not executed"
+  ],
+  "protection": {
+    "at": "2026-10-17T16:23:50.966052+00:00",
+    "protected": {
+      "count": 7,
+      "changed": []
+    },
+    "contracts": {
+      "count": 245,
+      "changed": [
+        "functions/src/index.ts"
+      ]
+    }
+  },
+  "sourceHashes": {
+    "functions/src/index.ts": "040998fba8b335eb9dbc0b8df28b1d9d6758160088756dee1278d51912c0516e",
+    "functions/test/web_release_admin_emulator.test.js": "795493f0b1a3f876b5ca6c7557b0b8457ee67bda34506eb95bfd45f806150e9f",
+    "functions/test/web_release_media.test.js": "64811902c54685d849302e678f6be43e6cdc68a6267eb39b15b6187371afac1b",
+    "functions/test/helpers/web_release_media_fixture.js": "763415aa91d7a9d50e04824dda2f7355149c3c16a94714c48714242b401a4ab2",
+    "firestore_rules_tests/test/web_release_prerequisites_rules.test.js": "f9c659005ba468b8a2ae1a78581a7c92899083efac64fccba53e8b9c14e83988",
+    "test/fixtures/web_release_specials_media.json": "5c0e3ef784f9efaca7a3e5e926947b857c627248eca5446fadfb049455308e1d",
+    "test/screens/web_release_specials_contract_test.dart": "5e1f5e3e094406a36f17eba966c54d7a7676bd0929b4cb2bb151fa7385e761ac",
+    "test/account_deletion_route_browser_test.dart": "2e35c6a8a1757df32710bef758d5a869e018c216d2be75adf6d70ca3ea80e33b",
+    "test/legal/legal_artifacts_test.dart": "d9fa3c8ea0014dde63f0edef7fd3dcc5afe231f44c9cb95eccca01d54092f5e2",
+    "test/screens/legal_information_screens_test.dart": "e191b763fd9b41356d864750109fd29acd0f038a18b0c9393ee3a508ceb5300f",
+    "test/support/legal_draft_copy.dart": "21628f20e17a7a3940986e7128afc41def63271e9b3d2c5fb2b66f186ca48f17",
+    "lib/legal/legal_documents.dart": "c15bd1f2c0e5f1cfd29a95a1b1586c66b471974dd84192017cd86e720c6c62c3",
+    "tool/generate_legal_pages.dart": "c95e1496157acf76f3df8ce7b1ed187d8a4ea2b1ef4d628a5183c099ebdd2a0e",
+    "legal/privacy-policy.txt": "6a9cf454948823597d4ea540a763ec80fad232c124512f988c4c230d8d246898",
+    "legal/terms-of-service.txt": "d47ef4416d17ff016a3c967e415a8d0d77f07672a24fdae8112e6d5fabb39155",
+    "legal/delete-account.txt": "504e363d35d3124d6a253546ba22169321adf1b18ec1b0c957c19e6cc0b99633",
+    "legal/review-manifest.json": "04276326cf83fd84b1e55cef46552488a4840de160541bbc45ba22ca41cc51b1",
+    "web/privacy-policy.html": "8c53184c9ea0c36aa047f618ff35630cef6fb06046fc05cecec62c08972572a6",
+    "web/terms-of-service.html": "ac7905c2b31a81e14a9668d41e1d9af361079b7e2b9885cabf397d851747a51c",
+    "web/delete-account.html": "d38cbb71b477a81dc12662cdb617b710e27d3ec0bda32bfdf1828384318cfab4",
+    "release/web_prerequisites_003/firestore.rules": "8fcae3e7205961bcb2329db4fd7caa44a5814ceee842cb5bae6daff4adeb8a20",
+    "release/web_prerequisites_003/customer-media.patch": "063af9d15627eea754203750832ad63be472555bcbb5d30111d6ad99b2ab83f3",
+    "release/web_prerequisites_003/candidate-manifest.json": "10341d5e12c3f23729ef6202958d823f810c2fbac565ef8ba78608f156736e01",
+    "release/web_prerequisites_003/firestore-patch.json": "3751af23248963c1d03a89bb8cb25f48113bc6df3ad5851df6269eb0ad30bd05",
+    "release/web_prerequisites_003/RELEASE_PLAN.txt": "b7a9a3b2c3379fa8baf21584d3bcd2228326426eb5120b859d06f0fe3516df89"
+  },
+  "durableEvidenceDirectory": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/approved-continuation",
+  "sourcePublicationState": {
+    "published": true,
+    "effectiveDate": "2026-10-17",
+    "termsVersion": "bitestar-terms-v1",
+    "termsEnforcementActivated": false
+  },
+  "unresolvedReleaseBlockers": [],
+  "separateKnownIssue": "Existing app-updates/ios.json responds with HTML; preserved and tracked separately",
+  "routineCorrections": [
+    {
+      "event": "coupon v2 PATCH rejected HTTP409",
+      "consequence": "No update; fresh read matched original revision, source, internal ingress,MANUAL0 and private IAM.",
+      "resolution": "Reviewed v1 metadata-only dry run then actual update; complete spec and revision unchanged; only four approved annotations changed.",
+      "classification": "FIX NOW / DIRECTLY REQUIRED"
+    },
+    {
+      "event": "Firebase CLI request options mutated by convenience methods",
+      "consequence": "Preparation helper could reuse method/body across requests; observed v1 dry run failed locally before transmission.",
+      "resolution": "Fresh options per call; reviewed hashes updated; dry run passed. Hosting stream response handling also corrected before any Hosting call.",
+      "classification": "FIX NOW / DIRECTLY REQUIRED"
+    },
+    {
+      "event": "Posting denial verifier submitted empty malformed request",
+      "consequence": "Endpoints returned400 INVALID_ARGUMENT without data before authorization processing.",
+      "resolution": "Use valid non-customer fixture shape as in qualified tests; complete21 live denial matrix passes. No application code or policy changed.",
+      "classification": "FIX NOW / DIRECTLY REQUIRED"
+    },
+    {
+      "event": "Initial CORS preflight returned500",
+      "consequence": "Initial browser preflight verification failed.",
+      "resolution": "Immediate same endpoint retry204; complete8 endpoint preflight pass. Cause not established; no persistent failure observed.",
+      "classification": "ACCEPT AND CLOSE"
+    }
+  ],
+  "independentReviews": {
+    "A": {
+      "verdict": "PASS",
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/approved-continuation/rules/TRACK_A_PRODUCTION_REVIEW.txt",
+      "sha256": "76fb8cb5ee26b22161d19d9ff11cccea7f59c2d84c47c82d57d4b17d808bf05b"
+    },
+    "B": {
+      "verdict": "PASS",
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/approved-continuation/contracts/track-b-final-production-review.json",
+      "sha256": "2eb65f4d1bfe6d4a33242f80763b6c16debe9bba5597b766eb8bb9eedcc8654d"
+    },
+    "C": {
+      "verdict": "PASS",
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003-20261017/approved-continuation/hosting/track-c-final-publication-review.txt",
+      "sha256": "dc1ffa86e03a1c94e967712b045f39bb68014f23b6a14b2496b859f63a482fa2"
+    }
+  },
+  "qualificationCompletedAt": "2026-10-17T16:32:29.026029+00:00",
+  "verdict": "PASS \u2014 authorized backend/web/legal release complete"
+}

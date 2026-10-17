@@ -1,0 +1,48 @@
+{
+  "request": {
+    "schemaVersion": 1,
+    "kind": "restaurantMedia",
+    "restaurantId": "bsr_gK2OM4I8cfskHI6kyhC1X_ZSRLLNfMeLHKjrUnZz4gc"
+  },
+  "manual": {
+    "schemaVersion": 1,
+    "kind": "restaurantMedia",
+    "restaurantId": "bsr_gK2OM4I8cfskHI6kyhC1X_ZSRLLNfMeLHKjrUnZz4gc",
+    "boardOfferId": "bso_DTC3pIaaRV7XdG_gkQPiWONiKb8gPdrHM7aQRpTHNHQ",
+    "gallery": [
+      "https://example.test/published-board.png"
+    ],
+    "mode": "manual",
+    "board": null,
+    "specialImages": {}
+  },
+  "photo": {
+    "schemaVersion": 1,
+    "kind": "restaurantMedia",
+    "restaurantId": "bsr_gK2OM4I8cfskHI6kyhC1X_ZSRLLNfMeLHKjrUnZz4gc",
+    "boardOfferId": "bso_DTC3pIaaRV7XdG_gkQPiWONiKb8gPdrHM7aQRpTHNHQ",
+    "gallery": [
+      "https://example.test/published-board.png"
+    ],
+    "mode": "photo",
+    "board": {
+      "title": "Daily Specials board",
+      "imageUrl": "https://example.test/published-board.png",
+      "isActive": true,
+      "availabilityMode": "specificDays",
+      "daysOfWeek": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "allDay": true,
+      "hideWhenUnavailable": true,
+      "expiresAt": null
+    },
+    "specialImages": {}
+  }
+}

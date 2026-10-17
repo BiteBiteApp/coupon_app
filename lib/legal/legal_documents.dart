@@ -16,7 +16,8 @@ class LegalDocument {
   const LegalDocument(this.slug, this.title, this.blocks);
 }
 
-const legalEffectiveDateLabel = 'Effective date: On first public publication.';
+const legalEffectiveDate = '2026-10-17';
+const legalEffectiveDateLabel = 'Effective date: October 17, 2026.';
 const legalTermsVersion = 'bitestar-terms-v1';
 const legalPublicOrigin = 'https://app.colesmartllc.com';
 // Legal source approval is separate from the dormant runtime acceptance policy.

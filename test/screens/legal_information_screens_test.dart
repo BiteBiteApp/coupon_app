@@ -59,11 +59,14 @@ void main() {
                   findsNothing,
                 );
                 expect(
-                  find.text('Effective date: On first public publication.'),
+                  find.text('Effective date: October 17, 2026.'),
                   findsOneWidget,
                 );
                 expect(find.textContaining('Do not '), findsNothing);
-                expect(find.textContaining('2026'), findsNothing);
+                expect(
+                  find.text('Effective date: On first public publication.'),
+                  findsNothing,
+                );
                 for (final heading in document.headings) {
                   final semantics = tester.widget<Semantics>(
                     find

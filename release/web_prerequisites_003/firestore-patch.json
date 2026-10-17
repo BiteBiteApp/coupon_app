@@ -1,0 +1,20 @@
+{
+  "runId": "BS-BITESTAR-WEB-RELEASE-PREREQUISITES-003",
+  "baselineRuleset": "projects/coupon-app-29446/rulesets/8e3dd55a-edb0-4eb1-af12-d6547f9d223f",
+  "baselineSha256": "4ac78070148af5b8478f0fb06d51392a46479a4ac2a58b607621ec8dd366d06e",
+  "candidateSha256": "8fcae3e7205961bcb2329db4fd7caa44a5814ceee842cb5bae6daff4adeb8a20",
+  "replacements": {
+    "allow create: if (isAdmin() || canCreateOwnRestaurantAccount(restaurantUid)) &&": "allow create: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) &&\n        (isAdmin() || canCreateOwnRestaurantAccount(restaurantUid)) &&",
+    "allow update: if (isAdmin() || canUpdateOwnRestaurantAccount(restaurantUid)) &&": "allow update: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) &&\n        (isAdmin() || canUpdateOwnRestaurantAccount(restaurantUid)) &&",
+    "allow create: if (isAdmin() || canCreateOwnProfile(userId)) &&": "allow create: if deletionActorMayWrite() && deletionAccountMayWrite(userId) &&\n        (isAdmin() || canCreateOwnProfile(userId)) &&",
+    "allow update: if (isAdmin() || canUpdateOwnProfile(userId)) &&": "allow update: if deletionActorMayWrite() && deletionAccountMayWrite(userId) &&\n        (isAdmin() || canUpdateOwnProfile(userId)) &&",
+    "allow delete: if (isAdmin()) &&": "allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(userId) &&\n        (isAdmin()) &&",
+    "allow create: if isAdmin() || canWriteOwnPublicReviewerProfile(userId);": "allow create: if deletionActorMayWrite() && deletionAccountMayWrite(userId) &&\n        (isAdmin() || canWriteOwnPublicReviewerProfile(userId));",
+    "allow update: if isAdmin() || canUpdateOwnPublicReviewerProfile(userId);": "allow update: if deletionActorMayWrite() && deletionAccountMayWrite(userId) &&\n        (isAdmin() || canUpdateOwnPublicReviewerProfile(userId));",
+    "allow delete: if isAdmin();\n    }\n\n    match /public_usernames": "allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && isAdmin();\n    }\n\n    match /public_usernames",
+    "allow create: if signedIn() && request.resource.data.userId == request.auth.uid;": "allow create: if deletionActorMayWrite() &&\n        deletionAccountMayWrite(request.resource.data.userId) &&\n        signedIn() && request.resource.data.userId == request.auth.uid;",
+    "allow update: if signedIn() &&\n        resource.data.userId == request.auth.uid &&\n        request.resource.data.userId == request.auth.uid;": "allow update: if deletionActorMayWrite() &&\n        deletionAccountMayWrite(resource.data.userId) &&\n        deletionAccountMayWrite(request.resource.data.userId) &&\n        signedIn() &&\n        resource.data.userId == request.auth.uid &&\n        request.resource.data.userId == request.auth.uid;",
+    "allow delete: if isAdmin() ||\n        (signedIn() && resource.data.userId == request.auth.uid);": "allow delete: if deletionActorMayWrite() &&\n        deletionAccountMayWrite(resource.data.userId) &&\n        (isAdmin() || (signedIn() && resource.data.userId == request.auth.uid));"
+  },
+  "productionDeployed": false
+}
