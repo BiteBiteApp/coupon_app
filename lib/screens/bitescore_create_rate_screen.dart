@@ -3185,12 +3185,13 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          photoFailureMessage ??
-              (isExistingDishMode
-                  ? 'Review saved.'
-                  : isExistingRestaurantMode && selectedExistingDish == null
-                  ? 'Dish created and rated.'
-                  : 'Review saved.'),
+          saveResult.review.textStatusMessage == null
+              ? photoFailureMessage ?? (isExistingDishMode
+                    ? 'Review saved.'
+                    : isExistingRestaurantMode && selectedExistingDish == null
+                    ? 'Dish created and rated.'
+                    : 'Review saved.')
+              : [saveResult.review.textStatusMessage!, if (photoFailureMessage != null) photoFailureMessage!].join(' '),
         ),
       ),
     );

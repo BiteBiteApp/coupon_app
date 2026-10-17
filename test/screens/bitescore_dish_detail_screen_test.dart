@@ -23,6 +23,40 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final status in ['pending', 'screening_failed', 'rejected']) {
+    testWidgets('held text $status retains draft and reports saved rating', (tester) async {
+      tester.view.physicalSize = const Size(900, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      var saves = 0;
+      await tester.pumpWidget(MaterialApp(home: BiteScoreDishDetailScreen(
+        entry: _entry(), testInitialLoader: () async {},
+        testCurrentUserProvider: () => _GalleryTestUser(uid: 'user-saved'),
+        testWriteGate: (_) async => true, testTermsGate: (_) async => true,
+        testSuppressLocalExpertBadgeRecalculation: true,
+        testReviewSaver: ({required dish, required restaurant, required overallImpression, required headline, required notes, required tastinessScore, required qualityScore, required valueScore}) async {
+          saves++;
+          return BiteScoreReviewSaveResult(dish: dish, restaurant: restaurant,
+            review: DishReview(id:'saved', dishId:dish.id, restaurantId:restaurant.id, userId:'user-saved', headline:null, notes:null,
+              overallImpression:overallImpression, tastinessScore:tastinessScore, qualityScore:qualityScore, valueScore:valueScore,
+              overallBiteScore:80, textStatus:status), contributionPointAward:const ContributionPointAwardResult());
+        },
+      )));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(0), 'Draft headline');
+      await tester.enterText(find.byType(TextField).at(1), 'Private draft notes');
+      for (final slider in tester.widgetList<Slider>(find.byType(Slider))) { slider.onChanged?.call(7); }
+      await tester.pump();
+      final save = find.widgetWithText(ElevatedButton, 'Save Review');
+      await tester.ensureVisible(save); await tester.tap(save); await tester.pumpAndSettle();
+      expect(saves, 1); expect(find.textContaining('Rating saved;'), findsOneWidget);
+      expect(find.text('Review saved.'), findsNothing);
+      expect(find.text('Draft headline'), findsOneWidget); expect(find.text('Private draft notes'), findsOneWidget);
+      expect(find.widgetWithText(ElevatedButton, 'Save Changes'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'saved review retains blocked photo and final restriction message',
     (tester) async {

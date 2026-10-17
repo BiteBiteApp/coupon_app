@@ -1025,6 +1025,10 @@
     }
   ],
   "fieldOverrides": [
+    {"collectionGroup":"private_bitescore_review_text","fieldPath":"expiresAt","ttl":true,"indexes":[{"order":"ASCENDING","queryScope":"COLLECTION"}]},
+    {"collectionGroup":"private_bitescore_review_text","fieldPath":"headline","indexes":[]},
+    {"collectionGroup":"private_bitescore_review_text","fieldPath":"notes","indexes":[]},
+    {"collectionGroup":"private_bitescore_review_text","fieldPath":"signal","indexes":[]},
     {"collectionGroup":"reviewer_safety_state","fieldPath":"targetUserId","indexes":[{"order":"ASCENDING","queryScope":"COLLECTION"},{"order":"DESCENDING","queryScope":"COLLECTION"},{"order":"ASCENDING","queryScope":"COLLECTION_GROUP"}]},
     {"collectionGroup":"blocked_reviewers","fieldPath":"targetUserId","indexes":[{"order":"ASCENDING","queryScope":"COLLECTION"},{"order":"DESCENDING","queryScope":"COLLECTION"},{"order":"ASCENDING","queryScope":"COLLECTION_GROUP"}]},
     {

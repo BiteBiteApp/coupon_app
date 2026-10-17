@@ -1,0 +1,261 @@
+BiteStar OpenAI written-review moderation — source qualification
+Run ID: BS-BITESTAR-UGC-REVIEW-TEXT-OPENAI-001
+Prompt prepared: October 16, 2026, 8:40 PM EDT (UTC-04:00)
+Role: source implementation and local qualification; independent source review.
+Expected/actual starting HEAD: 72ca40366256dd69281faa0549b1ed3fc8603921
+Branch: main. Final source checkpoint: annotated tag bs-bitestar-ugc-review-text-openai-001 (the containing commit).
+
+VERDICT / STATE
+Source-only workflow; default OFF. No OpenAI request, real provider qualification,
+credential read/creation, secret activation, deployment, production data write,
+Terms publication, billing/IAM/Stripe change, real-account use or device run.
+The OpenAI adapter exists; its API key is NOT configured by this run.
+All local provider outcomes are deterministic injected mocks. They establish
+software behavior, not the provider's accuracy or its handling of particular words.
+Independent source review: PASS against all 25 frozen source/test hashes.
+Reviewer inspected test evidence but did not rerun the suites. No unresolved
+blocking source finding. Review completion: October 16, 2026, 9:07 PM EDT.
+Local qualification completion: October 16, 2026, 9:10 PM EDT.
+
+PERMITTED CHANGE AREA / SANITY CHECK
+Backend logic, minimal private text records, bounded Admin/customer state/UI,
+and candidate Rules/index/TTL contracts as explicitly authorized. This is a
+necessary separation of public words from legitimate ratings, executable with
+existing transaction adapters and isolated emulators. Recovery is bounded and
+keeps publication closed. No review/rating subsystem replacement or migration.
+Seven pre-existing owner files were hashed before editing and excluded.
+
+EXECUTION PATHS AND TRUST BOUNDARY
+Dish-detail create/edit, Create & Rate existing dish, new dish, new restaurant,
+and duplicate-match branches converge on BiteScoreService's existing
+_createReviewAndRebuildAggregate -> saveReviewWithTrustedAggregate ->
+saveCustomerBiteScoreReview. The historical direct Firestore fallback remains
+unchanged when disabled; candidate Rules close it after required=true.
+Rating-only and empty-field removal use the same trusted write and no provider.
+The existing transactional aggregate calculation, contribution replacement,
+review identity selection, Terms gate, posting restriction, deletion fence,
+dish/restaurant/merge/milestone locks and review timestamp semantics remain.
+
+The rating transaction reserves the current private text proposal and updates
+its public textRevision pointer atomically. Proposed headline/notes never enter
+dish_reviews until clean screening or authorized human approval. For a held edit,
+old approved words stay; a submitted blank field removes that old field now.
+A new review with held words has public numerical ratings and blank public words.
+There is one rating contribution. Text decisions never alter rating fields,
+aggregate values, review timestamps, photos, helpful votes or points.
+
+One private record per review binds author UID, review/dish/restaurant IDs,
+content digest, random version, trusted timestamps/deadline, status, requested
+model/policy, returned model/request ID/category flags/scores and current Admin
+decision. A separate per-user admission record has no words. Real API calls
+would contain only neutral-separated headline and notes plus the model name.
+No profile/account email, UID, account history, Auth token, restaurant owner
+record, photo or billing metadata is attached to the provider payload. Users
+may themselves type personal information in review text; this is not a reliable
+PII detector or a promise of automatic redaction. Existing personal-information
+Report Review reasons and evidence remain available.
+
+Restaurant owners and client Admins can read dish_reviews under existing Rules;
+therefore both private collections deny ALL client Firestore access. Author
+status/drafts and Admin queue/decisions use authenticated callables. Author
+responses are UID-bound; the Admin queue requires existing Admin authority,
+replaces pages of at most 25 and clears private UI on account change. Its entry
+is in the existing Review & Photo Reports area, separate from published reports.
+
+Every completion rechecks exact current proposal/version/attempt, review identity,
+account fence, posting restriction, current dish/restaurant identity/activity,
+operation locks, expiration and existing published-review moderation flags.
+Same-ID deletion/recreation, superseding edits, merges, account deletion and
+stale Admin actions cannot revive old words. The existing review-write trigger
+purges detached proposals without deleting a current replacement. Account
+cleanup appends two collection families, preserving persisted stage indexes.
+Existing review projections, targeted links, public reviewer history/Local Expert
+and report evidence continue to consume approved-only source fields. Existing
+projection and Local Expert review-write triggers process approved word changes.
+
+POLICY / OUTCOMES
+Candidate policy: openai-clean-or-human-v1; requested model omni-moderation-latest.
+Unflagged valid results publish. Any broad/category flag is held for human review;
+no score threshold, profanity blacklist, sentiment filter, permanent automatic
+rejection, author restriction or Auth suspension. Invalid/unavailable/paused
+screening keeps words private and reports that the rating saved. Ordinary
+criticism, mild profanity, sarcasm and slang are not locally blocked. Fake clean
+classifications cover these examples; real-provider false-positive assessment
+remains a release prerequisite. Admin rejection applies only to proposed words,
+erases their raw text immediately and preserves rating/older public words.
+Both editors distinguish held/failed/rejected words from full save failure and
+combine independent photo outcomes. Dish-detail preserves an unpublished draft;
+current private drafts can be retrieved by their author when reopening Edit.
+Create & Rate persists the draft on the server and returns normally after saving.
+
+BOUNDS / FAILURE RECOVERY
+200 UTF-16 headline units, 4,000 note units, 16,800 UTF-8 bytes maximum. Fixed HTTPS
+POST /v1/moderations, 8-second wall timeout, 32-KiB response bound, no redirects,
+strict single-result/13-category/type/score/model validation and no raw logs.
+Six admitted new/version-retry screenings per author/minute. Provider allows two
+concurrent requests per instance; callable candidate maxInstances=2/concurrency=2.
+No automatic retries. Explicit same-text resubmission after 60 seconds can retry
+up to TWO admitted attempts per version; private retention is never extended by
+that retry. A 20-second attempt lease and unique attempt ID recover interrupted
+work without accepting the old completion. Exhausted failures remain available
+to human review until expiry. No read or projection trigger calls the provider.
+Rate limiting does not apply the photo 1,000/month allowance to text.
+
+RETENTION — OWNER DECISION STILL REQUIRED
+No pending/failed text retention duration is selected. Candidate retentionSeconds
+is null; required enforcement needs retentionApproved, cleanupEnabled, and an
+explicit valid duration (technical bound 1 second–365 days, not a recommendation).
+Before activation, owner must approve duration and physical deletion expectations.
+The candidate Firestore TTL on private_bitescore_review_text.expiresAt is the
+scalable expiry backstop; a bounded 25-row/15-minute scheduler supplements it.
+Expired raw text is unavailable for author/Admin reads or publication immediately
+at its trusted deadline. Physical deletion is asynchronous; no exact deletion
+instant, backup/cache purge or production TTL qualification is claimed.
+Published/rejected terminal receipts contain no raw proposal and no raw-text
+expiry field, so clean receipts cannot crowd raw-text cleanup. One current
+metadata receipt per review remains until replacement, withdrawal or account
+deletion; broader non-image metadata retention remains an owner review item.
+No photo retention period was reused. Headline, notes and signal index exemptions
+reduce unnecessary indexing; all are candidate source changes only.
+
+OFFICIAL PROVIDER CONTRACT CHECK (October 16, 2026 EDT)
+https://developers.openai.com/api/docs/guides/moderation
+https://developers.openai.com/api/reference/resources/moderations/methods/create
+https://developers.openai.com/api/docs/models/omni-moderation-latest
+https://developers.openai.com/api/docs/guides/your-data
+The official moderation/model pages describe the endpoint as free. The model
+page currently lists Free: 250 RPM / 5,000 RPD / 10,000 TPM; Build: 500 RPM /
+20,000 TPM; Launch: 2,000 RPM / 250,000 TPM; Grow: 5,000 RPM / 500,000 TPM.
+Dashes for paid-tier RPD are not interpreted as unlimited capacity. Actual
+project limits must be checked before activation; all prices/limits may change.
+At 100 tokens per review, 10,000 TPM is about 100 reviews/minute before other
+usage; 5,000 RPD would constrain a popular application independently. This is an
+illustration, not a token forecast. Longer input and Unicode change token use.
+Backend/Firestore/Functions/network/TTL costs are separate. No paid text budget
+is invented. Provider 429/errors fail closed; processing can be paused explicitly.
+The endpoint table currently lists no training, abuse-monitoring retention or
+application-state retention for /v1/moderations. Recheck current terms, account
+controls and privacy disclosures before launch; no timeless privacy guarantee.
+The API account/project and credentials are separate from ChatGPT subscriptions.
+Model alias behavior can change; requested alias, returned model and policy are
+recorded. No Chat Completions/Responses/billable-model substitute exists here.
+
+RELEASE ORDER / SAFE PAUSE (ALL REQUIRE SEPARATE OWNER AUTHORIZATION)
+1. Approve policy, retention/deletion expectations, privacy/legal/store disclosures
+   and human escalation practice. Keep approvedBiteScoreTerms=null until separately
+   approved final Terms publication. No draft is presented for user acceptance.
+2. Confirm current exact Functions/Rules baseline and account deletion/aggregate/
+   projection/Local Expert dependencies. Verify API project access and actual quotas;
+   owner separately provisions least-privilege OPENAI_REVIEW_MODERATION_API_KEY and
+   runtime secret access. Never put the key in Flutter/public Firestore or logs.
+3. Deploy only the reviewed TTL/index exemptions and verify TTL is active. Deploy
+   the targeted saveCustomerBiteScoreReview, getOwnBiteScoreReviewText,
+   listBiteScoreReviewText, decideBiteScoreReviewText, expireBiteScoreReviewTexts,
+   maintainCustomerBiteScoreReviewAggregate and the existing account-deletion
+   worker that imports account_deletion_cleanup; retain all other image/business
+   exports and trigger retry behavior. Resolve any current deployment drift first.
+4. Release supported clients with trusted BiteScore runtime and the default-off
+   BITESCORE_REVIEW_TEXT_MODERATION flag deliberately enabled. The supported-client
+   minimum version must be selected and enforced operationally before cutover;
+   this run does not invent that product version or add a new version-gating system.
+   Historical direct-write clients must update: Rules will deny their new saves.
+   They must not be treated as fallback writers. Older callable clients cannot
+   publish unchecked words but may not display the new partial-success messages.
+5. Deploy qualified candidate Rules before setting required=true. Separately
+   approve changing reviewTextProviderWiringEnabled=false in source and deploying
+   the resulting exact secret binding. Verify account/deletion/Admin authorization,
+   TTL, client paths and mocked failure recovery, then owner-approved real-provider
+   synthetic tests and physical devices. Do not enable until those gates pass.
+6. Create the approved runtime config, with required=true as the enforcement
+   boundary, approved retention and cleanup; activate processing only with owner
+   approval. The current candidate is absent/off and no runtime write occurred.
+
+Outage: set processingEnabled=false; KEEP required=true, the blocking Rules,
+private reads/deletion, TTL and Admin capability. Ratings continue through the
+trusted callable while new words remain private. A small human queue can process
+held failures; authors have bounded explicit retries. Never roll back Rules or
+restore a pre-moderation trusted writer that publishes raw request words. A full
+writer rollback must fail closed/temporarily stop saves, not reopen the legacy
+bypass. Restore a verified moderation-aware version, then resume processing.
+
+INCIDENTAL FINDINGS
+FIX NOW / DIRECTLY REQUIRED: interrupted screening recovery and raw expiry
+throughput gaps from independent review corrected with attempt lease/ID, bounded
+retry, raw-only expiry queue, TTL candidate and required cleanup readiness.
+FIX SEPARATELY — REAL BUG: pre-existing post-commit contribution-award calls can
+throw and show a generic save failure after the review has already saved
+(BiteScoreService._createReviewAndRebuildAggregate milestone award, and creation
+award paths). Existing source before this run has the same behavior. This is a
+conditional misleading error when the later award call fails, not duplicate
+rating accounting. Record for focused follow-up; do not redesign points here.
+PRODUCT DECISION REQUIRED: final text retention, policy/real-classifier acceptance,
+legal/privacy, supported minimum client version and activation authorization.
+ACCEPT AND CLOSE: no reopening Stage 2D. Dish/restaurant names, catalog bio and
+other editable strings are distinct later UGC surfaces; no new screening rule
+or subsystem for them was implemented.
+
+QUALIFICATION
+Node v24.19.0 TypeScript build passed. Isolated demo projects on local
+Firestore 8792, Auth 9198 and Storage 9298; owner's emulator left untouched.
+- Final text lifecycle emulator 22/22 passed, including source privacy/report
+  evidence, stale/provider/Admin/account/merge/withdrawal races, simultaneous
+  edits, retry bounds/lease recovery, expiry/cleanup, ratings and dormant Terms.
+- Adapter + established aggregate/Terms tests: 38/38 passed. Transport mocked
+  for 429/API failure, timeout, invalid/oversized JSON; zero external API traffic.
+- Candidate Rules and deletion/posting/reviewer boundary group: 21/21 passed.
+- Existing deletion/photo/reviewer/posting integration: 76/76 passed, no skips;
+  account deletion additionally proves own text/admission removed and other
+  author's draft retained.
+- Public reads/profile/points/milestone/photo-provider regressions: 182/182 passed.
+  Exact index contract initially had 2 failures after four intended overrides;
+  its strict expected contract was updated, then all 6/6 index tests passed.
+- Main Flutter editor/service/Admin group: 109/109 passed, including every
+  Create & Rate branch and retained dish-detail drafts, account switching,
+  pagination/decisions and existing photo outcomes.
+- Complementary Flutter public Local Expert, reporting, reviewer-safety and
+  photo/Admin group: 85/85 passed, no skips.
+- Scoped Flutter analysis: no errors/warnings; 14 info-level pre-existing
+  Create & Rate diagnostics confirmed against an untouched HEAD source copy.
+- No whole-repository clean-suite claim; known unrelated baseline failures were
+  not reopened. Counts overlap and are not a unique-case sum. Test fixtures and
+  local runtime setup errors were corrected and relevant checks rerun.
+- Local logs: /tmp/bs-review-text/. No physical-device, deployed Rules/TTL,
+  real OpenAI accuracy/quotas/IAM, or store-approval qualification is claimed.
+
+EXACT SOURCE/TEST FILES (frozen SHA-256 manifest: REVIEW_TEXT_MODERATION_FILES.sha256)
+firestore.indexes.json
+firestore.rules
+firestore_rules_tests/test/review_text_rules.test.js
+functions/src/account_deletion_cleanup.ts
+functions/src/bitescore_review_aggregate.ts
+functions/src/customer_bitescore_runtime.ts
+functions/src/index.ts
+functions/src/review_text_handlers.ts
+functions/src/review_text_moderation.ts
+functions/src/review_text_provider.ts
+functions/test/account_deletion_emulator.test.js
+functions/test/firestore_index_contract.test.js
+functions/test/review_text_moderation_emulator.test.js
+functions/test/review_text_provider.test.js
+lib/models/dish_review.dart
+lib/screens/bitescore_admin_screen.dart
+lib/screens/bitescore_create_rate_screen.dart
+lib/screens/bitescore_dish_detail_screen.dart
+lib/screens/review_text_admin_screen.dart
+lib/services/bitescore_service.dart
+lib/services/review_text_moderation_service.dart
+test/screens/bitescore_create_rate_terms_test.dart
+test/screens/bitescore_dish_detail_screen_test.dart
+test/screens/review_text_admin_screen_test.dart
+test/services/review_text_moderation_service_test.dart
+
+PROTECTED OWNER FILES (verified before editing and at checkpoint)
+{
+  "APPROVAL-ADDENDUM-A2.md": "865f38522f833bb7a9a8a3157d49a292db627c29435093eb24f2c8e8d04581ea",
+  "test/cuisine_fixture/main.dart": "453e3b3412bcb1e35d97e3af8e2c868cbd7965f93dab75f701f13395489474f0",
+  "test/visual_fixture/README.md": "b3bf2b57779323981b54aa6cf0a55ec1ab59651b202f5d9f78e0cd3887151130",
+  "test/visual_fixture/data.dart": "38cda097fae724e82f02c9f4c8c1fab9c6e731283b3879bac3bedf661129fef8",
+  "test/visual_fixture/main.dart": "c753b469e78938b7e6d5a25d36100b938bf24c262fbcc9cea09ad0802b36ff5c",
+  "test/screens/customer_bitesaver_browse_screen_test.dart": "28aa68c86b59fefd9fd9aea798cad83b52b4b80e9cabea4be324711f7d31c2ee",
+  "test/screens/restaurant_profile_bitescore_menu_test.dart": "278ffbfd9f139d003baf6b03f0b6f72549e84335e102718cfd17e6ce6344dafb"
+}

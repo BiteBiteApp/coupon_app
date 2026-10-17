@@ -1,3 +1,6 @@
+import {getOwnReviewTextHandler, listReviewTextHandler, decideReviewTextHandler, expireReviewTexts} from "./review_text_handlers.js";
+import {reconcileReviewText} from "./review_text_moderation.js";
+import {OpenAIReviewTextProvider} from "./review_text_provider.js";
 import {retireDetachedOwnerPhoto} from "./owner_photo_screening.js";
 import {awardApprovedScreenedPhotoPoints, submitScreenedPhotoHandler, listScreeningPhotosHandler, previewScreeningPhotoHandler, decideScreeningPhotoHandler} from "./photo_screening.js";
 import {maintainScreeningPhotos} from "./photo_screening_retention.js";
@@ -162,7 +165,17 @@ function termsRequest(request: CallableRequest<unknown>, accept: boolean) {
 export const getCustomerBiteScoreTerms = onCall(termsOptions, (request) => termsRequest(request, false));
 export const acceptCustomerBiteScoreTerms = onCall(termsOptions, (request) => termsRequest(request, true));
 
+// Source-only wiring gate. Enabling it and binding this secret need separate approval.
+export const reviewTextProviderWiringEnabled = false;
+const reviewTextKey = defineSecret("OPENAI_REVIEW_MODERATION_API_KEY");
+export const getOwnBiteScoreReviewText = onCall(reviewerSafetyOptions, request => safely(() => getOwnReviewTextHandler(getFirestore(), request)));
+export const listBiteScoreReviewText = onCall(reviewerSafetyOptions, request => safely(() => listReviewTextHandler(getFirestore(), request)));
+export const decideBiteScoreReviewText = onCall(reviewerSafetyOptions, request => safely(() => decideReviewTextHandler(getFirestore(), request)));
+export const expireBiteScoreReviewTexts = onSchedule({serviceAccount: biteScoreCustomerRuntimeServiceAccount, schedule: "every 15 minutes", timeoutSeconds: 60}, () => expireReviewTexts(getFirestore()).then(() => undefined));
+
 export const saveCustomerBiteScoreReview = onCall({
+  secrets: reviewTextProviderWiringEnabled ? [reviewTextKey] : [],
+  maxInstances: 2, concurrency: 2,
   serviceAccount: biteScoreCustomerRuntimeServiceAccount,
   timeoutSeconds: 60,
 }, (request) => safely(() => saveReview(
@@ -170,6 +183,8 @@ export const saveCustomerBiteScoreReview = onCall({
   {uid: request.auth?.uid ?? "", emailVerified: request.auth?.token.email_verified === true},
   request.data,
   new Date(),
+  undefined,
+  reviewTextProviderWiringEnabled ? new OpenAIReviewTextProvider(() => reviewTextKey.value()) : undefined,
 )));
 
 export const maintainCustomerBiteScoreReviewAggregate = onDocumentWritten({
@@ -177,6 +192,7 @@ export const maintainCustomerBiteScoreReviewAggregate = onDocumentWritten({
   document: "dish_reviews/{reviewId}",
   retry: true,
 }, async (event) => {
+  await reconcileReviewText(createFirestoreRatingDestructivePrivateDatabase(getFirestore()), event.params.reviewId);
   await reconcileBiteScoreReviewAggregateEvent(
     createFirestoreRatingDestructivePrivateDatabase(getFirestore()),
     {reviewId: event.params.reviewId, before: event.data?.before.data() ?? null,

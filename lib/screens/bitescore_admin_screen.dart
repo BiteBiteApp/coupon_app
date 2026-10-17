@@ -1,3 +1,5 @@
+import '../services/review_text_moderation_service.dart';
+import 'review_text_admin_screen.dart';
 import '../services/owner_photo_screening_service.dart';
 import 'photo_screening_admin_screen.dart';
 import '../services/photo_screening_service.dart';
@@ -237,6 +239,16 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
                 RatingAdminReviewPagedView(service: widget.pagingService),
                 Column(
                   children: [
+                    if (ReviewTextModerationService.isEnabled)
+                      TextButton.icon(
+                        icon: const Icon(Icons.rate_review_outlined),
+                        label: const Text('Review text awaiting publication'),
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const ReviewTextAdminScreen(),
+                          ),
+                        ),
+                      ),
                     if (PhotoScreeningService.isEnabled ||
                         OwnerPhotoScreeningService.isEnabled)
                       TextButton.icon(

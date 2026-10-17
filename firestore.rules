@@ -1394,6 +1394,14 @@ service cloud.firestore {
 
     // Source-only coordinated BiteScore rollout. Absence preserves the current
     // client writer; once enabled only trusted server code owns aggregates.
+    // Enforcement is independent of provider pause. Keep required set on outage/rollback.
+    function reviewTextRequired() {
+      let path = /databases/$(database)/documents/private_bitescore_runtime/review_text;
+      return exists(path) && get(path).data.get('required', true) != false;
+    }
+    match /private_bitescore_review_text/{document=**} { allow read, write: if false; }
+    match /private_bitescore_review_text_admission/{document=**} { allow read, write: if false; }
+
     function biteScoreTrustedAggregatesEnabled() {
       return exists(/databases/$(database)/documents/private_bitescore_runtime/aggregation) &&
         get(/databases/$(database)/documents/private_bitescore_runtime/aggregation).data.enabled == true;
@@ -1856,12 +1864,14 @@ service cloud.firestore {
 
     match /dish_reviews/{reviewId} {
       allow read: if isAdmin() || ownerOfBiteScoreDish(resource.data.dishId);
-      allow create: if deletionActorMayWrite() && (!biteScoreTrustedAggregatesEnabled() && customerPostingAllowed() && createsOwnReview() &&
+      allow create: if !reviewTextRequired() && !request.resource.data.keys().hasAny(['textRevision', 'textStatus', 'textModerationStatus']) && deletionActorMayWrite() && (!biteScoreTrustedAggregatesEnabled() && customerPostingAllowed() && createsOwnReview() &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
         reviewDataHasCanonicalDishId(request.resource.data) &&
         !reviewDataHasBlockingMergeLock(request.resource.data) &&
         reviewDataUserAllowsMilestoneMutation(request.resource.data));
-      allow update: if deletionActorMayWrite() && ((isAdmin() || !biteScoreTrustedAggregatesEnabled()) && (isAdmin() || (customerPostingAllowed() && updatesOwnReview())) &&
+      allow update: if !changedKeys().hasAny(['textRevision', 'textStatus', 'textModerationStatus']) &&
+        (!reviewTextRequired() || !changedKeys().hasAny(['headline', 'notes', 'id', 'userId', 'dishId', 'restaurantId'])) &&
+        deletionActorMayWrite() && ((isAdmin() || !biteScoreTrustedAggregatesEnabled()) && (isAdmin() || (customerPostingAllowed() && updatesOwnReview())) &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
         ((request.resource.data.dishId == resource.data.dishId && request.resource.data.restaurantId == resource.data.restaurantId) || dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data)) &&
         reviewDataHasCanonicalDishId(resource.data) &&

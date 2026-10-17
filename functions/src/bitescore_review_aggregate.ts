@@ -1,3 +1,5 @@
+import {prepareReviewText, screenReviewText, type TextAttempt} from "./review_text_moderation.js";
+import type {ReviewTextProvider} from "./review_text_provider.js";
 import {requireCustomerPostingAllowedInStore} from "./posting_restriction_guard.js";
 import {requireBiteScoreTerms, approvedBiteScoreTerms, type ApprovedBiteScoreTerms} from "./bitescore_terms.js";
 import {requireAccountWritableInStore} from "./account_deletion_guard.js";
@@ -577,12 +579,14 @@ export async function saveCustomerBiteScoreReview(
   request: unknown,
   now: Date,
   terms: ApprovedBiteScoreTerms | null = approvedBiteScoreTerms,
+  textProvider?: ReviewTextProvider,
+  clock: () => Date = () => new Date(),
 ): Promise<Readonly<Record<string, unknown>>> {
   const userId = id(actor.uid);
   if (!actor.emailVerified) fail("permission-denied", "Verify your email before reviewing.");
   const input = parseSave(request);
   if (input.expectedUserId !== userId) fail("permission-denied", "Your account changed. Please try again.");
-  return database.runTransaction(async (transaction) => {
+  const saved = await database.runTransaction(async (transaction) => {
     await requireAccountWritableInStore(transaction, userId);
     await requireCustomerPostingAllowedInStore(transaction, userId, now.getTime());
     await requireBiteScoreTerms(transaction, userId, terms);
@@ -624,9 +628,10 @@ export async function saveCustomerBiteScoreReview(
     const priorCandidate = candidate(existing, input.dishId);
     const updatedAt = new Date(Math.max(now.getTime(), priorCandidate === null ? 0 :
       priorCandidate.freshnessSeconds * 1000 + Math.ceil(priorCandidate.freshnessNanoseconds / 1e6)));
+    const text = await prepareReviewText(transaction, {...input, reviewId, userId}, existing?.data, now);
     const review = {
       id: reviewId, dishId: input.dishId, restaurantId: input.restaurantId,
-      userId, headline: input.headline.trim() || null, notes: input.notes.trim() || null,
+      userId, ...text.fields,
       overallImpression: input.overallImpression, tastinessScore: input.tastinessScore,
       qualityScore: input.qualityScore, valueScore: input.valueScore,
       overallBiteScore: computeTrustedBiteScore(input), createdAt, updatedAt,
@@ -645,8 +650,19 @@ export async function saveCustomerBiteScoreReview(
     const {createdAt: _createdAt, updatedAt: _updatedAt, ...publicReview} = review;
     return {
       schemaVersion: 1,
+      textStatus: text.status,
+      textAttempt: text.attempt,
       review: {...publicReview, createdAtMillis: created?.getTime() ?? now.getTime(),
         updatedAtMillis: updatedAt.getTime()},
     };
   });
+  const {textAttempt, ...response} = saved;
+  if (!textAttempt) return response;
+  let textStatus = "screening_failed";
+  try { textStatus = await screenReviewText(database, textAttempt as TextAttempt, textProvider, clock); }
+  catch { /* The rating is committed; never report that it failed or log private text. */ }
+  const current = await database.runTransaction(tx => tx.getDocument(`dish_reviews/${saved.review.id}`)).catch(() => null);
+  return {...response, textStatus,
+    review: {...saved.review, headline: current ? current.data.headline ?? null : saved.review.headline,
+      notes: current ? current.data.notes ?? null : saved.review.notes}};
 }

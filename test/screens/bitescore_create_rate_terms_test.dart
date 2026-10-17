@@ -66,6 +66,21 @@ void main() {
   }
 
   for (final path in _Path.values) {
+    for (final status in ['pending', 'screening_failed', 'rejected']) {
+      testWidgets('${path.name}: $status truthfully distinguishes saved rating from held words', (tester) async {
+        final h = _Harness(store, textStatus: status);
+        await h.run(tester, path, () async {
+          await h.submit(tester, path);
+          expect(h.writes, [_operation(path)]);
+          expect(find.byType(BiteScoreCreateRateScreen), findsNothing);
+          expect(find.textContaining('Rating saved;'), findsOneWidget);
+          expect(find.text('Review saved.'), findsNothing);
+        });
+      });
+    }
+  }
+
+  for (final path in _Path.values) {
     testWidgets(
       '${path.name}: disabled Terms preserve save path without a prompt or receipt',
       (tester) async {
@@ -393,6 +408,7 @@ class _Harness {
     this.pending,
     this.withShell = false,
     this.postingDenied = false,
+    this.textStatus,
   });
   final _Store store;
   final bool? active;
@@ -401,6 +417,7 @@ class _Harness {
   final Completer<Object?>? pending;
   final bool withShell;
   final bool postingDenied;
+  final String? textStatus;
   String authRealm = 'signed:A';
   final authChanges = StreamController<String>.broadcast(sync: true);
   int homeRefreshGeneration = 0;
@@ -461,7 +478,10 @@ class _Harness {
         writes.add(operation);
         uids.add(uid);
         events.add('write:$operation');
-        return _result;
+        return textStatus == null ? _result : BiteScoreReviewSaveResult(
+          dish: _dish, restaurant: _restaurant,
+          review: DishReview(id:'review-1',dishId:'dish-1',restaurantId:'restaurant-1',userId:'A',overallImpression:8,overallBiteScore:80,textStatus:textStatus),
+          contributionPointAward: const ContributionPointAwardResult());
       },
       body: () async {
         final open = Builder(

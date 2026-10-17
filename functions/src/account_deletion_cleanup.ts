@@ -56,6 +56,8 @@ const families: readonly Family[] = [
   // Append only: persisted stageIndex values must keep their existing meaning.
   {collection: "review_reports", field: "reportedUserId", mode: "delete"},
   {collection: "private_bitescore_photo_screenings", field: "ownerUserId", mode: "delete"},
+  {collection: "private_bitescore_review_text", field: "userId", mode: "delete"},
+  {collection: "private_bitescore_review_text_admission", field: "userId", mode: "delete"},
 ];
 function familyQuery(db: Firestore, family: Family, uid: string): Query {
   const query = db.collection(family.collection).where(family.field, "==", uid);

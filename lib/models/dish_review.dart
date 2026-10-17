@@ -7,6 +7,24 @@ class DishReview {
   final String dishId;
   final String restaurantId;
   final String userId;
+  // Callable/author-only outcome; excluded from public Firestore writes.
+  final String? textStatus;
+  bool get hasUnpublishedText =>
+      textStatus != null && textStatus != 'legacy' && textStatus != 'published';
+  String? get textStatusMessage => switch (textStatus) {
+    'published' => 'Rating and review text saved.',
+    'pending' => 'Rating saved; your proposed words are awaiting review.',
+    'screening' => 'Rating saved; your proposed words are still being checked.',
+    'rejected' =>
+      'Rating saved; your proposed words were not accepted. Earlier published words are unchanged.',
+    'expired' =>
+      'Rating saved; the unpublished text has expired. Submit your words again.',
+    'screening_failed' =>
+      'Rating saved; your proposed words could not be screened and remain unpublished.',
+    'superseded' =>
+      'Rating saved; a newer edit or withdrawal replaced this text submission.',
+    _ => null,
+  };
   final String? headline;
   final String? notes;
   final double overallImpression;
@@ -23,6 +41,7 @@ class DishReview {
     required this.restaurantId,
     required this.userId,
     this.headline,
+    this.textStatus,
     this.notes,
     required this.overallImpression,
     this.tastinessScore,
@@ -88,6 +107,7 @@ class DishReview {
       restaurantId: restaurantId,
       userId: userId,
       headline: _readString(data['headline']),
+      textStatus: _readString(data['textStatus']),
       notes: _readString(data['notes']),
       overallImpression: overallImpression,
       tastinessScore: tastinessScore,

@@ -1003,7 +1003,13 @@ const REVIEWER_SAFETY_DELETION_FIELD_CONTRACT = [
   ],
 }));
 
+const REVIEW_TEXT_FIELD_CONTRACT = [
+  {collectionGroup: "private_bitescore_review_text", fieldPath: "expiresAt", ttl: true, indexes: [{order: "ASCENDING", queryScope: "COLLECTION"}]},
+  ...["headline", "notes", "signal"].map(fieldPath => ({collectionGroup: "private_bitescore_review_text", fieldPath, indexes: []})),
+];
+
 const REQUIRED_FIELD_OVERRIDE_CONTRACT = [
+  ...REVIEW_TEXT_FIELD_CONTRACT,
   ...REVIEWER_SAFETY_DELETION_FIELD_CONTRACT,
   {
     collectionGroup: "bitesaver_offer_index",
@@ -1228,11 +1234,12 @@ test("Firestore TTL and single-field settings exactly match customer and Admin t
 
   assert.equal(firebaseConfiguration.firestore.indexes, "firestore.indexes.json");
   assert.equal(firebaseConfiguration.firestore.rules, "firestore.rules");
-  assert.equal(fieldOverrides.length, 29);
+  assert.equal(fieldOverrides.length, 33);
   assert.equal(new Set(signatures).size, fieldOverrides.length);
-  assert.equal(fieldOverrides.filter(({ ttl }) => ttl === true).length, 20);
+  assert.equal(fieldOverrides.filter(({ ttl }) => ttl === true).length, 21);
 
   for (const override of fieldOverrides) {
+    if (override.collectionGroup === "private_bitescore_review_text") { assert.deepEqual(override, REVIEW_TEXT_FIELD_CONTRACT.find(entry => entry.fieldPath === override.fieldPath)); continue; }
     const safety = REVIEWER_SAFETY_DELETION_FIELD_CONTRACT.find((entry) => entry.collectionGroup === override.collectionGroup);
     if (safety) { assert.deepEqual(override, safety); assert.equal(override.ttl, undefined); continue; }
     const deletion = DELETION_SINGLE_FIELD_CONTRACT.find((entry) => entry.collectionGroup === override.collectionGroup && entry.fieldPath === override.fieldPath);

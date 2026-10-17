@@ -8194,6 +8194,21 @@ class BiteScoreService {
       throw StateError('The trusted review response is invalid.');
     }
     final data = Map<String, dynamic>.from(result['review'] as Map);
+    final textStatus = result['textStatus'];
+    if (textStatus != null &&
+        !const [
+          'legacy',
+          'published',
+          'pending',
+          'screening',
+          'screening_failed',
+          'rejected',
+          'expired',
+          'superseded',
+        ].contains(textStatus)) {
+      throw StateError('The review text status is invalid.');
+    }
+    data['textStatus'] = textStatus;
     final reviewId = exactFirestoreDocumentId(data['id']);
     final created = data['createdAtMillis'];
     final updated = data['updatedAtMillis'];

@@ -1,3 +1,4 @@
+import '../services/review_text_moderation_service.dart';
 import 'dart:async';
 
 import 'package:cloud_functions/cloud_functions.dart';
@@ -1335,6 +1336,52 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       _prefillReviewForm(review);
     });
 
+    if (ReviewTextModerationService.isEnabled) {
+      final originalHeadline = _headlineController.text;
+      final originalNotes = _notesController.text;
+      try {
+        final response = await ReviewTextModerationService().request(
+          'getOwnBiteScoreReviewText',
+          review.userId,
+          {'reviewId': review.id},
+        );
+        if (!mounted ||
+            !_isPrivateLeaseCurrent(authLease) ||
+            _editingReview?.id != review.id) {
+          return;
+        }
+        final proposal = response['proposal'];
+        if (proposal is Map &&
+            _headlineController.text == originalHeadline &&
+            _notesController.text == originalNotes) {
+          setState(() {
+            if (proposal['headline'] is String) {
+              _headlineController.text = proposal['headline'] as String;
+            }
+            if (proposal['notes'] is String) {
+              _notesController.text = proposal['notes'] as String;
+            }
+          });
+          _showSnackBar(switch (proposal['status']) {
+            'rejected' =>
+              'Your proposed words were not accepted. Your rating and earlier published words are unchanged.',
+            'pending' => 'Your proposed words are awaiting review.',
+            'screening_failed' =>
+              'Your proposed words could not be screened and remain unpublished.',
+            'screening' => 'Your proposed words are still being checked.',
+            'expired' => 'The unpublished draft has expired.',
+            _ => 'Editing your published review.',
+          });
+          showMessage = false;
+        }
+      } catch (error) {
+        if (!mounted || !_isPrivateLeaseCurrent(authLease)) return;
+        _showSnackBar(
+          'Could not load your private text status. Published words are shown.',
+        );
+        showMessage = false;
+      }
+    }
     await _scrollToReviewSection();
     if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
       return;
@@ -1711,7 +1758,8 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         actionGroupId: 'dish_detail_review:${saveResult.review.id}',
       );
 
-      if (photoFailureMessage == null) {
+      if (photoFailureMessage == null &&
+          !saveResult.review.hasUnpublishedText) {
         _headlineController.clear();
         _notesController.clear();
         _selectedDishImage = null;
@@ -1752,8 +1800,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     }
 
     _showSnackBar(
-      photoFailureMessage ??
-          (isEditingReview ? 'Review updated.' : 'Review saved.'),
+      saveResult.review.textStatusMessage == null
+          ? photoFailureMessage ?? (isEditingReview ? 'Review updated.' : 'Review saved.')
+          : [saveResult.review.textStatusMessage!, if (photoFailureMessage != null) photoFailureMessage!].join(' '),
     );
     if (!widget.testSuppressLocalExpertBadgeRecalculation) {
       unawaited(
