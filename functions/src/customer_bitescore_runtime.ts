@@ -180,7 +180,8 @@ export const saveCustomerBiteScoreReview = onCall({
   timeoutSeconds: 60,
 }, (request) => safely(() => saveReview(
   createFirestoreRatingDestructivePrivateDatabase(getFirestore()),
-  {uid: request.auth?.uid ?? "", emailVerified: request.auth?.token.email_verified === true},
+  {uid: request.auth?.uid ?? "", emailVerified: request.auth?.token.email_verified === true,
+    anonymous: request.auth?.token.firebase?.sign_in_provider === "anonymous"},
   request.data,
   new Date(),
   undefined,

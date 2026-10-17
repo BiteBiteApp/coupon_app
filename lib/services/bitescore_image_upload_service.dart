@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'firestore_document_id.dart';
 import 'posting_restriction_service.dart';
+import 'bitescore_terms_service.dart';
 
 class BiteScorePickedDishImage {
   final String fileName;
@@ -77,6 +78,14 @@ class BiteScoreImageUploadService {
 
     requireActor();
     await PostingRestrictionService().requireAllowed(expectedUid);
+    requireActor();
+    if (BiteScoreTermsService.enabled) {
+      await BiteScoreTermsService.requireAccepted(
+        expectedUserId: expectedUid,
+        isCurrent: () => FirebaseAuth.instance.currentUser?.uid == expectedUid &&
+            FirebaseAuth.instance.currentUser?.isAnonymous == false,
+      );
+    }
     requireActor();
     final timestamp = DateTime.now().microsecondsSinceEpoch;
     final storagePath = dishImageStoragePath(

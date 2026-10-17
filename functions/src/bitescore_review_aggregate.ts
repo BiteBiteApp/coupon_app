@@ -575,7 +575,7 @@ export function computeTrustedBiteScore(value: Pick<BiteScoreReviewSaveRequest,
  * atomic. Triggers subsequently observe exactly the same accounted winner. */
 export async function saveCustomerBiteScoreReview(
   database: Database,
-  actor: {uid: string; emailVerified: boolean},
+  actor: {uid: string; emailVerified: boolean; anonymous?: boolean},
   request: unknown,
   now: Date,
   terms: ApprovedBiteScoreTerms | null = approvedBiteScoreTerms,
@@ -583,13 +583,13 @@ export async function saveCustomerBiteScoreReview(
   clock: () => Date = () => new Date(),
 ): Promise<Readonly<Record<string, unknown>>> {
   const userId = id(actor.uid);
-  if (!actor.emailVerified) fail("permission-denied", "Verify your email before reviewing.");
+  if (!actor.emailVerified || actor.anonymous === true) fail("permission-denied", "Verify your email before reviewing.");
   const input = parseSave(request);
   if (input.expectedUserId !== userId) fail("permission-denied", "Your account changed. Please try again.");
   const saved = await database.runTransaction(async (transaction) => {
     await requireAccountWritableInStore(transaction, userId);
     await requireCustomerPostingAllowedInStore(transaction, userId, now.getTime());
-    await requireBiteScoreTerms(transaction, userId, terms);
+    await requireBiteScoreTerms(transaction, userId, terms, now);
     const epoch = await runtime(transaction);
     if (epoch === null) fail("failed-precondition", "Trusted BiteScore reviews are not enabled.");
     const [dishDocument, restaurant, stateDocument, aggregate, milestoneLock] = await Promise.all([
@@ -659,7 +659,7 @@ export async function saveCustomerBiteScoreReview(
   const {textAttempt, ...response} = saved;
   if (!textAttempt) return response;
   let textStatus = "screening_failed";
-  try { textStatus = await screenReviewText(database, textAttempt as TextAttempt, textProvider, clock); }
+  try { textStatus = await screenReviewText(database, textAttempt as TextAttempt, textProvider, clock, terms); }
   catch { /* The rating is committed; never report that it failed or log private text. */ }
   const current = await database.runTransaction(tx => tx.getDocument(`dish_reviews/${saved.review.id}`)).catch(() => null);
   return {...response, textStatus,

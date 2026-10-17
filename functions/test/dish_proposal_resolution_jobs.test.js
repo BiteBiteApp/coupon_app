@@ -2961,3 +2961,22 @@ test("malformed merge locks remain present and prevent phase advancement", async
     );
   }
 });
+
+test('delayed rename uses original customer current Terms, preserves held proposal and never borrows Admin acceptance',async()=>{
+ const database=new InMemoryDishProposalDatabase();
+ const created=await createProposalGroup(database,{count:1,prefix:'terms',type:'rename',sourceDishId:'terms-dish',proposedName:'Approved Name'});
+ seedDish(database,'terms-dish');database.seed('bitescore_restaurants/restaurant-1',{id:'restaurant-1',isActive:true});
+ const terms={version:'TEST-v2',text:'Synthetic approved text'};
+ database.seed('private_bitescore_runtime/terms',{schemaVersion:1,required:true,version:terms.version,acceptedVersions:[terms.version]});
+ database.seed('user_profiles/admin',{termsAcceptance:{version:terms.version,acceptedAt:baseTime}});
+ database.seed('user_profiles/terms-supporter-000',{termsAcceptance:{version:'TEST-v1',acceptedAt:baseTime}});
+ const claimed=await claimDishProposalGroupForApply(database,created.groupId,new Date(baseTime.getTime()+2000));
+ const deps={...dependencies(database),approvedTerms:terms};
+ const result=await processDishProposalJobStep(deps,claimed.jobId,new Date(baseTime.getTime()+3000));
+ assert.notEqual(database.data('bitescore_dishes/terms-dish').name,'Approved Name');
+ assert.equal(database.data(`dish_edit_proposals/${created.proposalIds[0]}`).status,'pending');
+ database.seed('user_profiles/terms-supporter-000',{termsAcceptance:{version:terms.version,acceptedAt:baseTime}});
+ await processDishProposalJobStep(deps,claimed.jobId,new Date(baseTime.getTime()+4000));
+ assert.equal(database.data('bitescore_dishes/terms-dish').name,'Approved Name');
+ assert.equal(database.data('user_profiles/terms-supporter-000').termsAcceptance.acceptedAt.getTime(),baseTime.getTime());
+});

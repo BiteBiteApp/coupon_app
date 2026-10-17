@@ -345,8 +345,9 @@ test("logical review tie-break preserves Dart UTF-16 ordering rather than UTF-8 
   assert.equal(Object.hasOwn(result.review, "aggregateReviewOrder0"), false);
 });
 
-const {customerBiteScoreTerms, approvedBiteScoreTerms} = require('../lib/bitescore_terms.js');
+const {customerBiteScoreTerms, approvedBiteScoreTerms, biteScoreTermsRuntimePath} = require('../lib/bitescore_terms.js');
 const approvedTermsFixture = {version: 'SIMULATED-APPROVED-v1', text: 'Simulated approved Terms for tests only.'};
+const activateTerms = (db, policy = approvedTermsFixture) => db.set(biteScoreTermsRuntimePath, {schemaVersion: 1, required: true, version: policy.version, acceptedVersions: [policy.version, ...(policy.acceptedPriorVersions ?? [])]});
 const termsActor = {uid: 'user-1', emailVerified: true, anonymous: false};
 const acceptTerms = (db, overrides = {}, actor = termsActor, policy = approvedTermsFixture, now = base) =>
   customerBiteScoreTerms(db, actor, {expectedUserId: 'user-1', version: policy?.version, ...overrides}, true, now, policy);
@@ -368,6 +369,7 @@ test('unpublished default is dormant, saves unchanged, and never issues a draft 
 
 test('active trusted write denies missing, obsolete, cross-user and client-asserted receipts atomically', async () => {
   const db = database();
+  activateTerms(db);
   for (const receipt of [undefined, {version: 'old', acceptedAt: base}, {version: approvedTermsFixture.version}]) {
     db.set('user_profiles/user-1', {termsAcceptance: receipt});
     await assert.rejects(saveWithTerms(db), {code: 'failed-precondition'});
@@ -382,6 +384,7 @@ test('active trusted write denies missing, obsolete, cross-user and client-asser
 
 test('acceptance is UID-bound, minimal, idempotent and preserves private profile fields', async () => {
   const db = database();
+  activateTerms(db);
   db.set('user_profiles/user-1', {userId: 'user-1', displayName: 'Existing', points: 7});
   await acceptTerms(db, {acceptedAt: 'client time', uid: 'victim', accepted: true});
   await acceptTerms(db, {}, termsActor, approvedTermsFixture, later(100));
@@ -395,6 +398,7 @@ test('acceptance is UID-bound, minimal, idempotent and preserves private profile
   assert.equal(aggregate(db).ratingCount, 1);
   close(edited.review.overallBiteScore, computeTrustedBiteScore(input({overallImpression: 10})));
   const next = {...approvedTermsFixture, version: 'SIMULATED-APPROVED-v2'};
+  activateTerms(db, next);
   await assert.rejects(saveWithTerms(db, {}, next), {code: 'failed-precondition'});
   await assert.rejects(acceptTerms(db, {version: approvedTermsFixture.version}, termsActor, next), {code: 'failed-precondition'});
   await acceptTerms(db, {}, termsActor, next);
@@ -403,6 +407,7 @@ test('acceptance is UID-bound, minimal, idempotent and preserves private profile
 
 test('guest, unverified, signed-out, account-switched and deleting identities cannot accept', async () => {
   const db = database();
+  activateTerms(db);
   for (const actor of [{uid: '', emailVerified: false}, {...termsActor, anonymous: true},
     {...termsActor, emailVerified: false}, {...termsActor, uid: 'user-2'}]) {
     await assert.rejects(acceptTerms(db, {}, actor), {code: 'permission-denied'});
@@ -439,4 +444,37 @@ test('posting-only restriction rejects trusted rating/review edits before any wr
  for(const [path,data] of before)assert.deepEqual(db.get(path),data);
  const updated=await saveCustomerBiteScoreReview(db,{uid,emailVerified:true},{...input,notes:'edited'},later(7*86400));
  assert.equal(updated.review.id,result.review.id);assert.equal(updated.review.notes,'edited');assert.equal(db.get('dish_rating_aggregates/dish').ratingCount,1);
+});
+
+test('mandatory runtime with no approved text, stale Function version or malformed metadata fails closed', async () => {
+  const db = database(); activateTerms(db);
+  await assert.rejects(saveWithTerms(db, {}, null), {code:'failed-precondition'});
+  await assert.rejects(customerBiteScoreTerms(db, termsActor, {expectedUserId:'user-1'}, false, base, null), {code:'failed-precondition'});
+  await acceptTerms(db);
+  activateTerms(db, {...approvedTermsFixture, version:'SIMULATED-APPROVED-v2'});
+  await assert.rejects(saveWithTerms(db), {code:'failed-precondition'});
+  for (const config of [{}, {required:true}, {required:'yes'}, {schemaVersion:1,required:true,version:approvedTermsFixture.version,acceptedVersions:['unapproved']}]) {
+    db.set(biteScoreTermsRuntimePath, config);
+    await assert.rejects(saveWithTerms(db), {code:'failed-precondition'});
+  }
+  db.set(biteScoreTermsRuntimePath, {required:false});
+  await saveWithTerms(db); // An approved future source release alone never activates.
+});
+test('an explicitly compatible revision honors original receipt without rewriting its date or version', async () => {
+  const db=database();activateTerms(db);await acceptTerms(db);
+  const original=structuredClone(db.get('user_profiles/user-1'));
+  const compatible={...approvedTermsFixture,version:'SIMULATED-APPROVED-v2',acceptedPriorVersions:[approvedTermsFixture.version]};
+  activateTerms(db,compatible);
+  const status=await customerBiteScoreTerms(db,termsActor,{expectedUserId:'user-1'},false,later(1),compatible);
+  assert.equal(status.accepted,true);assert.equal(status.version,compatible.version);
+  await saveWithTerms(db,{},compatible);assert.deepEqual(db.get('user_profiles/user-1'),original);
+});
+test('malformed/future receipt time and anonymous trusted review actor cannot publish', async () => {
+  const db=database();activateTerms(db);
+  for (const acceptedAt of [new Date(NaN),new Date('2099-01-01'),{toDate:true},'2026-01-01']) {
+    db.set('user_profiles/user-1',{termsAcceptance:{version:approvedTermsFixture.version,acceptedAt}});
+    await assert.rejects(saveWithTerms(db),{code:'failed-precondition'});
+  }
+  await acceptTerms(db);
+  await assert.rejects(saveCustomerBiteScoreReview(db,{...termsActor,anonymous:true},input(),later(1),approvedTermsFixture),{code:'permission-denied'});
 });

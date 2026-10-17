@@ -18,6 +18,7 @@ import '../services/restaurant_menu_service.dart';
 import '../utils/phone_number_formatter.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/bitescore_category_picker.dart';
+import '../widgets/bitescore_terms_gate.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/clickable_phone_text.dart';
 import '../widgets/persistent_bottom_navigation.dart';
@@ -51,6 +52,7 @@ class BiteScoreRestaurantDishesScreen extends StatefulWidget {
   final BiteScoreRestaurantFavoriteSaver? testFavoriteSaver;
   final BiteScoreRestaurantDishCategorySaver? testDishCategorySaver;
   final BiteScoreRestaurantDishesWriteGate? testWriteGate;
+  final BiteScoreRestaurantDishesWriteGate? testTermsGate;
   final User? Function()? testCurrentUserProvider;
 
   const BiteScoreRestaurantDishesScreen({
@@ -61,6 +63,7 @@ class BiteScoreRestaurantDishesScreen extends StatefulWidget {
     @visibleForTesting this.testFavoriteSaver,
     @visibleForTesting this.testDishCategorySaver,
     @visibleForTesting this.testWriteGate,
+    @visibleForTesting this.testTermsGate,
     @visibleForTesting this.testCurrentUserProvider,
   });
 
@@ -656,6 +659,22 @@ class _BiteScoreRestaurantDishesScreenState
       return;
     }
     try {
+      if (!_canManageRestaurant) {
+        final uid = _currentUser?.uid ?? '';
+        final testTermsGate = widget.testTermsGate;
+        final accepted = testTermsGate != null
+            ? await testTermsGate(context)
+            : await BiteScoreTermsGate.ensureAccepted(
+                context,
+                expectedUserId: uid,
+                isCurrent: () => mounted && _isPrivateLeaseCurrent(authLease) &&
+                    _currentUser?.uid == uid,
+              );
+        if (!accepted || !mounted || !_isPrivateLeaseCurrent(authLease) ||
+            _currentUser?.uid != uid) {
+          return;
+        }
+      }
       final testSaver = widget.testDishCategorySaver;
       if (testSaver != null) {
         await testSaver(entry.dish, selection);

@@ -1,3 +1,4 @@
+import '../widgets/bitescore_terms_gate.dart';
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -355,12 +356,22 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     });
 
     try {
+      if (!await BiteScoreTermsGate.ensureAccepted(
+        context,
+        expectedUserId: widget.currentUser.uid,
+        isCurrent: () => mounted && _isOpeningUserCurrent(authLease),
+      )) {
+        return;
+      }
       final username = _usernameController.text;
       final testSaver = widget.testUsernameSaver;
       if (testSaver != null) {
         await testSaver(username);
       } else {
-        await BiteScoreService.saveCurrentUserPublicUsername(username);
+        await BiteScoreService.saveCurrentUserPublicUsername(
+          username,
+          expectedUserId: widget.currentUser.uid,
+        );
       }
       if (!mounted || !_isOpeningUserCurrent(authLease)) {
         return;

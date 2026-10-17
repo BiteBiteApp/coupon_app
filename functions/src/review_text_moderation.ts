@@ -1,3 +1,4 @@
+import {requireBiteScoreTerms, type ApprovedBiteScoreTerms} from "./bitescore_terms.js";
 import {isCustomerBiteScorePublicReview} from "./customer_bitescore_reads.js";
 import {createHash, randomUUID} from "node:crypto";
 import {HttpsError} from "firebase-functions/v2/https";
@@ -140,10 +141,11 @@ export async function prepareReviewText(tx: Transaction, input: {
     attemptCount: admitted ? 1 : 0, failure: admitted ? null : "paused_or_busy"});
   return {fields, status, ...(admitted ? {attempt: {reviewId: input.reviewId, version, attemptId, headline, notes}} : {})};
 }
-async function publicationAllowed(tx: Transaction, proposal: Data, now: Date): Promise<boolean> {
+async function publicationAllowed(tx: Transaction, proposal: Data, now: Date, terms?: ApprovedBiteScoreTerms | null): Promise<boolean> {
   const uid = exactTextId(proposal.userId), dishId = exactTextId(proposal.dishId), restaurantId = exactTextId(proposal.restaurantId);
   await requireAccountWritableInStore(tx, uid);
   await requireCustomerPostingAllowedInStore(tx, uid, now.getTime());
+  await requireBiteScoreTerms(tx, uid, terms, now);
   const [dish, restaurant, dishLock, restaurantLock, mergeLock] = await Promise.all([
     tx.getDocument(`bitescore_dishes/${dishId}`), tx.getDocument(`bitescore_restaurants/${restaurantId}`),
     tx.getDocument(ratingDishOperationLockPath(dishId)), tx.getDocument(ratingRestaurantOperationLockPath(restaurantId)),
@@ -159,7 +161,7 @@ export function withoutWords(proposal: Data, status: string, now: Date): Data {
 }
 /** Never changes ratings, updatedAt, aggregate contribution, photos or votes. */
 export async function finishReviewText(database: Database, attempt: TextAttempt,
-  signal: ReviewTextSignal | null, time: Date | (() => Date)): Promise<string> {
+  signal: ReviewTextSignal | null, time: Date | (() => Date), terms?: ApprovedBiteScoreTerms | null): Promise<string> {
   const clock = typeof time === "function" ? time : () => time;
   return database.runTransaction(async tx => {
     const [stored, review, runtime] = await Promise.all([
@@ -168,7 +170,7 @@ export async function finishReviewText(database: Database, attempt: TextAttempt,
     const p = stored?.data;
     if (!p || p.version !== attempt.version || p.attemptId !== attempt.attemptId || p.status !== "screening" || !currentTextProposal(p, review?.data)) return "superseded";
     let allowed = false;
-    try { allowed = isCustomerBiteScorePublicReview(review!.data) && await publicationAllowed(tx, p, clock()); } catch { /* fences hold words */ }
+    try { allowed = isCustomerBiteScorePublicReview(review!.data) && await publicationAllowed(tx, p, clock(), terms); } catch { /* fences hold words */ }
     const now = clock();
     if (reviewTextDeadline(p) <= now.getTime()) {
       storeReviewText(tx, attempt.reviewId, withoutWords(p, "expired", now)); return "expired";
@@ -183,13 +185,13 @@ export async function finishReviewText(database: Database, attempt: TextAttempt,
   });
 }
 export async function screenReviewText(database: Database, attempt: TextAttempt,
-  provider: ReviewTextProvider | undefined, now: () => Date): Promise<string> {
+  provider: ReviewTextProvider | undefined, now: () => Date, terms?: ApprovedBiteScoreTerms | null): Promise<string> {
   let signal: ReviewTextSignal | null = null;
   try { signal = await provider?.screen(attempt.headline, attempt.notes) ?? null; } catch { /* no content/provider errors in logs */ }
-  return finishReviewText(database, attempt, signal, now);
+  return finishReviewText(database, attempt, signal, now, terms);
 }
 export async function decideReviewText(database: Database, actorUid: string,
-  reviewId: string, version: string, approve: boolean, time: Date | (() => Date)): Promise<void> {
+  reviewId: string, version: string, approve: boolean, time: Date | (() => Date), terms?: ApprovedBiteScoreTerms | null): Promise<void> {
   const clock = typeof time === "function" ? time : () => time;
   await database.runTransaction(async tx => {
     await requireAccountWritableInStore(tx, actorUid);
@@ -201,7 +203,7 @@ export async function decideReviewText(database: Database, actorUid: string,
       throw new HttpsError("failed-precondition", "This text proposal expired or is no longer current. Refresh the queue.");
     }
     if (approve && (runtime?.data.required !== true || !validReviewTextConfiguration(runtime.data))) throw new HttpsError("failed-precondition", "Review text moderation configuration requires approval.");
-    if (approve && (!isCustomerBiteScorePublicReview(review!.data) || !await publicationAllowed(tx, p, now))) throw new HttpsError("failed-precondition", "This review cannot be published now.");
+    if (approve && (!isCustomerBiteScorePublicReview(review!.data) || !await publicationAllowed(tx, p, now, terms))) throw new HttpsError("failed-precondition", "This review cannot be published now.");
     if (!approve) await requireAccountWritableInStore(tx, exactTextId(p.userId));
     if (reviewTextDeadline(p) <= clock().getTime()) throw new HttpsError("failed-precondition", "This text proposal expired. Refresh the queue.");
     storeReviewText(tx, reviewId, {...withoutWords(p, approve ? "published" : "rejected", now), decidedBy: actorUid});

@@ -1,3 +1,4 @@
+import '../widgets/bitescore_terms_gate.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -625,6 +626,16 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null || user.isAnonymous) {
         _showHomeSnackBar('Please sign in to add a dish image.');
+        return;
+      }
+
+      if (!await BiteScoreTermsGate.ensureAccepted(
+        context,
+        expectedUserId: user.uid,
+        isCurrent: () => mounted &&
+            FirebaseAuth.instance.currentUser?.uid == user.uid &&
+            FirebaseAuth.instance.currentUser?.isAnonymous == false,
+      )) {
         return;
       }
 

@@ -1,9 +1,30 @@
 import 'package:cloud_functions/cloud_functions.dart';
 
-/// Dormant until approved Terms and the coordinated review-write cutover ship.
+/// Dormant until approved Terms and the coordinated public-contribution cutover ship.
 /// This client switch is UX only; the trusted save independently checks receipts.
 class BiteScoreTermsService {
   static const bool enabled = false;
+
+  /// Recheck immediately before sending photo bytes. A changed mandatory version
+  /// returns the user to the existing entry-point prompt without uploading.
+  static Future<void> requireAccepted({
+    required String expectedUserId,
+    required bool Function() isCurrent,
+    bool active = enabled,
+    Future<Object?> Function(String, Map<String, Object?>)? transport,
+  }) async {
+    if (!await ensureAccepted(
+      expectedUserId: expectedUserId,
+      isCurrent: isCurrent,
+      confirm: (_, _) async => false,
+      active: active,
+      transport: transport,
+    )) {
+      throw StateError(
+        'Review and accept the current Terms before uploading a photograph.',
+      );
+    }
+  }
 
   static Future<bool> ensureAccepted({
     required String expectedUserId,

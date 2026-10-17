@@ -53,8 +53,10 @@ local('A reviews and votes removed; B and shared catalog/accounting survive; orp
    await db.doc(`review_feedback_votes/${id}`).set({userId:uid,reviewId,dishId:'shared-dish',restaurantId:'shared',voteType:'helpful'});await reads.reconcileCustomerBiteScoreFeedback(db,id);
  }
  await db.doc('review_reports/B-about-A').set({reportingUserId:'fake-B',reviewId:aReview,dishId:'shared-dish',restaurantId:'shared'});
- await db.doc('user_profiles/fake-A').set({displayName:'A',contributionPoints:10});
+ await db.doc('user_profiles/fake-A').set({displayName:'A',contributionPoints:10,termsAcceptance:{version:'TEST-old',acceptedAt:new Date(now)}});
  await db.doc('user_profiles/fake-B').set({displayName:'B',contributionPoints:10});
+ // A stale receipt under mandatory Terms must not prevent account deletion.
+ await db.doc('private_bitescore_runtime/terms').set({schemaVersion:1,required:true,version:'TEST-current',acceptedVersions:['TEST-current']});
  for(const child of ['favorite_restaurants','favorite_dishes','favorite_coupons','local_expert_badges','local_expert_badge_celebrations','posting_restriction_state'])await db.doc(`user_profiles/fake-A/${child}/one`).set({restaurantId:'shared',dishId:'shared-dish'});
  await db.doc('customer_redemptions/fake-A/coupon_redemptions/one').set({couponId:'coupon'}); // parent intentionally absent
  await db.doc('bitescore_contribution_point_ledger/A-point').set({userId:'fake-A',pointsDelta:10});
@@ -69,6 +71,8 @@ local('A reviews and votes removed; B and shared catalog/accounting survive; orp
  await assert.rejects(aggregate.saveCustomerBiteScoreReview(store,{uid:'fake-A',emailVerified:true},{schemaVersion:1,expectedUserId:'fake-A',dishId:'shared-dish',restaurantId:'shared',tastinessScore:8,overallImpression:8,qualityScore:8,valueScore:8,headline:'late',notes:'late'},new Date(now)));
  assert.equal((await run('fake-A')).state,'complete');
  assert.equal(await identity('fake-A'),null);assert.ok(await identity('fake-B'));
+ assert.equal((await db.doc('user_profiles/fake-A').get()).exists,false);
+ assert.equal((await db.doc('user_profiles/fake-B').get()).exists,true);
  assert.equal((await db.doc('private_bitescore_review_text/held-A').get()).exists,false);
  assert.equal((await db.doc('private_bitescore_review_text_admission/fake-A').get()).exists,false);
  assert.equal((await db.doc('private_bitescore_review_text_receipts/held-A').get()).exists,false);

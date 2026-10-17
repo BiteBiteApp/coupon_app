@@ -322,3 +322,23 @@ test('restricted customer cannot create catalog restaurant/dish or edit categori
  for(const [path,data] of before)assert.deepEqual(db.get(path),data);
  assert.ok((await claim(db,claimInput(id),actor,now)).claimId);
 });
+
+test('Terms guard precedes every public creation and category update without orphaned source; claims stay independent',async()=>{
+ const terms={version:'TEST-approved-v1',text:'Synthetic terms only'};
+ const context={...actor,approvedTerms:terms}, db=new Database();
+ const runtime={schemaVersion:1,required:true,version:terms.version,acceptedVersions:[terms.version]};
+ db.set('private_bitescore_runtime/terms',runtime);
+ await assert.rejects(restaurant(db,restaurantInput({location:{latitude:40.75,longitude:-73.99}}),context,now),{code:'failed-precondition'});
+ assert.equal([...db.documents.keys()].filter(p=>p.startsWith('bitescore_')).length,0);
+ db.set(`user_profiles/${actor.userId}`,{termsAcceptance:{version:terms.version,acceptedAt:now}});
+ const r=await restaurant(db,restaurantInput({location:{latitude:40.75,longitude:-73.99}}),context,now);
+ const d=await dish(db,dishInput(r.restaurant.id),context,now);
+ assert.equal(d.wasCreated,true);
+ assert.equal((await dish(db,dishInput(r.restaurant.id),context,now)).dish.id,d.dish.id);
+ db.set(`user_profiles/${actor.userId}`,{termsAcceptance:{version:'old',acceptedAt:now}});
+ const before=structuredClone(db.get(`bitescore_dishes/${d.dish.id}`));
+ await assert.rejects(dish(db,dishInput(r.restaurant.id,{requestId:'different_request_02',category:'New'}),context,now),{code:'failed-precondition'});
+ assert.deepEqual(db.get(`bitescore_dishes/${d.dish.id}`),before);
+ await claim(db,claimInput(r.restaurant.id),context,now);
+ for(const c of [{...context,isAnonymous:true},{...context,emailVerified:false},{...context,userId:'other'}])await assert.rejects(dish(db,dishInput(r.restaurant.id),c,now),{code:'permission-denied'});
+});

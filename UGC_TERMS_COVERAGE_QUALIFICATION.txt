@@ -1,0 +1,299 @@
+BiteStar customer UGC Terms coverage — source qualification
+Run ID: BS-BITESTAR-UGC-TERMS-COVERAGE-001
+Prompt prepared: October 16, 2026, 9:50 PM EDT (UTC-04:00)
+Source qualification / independent review: October 16, 2026, 10:18 PM EDT
+Role: source implementation, local qualification, independent source review.
+Expected and actual starting main:
+f45a8a396563487f7a5f2e3f98a77e2ff7ee921d
+Remote main matched the expected checkpoint before checkpointing.
+Final source checkpoint: the containing commit, identified by annotated tag
+bs-bitestar-ugc-terms-coverage-001. The final owner response and canonical
+backlog record the resolved commit and subsequent remote verification.
+
+VERDICT AND PERMITTED AREA
+PASS for the frozen source candidate. All identified, safely in-scope BiteScore
+CUSTOMER public contribution paths have dormant client/trusted enforcement.
+This does not close business-owner applicability, age eligibility, legal/store
+readiness, activation, real-provider or device qualification.
+
+Approved changes: client preflights and identity binding; narrow trusted backend
+checks; candidate Firestore Rules; focused tests; release evidence. No general
+consent service, identity rewrite, schema migration, age collection, new provider,
+paid service, deployment or activation. Existing guidance and checkpoint evidence
+were reused. Seven pre-existing owner files were preserved and excluded.
+
+Independent reviewer reviewed all 27 source/test files and verified their hashes.
+Manifest: UGC_TERMS_COVERAGE_FILES.sha256
+Manifest SHA-256:
+809b9cea4478524e45f4e54df71c247e9a238baa44e47a99cd92d356724f61ae
+Reviewer verdict: PASS; no unresolved source finding. The reviewer inspected
+source/tests and our results but did not independently execute the suites.
+This report and the manifest are additional artifacts, not hashed by themselves.
+
+1. WHAT CHANGED?
+When separately activated, eligible customers see actual approved Terms/version
+before contributing, with Accept and Cancel. The same current receipt avoids
+repeated prompts. Cancel does not publish. Existing review drafts remain intact;
+photo checks occur before upload. Unavailable final Terms fail clearly. Account
+switches during the shared dialog invalidate it, including A -> B -> A.
+Default production source remains dormant: approvedBiteScoreTerms=null;
+BiteScoreTermsService.enabled=false; candidate runtime required=false.
+No draft Terms text was copied, published, assigned a version or effective date.
+All other existing provider/screening/runtime defaults remain unchanged.
+
+SURFACE -> ENTRY / AUTHORITATIVE BOUNDARY
+- Review create/edit and numerical ratings: existing dish review editor and all
+  three Create & Rate modes retain their existing prompt. Trusted review-save
+  transaction checks the caller's receipt before creation/edit. Anonymous callers
+  are explicitly rejected. Legacy direct review and aggregate creates/updates
+  are closed by mandatory Terms Rules; trusted runtime cutover is required.
+- Create & Rate existing dish, new dish, and new restaurant + dish: the existing
+  prompt already precedes creation. Both trusted catalog creation transactions
+  now check Terms before new rows or existing-match enrichment. Rules also protect
+  legacy direct catalog creation. Idempotency, matching and private claims remain.
+- Review photo, gallery photo, missing-dish image from Home/detail: shared client
+  preflight and a final status check before sending bytes; trusted screened-photo
+  admission checks BEFORE Storage/provider/cost reservation. Legacy metadata
+  callable also checks Terms. Rules deny active legacy image creation; existing
+  candidate Storage denies client byte uploads and only approved exact generations
+  become public. Supported release must use screened upload for all three lanes.
+- Category/keywords: BOTH dish detail and restaurant dish-list shortcuts prompt
+  customers; Rules check their receipt. Existing owner/Admin management authority
+  remains exempt. This changes no dish/menu identity or route.
+- Customer rename suggestions: preflight before private proposal creation; Rules
+  check receipt; current supported Admin resolver rechecks an actual contributing
+  customer's live proposal membership, deletion/restriction/Terms and parent locks
+  in the final public rename transaction. Merge suggestions containing existing
+  identities and no new public words/images remain feedback, outside this gate.
+- Public custom reviewer names: profile preflight and expected UID binding;
+  public profile/reservation Rules check receipt. Generated anon-number aliases
+  and unchanged-name housekeeping remain available, including existing null/empty
+  normalized fallback representations. Private account display names are exempt.
+
+DELIBERATELY UNCHANGED
+Browsing, favorites/Saved, coupons, private account/profile fields, private
+restaurant claims, reporting, block/unblock, vote/merge feedback, withdrawals,
+account deletion, owner approval/subscription/Stripe, menu/restaurant/dish IDs,
+QR/deep links and paged customer reads. Existing moderation, numeric aggregates,
+points, milestone state and retention are preserved. Owner/Admin business editing
+and screened owner media are separate; no business acceptance was introduced.
+
+RECEIPT AND POLICY CONTRACT
+Private user_profiles/{authenticated UID}.termsAcceptance remains the only
+acceptance receipt. Callable derives identity and time; response contains only
+schemaVersion, userId, enabled, version, text and accepted (as applicable).
+Clients, including client Admin, cannot forge/change/remove receipt fields or
+write private runtime metadata. Receipt belongs to its exact UID; valid trusted
+nonfuture timestamp and version are required. Existing account deletion removes
+that same profile/receipt, even when current Terms have not been accepted.
+
+New private_bitescore_runtime/terms is release metadata, not another acceptance
+store. Absent or explicit required=false is dormant. When required=true, backend
+requires real approved nonempty source text/version plus schemaVersion=1 and an
+exact ordered acceptedVersions list matching the compiled approved policy.
+Malformed metadata, missing final text, or an outdated Function revision fails
+closed. Publication transactions read both metadata and receipt, so concurrent
+mandatory version changes cannot commit using stale authorization.
+
+A mandatory version lists only itself (plus any separately approved compatibility
+exceptions). A non-mandatory revision may explicitly list approved prior versions
+through acceptedPriorVersions; matching old receipts retain their original version
+and date. No automatic migration, silent reacceptance or backdating is performed.
+
+DELAYED PUBLICATION AND HISTORICAL CLIENT LIMIT
+Photo callbacks/Admin approval, text callbacks/Admin approval and rename resolution
+check the original contributor under the CURRENT policy. An expired mandatory
+receipt holds publication; the author can accept the new policy and an otherwise
+live/unexpired item can then publish. Existing original submission and retention
+clocks stay unchanged. Admin acceptance never substitutes for the author. Reject,
+withdrawal and deletion stay independent. No retrospective grandfathering is
+assumed; permitting it requires a specific owner/legal policy decision.
+
+Current Admin suggestion UI always uses the trusted resolver. Historical Admin
+binaries may still use broad direct catalog editing, indistinguishable from
+legitimate manual Admin edits. Retire such tooling at cutover. Technically excluding
+EVERY historical Admin publication while preserving current direct manual Admin
+editing requires a separately approved Admin write-contract change. This is a
+precise operational/product limit, not an undisclosed customer Rules bypass.
+
+2. DOES IT WORK?
+Node v24.19.0 TypeScript build passed. Isolated local Auth/Firestore/Storage used
+127.0.0.1 ports 9198/8792/9298, with demo-only projects. Fake approved Terms and
+fake provider signals only; no real Vision/OpenAI calls, users or age information.
+- Focused backend unit tests: 63/63 (review/Terms, creation, rename resolution).
+- New cross-surface emulator scenarios: 12/12 (all photo lanes, pre-upload denial,
+  current UID/version, delayed photo/text decisions, catalog, private DTO, fences).
+- Existing backend lifecycle regressions: 115/115 (review text, customer/owner
+  photo screening, posting restrictions, deletion). Owner media accounts for 20.
+- Final Rules regressions: 36/36, including 11 Terms tests, populated-runtime
+  lookup-budget success, catalog/name/category allow/deny, generated identity
+  refresh, legacy review/photo/aggregate denial, reports and withdrawal.
+- Final account-deletion rerun: 13/13, now explicitly proves an obsolete receipt
+  under required Terms does not block deletion and the receipt is removed.
+- Existing actual-callable/Firestore aggregate integration: 2/2. Creation contention
+  integration: 1/1 on isolated rerun. First combined invocation hit emulator
+  'Transaction is invalid or closed'; unchanged source/test passed on rerun.
+- Main selected Flutter suite: 190/190, covering Terms, all Create & Rate modes,
+  profile, photo sequencing, auth continuity and Admin suggestion dashboard.
+- New category customer accept/cancel and owner tests: 6/6, both entry points.
+- Category route/account-switch/disposal regressions: 10/10.
+- Final dialog/photo-service rerun: 17/17 (overlaps main suite).
+Counts above are suite results, not a summed unique-test claim.
+
+Scoped analysis: zero errors/warnings; nine existing deprecated-API information
+messages across Home (four) and restaurant dishes (five). New test lint fixed.
+git diff --check passed. No unresolved selected-test failure. Test command path/
+environment setup mistakes were corrected. An initial extra dormant photo await
+changed existing account-switch ordering; corrected and regression tests passed.
+Whole-repository baseline, live Firestore limits/service behavior, providers,
+store acceptance and real devices are not claimed.
+
+INDEPENDENT REVIEW / BUG FILTER
+FIX NOW / DIRECTLY REQUIRED (all corrected and retested): receipt forgery surface,
+legacy publication/version races, Rules lookup budget regression, dormant photo
+await sequencing, generated-profile null/empty compatibility, owner/Admin category
+exemption and second restaurant-list customer category shortcut.
+PRODUCT DECISION REQUIRED: approved final legal text, prior-version/pending-item
+policy exceptions if wanted, business applicability, age/guest privacy, supported
+client/Admin cutoff and production activation. See below.
+ACCEPT AND CLOSE: generated alias housekeeping, private/defensive actions and
+existing Stage 2D shared-photo hiding decision. No additional demonstrated unrelated
+production bug was opened and no speculative refactor was performed.
+
+3. WHAT REMAINS?
+BUSINESS TERMS APPLICABILITY — OWNER/LEGAL DECISION
+Inspected owner main/gallery images, Daily Specials/boards, coupons, menus/menu
+photos and authoritative shared-menu editing. Real paths include
+bitesaver_image_upload_service.dart, bitesaver_owner_media_service.dart,
+restaurant_account_service.dart, restaurant_menu_service.dart and
+owner_photo_screening.ts. They use distinct approved-owner/business authority and
+existing subscription controls. The customer document is not automatically their
+policy. Decide whether one final global document explicitly governs both roles or
+business needs a separate document/version, and whose receipt governs Admin work
+on behalf of a restaurant. A single approved shared document could reuse the
+existing private receipt, but eligibility/acting authority must be agreed first.
+No business/checkout/Stripe consent or gate was added. Do not claim all BiteStar
+UGC Terms coverage closed while this decision remains open.
+
+AGE ELIGIBILITY — READINESS DESIGN ONLY, NOT CODE-COMPLETE
+Observed registration/sign-in behavior:
+- Email/password UI collects fields before registration; service may link a guest
+  or create Firebase identity. Collision recovery can sign into an existing UID.
+- Google obtains provider credentials before new-vs-existing status is known.
+- Phone collects phone/SMS and may create, sign in or link an identity; automatic
+  phone verification also exists. Guest upgrades use the same linking machinery.
+- UserProfileService copies provider contact/name data after Auth. Existing account
+  deletion reauthentication uses password/Google/phone and must stay independent.
+- Verified nonanonymous UGC status means verified email, NOT verified age.
+  Phone-only authentication does not automatically satisfy existing posting rules.
+Evidence: customer_account_screen.dart, account_provider_service.dart,
+customer_auth_service.dart, phone_auth_sheet.dart, user_profile_service.dart,
+account_deletion_screen.dart. No Auth or age-collection code changed.
+
+Minimal proposed next design, requiring approval BEFORE implementation:
+1. Confirm general-audience classification, target jurisdictions/minimum ages and
+   treatment of current accounts; approve actual wording and retention.
+2. Put a neutral eligibility step BEFORE new-registration contact fields, Google
+   credential acquisition, phone/SMS and guest upgrades. Assess a neutral month/year
+   input locally, discard raw input, with no preselected eligible answer. Legal
+   review must choose exact boundary handling and whether this is sufficient.
+   Google/phone can create accounts: choose an existing-account-only sign-in design
+   or screen all unauthenticated entry there. Do not silently break linking.
+3. If approved, retain only necessary UID-bound eligibility result/policy evidence,
+   separately from Terms consent. A client assertion is not verified age. Do not
+   add full DOB, identity documents, biometrics, parents or paid verification here.
+4. Ineligible new users stop BEFORE contact/provider information or public uploads.
+   Approve retry prevention and existing-account response; preserve recovery,
+   withdrawal/deletion. Do not automatically delete/relink/lock existing accounts.
+A simple 'I am over 12' checkbox is not the proposed solution or compliance proof.
+
+GUEST PRIVACY — OBSERVATION VS LEGAL CONCLUSION
+Firebase initializes before a prospective age screen. Auth readiness restores an
+existing session without automatic anonymous signup; explicit guest entry can
+create anonymous Auth and a persistent device ID. The dormant bounded coupon
+composition also constructs a device ID. Previously permitted location can refresh
+on launch; typed geocoding/reverse geocoding and device-proof coupon paths exist.
+No Analytics/Crashlytics/Messaging/App Check package in the inspected pubspec does
+NOT establish zero SDK/network collection. Firebase Auth handles identifiers and
+network metadata. Thus current guest browsing cannot be certified as collecting
+no child personal information. A restricted guest design needs approved SDK,
+identifier and location behavior plus actual network/device qualification before
+promising under-age browsing. No such mode or age data collection was built.
+
+POLICY SOURCES CHECKED FOR THIS HANDOFF
+Google Play requires applicable policy/Terms acceptance before creating/uploading
+UGC; source tests alone do not establish store acceptance:
+https://support.google.com/googleplay/android-developer/answer/9876937
+FTC guidance discusses neutral screening, identifiers, general-audience treatment
+and actual knowledge; legal application/current amendments require owner counsel:
+https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions
+Firebase data handling reference:
+https://firebase.google.com/support/privacy
+
+SAFE FUTURE ACTIVATION ORDER — SEPARATE AUTHORIZATION REQUIRED
+1. Approve and publish final Terms/Privacy and public deletion URLs; resolve business
+   applicability, age/guest privacy, retention disclosures and store declarations.
+   Choose exact version, prior-version compatibility and supported client/Admin
+   policy. Final wording/version/effective date are NOT part of this checkpoint.
+2. Prepare/freeze and requalify the release source containing approved text/version.
+   Verify prior aggregate/projection/deletion, moderation indexes/TTL/cleanup and
+   provider qualification dependencies. No new index is required by this Terms
+   work itself. Never treat past source approval as deployment qualification.
+3. Deploy targeted Terms-aware Functions while runtime is absent/off: get/accept
+   Terms, save review, resolve restaurant/dish creation, legacy photo metadata,
+   screened submit, final photo/text decisions, and suggestion resolver/job worker.
+   Every publisher must carry the same approved policy. Preserve prior moderation
+   dependencies. This checkpoint authorizes none of those deployments.
+4. Qualify/stage supported trusted-runtime clients with Terms preflights, all three
+   screened photo lanes and current Admin resolver; retire historical Admin tools.
+   Plan the minimum supported version/cutover. Deploy candidate Firestore Rules
+   before required=true; coordinate the existing Storage upload-denial candidate
+   with the screened-client cutoff, since it deliberately closes direct uploads.
+   IMPORTANT: that WHOLE existing Storage candidate also closes legacy BiteSaver
+   restaurant/coupon/menu/shared-menu uploads. Before deploying it, qualify and
+   coordinate owner-screening clients, Functions and runtime dependencies too,
+   or separately review a targeted customer Storage cutover preserving owner lanes.
+   Customer Terms readiness alone does not authorize the whole Storage rollout.
+5. In the explicitly approved cutover window, release the Terms-enabled client and
+   write exact matching mandatory runtime metadata only after all dependencies and
+   Rules are verified. Client flag is a compile-time switch: an enabled build with
+   off/missing backend policy deliberately blocks posting. An older/off build after
+   mandatory activation must update to accept/post. Plan this interval explicitly;
+   there is no claim of seamless zero-downtime activation. Browsing/coupons/reports/
+   deletion/business operations remain independent of customer Terms; the separate
+   owner Storage dependency in step 4 must still be satisfied.
+6. Verify synthetic production-approved scenarios, provider behavior, Admin recovery
+   and physical devices before calling the feature production-qualified. During
+   outages/rollback preserve mandatory runtime and blocking Rules; pause provider
+   processing independently. Never restore unchecked writes or silently turn off
+   Terms to make old binaries work. Version changes require compatible Functions
+   deployed first, then matching metadata; stale revisions fail closed.
+
+Remaining release gates: final legal publication; age/guest/COPPA policy and actual
+SDK/network data inventory; Apple App Privacy/Google Play Data Safety; required
+report/block operations and response practice; public privacy/deletion URLs;
+provider/retention/TTL/cleanup monitoring; minimum clients/Admin retirement; devices.
+No compliance certification, deployment, production runtime/credential/IAM/Auth/
+billing/Stripe change, real-customer operation or activation was performed.
+
+EXACT CHANGED FILES
+See UGC_TERMS_COVERAGE_FILES.sha256 for all 27 source/test paths and exact hashes.
+This report and that manifest make 29 intended checkpoint files. No other file is
+part of the assignment checkpoint. Seven owner files listed below remain excluded:
+test/screens/customer_bitesaver_browse_screen_test.dart
+  SHA-256 28aa68c86b59fefd9fd9aea798cad83b52b4b80e9cabea4be324711f7d31c2ee
+test/screens/restaurant_profile_bitescore_menu_test.dart
+  SHA-256 278ffbfd9f139d003baf6b03f0b6f72549e84335e102718cfd17e6ce6344dafb
+APPROVAL-ADDENDUM-A2.md
+  SHA-256 865f38522f833bb7a9a8a3157d49a292db627c29435093eb24f2c8e8d04581ea
+test/cuisine_fixture/main.dart
+  SHA-256 453e3b3412bcb1e35d97e3af8e2c868cbd7965f93dab75f701f13395489474f0
+test/visual_fixture/README.md
+  SHA-256 b3bf2b57779323981b54aa6cf0a55ec1ab59651b202f5d9f78e0cd3887151130
+test/visual_fixture/data.dart
+  SHA-256 38cda097fae724e82f02c9f4c8c1fab9c6e731283b3879bac3bedf661129fef8
+test/visual_fixture/main.dart
+  SHA-256 c753b469e78938b7e6d5a25d36100b938bf24c262fbcc9cea09ad0802b36ff5c
+
+Canonical backlog is updated in place after verified checkpoint push, preserving
+prior history and leaving legal/store/business/age/activation decisions open.

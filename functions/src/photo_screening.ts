@@ -1,3 +1,4 @@
+import {requireBiteScoreTermsInFirestore, type ApprovedBiteScoreTerms} from "./bitescore_terms.js";
 import {reservePhotoScreening} from "./photo_screening_admission.js";
 import {awardPublishedDishImageContributionPoints} from "./contribution_points_helpers.js";
 import {createHash, randomUUID} from "node:crypto";
@@ -54,6 +55,7 @@ export function screeningObjects(): ScreeningObjects {
   };
 }
 export type ScreeningOptions = {
+  approvedTerms?: ApprovedBiteScoreTerms | null;
   now?: () => number; objects?: ScreeningObjects; provider?: PhotoScreeningProvider;
   identity?: (uid: string) => Promise<string>;
   providerTimeoutMs?: number;
@@ -70,9 +72,10 @@ function requireRuntime(data: Data | undefined, admission: boolean): void {
     throw new HttpsError("unavailable", "Photographs cannot be checked right now. Please try later.");
   }
 }
-async function eligible(db: Firestore, tx: Transaction, value: Data, now: number): Promise<Data> {
+async function eligible(db: Firestore, tx: Transaction, value: Data, now: number, options: ScreeningOptions): Promise<Data> {
   await requireAccountWritable(db, tx, value.ownerUserId);
   await requireCustomerPostingAllowed(db, tx, value.ownerUserId, now);
+  await requireBiteScoreTermsInFirestore(db, tx, value.ownerUserId, options.approvedTerms, new Date(now));
   const dish = await parent(db, tx, value.dishId, value.restaurantId);
   if (value.reviewId !== null) {
     const review = await tx.get(db.doc(`dish_reviews/${value.reviewId}`));
@@ -134,7 +137,7 @@ export async function submitScreenedPhotoHandler(db: Firestore, request: Callabl
     const value: Data = old.data() ?? {schemaVersion: 1, imageId, ownerUserId: uid, authCreatedAt, dishId, restaurantId, reviewId, mode: data.mode,
       contentType: data.contentType, sha256, storagePath, uploadToken: randomUUID(), attempts: 0, createdAt: new Date(at)};
     if (value.authCreatedAt !== authCreatedAt) throw new HttpsError("failed-precondition", "The upload account changed.");
-    const dish = await eligible(db, tx, value, at);
+    const dish = await eligible(db, tx, value, at, options);
     if (!old.exists && data.mode === "missing" && (count(dish.imageCount) > 0 || dish.primaryImageUrl)) {
       throw new HttpsError("failed-precondition", "This dish already has an image.");
     }
@@ -174,7 +177,7 @@ export async function submitScreenedPhotoHandler(db: Firestore, request: Callabl
     await db.runTransaction(async tx => {
       const current = await tx.get(ref);
       requireRuntime((await tx.get(db.doc(screeningRuntimePath))).data(), true);
-      await eligible(db, tx, value, now());
+      await eligible(db, tx, value, now(), options);
       if (current.get("attemptId") !== attemptId || current.get("state") !== "scanning" || photoExpired(current.data()!, now())) throw new Error("Stale screening");
       tx.update(ref, {generation, uploadStatus: "stored"});
     });
@@ -197,7 +200,7 @@ export async function submitScreenedPhotoHandler(db: Firestore, request: Callabl
       return current.exists ? response(current.data()!, source.data()) : {schemaVersion: 1, imageId, state: "failed"};
     }
     let dish: Data | undefined;
-    try { requireRuntime(runtime.data(), false); dish = await eligible(db, tx, value, now()); }
+    try { requireRuntime(runtime.data(), false); dish = await eligible(db, tx, value, now(), options); }
     catch { classification = "failed"; }
     // A paused runtime also stops publication of an in-flight auto approval.
     if (runtime.get("enabled") !== true || now() >= value.leaseUntil) classification = "failed";
@@ -305,7 +308,7 @@ export async function decideScreeningPhotoHandler(db: Firestore, request: Callab
     }
     if (source.exists || ["approved", "removed", ...terminalPhotoStates].includes(value.state) || (value.state === "scanning" && value.leaseUntil > now())) throw new HttpsError("failed-precondition", "This photo already has a decision or is still checking.");
     let dish: Data | undefined;
-    if (data.decision === "approved") { requireRuntime(runtime.data(), false); dish = await eligible(db, tx, value, now()); }
+    if (data.decision === "approved") { requireRuntime(runtime.data(), false); dish = await eligible(db, tx, value, now(), options); }
     const final: Data = {...value, state: data.decision, decidedBy: uid, decidedAt: new Date(now()), updatedAt: new Date(now()), decisionSource: "admin"};
     if (data.decision === "rejected") Object.assign(final, terminalFields("rejected", now(), "admin_rejected"));
     else { final.queueOpen = false; delete final.expiresAt; delete final.maintenanceAt; }

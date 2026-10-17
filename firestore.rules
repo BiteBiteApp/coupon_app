@@ -46,7 +46,8 @@ service cloud.firestore {
     // functions, reports, account operations and withdrawal stay independent.
     function customerPostingAllowed() {
       let path = /databases/$(database)/documents/user_profiles/$(request.auth.uid)/posting_restriction_state/current;
-      return signedIn() && (!exists(path) || postingRestrictionInactive(get(path).data));
+      let restriction = get(path);
+      return signedIn() && (restriction == null || postingRestrictionInactive(restriction.data));
     }
     function postingRestrictionInactive(data) {
       return data.schemaVersion == 1 && data.revision is int && data.revision > 0 &&
@@ -56,6 +57,46 @@ service cloud.firestore {
         (data.releasedAt is timestamp ||
           (data.releasedAt == null && data.kind != 'indefinite' && request.time >= data.endsAt));
     }
+    // Dormant until a separately approved, coordinated release. The runtime
+    // contains only approved version metadata; receipt writes remain server-only.
+    function customerTermsRequired() {
+      let path = /databases/$(database)/documents/private_bitescore_runtime/terms;
+      let runtime = get(path);
+      return runtime != null && runtime.data.get('required', null) != false;
+    }
+    function customerTermsAccepted() {
+      return !customerTermsRequired() || (emailVerified() &&
+        request.auth.token.firebase.sign_in_provider != 'anonymous' && currentTermsReceipt());
+    }
+    function currentTermsReceipt() {
+      let policy = get(/databases/$(database)/documents/private_bitescore_runtime/terms).data;
+      let receipt = get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.get('termsAcceptance', {});
+      return policy.get('schemaVersion', null) == 1 && policy.get('required', false) == true &&
+        policy.get('version', null) is string && policy.version.trim().size() > 0 &&
+        policy.get('acceptedVersions', null) is list && policy.version in policy.acceptedVersions &&
+        receipt.get('version', null) is string && receipt.version.size() > 0 && receipt.version in policy.acceptedVersions &&
+        receipt.get('acceptedAt', null) is timestamp && receipt.acceptedAt <= request.time;
+    }
+    function generatedPublicIdentity(data) {
+      return data.get('fallbackUsername', '') is string && data.fallbackUsername.matches('^anon[0-9]{1,6}$') &&
+        data.get('publicDisplayName', '') == data.fallbackUsername &&
+        data.get('username', null) == null && data.get('chosenUsername', null) == null &&
+        data.get('chosenUsernameNormalized', null) in [null, ''];
+    }
+    function publicIdentityTermsAllowed() {
+      return !customerTermsRequired() ||
+        (resource != null && !changedKeys().hasAny(['publicDisplayName', 'fallbackUsername', 'username', 'chosenUsername', 'chosenUsernameNormalized'])) ||
+        generatedPublicIdentity(request.resource.data) ||
+        (customerPostingAllowed() && customerTermsAccepted());
+    }
+    function publicUsernameTermsAllowed(username) {
+      return !customerTermsRequired() ||
+        (username.matches('^anon[0-9]{1,6}$') && request.resource.data.get('username', '') == username &&
+          request.resource.data.get('reservationType', '') == 'fallback' &&
+          request.resource.data.keys().hasOnly(['username', 'userId', 'reservationType', 'createdAt', 'updatedAt'])) ||
+        (customerPostingAllowed() && customerTermsAccepted());
+    }
+
     function signedIn() {
       return request.auth != null;
     }
@@ -1397,15 +1438,16 @@ service cloud.firestore {
     // Enforcement is independent of provider pause. Keep required set on outage/rollback.
     function reviewTextRequired() {
       let path = /databases/$(database)/documents/private_bitescore_runtime/review_text;
-      return exists(path) && get(path).data.get('required', true) != false;
+      let runtime = get(path);
+      return runtime != null && runtime.data.get('required', true) != false;
     }
     match /private_bitescore_review_text/{document=**} { allow read, write: if false; }
     match /private_bitescore_review_text_admission/{document=**} { allow read, write: if false; }
     match /private_bitescore_review_text_receipts/{document=**} { allow read, write: if false; }
 
     function biteScoreTrustedAggregatesEnabled() {
-      return exists(/databases/$(database)/documents/private_bitescore_runtime/aggregation) &&
-        get(/databases/$(database)/documents/private_bitescore_runtime/aggregation).data.enabled == true;
+      let runtime = get(/databases/$(database)/documents/private_bitescore_runtime/aggregation);
+      return runtime != null && runtime.data.enabled == true;
     }
 
     match /private_bitescore_runtime/{document=**} {
@@ -1525,8 +1567,8 @@ service cloud.firestore {
       }
 
       allow read: if isAdmin() || isSelf(userId);
-      allow create: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin() || canCreateOwnProfile(userId));
-      allow update: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin() || canUpdateOwnProfile(userId));
+      allow create: if !request.resource.data.keys().hasAny(['termsAcceptance']) && deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin() || canCreateOwnProfile(userId));
+      allow update: if !changedKeys().hasAny(['termsAcceptance']) && deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin() || canUpdateOwnProfile(userId));
       allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin());
 
       match /favorite_restaurants/{favoriteId} {
@@ -1695,15 +1737,15 @@ service cloud.firestore {
 
     match /public_reviewer_profiles/{userId} {
       allow read: if true;
-      allow create: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin() || canWriteOwnPublicReviewerProfile(userId));
-      allow update: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin() || canUpdateOwnPublicReviewerProfile(userId));
+      allow create: if publicIdentityTermsAllowed() && deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin() || canWriteOwnPublicReviewerProfile(userId));
+      allow update: if publicIdentityTermsAllowed() && deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin() || canUpdateOwnPublicReviewerProfile(userId));
       allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin());
     }
 
     match /public_usernames/{username} {
       allow read: if true;
-      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (signedIn() && request.resource.data.userId == request.auth.uid);
-      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (signedIn() &&
+      allow create: if publicUsernameTermsAllowed(username) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (signedIn() && request.resource.data.userId == request.auth.uid);
+      allow update: if publicUsernameTermsAllowed(username) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (signedIn() &&
         resource.data.userId == request.auth.uid &&
         request.resource.data.userId == request.auth.uid);
       allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && (isAdmin() ||
@@ -1722,7 +1764,7 @@ service cloud.firestore {
         validBiteScoreRestaurantCreateRevision() &&
         (
           isAdmin() ||
-          (customerPostingAllowed() && canCreatePublicBiteScoreRestaurant(restaurantId))
+          (customerTermsAccepted() && customerPostingAllowed() && canCreatePublicBiteScoreRestaurant(restaurantId))
         ));
       allow update: if validCatalogBioUpdate() && deletionActorMayWrite() && deletionCatalogAttributionMayWrite() && (!changedKeys().hasAny(biteScoreCatalogBindingFields()) &&
         validBiteScoreClaimInvitationEpochUpdate() &&
@@ -1794,7 +1836,7 @@ service cloud.firestore {
         aggregateWriteGenerationAbsentOnClientCreate() &&
         (
           isAdmin() ||
-          (emailVerified() && customerPostingAllowed() && validBiteScoreDishCreateProvenance())
+          (emailVerified() && customerTermsAccepted() && customerPostingAllowed() && validBiteScoreDishCreateProvenance())
         ));
       allow update: if (!changedKeys().hasAny(['imageCount']) || !photoScreeningRequired()) && deletionActorMayWrite() && deletionCatalogAttributionMayWrite() && (dishOperationLockAllowsMutation(dishId) &&
         dataRestaurantOperationLockAllowsMutation(resource.data) &&
@@ -1804,6 +1846,8 @@ service cloud.firestore {
           ownerOfBiteScoreRestaurant(resource.data.restaurantId) ||
           (
             emailVerified() &&
+            (customerTermsAccepted() ||
+              (!changedKeys().hasAny(['category', 'subcategory', 'categoryManualKeywords', 'categoryTags']) && restrictedDishImageMaintenance(dishId))) &&
             (customerPostingAllowed() ||
               (!changedKeys().hasAny(['category', 'subcategory', 'categoryManualKeywords', 'categoryTags']) && restrictedDishImageMaintenance(dishId))) &&
             (!biteScoreTrustedAggregatesEnabled() ||
@@ -1837,14 +1881,14 @@ service cloud.firestore {
 
     match /dish_rating_aggregates/{dishId} {
       allow read: if isAdmin() || ownerOfBiteScoreRestaurant(resource.data.restaurantId);
-      allow create: if deletionActorMayWrite() && (!biteScoreTrustedAggregatesEnabled() && (isAdmin() || emailVerified()) &&
+      allow create: if !customerTermsRequired() && deletionActorMayWrite() && (!biteScoreTrustedAggregatesEnabled() && (isAdmin() || emailVerified()) &&
         dishOperationLockAllowsMutation(dishId) &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
         aggregateDataMatchesDishIdentity(dishId, request.resource.data) &&
         aggregateWriteGenerationMatchesDish(dishId, request.resource.data) &&
         !mergeLockBlocksClientAggregates(dishId) &&
         !aggregateDataHasBlockingMergeLock(request.resource.data));
-      allow update: if deletionActorMayWrite() && (!biteScoreTrustedAggregatesEnabled() && (isAdmin() || emailVerified()) &&
+      allow update: if !customerTermsRequired() && deletionActorMayWrite() && (!biteScoreTrustedAggregatesEnabled() && (isAdmin() || emailVerified()) &&
         dishOperationLockAllowsMutation(dishId) &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
@@ -1865,12 +1909,12 @@ service cloud.firestore {
 
     match /dish_reviews/{reviewId} {
       allow read: if isAdmin() || ownerOfBiteScoreDish(resource.data.dishId);
-      allow create: if !reviewTextRequired() && !request.resource.data.keys().hasAny(['textRevision', 'textStatus', 'textModerationStatus']) && deletionActorMayWrite() && (!biteScoreTrustedAggregatesEnabled() && customerPostingAllowed() && createsOwnReview() &&
+      allow create: if !customerTermsRequired() && !reviewTextRequired() && !request.resource.data.keys().hasAny(['textRevision', 'textStatus', 'textModerationStatus']) && deletionActorMayWrite() && (!biteScoreTrustedAggregatesEnabled() && customerPostingAllowed() && createsOwnReview() &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
         reviewDataHasCanonicalDishId(request.resource.data) &&
         !reviewDataHasBlockingMergeLock(request.resource.data) &&
         reviewDataUserAllowsMilestoneMutation(request.resource.data));
-      allow update: if !changedKeys().hasAny(['textRevision', 'textStatus', 'textModerationStatus']) &&
+      allow update: if (!customerTermsRequired() || (isAdmin() && !changedKeys().hasAny(['headline', 'notes', 'userId']))) && !changedKeys().hasAny(['textRevision', 'textStatus', 'textModerationStatus']) &&
         (!reviewTextRequired() || !changedKeys().hasAny(['headline', 'notes', 'id', 'userId', 'dishId', 'restaurantId'])) &&
         deletionActorMayWrite() && ((isAdmin() || !biteScoreTrustedAggregatesEnabled()) && (isAdmin() || (customerPostingAllowed() && updatesOwnReview())) &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
@@ -1891,7 +1935,7 @@ service cloud.firestore {
     match /bitescore_dish_images/{imageId} {
       allow read: if isAdmin() || ownerOfBiteScoreDish(resource.data.dishId) ||
         (signedIn() && resource.data.uploadedByUserId == request.auth.uid);
-      allow create: if !photoScreeningRequired() && !request.resource.data.keys().hasAny(['moderationStatus', 'moderatedAt', 'screeningStatus']) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'uploadedByUserId') && deletionOptionalReviewParentMayWrite(request.resource.data) && (isAdmin() ||
+      allow create: if !customerTermsRequired() && !photoScreeningRequired() && !request.resource.data.keys().hasAny(['moderationStatus', 'moderatedAt', 'screeningStatus']) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'uploadedByUserId') && deletionOptionalReviewParentMayWrite(request.resource.data) && (isAdmin() ||
         (!biteScoreTrustedAggregatesEnabled() && emailVerified() && customerPostingAllowed() &&
           request.resource.data.uploadedByUserId == request.auth.uid));
       allow update: if (changedKeys().hasOnly(['helpfulCount', 'notHelpfulCount', 'primary', 'sortOrder', 'updatedAt']) || !photoScreeningRequired()) && resource.data.get('moderationStatus', '') != 'removed' &&
@@ -2007,7 +2051,7 @@ service cloud.firestore {
 
     match /dish_edit_proposals/{proposalId} {
       allow read: if isAdmin() || readsOwnDishEditProposal();
-      allow create: if customerPostingAllowed() && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (createsOwnDishEditProposal() &&
+      allow create: if (dishProposalResolutionType(request.resource.data) == 'merge' || customerTermsAccepted()) && customerPostingAllowed() && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (createsOwnDishEditProposal() &&
         (!biteScoreTrustedAggregatesEnabled() || validBiteScoreProposalLookupData(request.resource.data)) &&
         dishProposalResolutionIdentitiesValid(request.resource.data) &&
         proposalOperationLocksAllowMutation(request.resource.data));

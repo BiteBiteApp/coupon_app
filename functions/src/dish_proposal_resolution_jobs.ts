@@ -1,3 +1,6 @@
+import {readBiteScoreTermsPolicy, requireBiteScoreTerms, type ApprovedBiteScoreTerms} from "./bitescore_terms.js";
+import {requireAccountWritableInStore} from "./account_deletion_guard.js";
+import {requireCustomerPostingAllowedInStore} from "./posting_restriction_guard.js";
 import type { Firestore } from "firebase-admin/firestore";
 import {
   awardApprovedDishProposalContributionPointsForResolutionCycle,
@@ -65,6 +68,7 @@ export type DishProposalPointAwardRequest = Readonly<{
 
 export type DishProposalResolutionDependencies = Readonly<{
   database: DishProposalPrivateDatabase;
+  approvedTerms?: ApprovedBiteScoreTerms | null;
   awardApprovedProposalPoints(
     request: DishProposalPointAwardRequest,
   ): Promise<DishProposalResolutionPointAwardResult>;
@@ -1152,6 +1156,7 @@ async function validateRenameStep(
   database: DishProposalPrivateDatabase,
   jobId: string,
   now: Date,
+  terms?: ApprovedBiteScoreTerms | null,
 ): Promise<DishProposalJobStepResult> {
   return database.runTransaction(async (transaction) => {
     const job = await loadJob(transaction, jobId);
@@ -1180,6 +1185,33 @@ async function validateRenameStep(
     const proposedNormalizedName = proposedName.trim().toLowerCase();
     const meaningful = dish.name.trim() !== proposedName.trim() ||
       dish.normalizedName.trim() !== proposedNormalizedName.trim();
+    // Recheck the actual customer origin at final publication. Terms never
+    // borrow the approving Admin's receipt or backdate an old submission.
+    if (meaningful && await readBiteScoreTermsPolicy(transaction, terms)) {
+      const documents = await transaction.queryDocuments(cycleMemberQuery(job, 1));
+      const member = parseDishProposalMemberDocument(documents[0] ?? null);
+      const proposal = member ? await transaction.getDocument(`dish_edit_proposals/${member.proposalDocumentId}`) : null;
+      const current = proposal && member ? buildDishProposalMembership({
+        proposalDocumentId: member.proposalDocumentId, source: proposal.data,
+        trustedServerCreateTime: proposal.createTime,
+      }) : null;
+      if (!member || !current || current.groupId !== job.groupId ||
+          current.supporterUid !== member.supporterUid ||
+          current.trustedServerCreateTime.getTime() !== member.trustedServerCreateTime.getTime()) {
+        throw new Error("The original rename contribution is unavailable. Refresh the proposal group.");
+      }
+      await requireAccountWritableInStore(transaction, current.supporterUid);
+      await requireCustomerPostingAllowedInStore(transaction, current.supporterUid, now.getTime());
+      await requireBiteScoreTerms(transaction, current.supporterUid, terms, now);
+      const [restaurant, restaurantLock, dishLock] = await Promise.all([
+        transaction.getDocument(`bitescore_restaurants/${job.restaurantId}`),
+        transaction.getDocument(`private_rating_restaurant_operation_locks/${job.restaurantId}`),
+        transaction.getDocument(`private_rating_dish_operation_locks/${job.sourceDishId}`),
+      ]);
+      if (!restaurant || restaurant.data.isActive === false || restaurant.data.active === false || restaurantLock || dishLock) {
+        throw new Error("The restaurant or dish is unavailable for publication.");
+      }
+    }
     if (meaningful) {
       transaction.setDocument(`bitescore_dishes/${job.sourceDishId}`, {
         name: proposedName,
@@ -2243,7 +2275,7 @@ export async function processDishProposalJobStep(
     }
     switch (snapshot.phase) {
       case "validate_target":
-        return await validateRenameStep(dependencies.database, jobId, now);
+        return await validateRenameStep(dependencies.database, jobId, now, dependencies.approvedTerms);
       case "validate_targets":
         return await validateMergeStep(dependencies.database, jobId, now);
       case "move_reviews":

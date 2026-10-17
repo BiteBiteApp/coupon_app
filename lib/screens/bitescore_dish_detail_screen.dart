@@ -1,3 +1,4 @@
+import '../widgets/bitescore_terms_gate.dart';
 import '../services/review_text_moderation_service.dart';
 import 'dart:async';
 
@@ -1256,6 +1257,22 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       return;
     }
     try {
+      if (!_canManageDish) {
+        final uid = _currentUser?.uid ?? '';
+        final testTermsGate = widget.testTermsGate;
+        final accepted = testTermsGate != null
+            ? await testTermsGate(context)
+            : await BiteScoreTermsGate.ensureAccepted(
+                context,
+                expectedUserId: uid,
+                isCurrent: () => mounted && _isPrivateLeaseCurrent(authLease) &&
+                    _currentUser?.uid == uid,
+              );
+        if (!accepted || !mounted || !_isPrivateLeaseCurrent(authLease) ||
+            _currentUser?.uid != uid) {
+          return;
+        }
+      }
       final testSaver = widget.testDishCategorySaver;
       if (testSaver != null) {
         await testSaver(dish, selection);
@@ -1991,6 +2008,15 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         setState(_refresh);
         return;
       }
+      if (!await BiteScoreTermsGate.ensureAccepted(
+        context,
+        expectedUserId: user.uid,
+        isCurrent: () => mounted && _isPrivateLeaseCurrent(authLease) &&
+            _currentUser?.uid == user.uid,
+      )) {
+        return;
+      }
+
       final pickedImage = await BiteScoreImageUploadService.pickDishImage();
       if (pickedImage == null) {
         return;
@@ -4823,6 +4849,15 @@ class _BiteScoreDishImageGalleryScreenState
       return null;
     }
 
+    if (!await BiteScoreTermsGate.ensureAccepted(
+      context,
+      expectedUserId: user.uid,
+      isCurrent: () => mounted && _isPrivateLeaseCurrent(authLease) &&
+          _currentUser?.uid == user.uid,
+    )) {
+      return null;
+    }
+
     final pickedImage = await BiteScoreImageUploadService.pickDishImage();
     if (pickedImage == null) {
       return null;
@@ -5596,9 +5631,19 @@ class _DishRenameSuggestionDialogState
     });
 
     try {
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      if (!await BiteScoreTermsGate.ensureAccepted(
+        context,
+        expectedUserId: uid,
+        isCurrent: () => mounted && FirebaseAuth.instance.currentUser?.uid == uid,
+      )) {
+        if (mounted) setState(() => _isSaving = false);
+        return;
+      }
       await BiteScoreService.submitDishRenameSuggestion(
         dish: widget.dish,
         proposedName: proposedName,
+        expectedUserId: uid,
       );
       if (!mounted) {
         return;

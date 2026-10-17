@@ -4154,8 +4154,14 @@ class BiteScoreService {
     return _readString(snapshot.data()?['userId']) == currentUser.uid;
   }
 
-  static Future<void> saveCurrentUserPublicUsername(String username) async {
+  static Future<void> saveCurrentUserPublicUsername(
+    String username, {
+    String? expectedUserId,
+  }) async {
     final user = _requireSignedInAppUser();
+    if (expectedUserId != null && user.uid != expectedUserId) {
+      throw StateError('Your account changed. Please try again.');
+    }
     final normalizedUsername = _normalizePublicUsername(username);
     final validationError = _validatePublicUsername(normalizedUsername);
     if (validationError != null) {
@@ -5231,8 +5237,12 @@ class BiteScoreService {
   static Future<void> submitDishRenameSuggestion({
     required BitescoreDish dish,
     required String proposedName,
+    String? expectedUserId,
   }) async {
     final user = await _requireFreshSignedInSuggestionUser();
+    if (expectedUserId != null && user.uid != expectedUserId) {
+      throw StateError('Your account changed. Please try again.');
+    }
     final proposedDishName = _normalizeDishNameForSave(proposedName);
     final normalizedName = _normalize(proposedDishName);
     if (normalizedName.isEmpty) {

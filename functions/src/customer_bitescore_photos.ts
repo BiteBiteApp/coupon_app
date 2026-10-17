@@ -1,3 +1,4 @@
+import {requireBiteScoreTermsInFirestore, type ApprovedBiteScoreTerms} from "./bitescore_terms.js";
 import {requireCustomerPostingAllowed} from "./posting_restriction_guard.js";
 import {createHash} from "node:crypto";
 import {requireAccountWritable} from "./account_deletion_guard.js";
@@ -18,6 +19,7 @@ export type CustomerBiteScoreUploadedObject = Readonly<{
   generation: string; metadata: Readonly<Record<string, unknown>>;
 }>;
 export type CustomerBiteScorePhotoOptions = Readonly<{
+  approvedTerms?: ApprovedBiteScoreTerms | null;
   now?: Date;
   readUploadedObject?: (storagePath: string) => Promise<CustomerBiteScoreUploadedObject>;
 }>;
@@ -148,6 +150,7 @@ export async function createCustomerBiteScorePhotoHandler(
     }
     await requireAccountWritable(db, tx, userId);
     await requireCustomerPostingAllowed(db, tx, userId, now.getTime());
+    await requireBiteScoreTermsInFirestore(db, tx, userId, options.approvedTerms, now);
     const dish = await parent(db, tx, dishId, restaurantId);
     const imageRef = db.doc(`bitescore_dish_images/${imageId}`);
     const existing = await tx.get(imageRef);

@@ -26,6 +26,51 @@ Map<String, Object?> result(String state) => {
     },
 };
 void main() {
+  test(
+    'active Terms status is checked before any photo bytes leave the client',
+    () async {
+      for (final accepted in [false, true]) {
+        final calls = <String>[];
+        final service = PhotoScreeningService(
+          termsActive: true,
+          currentUserId: () => 'user',
+          transport: (name, data) async {
+            calls.add(name);
+            if (name == 'getCustomerBiteScoreTerms') {
+              expect(data.containsKey('bytesBase64'), false);
+              return {
+                'schemaVersion': 1,
+                'userId': 'user',
+                'enabled': true,
+                'version': 'TEST-only',
+                'text': 'Synthetic approved text',
+                'accepted': accepted,
+              };
+            }
+            expect(accepted, true);
+            return result('approved');
+          },
+        );
+        final operation = service.submit(
+          expectedUid: 'user',
+          dishId: 'dish',
+          restaurantId: 'restaurant',
+          mode: 'gallery',
+          pickedImage: picked,
+        );
+        if (accepted) {
+          expect((await operation).id, 'image');
+          expect(calls, [
+            'getCustomerBiteScoreTerms',
+            'submitScreenedBiteScorePhoto',
+          ]);
+        } else {
+          await expectLater(operation, throwsStateError);
+          expect(calls, ['getCustomerBiteScoreTerms']);
+        }
+      }
+    },
+  );
   tearDown(() {
     PhotoScreeningService.debugEnabled = null;
     CustomerBiteScoreRuntime.testEnabled = null;

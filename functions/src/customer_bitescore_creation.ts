@@ -1,3 +1,4 @@
+import {requireBiteScoreTerms, type ApprovedBiteScoreTerms} from "./bitescore_terms.js";
 import {requireCustomerPostingAllowedInStore} from "./posting_restriction_guard.js";
 import {requireAccountWritableInStore} from "./account_deletion_guard.js";
 import {createHash, randomUUID} from "node:crypto";
@@ -21,6 +22,7 @@ type Document = RatingDestructiveStoredDocument;
 export type CustomerBiteScoreCreationContext = Readonly<{
   userId: string | null; email: string | null; emailVerified: boolean; isAnonymous: boolean;
   cursorCodec?: OpaqueCursorCodec;
+  approvedTerms?: ApprovedBiteScoreTerms | null;
 }>;
 
 function fail(code: "invalid-argument" | "permission-denied" | "failed-precondition" | "already-exists", message: string): never {
@@ -207,6 +209,7 @@ export async function resolveCustomerBiteScoreRestaurantCreationHandler(database
   return database.runTransaction(async (transaction) => {
     await requireAccountWritableInStore(transaction, uid);
     await requireCustomerPostingAllowedInStore(transaction, uid, now.getTime());
+    await requireBiteScoreTerms(transaction, uid, context.approvedTerms, now);
     const own = await transaction.getDocument(`bitescore_restaurants/${newId}`);
     if (own) {
       const target = restaurant(own);
@@ -263,6 +266,7 @@ export async function resolveCustomerBiteScoreDishCreationHandler(database: Data
   return database.runTransaction(async (transaction) => {
     await requireAccountWritableInStore(transaction, uid);
     await requireCustomerPostingAllowedInStore(transaction, uid, now.getTime());
+    await requireBiteScoreTerms(transaction, uid, context.approvedTerms, now);
     const parent = restaurant(await transaction.getDocument(`bitescore_restaurants/${restaurantId}`));
     coordinates(parent.data);
     await unlocked(transaction, restaurantId, newId);

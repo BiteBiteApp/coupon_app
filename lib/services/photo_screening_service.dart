@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../models/bitescore_dish_image.dart';
 import 'bitescore_image_upload_service.dart';
 import 'customer_bitescore_runtime.dart';
+import 'bitescore_terms_service.dart';
 
 typedef ScreeningTransport =
     Future<Object?> Function(String, Map<String, Object?>);
@@ -32,7 +33,9 @@ class PhotoScreeningService {
   PhotoScreeningService({
     ScreeningTransport? transport,
     String? Function()? currentUserId,
-  }) : _transport = transport ?? _call,
+    @visibleForTesting bool? termsActive,
+  }) : _termsActive = termsActive ?? BiteScoreTermsService.enabled,
+       _transport = transport ?? _call,
        _currentUserId =
            currentUserId ?? (() => FirebaseAuth.instance.currentUser?.uid);
   static const enabled = bool.fromEnvironment(
@@ -43,6 +46,7 @@ class PhotoScreeningService {
   static bool? debugEnabled;
   static bool get isEnabled =>
       (debugEnabled ?? enabled) && CustomerBiteScoreRuntime.isEnabled;
+  final bool _termsActive;
   final ScreeningTransport _transport;
   final String? Function() _currentUserId;
   static Future<Object?> _call(String name, Map<String, Object?> data) async =>
@@ -93,6 +97,14 @@ class PhotoScreeningService {
     if (pickedImage.bytes.isEmpty ||
         pickedImage.bytes.length > 5 * 1024 * 1024) {
       throw ArgumentError('Choose a photograph up to 5 MB.');
+    }
+    if (_termsActive) {
+      await BiteScoreTermsService.requireAccepted(
+        expectedUserId: expectedUid,
+        isCurrent: () => isCurrent(expectedUid),
+        active: true,
+        transport: _transport,
+      );
     }
     final name = pickedImage.fileName.toLowerCase();
     final result = await request('submitScreenedBiteScorePhoto', expectedUid, {
