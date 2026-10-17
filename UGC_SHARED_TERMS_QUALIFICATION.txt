@@ -1,0 +1,240 @@
+BiteStar Unified Customer and Restaurant-Owner Terms — source qualification
+Run ID: BS-BITESTAR-UGC-SHARED-TERMS-002
+Prompt: October 16, 2026, 10:29 PM EDT (2026-10-17 02:29 UTC)
+Role: bounded source implementation, security/product review and checkpoint
+Expected/actual starting HEAD: 9def21acd8ef4a048a8d49734c81f26b99f3fe02
+Branch: main. Remote main matched before implementation and checkpoint.
+Checkpoint: the commit containing this report; annotated tag
+bs-bitestar-ugc-shared-terms-002. Final commit/tag/remote results are in the owner
+completion message and canonical backlog. Prior checkpoint/report remain intact.
+
+SOURCE STATUS
+One global BiteStar Terms document is owner-approved in principle, with customer
+and restaurant-owner sections. One exact Firebase UID uses the same private
+termsAcceptance receipt in both roles. Nonanonymous phone/unverified-email owners
+may record consent. Customer verified-email posting, ownership, account approval,
+subscription and Admin authority remain separate. Consent grants none of them.
+
+No final legal text/version was published. approvedBiteScoreTerms remains null;
+client enabled=false; runtime candidate required=false. This is tested local
+source, not deployed, default-active, live-provider, physical-device or store
+qualification. No production writes, deployment, runtime/IAM/secret/signing change,
+real Vision/OpenAI/geocoding call, age collection or billing/trial change occurred.
+Candidate Firestore Rules changed. Storage Rules were inspected/tested but unchanged.
+Read-only live-baseline attempt: the available Firebase console session redirected
+the exact project Rules URL to its project chooser with zero accessible projects.
+The CLI exposes no direct Rules-download command. No credentials/secrets were
+inspected and no project access was changed. Current deployed Rules are therefore
+UNVERIFIED; obtaining authorized read access and comparing the actual release is
+a release prerequisite. Local source qualification does not cover that baseline.
+
+AUTHORIZED CHANGE AREA
+Client authoring preflight and identity continuation; backend acceptance/admission/
+publication logic; candidate Firestore security; focused tests and handoff reports.
+No receipt/schema migration, new general consent platform, Auth rewrite, catalog
+identity redesign, Stripe/subscription change or unrelated UI redesign.
+
+SOURCE-TO-PUBLICATION MATRIX
+Surface | Responsible principal | Preflight / trusted boundary
+Application submission / public profile | Auth UID, restaurant_accounts owner |
+  Owner screen; cheap check before geocoding; final profile transaction.
+Application approval | Existing account's recorded uid; canonical document UID
+  fallback for existing absent-uid legacy contract | Trusted final review and
+  candidate direct-approval Rules use actual owner, never reviewing Admin receipt.
+Coupon invitation redemption | Authenticated invite recipient UID | Invite screen
+  immediately before redemption; original final account/invite transaction.
+Restaurant-name request | Request userId | Submission Rules/dialog; supported Admin
+  approval now calls approveRestaurantNameChange, deriving UID/name from pending
+  request and checking the receipt transactionally. Reject/delete stay independent.
+Coupon create/edit/text/photo | restaurant_accounts/{uid} | Owner dialog; direct
+  Rules for substantive content; screened photo admission and final attachment.
+Manual Daily Specials / optional photo / photographed board | Account UID |
+  Owner/editor preflight; direct Rules and whole-state owner-media transaction;
+  source save and substantive schedule changes require current consent.
+Main photo / managed gallery / main selection | Account UID plus exact validated
+  uploader/source incarnation | Before reservation/Storage/provider; immediately
+  before provider; exact reference/attachment and media publication transaction.
+Legacy BiteSaver menu items/sections/images | Account UID | Authoring dialog,
+  direct Rules, menu grant and screened attachment checks.
+Shared menu items/sections/images | restaurant_menus.createdByUserId | Same
+  checks with creator UID, never menu ID. Ownership cannot be changed by an owner.
+Opening Manage Menu | Existing legitimate owner | Exact new metadata container
+  plus initial link can initialize atomically without a consent popup; linking an
+  existing populated container or authoring public contents still requires consent.
+BiteScore owner restaurant/dish edits and category shortcuts | Existing signed-in
+  authorized owner | Shared preflight and direct Rules; true Admin correction
+  remains independent. Separate customer eligibility remains intact.
+Public menu upload grant | Actual account UID/shared-menu creator | Transactional
+  consent/deletion/source check. Existing screening cutoff still rejects legacy
+  grants; the Storage candidate never turns a grant into unchecked public bytes.
+Delayed owner photograph | Recorded owner, independently validated uploader |
+  Admin approval grants private availability only; explicit attachment rechecks
+  current owner Terms. Existing generations/deadlines retained; no rescreen needed.
+Previously qualified customer lanes | Exact customer UID | Existing review,
+  Create & Rate, catalog/category/name/photo and delayed decision checks retained.
+
+WITHDRAWAL, ADMIN AND HISTORY
+Load/status/private upload registration, rejection, removal, deletion and cleanup
+remain independent of renewed acceptance. Full-state media saves ignore timestamps
+and allow removal-only gallery/special changes. Existing dish/special deactivation
+skips the prompt only when public content/schedule is unchanged. Deactivation keeps
+an existing special expiry rather than accidentally extending it. Admin correction,
+emergency suppression and account administration retain their authority.
+
+Supported pending application/name/photo publication checks the actual owner.
+Broad historical Admin direct root/menu/promotion writes cannot identify whether
+an action is new owner-origin content or independent Admin management. Those tools
+must be inventoried and retired/migrated at coordinated cutover; this work does not
+rebuild Admin or let Admin acceptance impersonate another person.
+
+Scheduled specials are already publicly readable in source after save beneath an
+eligible parent. Scheduling filters display; no delayed first-publication writer
+or history marker exists. Future billing eligibility may reveal an already-approved
+account. This work protects source submission/approval/attachment and substantive
+changes, preserving historical visibility and financial operations. Requiring a
+new receipt at first later display needs an explicit history/visibility policy;
+no silent grandfathering or retroactive hiding is introduced.
+
+TEST EVIDENCE (Node 24.19.0; isolated local emulators; synthetic data/providers)
+Auth/Firestore/Storage ports: 9198/8792/9298. Demo-only projects; owner emulator not
+interrupted. Source-only startup, build and selected analysis completed.
+- TypeScript build: PASS.
+- Focused backend unit suite: 114/114.
+- Admin/invitation/claim regression suite: 72/72. Corrected the old unit fixture's
+  missing synthetic Storage dependency so the real index wrapper could load.
+- Broader retention/provider/deletion/billing unit suite: 96 passed, 17 deliberately
+  environment-gated integration skips. Those skipped tests are not claimed passed.
+- New shared-owner real-adapter/emulator suite: 21/21, including phone owner / same
+  UID dual-role reuse, minimal profile, email denial, app/legacy UID approval,
+  geocode avoidance, mandatory race, name approval, all seven owner photo targets,
+  Terms before cost/provider, private Admin photo approval, current attachment,
+  gallery/special withdrawal, menu grants, populated Rules and empty-root/link.
+- Combined final shared/deletion/posting emulator suite: 37/37. Includes receipt
+  deletion and continued deletion/report/protective behavior under mandatory Terms.
+- Customer Terms + owner/customer photo + review-text emulator regression:
+  111 passed; three posting tests initially skipped due to an invocation flag typo,
+  then all three ran successfully in the 37-test final suite above.
+- Broad selected Rules regression: 193/194. One pre-existing failure reproduced
+  against starting HEAD, described below. New shared Rules tests and lookup-budget
+  cases pass. No new owner route exceeded emulator lookup/expression limits.
+- Final selected Flutter suite: 217/217 (owner lifecycle, drafts, media, Terms,
+  photos, categories, subscription-return continuity and bounded menu behavior).
+- Additional Flutter regression suite: 205/205; Auth/profile/invitation continuity:
+  58/58; final reviewer-fix/dialog/media/category/Admin rerun: 58/58.
+- Final expiry/model/Terms/owner lifecycle regression: 234/234; the actual double
+  sanitization used by saves preserves expiry across midnight on deactivation.
+  Reactivation retains existing end-of-day behavior; substantive edits need consent.
+  Scoped analysis of these four final files: no issues.
+Counts describe suites with overlap; they are not summed as unique-test totals.
+- Scoped analysis: zero errors/warnings, five pre-existing deprecated-API info
+  messages in restaurant dishes. git diff --check PASS.
+
+An initial race test held a Firestore lock while awaiting a conflicting write;
+corrected the test to race actual cutover between preflight and final policy read.
+Its abandoned lock briefly affected the next test setup; clean rerun passed 21/21.
+Minor command/test-path setup issues were corrected. Ordinary task-caused findings
+were fixed and affected checks rerun. No live service/device claim follows mocks.
+
+BUG FILTER / OPERATIONAL SANITY
+FIX NOW / DIRECTLY REQUIRED — corrected: nonverified owner acceptance; actual owner
+approval UID versus document ID; delayed supported name approval; empty-container
+exception linking existing content; missing invitation preflight; withdrawal UI;
+pre-cost/pre-provider/final attachment consent and version races.
+FIX SEPARATELY — REAL BUG: firestore_beta_access.test.js test “reviews and aggregates
+check old and new destructive identities” cannot complete the allowed Admin review
+move between dishes/restaurants: Rules exceed 1000 evaluated expressions. Identical
+failure with starting-HEAD Rules (old line 1917, current line 1958) establishes it
+pre-existed. Consequence: that direct Admin move is denied. Other current owner
+Terms routes and moderation tests pass. Do not weaken its checks or redesign the
+unrelated destructive-rating subsystem in this assignment. Release review must
+qualify or retire that legacy Admin operation; backlog records exact evidence.
+PRODUCT DECISION REQUIRED: final legal/version/compatibility; age/guest policy and
+implementation; first-later-display semantics if desired; supported Admin/client
+cutoff; release/provider/device/store/retention decisions in the handoff.
+ACCEPT AND CLOSE: recurrent display of already-public scheduled source material
+is not another source submission. No historical content purge or Stripe alteration.
+Existing Stage 2D personalized shared-photo hiding remains ACCEPT AND CLOSE.
+Operational sanity: real missing consent would authorize public owner content;
+real application/photo/direct-client paths reach it; narrow existing receipt and
+write boundaries address it; deployment/legal/data collection remain separately
+approved. No unrelated feature or major architecture was added.
+
+RELEASE / LEGAL / AGE HANDOFF
+UGC_SHARED_TERMS_UNPUBLISHED_HANDOFF.txt contains the one-document scope, concise
+8-point age/guest decision sheet and 10-step coordinated cutover. Whole Storage
+candidate closes both customer and owner legacy uploads: qualify owner clients,
+Functions/runtime/menu/photo coverage and cutoff BEFORE deploying that candidate.
+Safe pause keeps publication closed; never restore unchecked public uploads.
+No new 13+ checkbox, DOB field, parental-consent flow or age claim was implemented.
+
+PRESERVATION / INVENTORY
+UGC_SHARED_TERMS_FILES.sha256 freezes exact intended source/test/handoff bytes.
+This qualification and the manifest itself are the two additional report files.
+Seven unrelated owner files were hashed before work and rechecked byte-for-byte:
+test/screens/customer_bitesaver_browse_screen_test.dart
+  SHA-256 28aa68c86b59fefd9fd9aea798cad83b52b4b80e9cabea4be324711f7d31c2ee
+test/screens/restaurant_profile_bitescore_menu_test.dart
+  SHA-256 278ffbfd9f139d003baf6b03f0b6f72549e84335e102718cfd17e6ce6344dafb
+APPROVAL-ADDENDUM-A2.md
+  SHA-256 865f38522f833bb7a9a8a3157d49a292db627c29435093eb24f2c8e8d04581ea
+test/cuisine_fixture/main.dart
+  SHA-256 453e3b3412bcb1e35d97e3af8e2c868cbd7965f93dab75f701f13395489474f0
+test/visual_fixture/README.md
+  SHA-256 b3bf2b57779323981b54aa6cf0a55ec1ab59651b202f5d9f78e0cd3887151130
+test/visual_fixture/data.dart
+  SHA-256 38cda097fae724e82f02c9f4c8c1fab9c6e731283b3879bac3bedf661129fef8
+test/visual_fixture/main.dart
+  SHA-256 c753b469e78938b7e6d5a25d36100b938bf24c262fbcc9cea09ad0802b36ff5c
+
+FINAL SOURCE REVIEW / VERDICT
+Both independent reviewers (eligibility/backend and surface/security) returned
+PASS on all 36 frozen source/test/handoff entries, including the final expiry fix.
+They inspected actual bytes and test evidence; they did not independently rerun
+the suites. Manifest SHA-256:
+bd8358b7f5e2734029b01df2a8224e4f770ac9515dde18127f21050104f55592
+Primary self-review checked the complete diff and acceptance criteria; qualified
+source is ready for the expressly authorized main commit/tag/push. No source
+blocker remains. The baseline Admin Rules failure and unresolved release/legal/
+age/live-baseline prerequisites above remain open. This verdict does not activate
+enforcement or authorize any production operation. Final checkpoint/backlog
+completion time and verified commit identity are recorded in the owner closeout.
+
+EXACT CHANGED FILE INVENTORY
+UGC_SHARED_TERMS_UNPUBLISHED_HANDOFF.txt
+firestore.rules
+firestore_rules_tests/test/bitescore_terms_rules.test.js
+functions/src/bitesaver_owner_media.ts
+functions/src/bitesaver_owner_media_runtime.ts
+functions/src/bitesaver_restaurant_profile.ts
+functions/src/bitesaver_restaurant_profile_runtime.ts
+functions/src/bitescore_terms.ts
+functions/src/index.ts
+functions/src/menu_image_upload_authorization.ts
+functions/src/owner_photo_screening.ts
+functions/src/restaurant_name_approval.ts
+functions/test/bitesaver_restaurant_profile.test.js
+functions/test/bitescore_claim_invite_security.test.js
+functions/test/bitescore_review_aggregate.test.js
+functions/test/shared_owner_terms_emulator.test.js
+lib/models/daily_special.dart
+lib/screens/bitesaver_media_editor_screen.dart
+lib/screens/bitescore_dish_detail_screen.dart
+lib/screens/bitescore_owner_screen.dart
+lib/screens/bitescore_restaurant_dishes_screen.dart
+lib/screens/restaurant_create_coupon_screen.dart
+lib/screens/restaurant_custom_menu_section_editor_screen.dart
+lib/screens/restaurant_invite_preview_screen.dart
+lib/screens/restaurant_menu_management_screen.dart
+lib/services/bitesaver_image_upload_service.dart
+lib/services/bitesaver_owner_media_service.dart
+lib/services/bitescore_terms_service.dart
+lib/services/owner_photo_screening_service.dart
+lib/services/restaurant_account_service.dart
+lib/widgets/bitescore_terms_gate.dart
+test/models/daily_special_test.dart
+test/screens/bitesaver_media_editor_test.dart
+test/screens/bitescore_category_terms_test.dart
+test/services/bitescore_terms_service_test.dart
+test/services/owner_photo_screening_service_test.dart
+UGC_SHARED_TERMS_FILES.sha256
+UGC_SHARED_TERMS_QUALIFICATION.txt

@@ -48,8 +48,9 @@ class Backend {
     },
   );
   Future<Map<String, dynamic>?> upload(String uid, int version) async {
-    if (held)
+    if (held) {
       throw OwnerPhotoCheckOutcome('needs_review', discard: () async {});
+    }
     final media = data['media'] as Map;
     final id = 'photo${(media['images'] as List).length}';
     (media['images'] as List).add({
@@ -84,6 +85,7 @@ Future<void> pump(
   Backend backend, {
   bool photos = false,
   double scale = 1,
+  Future<bool> Function(BuildContext)? termsGate,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -98,6 +100,7 @@ Future<void> pump(
         photos: photos,
         service: backend.service,
         upload: backend.upload,
+        termsGate: termsGate,
       ),
     ),
   );
@@ -105,6 +108,40 @@ Future<void> pump(
 }
 
 void main() {
+  for (final switched in [false, true]) {
+    testWidgets(
+      'shared Terms ${switched ? 'account switch' : 'Cancel'} preserves owner draft and sends no upload/save',
+      (tester) async {
+        final backend = Backend();
+        var gates = 0;
+        await pump(
+          tester,
+          backend,
+          termsGate: (_) async {
+            gates++;
+            if (switched) backend.uid = 'other';
+            return switched;
+          },
+        );
+        await tap(tester, 'Add Another Daily Special');
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Title').first,
+          'Keep this draft',
+        );
+        await tap(tester, 'Add Optional Photo');
+        expect(backend.data['media']['images'], isEmpty);
+        expect(backend.saves, isEmpty);
+        expect(find.text('Keep this draft'), findsOneWidget);
+        backend.uid = 'owner';
+        await tap(tester, 'Save Changes');
+        expect(gates, 2);
+        expect(backend.saves, isEmpty);
+        expect(find.text('Keep this draft'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'held optional special photo preserves draft and text-only Save',
     (tester) async {

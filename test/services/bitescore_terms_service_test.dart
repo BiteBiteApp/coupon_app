@@ -1,7 +1,104 @@
+import 'package:coupon_app/models/daily_special.dart';
 import 'package:coupon_app/services/bitescore_terms_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('stale-day special withdrawal preserves the saved schedule', () {
+    final beforeMidnight = DateTime(2026, 6, 12, 23, 55);
+    final afterMidnight = DateTime(2026, 6, 13, 0, 5);
+    final original = DailySpecial(
+      id: 'special',
+      restaurantId: 'owner',
+      ownerUid: 'owner',
+      title: 'Today Taco',
+    ).sanitizedForSave(now: beforeMidnight);
+    final persisted = original.toFirestoreMap(now: beforeMidnight);
+    final withdrawn = original
+        .copyWith(isActive: false)
+        .sanitizedForSave(now: afterMidnight);
+    expect(
+      BiteScoreTermsService.isWithdrawalOnly(
+        persisted,
+        withdrawn.toFirestoreMap(now: afterMidnight),
+      ),
+      true,
+    );
+    expect(
+      BiteScoreTermsService.isWithdrawalOnly(
+        persisted,
+        withdrawn
+            .copyWith(title: 'New promotion')
+            .toFirestoreMap(now: afterMidnight),
+      ),
+      false,
+    );
+    expect(
+      BiteScoreTermsService.isWithdrawalOnly(
+        persisted,
+        withdrawn.copyWith(isActive: true).toFirestoreMap(now: afterMidnight),
+      ),
+      false,
+    );
+  });
+
+  test(
+    'owner withdrawal comparison allows disable/remove but never changed public text or schedule',
+    () {
+      final before = {
+        'isActive': true,
+        'title': 'Lunch',
+        'daysOfWeek': [1, 3],
+        'imageUrl': 'saved',
+        'details': 'Saved',
+      };
+      expect(
+        BiteScoreTermsService.isWithdrawalOnly(before, {
+          ...before,
+          'isActive': false,
+        }),
+        true,
+      );
+      expect(
+        BiteScoreTermsService.isWithdrawalOnly(before, {
+          ...before,
+          'imageUrl': null,
+        }),
+        true,
+      );
+      expect(
+        BiteScoreTermsService.isWithdrawalOnly(before, {
+          ...before,
+          'daysOfWeek': [1, 3],
+          'details': '',
+        }),
+        true,
+      );
+      expect(
+        BiteScoreTermsService.isWithdrawalOnly(before, {
+          ...before,
+          'isActive': false,
+          'title': 'New words',
+        }),
+        false,
+      );
+      expect(
+        BiteScoreTermsService.isWithdrawalOnly(before, {
+          ...before,
+          'isActive': false,
+          'daysOfWeek': [2],
+        }),
+        false,
+      );
+      expect(
+        BiteScoreTermsService.isWithdrawalOnly(
+          {'isActive': false},
+          {'isActive': true},
+        ),
+        false,
+      );
+    },
+  );
+
   Map<String, Object?> status({bool accepted = false}) => {
     'schemaVersion': 1,
     'userId': 'A',

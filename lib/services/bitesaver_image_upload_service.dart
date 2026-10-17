@@ -1,3 +1,6 @@
+import 'bitescore_terms_service.dart';
+import 'admin_access_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:ui' as ui;
 import 'owner_photo_screening_service.dart';
 
@@ -240,6 +243,7 @@ class BiteSaverImageUploadService {
         'bitesaver_restaurants/${_safePathSegment(uid)}/restaurant_images/'
         'main_image_$timestamp.'
         '${validatedImage._format.canonicalExtension}';
+    if (BiteScoreTermsService.enabled) await _requireUploadTerms();
     final writeStorageObject = storageWriter ?? _writeStorageObject;
     return writeStorageObject(
       objectPath: objectPath,
@@ -698,11 +702,22 @@ class BiteSaverImageUploadService {
     return objectPath;
   }
 
+  static Future<void> _requireUploadTerms() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (AdminAccessService.isAdminUser(user)) return;
+    final uid = user?.uid ?? '';
+    await BiteScoreTermsService.requireAccepted(
+      expectedUserId: uid,
+      isCurrent: () => FirebaseAuth.instance.currentUser?.uid == uid,
+    );
+  }
+
   static Future<BiteSaverImageUploadResult> _writeStorageObject({
     required String objectPath,
     required Uint8List bytes,
     required String contentType,
   }) async {
+    if (BiteScoreTermsService.enabled) await _requireUploadTerms();
     final ref = _storage.ref().child(objectPath);
 
     final uploadSnapshot = await ref.putData(
@@ -738,6 +753,7 @@ class BiteSaverImageUploadService {
     required Uint8List bytes,
     required String contentType,
   }) async {
+    if (BiteScoreTermsService.enabled) await _requireUploadTerms();
     final ref = _storage.ref().child(objectPath);
     final uploadSnapshot = await ref.putData(
       bytes,

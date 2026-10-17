@@ -1,13 +1,14 @@
 import {requireOwnerPhotoAuthority, markOwnerPhotoAttached, requireOwnerPhotoPublication, requireOwnerPhotoReference} from "./owner_photo_screening.js";
 import {screeningCollection, screeningRuntimePath, photoExpired, terminalFields, pendingRetentionMs, millis} from "./photo_screening_retention.js";
-import {ownerMediaReferenced} from "./bitesaver_owner_media.js";
+import {ownerMediaReferenced, ownerMediaPublishes} from "./bitesaver_owner_media.js";
+import {requireBiteScoreTermsInFirestore, type ApprovedBiteScoreTerms} from "./bitescore_terms.js";
 import {randomUUID} from "node:crypto";
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { requireAccountWritable } from "./account_deletion_guard.js";
 import type { OwnerMediaDependencies } from "./bitesaver_owner_media.js";
 import type { Bucket, File } from "@google-cloud/storage";
-export function createOwnerMediaDependencies(db: Firestore, bucket: Bucket, downloadUrl: (file: File) => Promise<string>): OwnerMediaDependencies {
+export function createOwnerMediaDependencies(db: Firestore, bucket: Bucket, downloadUrl: (file: File) => Promise<string>, terms?: ApprovedBiteScoreTerms | null): OwnerMediaDependencies {
     return {
         async transact(uid, evaluate, rootOnly = false) {
             return db.runTransaction(async (tx) => {
@@ -20,6 +21,8 @@ export function createOwnerMediaDependencies(db: Firestore, bucket: Bucket, down
                 const specials = Object.fromEntries((docs?.docs ?? []).map(doc => [doc.id, doc.data()]));
                 const manualCount = (docs?.docs ?? []).filter(doc => doc.id !== "bitesaver_managed_board" || doc.data().managedBoard !== true).length;
                 const decision = evaluate({ account: account.data()!, specials, specialsOverflow: manualCount > 50 });
+                if (ownerMediaPublishes({account: account.data()!, specials}, decision))
+                    await requireBiteScoreTermsInFirestore(db, tx, uid, terms);
                 for (const [id, value] of Object.entries(decision.specials ?? {})) {
                     if (specials[id]?.screeningTargetToken) value.screeningTargetToken = specials[id].screeningTargetToken;
                 }
@@ -28,7 +31,7 @@ export function createOwnerMediaDependencies(db: Firestore, bucket: Bucket, down
                 const runtime = media ? await tx.get(db.doc(screeningRuntimePath)) : null;
                 const legacy = media?.gallery.includes("legacy-main") && typeof media.legacyMain === "string" && media.legacyMain.includes("screened_bso_") ?
                     await requireOwnerPhotoReference(db, tx, "biteSaver", uid, "main", uid, media.legacyMain,
-                        account.get("ownerMedia.gallery")?.includes("legacy-main") ? media.legacyMain : null) : null;
+                        account.get("ownerMedia.gallery")?.includes("legacy-main") ? media.legacyMain : null, terms) : null;
                 if (media && account.get("ownerMedia.gallery")?.includes("legacy-main") && !media.gallery.includes("legacy-main") &&
                     account.get("mainImageUrl") === media.legacyMain) decision.account!.mainImageUrl = null;
                 if (media) for (const image of media.images) {

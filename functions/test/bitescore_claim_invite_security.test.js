@@ -319,6 +319,10 @@ function loadRuntime() {
         };
       case "firebase-admin/messaging":
         return {getMessaging: () => ({send: async () => "unused"})};
+      case "firebase-admin/storage":
+        // index also constructs the existing owner-media adapter. Claim tests
+        // never perform storage I/O; keep that unrelated dependency synthetic.
+        return {getStorage: () => ({bucket: () => ({})})};
       case "firebase-functions":
         return {logger};
       case "firebase-functions/params":

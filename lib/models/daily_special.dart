@@ -284,7 +284,8 @@ class DailySpecial {
     final sanitizedAvailabilityMode = availabilityMode;
     final sanitizedExpiresAt =
         sanitizedAvailabilityMode == DailySpecialAvailabilityMode.todayOnly
-        ? endOfLocalDay(now ?? DateTime.now())
+        // Deactivation must not renew the schedule, including across midnight.
+        ? (isActive ? endOfLocalDay(now ?? DateTime.now()) : expiresAt)
         : null;
     return DailySpecial(
       id: id ?? this.id.trim(),

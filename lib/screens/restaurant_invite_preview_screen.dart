@@ -1,3 +1,5 @@
+import '../services/bitescore_terms_service.dart';
+import '../widgets/bitescore_terms_gate.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -239,10 +241,22 @@ class _RestaurantInvitePreviewScreenState
 
     try {
       final user = await _ensureInviteUser();
-      if (user == null) {
+      if (user == null || !mounted) {
         return;
       }
 
+      if (BiteScoreTermsService.enabled &&
+          !await BiteScoreTermsGate.ensureAccepted(
+            context,
+            expectedUserId: user.uid,
+            isCurrent: () =>
+                mounted && FirebaseAuth.instance.currentUser?.uid == user.uid,
+          )) {
+        return;
+      }
+      if (!mounted || FirebaseAuth.instance.currentUser?.uid != user.uid) {
+        return;
+      }
       await RestaurantInviteService.redeemCouponInvite(token: widget.token);
       if (!mounted) {
         return;

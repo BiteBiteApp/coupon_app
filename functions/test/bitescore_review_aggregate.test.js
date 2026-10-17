@@ -405,11 +405,11 @@ test('acceptance is UID-bound, minimal, idempotent and preserves private profile
   await saveWithTerms(db, {}, next);
 });
 
-test('guest, unverified, signed-out, account-switched and deleting identities cannot accept', async () => {
+test('guest, signed-out, account-switched and deleting identities cannot accept', async () => {
   const db = database();
   activateTerms(db);
   for (const actor of [{uid: '', emailVerified: false}, {...termsActor, anonymous: true},
-    {...termsActor, emailVerified: false}, {...termsActor, uid: 'user-2'}]) {
+    {...termsActor, uid: 'user-2'}]) {
     await assert.rejects(acceptTerms(db, {}, actor), {code: 'permission-denied'});
   }
   db.set('private_account_deletions/user-1', {});

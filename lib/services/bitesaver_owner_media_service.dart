@@ -23,6 +23,76 @@ class BiteSaverOwnerMediaService {
            currentUid ?? (() => FirebaseAuth.instance.currentUser?.uid);
   final OwnerMediaCall _call;
   final String? Function() _currentUid;
+  bool isCurrentOwner(String uid) => _currentUid() == uid;
+
+  /// The editor submits its whole draft even for withdrawal. Only new content,
+  /// changed schedules/text or revealed/reordered photos need a Terms prompt.
+  static bool publishes(Map saved, Map draft) {
+    final media = saved['media'] as Map;
+    final oldGallery = media['gallery'] as List;
+    var cursor = 0;
+    for (final id in draft['gallery'] as List) {
+      final index = oldGallery.indexOf(id, cursor);
+      if (index < 0) return true;
+      cursor = index + 1;
+    }
+    if (draft['section'] == 'photos') return false;
+    if (draft['mode'] != media['mode'] ||
+        (draft['boardImage'] != null &&
+            draft['boardImage'] != media['boardImage'])) {
+      return true;
+    }
+    final previous = {
+      for (final s in saved['specials'] as List) s['id']: s as Map,
+    };
+    final next = [
+      ...draft['specials'] as List,
+      if (draft['boardImage'] != null) draft['board'],
+    ];
+    for (final raw in next) {
+      final special = raw as Map;
+      final old = previous[special['id']];
+      if (old == null) return true;
+      for (final key in [
+        'title',
+        'details',
+        'isActive',
+        'availabilityMode',
+        'daysOfWeek',
+        'allDay',
+        'startTime',
+        'endTime',
+        'hideWhenUnavailable',
+        'expiresAtMillis',
+        'imageId',
+      ]) {
+        final value = special[key];
+        final before = key == 'expiresAtMillis'
+            ? old['expiresAt']
+            : key == 'imageId'
+            ? (special['id'] == 'bitesaver_managed_board'
+                  ? media['boardImage']
+                  : (media['specialImages'] as Map? ?? {})[special['id']])
+            : old[key];
+        if (jsonEncode(value) == jsonEncode(before)) continue;
+        if ((key == 'isActive' && value == false) ||
+            (key == 'imageId' && value == null) ||
+            (key == 'details' && (value == null || value == ''))) {
+          continue;
+        }
+        // Irrelevant hidden time/expiry inputs are normalized by the writer.
+        if ((['startTime', 'endTime'].contains(key) &&
+                special['allDay'] == true) ||
+            (key == 'expiresAtMillis' &&
+                special['availabilityMode'] != 'todayOnly')) {
+          continue;
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
   static String newId() => List.generate(
     16,
     (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0'),

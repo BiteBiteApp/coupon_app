@@ -1,4 +1,6 @@
 import '../widgets/owner_photo_check_feedback.dart';
+import '../widgets/bitescore_terms_gate.dart';
+import '../services/bitescore_terms_service.dart';
 import '../services/owner_photo_screening_service.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -15,12 +17,15 @@ class BiteSaverMediaEditorScreen extends StatefulWidget {
   final bool photos;
   final BiteSaverOwnerMediaService service;
   final Future<Map<String, dynamic>?> Function(String, int)? upload;
+  @visibleForTesting
+  final Future<bool> Function(BuildContext)? termsGate;
   BiteSaverMediaEditorScreen({
     super.key,
     required this.ownerUid,
     required this.photos,
     BiteSaverOwnerMediaService? service,
     this.upload,
+    this.termsGate,
   }) : service = service ?? BiteSaverOwnerMediaService();
   @override
   State<BiteSaverMediaEditorScreen> createState() =>
@@ -51,6 +56,20 @@ class _BiteSaverMediaEditorScreenState
   }
 
   bool get _editable => !_busy && _pending == null;
+  Future<bool> _acceptTerms() async {
+    final accepted = widget.termsGate != null
+        ? await widget.termsGate!(context)
+        : await BiteScoreTermsGate.ensureAccepted(
+            context,
+            expectedUserId: widget.ownerUid,
+            isCurrent: () =>
+                mounted && widget.service.isCurrentOwner(widget.ownerUid),
+          );
+    return accepted &&
+        mounted &&
+        widget.service.isCurrentOwner(widget.ownerUid);
+  }
+
   Future<void> _load() async {
     setState(() {
       _busy = true;
@@ -141,6 +160,10 @@ class _BiteSaverMediaEditorScreenState
     });
     final oldIds = _images.map((i) => i['id']).toSet();
     try {
+      if ((BiteScoreTermsService.enabled || widget.termsGate != null) &&
+          !await _acceptTerms()) {
+        return;
+      }
       final result = widget.upload != null
           ? await widget.upload!(widget.ownerUid, _version)
           : await widget.service.upload(
@@ -261,6 +284,17 @@ class _BiteSaverMediaEditorScreenState
       _error = null;
     });
     try {
+      if ((BiteScoreTermsService.enabled || widget.termsGate != null) &&
+          BiteSaverOwnerMediaService.publishes(_saved!, _pending!) &&
+          !await _acceptTerms()) {
+        if (mounted) {
+          setState(() {
+            _pending = null;
+            _busy = false;
+          });
+        }
+        return;
+      }
       await widget.service.save(widget.ownerUid, _pending!);
       if (!mounted) return;
       await _load();

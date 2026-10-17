@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
@@ -491,17 +492,11 @@ class RestaurantAccountService {
     required String uid,
     required String requestedRestaurantName,
   }) async {
-    final batch = _firestore.batch();
-    batch.update(docForUser(uid), {
-      Restaurant.fieldName: requestedRestaurantName.trim(),
-      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    });
-    batch.set(
-      restaurantNameChangeRequestsCollection().doc(requestId),
-      {'status': 'approved', 'updatedAt': FieldValue.serverTimestamp()},
-      SetOptions(merge: true),
-    );
-    await batch.commit();
+    // The server derives the owner and exact name from the pending request and
+    // rechecks that owner's current Terms in the publication transaction.
+    await FirebaseFunctions.instance
+        .httpsCallable('approveRestaurantNameChange')
+        .call({'requestId': requestId});
   }
 
   static Future<void> rejectRestaurantNameChangeRequest(

@@ -227,10 +227,12 @@ export type BiteSaverTransactionDecision<T> =
   | {
       operation: "create" | "update";
       data: Record<string, unknown>;
+      termsUserId?: string;
       response: T;
     };
 
 export type BiteSaverProfileDependencies = {
+  checkTerms?: (uid: string) => Promise<void>;
   getAccount: (documentId: string) => Promise<BiteSaverAccountSnapshot>;
   runAccountTransaction: <T>(
     documentId: string,
@@ -1932,6 +1934,10 @@ export async function saveBiteSaverRestaurantProfileHandler(
     aborted("The restaurant location changed. Reload it and try again.");
   }
 
+  const termsUserId = parsed.intent === "adminUpdate" ||
+    (isSectionProfileRequest(parsed) && parsed.updateSection === "mainImage" && !parsed.profile.mainImageUrl)
+    ? undefined : actor.uid;
+  if (!isInitialIdempotentRetry && termsUserId) await dependencies.checkTerms?.(termsUserId);
   const requestedAddress = isSectionProfileRequest(parsed)
     ? parsed.updateSection === "basicInformation"
       ? profileAddress(parsed.profile)
@@ -2049,6 +2055,7 @@ export async function saveBiteSaverRestaurantProfileHandler(
     return {
       operation: latest.exists ? "update" : "create",
       data: write,
+      termsUserId,
       response: profileResponse(documentId, resultingData),
     };
   });
@@ -2097,6 +2104,7 @@ export async function reviewBiteSaverApplicationHandler(
     return {
       operation: "update",
       data: write,
+      termsUserId: parsed.decision === "approve" ? (readString(latest.data.uid) || parsed.documentId) : undefined,
       response: {
         documentId: parsed.documentId,
         approvalStatus: nextStatus,

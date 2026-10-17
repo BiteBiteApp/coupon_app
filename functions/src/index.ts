@@ -1,4 +1,7 @@
-import {submitScreenedOwnerPhotoHandler, getOwnerScreenedPhotoHandler, useOwnerScreenedPhotoHandler, retireDetachedOwnerPhoto, requireOwnerPhotoReference, markOwnerPhotoAttached} from "./owner_photo_screening.js";
+import {runBiteSaverProfileTransaction} from "./bitesaver_restaurant_profile_runtime.js";
+import {requireBiteScoreTermsInFirestore} from "./bitescore_terms.js";
+import {approveRestaurantNameChangeHandler} from "./restaurant_name_approval.js";
+import {submitScreenedOwnerPhotoHandler, getOwnerScreenedPhotoHandler, useOwnerScreenedPhotoHandler, retireDetachedOwnerPhoto} from "./owner_photo_screening.js";
 export {submitScreenedBiteScorePhoto, listAdminScreeningPhotos, previewAdminScreeningPhoto, decideAdminScreeningPhoto, cleanupExpiredScreeningPhotos} from "./customer_bitescore_runtime.js";
 import {createOwnerMediaDependencies} from "./bitesaver_owner_media_runtime.js";
 import {getStorage, getDownloadURL} from "firebase-admin/storage";
@@ -1016,23 +1019,7 @@ async function runBiteSaverAccountTransaction<T>(
     latest: BiteSaverAccountSnapshot,
   ) => BiteSaverTransactionDecision<T>,
 ): Promise<T> {
-  const accountRef = db.collection("restaurant_accounts").doc(documentId);
-  return db.runTransaction(async (transaction) => {
-    await requireAccountWritable(db, transaction, documentId);
-    const latestSnapshot = await transaction.get(accountRef);
-    const decision = evaluate(
-      biteSaverAccountSnapshot(latestSnapshot.exists, latestSnapshot.data()),
-    );
-    const photo = decision.operation !== "none" && Object.prototype.hasOwnProperty.call(decision.data, "mainImageUrl") ?
-      await requireOwnerPhotoReference(db, transaction, "biteSaver", documentId, "main", documentId, decision.data.mainImageUrl, latestSnapshot.get("mainImageUrl")) : null;
-    if (decision.operation === "create") {
-      transaction.create(accountRef, decision.data);
-    } else if (decision.operation === "update") {
-      transaction.update(accountRef, decision.data);
-    }
-    markOwnerPhotoAttached(db, transaction, photo);
-    return decision.response;
-  });
+  return runBiteSaverProfileTransaction(db, documentId, evaluate);
 }
 
 async function geocodeBiteSaverRestaurantAddress(
@@ -2907,6 +2894,7 @@ export const saveBiteSaverRestaurantProfile = onCall(
   async (request) => {
     if (request.data?.intent === "ownerMediaUpdate") return saveOwnerMedia(request, ownerMediaDependencies);
     return saveBiteSaverRestaurantProfileHandler(request, {
+      checkTerms: uid => db.runTransaction(tx => requireBiteScoreTermsInFirestore(db, tx, uid)),
       getAccount: getBiteSaverAccount,
       runAccountTransaction: runBiteSaverAccountTransaction,
       geocodeAddress: geocodeBiteSaverRestaurantAddress,
@@ -2921,6 +2909,8 @@ export const reviewBiteSaverApplication = onCall(async (request) => {
     serverTimestamp: () => FieldValue.serverTimestamp(),
   });
 });
+
+export const approveRestaurantNameChange = onCall(request => approveRestaurantNameChangeHandler(db, request));
 
 export const issueMenuImageUploadAuthorization = onCall(async (request) => {
   return issueMenuImageUploadAuthorizationHandler(request, {
@@ -3206,6 +3196,7 @@ export const redeemCouponRestaurantInvite = onCall(async (request) => {
 
     const latitude = readOptionalNumber(couponPrefill.latitude);
     const longitude = readOptionalNumber(couponPrefill.longitude);
+    await requireBiteScoreTermsInFirestore(db, transaction, uid);
     const accountUpdate: Record<string, unknown> = {
       uid,
       email: userEmail,

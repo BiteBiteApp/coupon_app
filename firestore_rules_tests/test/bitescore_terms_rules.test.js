@@ -95,12 +95,15 @@ test('deletion and posting restriction still defeat an accepted receipt',async()
  await assertFails(updateDoc(doc(db,'bitescore_dishes/dish'),{category:'New'}));
  await assertSucceeds(deleteDoc(doc(db,'dish_reviews/review')));
 });
-test('ordinary public reads, favorites, reports, private profile and owner operations remain independent',async()=>{
+test('ordinary public reads, favorites, reports, private profile and owner withdrawal remain independent',async()=>{
  const db=actor();await seed({'public_reviewer_profiles/writer':profile});
  await assertSucceeds(getDoc(doc(env.unauthenticatedContext().firestore(),'public_reviewer_profiles/writer')));
  await assertSucceeds(setDoc(doc(db,'user_profiles/writer'),{userId:'writer',displayName:'Private'}));
  await assertSucceeds(setDoc(doc(db,'user_profiles/writer/favorite_dishes/dish'),{dishId:'dish',userId:'writer'}));
  await assertSucceeds(setDoc(doc(db,'dish_reports/report'),{id:'report',dishId:'dish',restaurantId:'restaurant',reportingUserId:'writer',reason:'Incorrect',status:'pending'}));
+ await assertFails(updateDoc(doc(actor('owner'),'bitescore_dishes/dish'),{name:'Owner name'}));
+ await assertSucceeds(updateDoc(doc(actor('owner'),'bitescore_dishes/dish'),{isActive:false}));
+ await seed({'user_profiles/owner':receipt()});
  await assertSucceeds(updateDoc(doc(actor('owner'),'bitescore_dishes/dish'),{name:'Owner name'}));
 });
 test('absent/off preserves legacy contribution behavior; malformed active configuration closes',async()=>{

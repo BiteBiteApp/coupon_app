@@ -66,16 +66,57 @@ service cloud.firestore {
     }
     function customerTermsAccepted() {
       return !customerTermsRequired() || (emailVerified() &&
-        request.auth.token.firebase.sign_in_provider != 'anonymous' && currentTermsReceipt());
+        request.auth.token.firebase.sign_in_provider != 'anonymous' && currentTermsReceipt(request.auth.uid));
     }
-    function currentTermsReceipt() {
+    function currentTermsReceipt(userId) {
       let policy = get(/databases/$(database)/documents/private_bitescore_runtime/terms).data;
-      let receipt = get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.get('termsAcceptance', {});
+      let receipt = get(/databases/$(database)/documents/user_profiles/$(userId)).data.get('termsAcceptance', {});
       return policy.get('schemaVersion', null) == 1 && policy.get('required', false) == true &&
         policy.get('version', null) is string && policy.version.trim().size() > 0 &&
         policy.get('acceptedVersions', null) is list && policy.version in policy.acceptedVersions &&
         receipt.get('version', null) is string && receipt.version.size() > 0 && receipt.version in policy.acceptedVersions &&
         receipt.get('acceptedAt', null) is timestamp && receipt.acceptedAt <= request.time;
+    }
+    // Shared consent has no customer email-verification requirement. Existing
+    // owner/creator authority still decides which content this actor may write.
+    function sharedTermsAccepted(userId) {
+      return !customerTermsRequired() || (signedIn() &&
+        request.auth.token.firebase.sign_in_provider != 'anonymous' && currentTermsReceipt(userId));
+    }
+    function ownerWithdrawalOnly() {
+      return changedKeys().hasOnly(['updatedAt', 'isActive', 'imageUrl', 'mainImageUrl', 'bio', 'description', 'details', 'restaurantWriteRevision']) &&
+        (!changedKeys().hasAny(['isActive']) || request.resource.data.isActive == false) &&
+        (!changedKeys().hasAny(['imageUrl']) || request.resource.data.get('imageUrl', null) in [null, '']) &&
+        (!changedKeys().hasAny(['mainImageUrl']) || request.resource.data.get('mainImageUrl', null) in [null, '']) &&
+        (!changedKeys().hasAny(['details']) || request.resource.data.get('details', null) in [null, '']) &&
+        (!changedKeys().hasAny(['bio']) || request.resource.data.get('bio', null) in [null, '']) &&
+        (!changedKeys().hasAny(['description']) || request.resource.data.get('description', null) in [null, '']);
+    }
+    function ownerContentTermsAllowed(userId) {
+      return isAdmin() || (resource != null && ownerWithdrawalOnly()) || sharedTermsAccepted(userId);
+    }
+    function restaurantProfileTermsAllowed(userId) {
+      return (!customerTermsRequired()) ||
+        (resource != null && ownerWithdrawalOnly()) ||
+        (resource != null && !changedKeys().hasAny(['restaurantName', 'name', 'streetAddress', 'address', 'city', 'state', 'zipCode', 'postalCode', 'phone', 'website', 'bio', 'description', 'mainImageUrl', 'businessHours', 'latitude', 'longitude', 'couponApplicationSubmitted', 'menuSourceSide', 'linkedBiteScoreRestaurantId', 'ownerMedia', 'cuisineTags', 'approvalStatus'])) ||
+        (isAdmin() && (resource == null || request.resource.data.get('approvalStatus', '') != 'approved' || resource.data.get('approvalStatus', '') == 'approved')) ||
+        (resource == null && !request.resource.data.keys().hasAny(['restaurantName', 'name', 'address', 'streetAddress', 'bio', 'description', 'mainImageUrl', 'couponApplicationSubmitted'])) ||
+        sharedTermsAccepted(resource != null && isAdmin() ? resource.data.get('uid', userId) : userId);
+    }
+    // Opening Manage Menu may initialize an empty container from already-public
+    // catalog metadata. Authoring its content remains separately guarded.
+    function createsEmptySharedMenu() {
+      let data = request.resource.data;
+      let restaurant = get(/databases/$(database)/documents/bitescore_restaurants/$(data.bitescoreRestaurantId)).data;
+      return data.keys().hasOnly(['restaurantName', 'normalizedName', 'normalizedAddressKey', 'bitescoreRestaurantId', 'createdByUserId', 'linkStatus', 'createdAt', 'updatedAt']) &&
+        data.restaurantName == restaurant.name.trim() && data.linkStatus == 'bitescore_only';
+    }
+    function initializesEmptySharedMenuLink(restaurantId) {
+      return changedKeys().hasOnly(['sharedMenuId', 'restaurantWriteRevision', 'updatedAt']) &&
+        resource.data.get('sharedMenuId', null) in [null, ''] &&
+        !exists(/databases/$(database)/documents/restaurant_menus/$(request.resource.data.sharedMenuId)) &&
+        getAfter(/databases/$(database)/documents/restaurant_menus/$(request.resource.data.sharedMenuId)).data.bitescoreRestaurantId == restaurantId &&
+        getAfter(/databases/$(database)/documents/restaurant_menus/$(request.resource.data.sharedMenuId)).data.createdByUserId == request.auth.uid;
     }
     function generatedPublicIdentity(data) {
       return data.get('fallbackUsername', '') is string && data.fallbackUsername.matches('^anon[0-9]{1,6}$') &&
@@ -1336,9 +1377,9 @@ service cloud.firestore {
       allow get: if isAdmin() ||
         isSelf(restaurantUid);
       allow list: if isAdmin();
-      allow create: if ownerImageCreateAllowed('mainImageUrl') && (!ownerPhotoScreeningRequired() || !request.resource.data.keys().hasAny(['ownerMedia'])) && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (!request.resource.data.keys().hasAny(restaurantAccountCatalogBindingFields()) &&
+      allow create: if restaurantProfileTermsAllowed(restaurantUid) && ownerImageCreateAllowed('mainImageUrl') && (!ownerPhotoScreeningRequired() || !request.resource.data.keys().hasAny(['ownerMedia'])) && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (!request.resource.data.keys().hasAny(restaurantAccountCatalogBindingFields()) &&
         (isAdmin() || canCreateOwnRestaurantAccount(restaurantUid)));
-      allow update: if ownerImageUpdateAllowed('mainImageUrl') && (!ownerPhotoScreeningRequired() || !changedKeys().hasAny(['ownerMedia'])) && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (!changedKeys().hasAny(restaurantAccountCatalogBindingFields()) &&
+      allow update: if restaurantProfileTermsAllowed(restaurantUid) && ownerImageUpdateAllowed('mainImageUrl') && (!ownerPhotoScreeningRequired() || !changedKeys().hasAny(['ownerMedia'])) && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (!changedKeys().hasAny(restaurantAccountCatalogBindingFields()) &&
         (
           (isAdmin() &&
             (!changedKeys().hasAny(['adminHidden']) ||
@@ -1351,9 +1392,9 @@ service cloud.firestore {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
           restaurantAccountIsCustomerVisible(restaurantUid);
-        allow create: if ownerImageCreateAllowed('imageUrl') && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+        allow create: if ownerContentTermsAllowed(restaurantUid) && ownerImageCreateAllowed('imageUrl') && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == couponId);
-      allow update: if ownerImageUpdateAllowed('imageUrl') && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+      allow update: if ownerContentTermsAllowed(restaurantUid) && ownerImageUpdateAllowed('imageUrl') && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == couponId);
         allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canDeleteRestaurantCoupon(restaurantUid));
       }
@@ -1362,11 +1403,11 @@ service cloud.firestore {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
           restaurantAccountIsCustomerVisible(restaurantUid);
-        allow create: if ownerImageCreateAllowed('imageUrl') && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+        allow create: if ownerContentTermsAllowed(restaurantUid) && ownerImageCreateAllowed('imageUrl') && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == specialId &&
           request.resource.data.restaurantId == restaurantUid &&
           request.resource.data.ownerUid == restaurantUid);
-      allow update: if ownerImageUpdateAllowed('imageUrl') && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+      allow update: if ownerContentTermsAllowed(restaurantUid) && ownerImageUpdateAllowed('imageUrl') && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == specialId &&
           request.resource.data.restaurantId == restaurantUid &&
           request.resource.data.ownerUid == restaurantUid);
@@ -1377,9 +1418,9 @@ service cloud.firestore {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
           restaurantAccountMenuIsCustomerVisible(restaurantUid);
-        allow create: if ownerImageCreateAllowed('imageUrl') && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+        allow create: if ownerContentTermsAllowed(restaurantUid) && ownerImageCreateAllowed('imageUrl') && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == imageId);
-      allow update: if ownerImageUpdateAllowed('imageUrl') && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+      allow update: if ownerContentTermsAllowed(restaurantUid) && ownerImageUpdateAllowed('imageUrl') && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == imageId);
         allow delete: if (!ownerPhotoScreeningRequired() || !resource.data.get('screeningImageId', '').matches('bso_.*')) && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid));
       }
@@ -1388,9 +1429,9 @@ service cloud.firestore {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
           restaurantAccountMenuIsCustomerVisible(restaurantUid);
-        allow create: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+        allow create: if ownerContentTermsAllowed(restaurantUid) && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == itemId);
-      allow update: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+      allow update: if ownerContentTermsAllowed(restaurantUid) && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == itemId);
         allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid));
       }
@@ -1399,9 +1440,9 @@ service cloud.firestore {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
           restaurantAccountMenuIsCustomerVisible(restaurantUid);
-        allow create: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+        allow create: if ownerContentTermsAllowed(restaurantUid) && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == sectionId);
-      allow update: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+      allow update: if ownerContentTermsAllowed(restaurantUid) && deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == sectionId);
         allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid));
       }
@@ -1548,8 +1589,8 @@ service cloud.firestore {
 
     match /restaurant_name_change_requests/{requestId} {
       allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
-      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (canCreateOwnRestaurantNameChangeRequest());
-      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (isAdmin());
+      allow create: if sharedTermsAccepted(request.auth.uid) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (canCreateOwnRestaurantNameChangeRequest());
+      allow update: if (!customerTermsRequired() || request.resource.data.get('status', '') != 'approved') && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (isAdmin());
       allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && (isAdmin());
     }
 
@@ -1778,7 +1819,7 @@ service cloud.firestore {
               validAdminBiteScoreRestaurantActivityUpdate()
             )
           ) ||
-          canOwnerUpdateBiteScoreRestaurant(restaurantId) ||
+          ((ownerContentTermsAllowed(request.auth.uid) || initializesEmptySharedMenuLink(restaurantId)) && canOwnerUpdateBiteScoreRestaurant(restaurantId)) ||
           canCompleteBiteScoreRestaurantProvenance()
         ) &&
         (
@@ -1843,7 +1884,7 @@ service cloud.firestore {
         dataRestaurantOperationLockAllowsMutation(request.resource.data) &&
         (
           isAdmin() ||
-          ownerOfBiteScoreRestaurant(resource.data.restaurantId) ||
+          (ownerContentTermsAllowed(request.auth.uid) && ownerOfBiteScoreRestaurant(resource.data.restaurantId)) ||
           (
             emailVerified() &&
             (customerTermsAccepted() ||
@@ -2090,34 +2131,34 @@ service cloud.firestore {
 
     match /restaurant_menus/{menuId} {
       allow read: if isAdmin() || ownsSharedRestaurantMenu(menuId);
-      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'createdByUserId') && (isAdmin() ||
+      allow create: if (ownerContentTermsAllowed(request.auth.uid) || createsEmptySharedMenu()) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'createdByUserId') && (isAdmin() ||
         (
           emailVerified() &&
           request.resource.data.createdByUserId == request.auth.uid &&
           request.resource.data.bitescoreRestaurantId is string &&
           ownerOfBiteScoreRestaurant(request.resource.data.bitescoreRestaurantId)
         ));
-      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'createdByUserId') && deletionPersonalIdentityMayWrite(request.resource.data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
+      allow update: if ownerContentTermsAllowed(resource.data.createdByUserId) && (isAdmin() || !changedKeys().hasAny(['createdByUserId'])) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'createdByUserId') && deletionPersonalIdentityMayWrite(request.resource.data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
       allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'createdByUserId') && (isAdmin());
 
       match /menu_images/{imageId} {
         allow read: if isAdmin() || ownsSharedRestaurantMenu(menuId);
-        allow create: if ownerImageCreateAllowed('imageUrl') && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
-      allow update: if ownerImageUpdateAllowed('imageUrl') && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
+        allow create: if ownerContentTermsAllowed(request.auth.uid) && ownerImageCreateAllowed('imageUrl') && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
+      allow update: if ownerContentTermsAllowed(request.auth.uid) && ownerImageUpdateAllowed('imageUrl') && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
         allow delete: if (!ownerPhotoScreeningRequired() || !resource.data.get('screeningImageId', '').matches('bso_.*')) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
       }
 
       match /menu_items/{itemId} {
         allow read: if isAdmin() || ownsSharedRestaurantMenu(menuId);
-        allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
-      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
+        allow create: if ownerContentTermsAllowed(request.auth.uid) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
+      allow update: if ownerContentTermsAllowed(request.auth.uid) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
         allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
       }
 
       match /menu_sections/{sectionId} {
         allow read: if isAdmin() || ownsSharedRestaurantMenu(menuId);
-        allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
-      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
+        allow create: if ownerContentTermsAllowed(request.auth.uid) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
+      allow update: if ownerContentTermsAllowed(request.auth.uid) && deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
         allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
       }
 

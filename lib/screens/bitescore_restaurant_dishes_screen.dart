@@ -1,3 +1,4 @@
+import '../services/bitescore_terms_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -659,7 +660,7 @@ class _BiteScoreRestaurantDishesScreenState
       return;
     }
     try {
-      if (!_canManageRestaurant) {
+      if (!_isAdmin) {
         final uid = _currentUser?.uid ?? '';
         final testTermsGate = widget.testTermsGate;
         final accepted = testTermsGate != null
@@ -667,10 +668,14 @@ class _BiteScoreRestaurantDishesScreenState
             : await BiteScoreTermsGate.ensureAccepted(
                 context,
                 expectedUserId: uid,
-                isCurrent: () => mounted && _isPrivateLeaseCurrent(authLease) &&
+                isCurrent: () =>
+                    mounted &&
+                    _isPrivateLeaseCurrent(authLease) &&
                     _currentUser?.uid == uid,
               );
-        if (!accepted || !mounted || !_isPrivateLeaseCurrent(authLease) ||
+        if (!accepted ||
+            !mounted ||
+            !_isPrivateLeaseCurrent(authLease) ||
             _currentUser?.uid != uid) {
           return;
         }
@@ -2079,6 +2084,11 @@ class _OwnerRestaurantEditDialogState
     });
 
     try {
+      if (BiteScoreTermsService.enabled &&
+          !await BiteScoreTermsGate.ensureOwnerAuthor(context)) {
+        if (mounted) setState(() => _isSaving = false);
+        return;
+      }
       await BiteScoreService.updateRestaurantAsOwner(
         restaurant: widget.restaurant,
         name: _nameController.text,
@@ -2585,6 +2595,29 @@ class _OwnerDishEditDialogState extends State<_OwnerDishEditDialog> {
     });
 
     try {
+      if (BiteScoreTermsService.enabled &&
+          !BiteScoreTermsService.isWithdrawalOnly(
+            {
+              'name': widget.dish.name.trim(),
+              'category': widget.dish.category?.trim() ?? '',
+              'subcategory': widget.dish.subcategory?.trim() ?? '',
+              'keywords': widget.dish.categoryManualKeywords?.trim() ?? '',
+              'price': widget.dish.priceLabel?.trim() ?? '',
+              'isActive': widget.dish.isActive,
+            },
+            {
+              'name': _nameController.text.trim(),
+              'category': _categorySelection.categoryForSave ?? '',
+              'subcategory': _categorySelection.subcategoryForSave ?? '',
+              'keywords': _categorySelection.manualKeywordsForSave ?? '',
+              'price': _priceController.text.trim(),
+              'isActive': _isActive,
+            },
+          ) &&
+          !await BiteScoreTermsGate.ensureOwnerAuthor(context)) {
+        if (mounted) setState(() => _isSaving = false);
+        return;
+      }
       await BiteScoreService.updateDishAsOwner(
         dish: widget.dish,
         name: _nameController.text,

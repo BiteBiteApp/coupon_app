@@ -1,3 +1,5 @@
+import '../widgets/bitescore_terms_gate.dart';
+import '../services/bitescore_terms_service.dart';
 import '../widgets/owner_photo_check_feedback.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -300,6 +302,16 @@ class _RestaurantMenuManagementScreenState
     final refreshDelivery = _captureHomeRefreshDelivery(initialSource);
 
     try {
+      if (BiteScoreTermsService.enabled &&
+          !await BiteScoreTermsGate.ensureOwnerAuthor(context)) {
+        return;
+      }
+      if (!mounted ||
+          _currentUser?.uid != user.uid ||
+          _sourceForUser(user)?.id != initialSource.id) {
+        return;
+      }
+
       final source = initialSource;
 
       String? imageUrl;
@@ -386,6 +398,16 @@ class _RestaurantMenuManagementScreenState
     final refreshDelivery = _captureHomeRefreshDelivery(source);
 
     try {
+      if (BiteScoreTermsService.enabled &&
+          !await BiteScoreTermsGate.ensureOwnerAuthor(context)) {
+        return;
+      }
+      if (!mounted ||
+          _currentUser?.uid != user.uid ||
+          _sourceForUser(user)?.id != source.id) {
+        return;
+      }
+
       final testSaver = widget.testItemSaver;
       final savedItem = testSaver != null
           ? await testSaver(

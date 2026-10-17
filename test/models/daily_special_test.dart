@@ -60,6 +60,54 @@ void main() {
       expect(recurringMap[DailySpecial.fieldExpiresAt], isNull);
     });
 
+    test(
+      'deactivation preserves expiry through repeated save serialization',
+      () {
+        final savedAt = DateTime(2026, 6, 12, 23, 55);
+        final afterMidnight = DateTime(2026, 6, 13, 0, 5);
+        final original = DailySpecial(
+          id: 'today',
+          restaurantId: 'restaurant-1',
+          ownerUid: 'restaurant-1',
+          title: 'Today Taco',
+        ).sanitizedForSave(now: savedAt);
+        final savedMap = original.toFirestoreMap(now: savedAt);
+        final withdrawn = original
+            .copyWith(isActive: false)
+            .sanitizedForSave(now: afterMidnight);
+
+        // Match the service's sanitize followed by toFirestoreMap (which
+        // sanitizes again). Only isActive may change on this withdrawal.
+        expect(withdrawn.toFirestoreMap(now: afterMidnight), {
+          ...savedMap,
+          DailySpecial.fieldIsActive: false,
+        });
+        expect(withdrawn.shouldShowAt(afterMidnight), isFalse);
+        expect(
+          withdrawn
+              .copyWith(isActive: true)
+              .toFirestoreMap(now: afterMidnight)[DailySpecial.fieldExpiresAt],
+          Timestamp.fromDate(DateTime(2026, 6, 14)),
+        );
+      },
+    );
+
+    test('inactive today-only save does not invent a missing expiry', () {
+      final inactive = DailySpecial(
+        id: 'legacy',
+        restaurantId: 'restaurant-1',
+        ownerUid: 'restaurant-1',
+        title: 'Saved special',
+        isActive: false,
+      );
+      expect(
+        inactive.toFirestoreMap(
+          now: DateTime(2026, 6, 13),
+        )[DailySpecial.fieldExpiresAt],
+        isNull,
+      );
+    });
+
     test('expired today-only special is filtered even if document remains', () {
       final special = DailySpecial(
         id: 'stale',

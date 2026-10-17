@@ -1,4 +1,5 @@
 import {requireAccountWritable} from "./account_deletion_guard.js";
+import {requireBiteScoreTermsInFirestore, type ApprovedBiteScoreTerms} from "./bitescore_terms.js";
 import { randomBytes } from "node:crypto";
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import type { CallableRequest } from "firebase-functions/v2/https";
@@ -251,6 +252,7 @@ export async function issueMenuImageUploadAuthorizationHandler(
 
 export function createFirestoreMenuImageUploadAuthorizationDatabase(
   firestore: Firestore,
+  terms?: ApprovedBiteScoreTerms | null,
 ): MenuImageUploadAuthorizationDatabase {
   return Object.freeze({
     async getDocument(path: string) {
@@ -267,6 +269,7 @@ export function createFirestoreMenuImageUploadAuthorizationDatabase(
         if (screening.get("ownerRequired") === true) throw new HttpsError("failed-precondition", "Use the current app to check new menu photographs before publication.");
         await requireAccountWritable(firestore, tx, actorUid);
         await requireAccountWritable(firestore, tx, grant.ownerUserId);
+        await requireBiteScoreTermsInFirestore(firestore, tx, grant.ownerUserId, terms);
         const source = await tx.get(firestore.doc(`${grant.sourceType === "biteSaver" ? "restaurant_accounts" : "restaurant_menus"}/${grant.sourceId}`));
         if (!source.exists || (grant.sourceType === "sharedMenu" && source.get("createdByUserId") !== grant.ownerUserId)) {
           throw new HttpsError("failed-precondition", "Menu ownership changed.");

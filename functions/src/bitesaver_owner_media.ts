@@ -1,5 +1,6 @@
 import {ownerPhotoPath} from "./owner_photo_identity.js";
 import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { HttpsError } from "firebase-functions/v2/https";
 import { requireAuthenticatedRestaurantAccountActor } from "./admin_authorization.js";
 export const ownerMediaPhotoLimit = 12;
@@ -70,6 +71,36 @@ export function readOwnerMedia(account: Data): OwnerMediaState {
     return structuredClone(value) as OwnerMediaState;
 }
 export function ownerMediaReferenced(state: OwnerMediaState, id: string) { return state.gallery.includes(id) || state.boardImage === id || Object.values(state.specialImages).includes(id); }
+/** A full-state save also writes timestamps and private upload registrations.
+ * Consent applies to new/substantive public content, never removal-only saves. */
+export function ownerMediaPublishes(snapshot: OwnerMediaSnapshot, decision: OwnerMediaDecision<unknown>): boolean {
+    const next = decision.account?.ownerMedia as OwnerMediaState | undefined;
+    if (!next) return false;
+    const previous = readOwnerMedia(snapshot.account);
+    // Removing gallery entries while retaining order is a withdrawal. Reordering
+    // changes the public main selection and requires current consent.
+    let cursor = 0;
+    for (const id of next.gallery) {
+        const index = previous.gallery.indexOf(id, cursor);
+        if (index < 0) return true;
+        cursor = index + 1;
+    }
+    if (next.mode !== previous.mode ||
+        (next.boardImage !== previous.boardImage && next.boardImage !== null)) return true;
+    for (const [id, value] of Object.entries(decision.specials ?? {})) {
+        const old = snapshot.specials[id];
+        if (!old) return true;
+        for (const key of new Set([...Object.keys(old), ...Object.keys(value)])) {
+            if (["updatedAt", "createdAt", "id", "ownerUid", "restaurantId", "screeningTargetToken"].includes(key)) continue;
+            const before = old[key] ?? null, after = value[key] ?? null;
+            if (isDeepStrictEqual(before, after) || (dateMillis(before) !== null && dateMillis(before) === dateMillis(after))) continue;
+            if ((key === "isActive" && after === false) ||
+                (["imageUrl", "details"].includes(key) && (after === null || after === ""))) continue;
+            return true;
+        }
+    }
+    return false;
+}
 function safeImage(state: OwnerMediaState, id: string, uid?: string): Image {
     const image = state.images.find(i => i.id === id);
     if (!image || !imageId.test(id) || !/^\d+$/.test(image.generation) || (uid && (id.startsWith("bso_") ? image.path !== ownerPhotoPath({ownerUserId: uid, imageId: id}) : !new RegExp(`^bitesaver_restaurants/${uid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/restaurant_images/managed_${id}\\.(jpg|png)$`).test(image.path))))

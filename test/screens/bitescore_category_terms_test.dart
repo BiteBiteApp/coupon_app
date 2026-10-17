@@ -15,22 +15,34 @@ class _User extends Fake implements User {
   final String uid;
   _User(this.uid);
   @override
-  String? get email => null;
+  String? get email => uid == 'admin' ? 'schuyler.cole@gmail.com' : null;
   @override
   bool get isAnonymous => false;
 }
 
 void main() {
   for (final restaurantPage in [false, true]) {
-    for (final scenario in ['customer accepts', 'customer cancels', 'owner']) {
+    for (final scenario in [
+      'customer accepts',
+      'customer cancels',
+      'owner accepts',
+      'owner cancels',
+      'admin',
+    ]) {
       testWidgets(
         '${restaurantPage ? 'restaurant' : 'dish'} category: $scenario',
         (tester) async {
           tester.view.physicalSize = const Size(900, 1600);
           tester.view.devicePixelRatio = 1;
           addTearDown(tester.view.reset);
-          final owner = scenario == 'owner';
-          final user = _User(owner ? 'owner' : 'customer');
+          final owner = scenario.startsWith('owner');
+          final user = _User(
+            scenario == 'admin'
+                ? 'admin'
+                : owner
+                ? 'owner'
+                : 'customer',
+          );
           final restaurant = BitescoreRestaurant(
             id: 'restaurant',
             name: 'Restaurant',
@@ -61,7 +73,7 @@ void main() {
           var gates = 0, saves = 0;
           Future<bool> gate(BuildContext _) async {
             gates++;
-            return scenario == 'customer accepts';
+            return scenario.endsWith('accepts');
           }
 
           Future<void> save(
@@ -116,8 +128,8 @@ void main() {
           await tester.pump();
           await tester.tap(find.widgetWithText(ElevatedButton, 'Save'));
           await tester.pumpAndSettle();
-          expect(gates, owner ? 0 : 1);
-          expect(saves, scenario == 'customer cancels' ? 0 : 1);
+          expect(gates, scenario == 'admin' ? 0 : 1);
+          expect(saves, scenario.endsWith('cancels') ? 0 : 1);
           expect(tester.takeException(), isNull);
         },
       );

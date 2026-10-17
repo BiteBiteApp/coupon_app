@@ -1,4 +1,5 @@
 import {randomUUID} from "node:crypto";
+import {requireBiteScoreTermsInFirestore, type ApprovedBiteScoreTerms} from "./bitescore_terms.js";
 import {getAuth} from "firebase-admin/auth";
 import {FieldValue, type Firestore, type Transaction} from "firebase-admin/firestore";
 import {HttpsError, type CallableRequest} from "firebase-functions/v2/https";
@@ -114,6 +115,7 @@ export async function submitScreenedOwnerPhotoHandler(db: Firestore, request: Ca
     if (value.state === "needs_review" || (value.state === "scanning" && value.leaseUntil > at) ||
         (old.exists && (!data.retry || value.attempts >= 2 || at < value.retryAfter))) return {result: ownerPhotoResponse(value)};
     runtimeAllows(runtime.data(), true);
+    await requireBiteScoreTermsInFirestore(db, tx, ownerUserId, options.approvedTerms, new Date(at));
     await reservePhotoScreening(db, tx, uid, at, attemptId, runtime.get("monthlyAllowance"));
     const next: Data = {...value, state: "scanning", scanStatus: "pending", attempts: value.attempts + 1, attemptId,
       leaseUntil: at + 120_000, retryAfter: at + 120_000 + 60_000 * 2 ** value.attempts, updatedAt: new Date(at),
@@ -141,6 +143,7 @@ export async function submitScreenedOwnerPhotoHandler(db: Firestore, request: Ca
     await db.runTransaction(async tx => {
       const [current, runtime] = await tx.getAll(ref, db.doc(screeningRuntimePath));
       runtimeAllows(runtime.data(), true); await requireOwnerPhotoAuthority(db, tx, row);
+      await requireBiteScoreTermsInFirestore(db, tx, row.ownerUserId, options.approvedTerms, new Date(now()));
       if (current.get("attemptId") !== attemptId || current.get("state") !== "scanning" || photoExpired(current.data()!, now())) fail();
       tx.update(ref, {generation, uploadStatus: "stored"});
     });
@@ -200,7 +203,7 @@ export async function getOwnerScreenedPhotoHandler(db: Firestore, request: Calla
 /** Called inside existing save transactions. New URLs require an exact approved
  * asset; unchanged historical references and text-only updates remain valid. */
 export async function requireOwnerPhotoReference(db: Firestore, tx: Transaction, sourceType: string, sourceId: string,
-  family: string, targetId: string, url: unknown, previous: unknown): Promise<Data | null> {
+  family: string, targetId: string, url: unknown, previous: unknown, terms?: ApprovedBiteScoreTerms | null): Promise<Data | null> {
   if (url == null || url === "" || url === previous) return null;
   const runtime = await tx.get(db.doc(screeningRuntimePath));
   if (runtime.get("ownerRequired") !== true) return null;
@@ -211,6 +214,7 @@ export async function requireOwnerPhotoReference(db: Firestore, tx: Transaction,
   if (!row || row.lane !== "owner" || row.state !== "approved" || row.publicUrl !== url || row.sourceType !== sourceType ||
       row.sourceId !== sourceId || row.family !== family || row.targetId !== targetId || photoExpired(row, Date.now())) fail();
   await requireOwnerPhotoAuthority(db, tx, row);
+  await requireBiteScoreTermsInFirestore(db, tx, row.ownerUserId, terms);
   if (await authVersion(row.uploaderUserId, {}) !== row.authCreatedAt) fail();
   await screeningObjects().read(row.storagePath, row.generation, row.sha256).catch(() => fail("The exact photo is no longer available."));
   return row;
@@ -261,6 +265,7 @@ export async function useOwnerScreenedPhotoHandler(db: Firestore, request: Calla
     if (!["coupon", "menu"].includes(row.family)) fail("Save this image in the restaurant photo editor.");
     if (row.attached === true && ownerPhotoIsAttached(row, target.data()))
       return {schemaVersion: 1, state: "published", image: target.data()};
+    await requireBiteScoreTermsInFirestore(db, tx, row.ownerUserId, options.approvedTerms, new Date(now()));
     requireOwnerPhotoPublication(runtime.data());
     if (row.family === "coupon" && !target.exists) fail("Save the coupon text before attaching its photograph.");
     if (row.family === "menu" && target.exists && target.get("imageUrl") !== row.publicUrl) fail();

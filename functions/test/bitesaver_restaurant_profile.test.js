@@ -3756,7 +3756,7 @@ test("Functions entry point registers the exact lifecycle callables with narrow 
   );
   assert.match(
     source,
-    /function runBiteSaverAccountTransaction<[^>]+>[\s\S]*?transaction\.create\(accountRef, decision\.data\)[\s\S]*?transaction\.update\(accountRef, decision\.data\)/,
+    /function runBiteSaverAccountTransaction<[^>]+>[\s\S]*?return runBiteSaverProfileTransaction\(db, documentId, evaluate\)/,
   );
   assert.match(
     source,

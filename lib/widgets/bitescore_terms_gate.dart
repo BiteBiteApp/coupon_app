@@ -4,10 +4,24 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/bitescore_terms_service.dart';
+import '../services/admin_access_service.dart';
 
 /// Shared posting preflight. Private account fields and defensive actions do not
 /// call this gate. The server independently authorizes each contribution.
 class BiteScoreTermsGate {
+  static Future<bool> ensureOwnerAuthor(BuildContext context) async {
+    if (!BiteScoreTermsService.enabled) return true;
+    final user = FirebaseAuth.instance.currentUser;
+    if (AdminAccessService.isAdminUser(user)) return true;
+    final uid = user?.uid ?? '';
+    return ensureAccepted(
+      context,
+      expectedUserId: uid,
+      isCurrent: () =>
+          context.mounted && FirebaseAuth.instance.currentUser?.uid == uid,
+    );
+  }
+
   static Future<bool> ensureAccepted(
     BuildContext context, {
     required String expectedUserId,

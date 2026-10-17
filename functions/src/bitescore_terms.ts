@@ -10,16 +10,19 @@ export type ApprovedBiteScoreTerms = Readonly<{
   // Only explicitly approved non-mandatory revisions may retain prior receipts.
   acceptedPriorVersions?: readonly string[];
 }>;
-// No approved/published Terms exist. Change only in a separately authorized
-// release, together with the client and legacy direct-write Rules cutover.
+// One global BiteStar document and UID receipt serve customers and owners.
+// Historical internal names stay stable. No approved/published Terms exist.
+// Change only in a separately authorized coordinated release.
 export const approvedBiteScoreTerms: ApprovedBiteScoreTerms | null = null;
 export const biteScoreTermsRuntimePath = "private_bitescore_runtime/terms";
 export const biteScoreTermsRuntimeCandidate = {schemaVersion: 1, required: false} as const;
 type Actor = {uid: string; emailVerified: boolean; anonymous?: boolean};
 
 function identity(actor: Actor, input: unknown): string {
-  if (!actor.uid || !actor.emailVerified || actor.anonymous === true) {
-    throw new HttpsError("permission-denied", "Sign in and verify your email before accepting Terms.");
+  // Consent grants no posting, restaurant or Admin authority. Phone-authenticated
+  // owners can accept while customer publication still requires verified email.
+  if (!actor.uid || actor.anonymous === true) {
+    throw new HttpsError("permission-denied", "Sign in to a non-guest account before accepting Terms.");
   }
   accountDeletionPath(actor.uid);
   if ((input as {expectedUserId?: unknown} | null)?.expectedUserId !== actor.uid) {

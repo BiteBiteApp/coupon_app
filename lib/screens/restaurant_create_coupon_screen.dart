@@ -1,3 +1,5 @@
+import '../widgets/bitescore_terms_gate.dart';
+import '../services/bitescore_terms_service.dart';
 import '../widgets/owner_photo_check_feedback.dart';
 import '../services/owner_photo_screening_service.dart';
 import 'bitesaver_media_editor_screen.dart';
@@ -1164,6 +1166,15 @@ class _RestaurantCreateCouponScreenState
     final uid = action.ownerScope.identity.uid;
 
     try {
+      if (BiteScoreTermsService.enabled &&
+          !await BiteScoreTermsGate.ensureAccepted(
+            context,
+            expectedUserId: uid,
+            isCurrent: () => mounted && _isCurrentOwnerAction(action),
+          )) {
+        return;
+      }
+
       if (enabled) {
         final restaurantId = matchedBiteScoreRestaurantId?.trim();
         if (restaurantId == null || restaurantId.isEmpty) {
@@ -2462,6 +2473,15 @@ class _RestaurantCreateCouponScreenState
     });
 
     try {
+      if (BiteScoreTermsService.enabled &&
+          !await BiteScoreTermsGate.ensureAccepted(
+            context,
+            expectedUserId: user.uid,
+            isCurrent: ownerOperationIsCurrent,
+          )) {
+        return;
+      }
+
       final request = BiteSaverProfileSaveRequest.submitApplication(
         profile: _applicationProfileInput(restaurantName: restaurantName),
       );
@@ -2563,6 +2583,15 @@ class _RestaurantCreateCouponScreenState
     });
 
     try {
+      if (BiteScoreTermsService.enabled &&
+          !await BiteScoreTermsGate.ensureAccepted(
+            context,
+            expectedUserId: user.uid,
+            isCurrent: ownerOperationIsCurrent,
+          )) {
+        return;
+      }
+
       final submitNameChangeRequest = widget.submitNameChangeRequest;
       if (submitNameChangeRequest != null) {
         await submitNameChangeRequest(
@@ -2975,6 +3004,18 @@ class _RestaurantCreateCouponScreenState
     });
 
     try {
+      if (BiteScoreTermsService.enabled &&
+          !await BiteScoreTermsGate.ensureAccepted(
+            context,
+            expectedUserId: user.uid,
+            isCurrent: () =>
+                mounted &&
+                _isCurrentOwnerScope(ownerIdentity, ownerIdentityGeneration) &&
+                operationGeneration == _restaurantImageOperationGeneration,
+          )) {
+        return;
+      }
+
       if (OwnerPhotoScreeningService.isEnabled &&
           widget.pickRestaurantImage == null) {
         final screening = OwnerPhotoScreeningService();
@@ -3167,6 +3208,15 @@ class _RestaurantCreateCouponScreenState
     });
 
     try {
+      if (BiteScoreTermsService.enabled &&
+          !await BiteScoreTermsGate.ensureAccepted(
+            context,
+            expectedUserId: user.uid,
+            isCurrent: operationIsCurrent,
+          )) {
+        return;
+      }
+
       final selectedId = OwnerPhotoScreeningService.imageId(couponImageUrl);
       if (selectedId != null) {
         await OwnerPhotoScreeningService().acknowledge(
@@ -3559,6 +3609,15 @@ class _RestaurantCreateCouponScreenState
     });
 
     try {
+      if (BiteScoreTermsService.enabled &&
+          !await BiteScoreTermsGate.ensureAccepted(
+            context,
+            expectedUserId: user.uid,
+            isCurrent: canContinue,
+          )) {
+        return;
+      }
+
       if (!canContinue()) {
         return;
       }
@@ -3770,6 +3829,19 @@ class _RestaurantCreateCouponScreenState
     });
 
     try {
+      if (BiteScoreTermsService.enabled &&
+          !await BiteScoreTermsGate.ensureAccepted(
+            context,
+            expectedUserId: user.uid,
+            isCurrent: () =>
+                mounted &&
+                _isCurrentOwnerAction(action) &&
+                draftGeneration == _couponDraftGeneration &&
+                editingCouponId?.trim() == submittedEditingCouponId,
+          )) {
+        return;
+      }
+
       final accountData = await _loadRestaurantAccount(
         action.ownerScope.identity.uid,
       );
@@ -3981,6 +4053,12 @@ class _RestaurantCreateCouponScreenState
           ? null
           : dailySpecialDetailsController.text.trim(),
       isActive: _dailySpecialIsActive,
+      expiresAt: !_dailySpecialIsActive
+          ? _dailySpecials
+                .where((s) => s.id == editingDailySpecialId)
+                .firstOrNull
+                ?.expiresAt
+          : null,
       availabilityMode: _dailySpecialAvailabilityMode,
       daysOfWeek: _dailySpecialDaysOfWeek.toList(),
       allDay: _dailySpecialAllDay,
@@ -4021,6 +4099,37 @@ class _RestaurantCreateCouponScreenState
     _dailySpecialSaveInFlight = true;
 
     try {
+      var withdrawal = false;
+      if (BiteScoreTermsService.enabled) {
+        final original = _dailySpecials
+            .where((s) => s.id == submittedEditingId)
+            .firstOrNull;
+        final proposed = _buildDraftDailySpecial(uid: user.uid);
+        withdrawal =
+            original != null &&
+            proposed.validateForSave() == null &&
+            BiteScoreTermsService.isWithdrawalOnly({
+              ...original.toFirestoreMap(),
+              // Compare the saved expiry, not a new active-save expiry.
+              DailySpecial.fieldExpiresAt: original.expiresAt == null
+                  ? null
+                  : Timestamp.fromDate(original.expiresAt!),
+            }, proposed.toFirestoreMap());
+      }
+      if (BiteScoreTermsService.enabled &&
+          !withdrawal &&
+          !await BiteScoreTermsGate.ensureAccepted(
+            context,
+            expectedUserId: user.uid,
+            isCurrent: () =>
+                mounted &&
+                _isCurrentOwnerAction(action) &&
+                draftGeneration == _dailySpecialDraftGeneration &&
+                editingDailySpecialId?.trim() == submittedEditingId,
+          )) {
+        return;
+      }
+
       final addressReady = await _ensureRestaurantAddressReadyForPosting(
         user,
         expectedOwnerScope: action.ownerScope,

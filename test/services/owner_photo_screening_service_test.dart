@@ -67,6 +67,50 @@ void main() {
       ),
     );
   });
+
+  for (final scenario in ['missing', 'accepted', 'switch']) {
+    test(
+      'shared owner Terms $scenario is checked before transmitting photo bytes',
+      () async {
+        service = OwnerPhotoScreeningService(
+          currentUserId: () => uid,
+          termsActive: true,
+          isAdmin: () => false,
+          transport: PhotoScreeningService(
+            currentUserId: () => uid,
+            transport: (name, data) async {
+              calls.add(name);
+              if (name == 'getCustomerBiteScoreTerms') {
+                expect(data.containsKey('bytesBase64'), false);
+                if (scenario == 'switch') uid = 'other';
+                return {
+                  'schemaVersion': 1,
+                  'userId': 'owner',
+                  'enabled': true,
+                  'version': 'TEST-only',
+                  'text': 'Synthetic',
+                  'accepted': scenario != 'missing',
+                };
+              }
+              expect(data['bytesBase64'], isNotEmpty);
+              state = 'available';
+              return response();
+            },
+          ),
+        );
+        if (scenario == 'accepted') {
+          await submit();
+          expect(calls, [
+            'getCustomerBiteScoreTerms',
+            'submitScreenedOwnerPhoto',
+          ]);
+        } else {
+          await expectLater(submit(), throwsStateError);
+          expect(calls, ['getCustomerBiteScoreTerms']);
+        }
+      },
+    );
+  }
   test(
     'flag remains off; each exact family/target has a recoverable private receipt',
     () async {

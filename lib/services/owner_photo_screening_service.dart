@@ -5,6 +5,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'photo_screening_service.dart';
+import 'bitescore_terms_service.dart';
+import 'admin_access_service.dart';
 
 /// Only private receipt IDs persist. Unpublished bytes never use Storage SDK
 /// uploads/download URLs. Reopening an editor checks status without rescanning.
@@ -12,10 +14,20 @@ class OwnerPhotoScreeningService {
   OwnerPhotoScreeningService({
     PhotoScreeningService? transport,
     String Function()? currentUserId,
+    @visibleForTesting bool? termsActive,
+    bool Function()? isAdmin,
   }) : _transport = transport ?? PhotoScreeningService(),
+       _termsActive = termsActive ?? BiteScoreTermsService.enabled,
+       _isAdmin =
+           isAdmin ??
+           (() => AdminAccessService.isAdminUser(
+             FirebaseAuth.instance.currentUser,
+           )),
        _uid = currentUserId ?? currentUid;
   final PhotoScreeningService _transport;
   final String Function() _uid;
+  final bool _termsActive;
+  final bool Function() _isAdmin;
   static const enabled = bool.fromEnvironment(
     'BITESAVER_PHOTO_SCREENING',
     defaultValue: false,
@@ -101,6 +113,14 @@ class OwnerPhotoScreeningService {
   }) async {
     if (bytes.isEmpty || bytes.length > 5 * 1024 * 1024) {
       throw ArgumentError('Choose a photograph up to 5 MB.');
+    }
+    if (_termsActive && !_isAdmin()) {
+      await BiteScoreTermsService.requireAccepted(
+        expectedUserId: uid,
+        isCurrent: () => _transport.isCurrent(uid),
+        active: true,
+        transport: (name, data) => _transport.request(name, uid, data),
+      );
     }
     final result = await _transport.request('submitScreenedOwnerPhoto', uid, {
       'sourceType': sourceType,

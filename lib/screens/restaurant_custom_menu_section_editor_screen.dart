@@ -1,3 +1,5 @@
+import '../widgets/bitescore_terms_gate.dart';
+import '../services/bitescore_terms_service.dart';
 import 'package:flutter/material.dart';
 
 import '../services/app_error_text.dart';
@@ -60,6 +62,11 @@ class _RestaurantCustomMenuSectionEditorScreenState
     });
 
     try {
+      if (BiteScoreTermsService.enabled &&
+          !await BiteScoreTermsGate.ensureOwnerAuthor(context)) {
+        if (mounted) setState(() => _isSaving = false);
+        return;
+      }
       await RestaurantMenuService.saveMenuSection(
         source: widget.source,
         title: _titleController.text,

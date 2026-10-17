@@ -1257,7 +1257,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       return;
     }
     try {
-      if (!_canManageDish) {
+      if (!_isAdmin) {
         final uid = _currentUser?.uid ?? '';
         final testTermsGate = widget.testTermsGate;
         final accepted = testTermsGate != null
@@ -5337,6 +5337,22 @@ class _DishManagementDialogState extends State<_DishManagementDialog> {
     });
 
     try {
+      if (BiteScoreTermsService.enabled &&
+          !BiteScoreTermsService.isWithdrawalOnly({
+            'name': widget.dish.name.trim(), 'category': widget.dish.category?.trim() ?? '',
+            'subcategory': widget.dish.subcategory?.trim() ?? '',
+            'keywords': widget.dish.categoryManualKeywords?.trim() ?? '',
+            'price': widget.dish.priceLabel?.trim() ?? '', 'isActive': widget.dish.isActive,
+          }, {
+            'name': _nameController.text.trim(), 'category': _categorySelection.categoryForSave ?? '',
+            'subcategory': _categorySelection.subcategoryForSave ?? '',
+            'keywords': _categorySelection.manualKeywordsForSave ?? '',
+            'price': _priceController.text.trim(), 'isActive': _isActive,
+          }) &&
+          !await BiteScoreTermsGate.ensureOwnerAuthor(context)) {
+        if (mounted) setState(() => _isSaving = false);
+        return;
+      }
       await BiteScoreService.updateDishAsOwner(
         dish: widget.dish,
         name: _nameController.text,

@@ -1,0 +1,126 @@
+BiteStar shared Terms — UNPUBLISHED scope and owner decision handoff
+Run BS-BITESTAR-UGC-SHARED-TERMS-002 | October 16, 2026
+
+STATUS
+This is an engineering/legal scope handoff, not a contract, published Terms,
+age-verification system or compliance certification. Approved legal text/version
+remain null. Client/runtime defaults remain OFF. No production activation,
+deployment, legal URL, provider call or age collection is authorized here.
+
+APPROVED POLICY
+The owner approved ONE BiteStar Terms document with customer and restaurant-owner
+sections, ONE current approved version, and ONE authenticated-UID receipt:
+user_profiles/{UID}.termsAcceptance. The existing private_bitescore_runtime/terms
+path and customer-named internal APIs remain to avoid a migration. A person using
+both roles reuses the same valid receipt. Consent does not grant restaurant,
+Admin, subscription or customer posting authority. Legitimate nonanonymous phone
+owners can accept; customer public posting still requires verified email.
+
+UNPUBLISHED DOCUMENT SCOPE FOR OWNER/LEGAL REVIEW
+Customer section: public reviews/ratings; customer photos; restaurant/dish catalog
+information; names, corrections and other qualified public contributions.
+Business-owner section: authority to represent the restaurant; public profile,
+photos, menus, coupons, specials and promotional accuracy; shared-menu creator
+responsibility. Distinguish the actual owner/creator from an Admin acting for them.
+Common section: content rights and accuracy, moderation/removal/restrictions,
+third-party photo/text screening disclosures, deletion/retention and contact
+information, age eligibility, version changes and reacceptance.
+Billing/checkout and transactional disclosures remain separately governed by their
+existing flow. No governing-law, arbitration, indemnity, liability, refund or
+billing language was authored, chosen or changed in this assignment.
+Owner/legal must supply final wording, exact version/effective date, Privacy and
+deletion/contact URLs and exact prior-version compatibility before release.
+No compatible prior version or grandfathering rule is enabled by this work.
+
+AGE / GUEST DECISION SHEET — STILL OPEN
+Reuse the evidence in UGC_TERMS_COVERAGE_QUALIFICATION.txt; no new broad age audit.
+1. Approve a neutral eligibility screen BEFORE new-registration contact fields,
+   Google credentials, phone/SMS and guest upgrade. No preselected eligible answer
+   or “over 12” checkbox. A locally evaluated neutral date/age input with raw input
+   discarded is a candidate, subject to legal selection of precision and wording.
+2. Confirm the proposed 13+ minimum, target jurisdictions, general-audience
+   classification and any stricter business-representative/capacity requirements.
+   Terms acceptance and email verification do not establish age. Applicable
+   jurisdiction/role requirements require legal review.
+3. Email new-registration, Google/phone sign-in that may create accounts, guest
+   upgrade/linking and existing-user sign-in are distinct paths. Decide whether
+   Google/phone requires prior eligibility for every unauthenticated entry or an
+   existing-account-only sign-in route. Preserve recovery and UID continuity.
+4. Decide treatment of existing accounts, missing evidence, retries and age-up.
+   Do not automatically lock, delete, relink or backfill existing identities.
+5. If necessary and approved, retain only minimal UID-bound eligibility result,
+   policy/version and trusted recording time; choose retention. No full DOB,
+   parental contacts, identity documents, biometrics or new paid verifier proposed.
+6. Ineligible new users stop before contact/provider collection or public upload.
+   Approve the neutral next screen and retry treatment. Preserve legitimate
+   recovery, withdrawal and account deletion. Do not promise a child-safe guest
+   mode without verifying its actual data behavior.
+7. Firebase initializes before a future screen. Explicit guest entry can create
+   anonymous Auth and persistent device identifiers. The bounded coupon path also
+   constructs a device ID. Existing location permission can allow launch refresh;
+   geocoding/device-proof paths exist. Provider Auth handles network/identity
+   metadata. Absence of particular analytics packages is not proof of no data
+   collection. SDK/network/device inventory and store disclosures remain open.
+8. Only after approval: implement each approved entry boundary, minimal evidence
+   if needed, retry/existing-account rules and restricted guest behavior; test
+   identity/linking/recovery/deletion and inspect actual device traffic.
+Prior policy reference: FTC COPPA FAQ,
+https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions
+No age source implementation or legal/store qualification is claimed here.
+
+PUBLICATION / ADMIN / HISTORY DECISIONS
+Application submission, approval, invited owner activation, public profile edits,
+name-request approval, promotion/menu writes and photo attachments are protected
+at their actual source write. Photo approval alone is private availability;
+attachment remains explicit and requires the current actual owner's receipt.
+Supported name approval now uses approveRestaurantNameChange; historic direct
+approval clients must be retired before mandatory activation. Broad legacy Admin
+root/menu/promotion edits cannot distinguish original owner content from an
+independent Admin correction. Preserve emergency/legitimate Admin authority, but
+inventory and retire/migrate any unsupported on-behalf publishing tool at cutover.
+An Admin's own receipt never substitutes in the known delayed owner flows.
+
+Scheduled specials are already publicly readable at source save under an eligible
+parent. Their recurring schedule filters presentation; it is not a delayed
+publication transaction. Existing approved accounts may also become visible after
+billing/posting eligibility changes. These paths have no first-display history
+marker. This source gates new submissions/substantive edits and explicit pending
+approval/attachment, without retroactive hiding or changing billing. If consent
+must be tested at a first later display of previously saved material, approve that
+specific history/visibility contract separately. No grandfathering is inferred.
+Previously published content is retained, not automatically erased/revoked.
+
+FUTURE COORDINATED SOURCE CUTOVER — SEPARATE AUTHORIZATION REQUIRED
+1. Resolve final legal Terms/Privacy/deletion URLs, age/guest behavior, retention,
+   SDK/store disclosures, and the exact history/first-display policy above.
+2. Approve one global version and any explicit accepted-prior-version list; keep
+   Functions and trusted runtime metadata exactly aligned. Stale code fails shut.
+3. Freeze compatible customer, owner and Admin source with hashes; requalify later
+   changes rather than replacing a recorded hash and inheriting qualification.
+4. Read and verify actual deployed Functions, Firestore/Storage Rules, indexes,
+   TTL/retention, runtime/service identities, provider bindings and dependencies.
+   Local candidate inspection is not verification of the currently deployed Rules.
+5. Deploy qualified Terms-aware acceptance, writers, admissions and decisions with
+   enforcement dormant. Include approveRestaurantNameChange and owner photo/menu
+   dependencies; verify service permissions without exposing secrets.
+6. Stage supported clients with all authoring preflights. Retire incompatible
+   historical customer/owner/Admin publication tools. Verify invitation, phone
+   owners, same-UID dual roles, recovery, deletion and independent Admin actions.
+7. Qualify all owner photo/text, coupon/board/main/gallery and both menu lanes.
+   The WHOLE existing Storage candidate closes legacy public uploads in BOTH
+   customer and owner lanes. This task does not authorize deploying that candidate
+   before owner clients, Functions, runtime and supported-client cutoff are ready.
+8. Deploy qualified Firestore/Storage candidates in the reviewed order with the
+   compatible backends/clients ready. Keep unchecked legacy publication closed.
+9. Only with explicit coordinated release approval: publish final legal material,
+   release the approved client switch and activate mandatory runtime metadata.
+   Verify exact acceptance and current publication across both roles.
+10. Exercise provider pause, unavailable policy, retry and recovery while
+    enforcement remains closed. Preserve browsing, withdrawal/deletion, financial
+    operations and Admin emergency moderation. Never roll back to unchecked public
+    upload/publication. Source-only work cannot promise zero downtime.
+
+Still open: final legal wording/version/publication; explicit version/history
+policy; age/guest source implementation; full SDK/data/store inventory; non-image
+retention; actual providers/Admin operations; supported-client/tool cutoff;
+coordinated production release; physical-device and store qualification.

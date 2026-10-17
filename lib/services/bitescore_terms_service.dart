@@ -1,9 +1,36 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
 
 /// Dormant until approved Terms and the coordinated public-contribution cutover ship.
 /// This client switch is UX only; the trusted save independently checks receipts.
 class BiteScoreTermsService {
   static const bool enabled = false;
+
+  /// UI-only comparison for existing merge writers. Trusted writers/Rules make
+  /// the authoritative decision; deactivation must remain possible on Cancel.
+  static bool isWithdrawalOnly(Map before, Map after) {
+    for (final key in after.keys) {
+      final old = before[key], value = after[key];
+      if (key == 'updatedAt' ||
+          old == value ||
+          (old is List && value is List && listEquals(old, value))) {
+        continue;
+      }
+      if (key == 'isActive' && value == false) continue;
+      if ([
+            'imageUrl',
+            'mainImageUrl',
+            'bio',
+            'description',
+            'details',
+          ].contains(key) &&
+          (value == null || value == '')) {
+        continue;
+      }
+      return false;
+    }
+    return true;
+  }
 
   /// Recheck immediately before sending photo bytes. A changed mandatory version
   /// returns the user to the existing entry-point prompt without uploading.
@@ -21,7 +48,7 @@ class BiteScoreTermsService {
       transport: transport,
     )) {
       throw StateError(
-        'Review and accept the current Terms before uploading a photograph.',
+        'Review and accept the current Terms before contributing public content.',
       );
     }
   }
