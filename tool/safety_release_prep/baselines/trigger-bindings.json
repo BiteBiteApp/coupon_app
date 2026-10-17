@@ -1,0 +1,56 @@
+{
+  "observedAt": "2026-10-17T19:49:18.213Z",
+  "serviceAgents": [
+    {
+      "identity": "service-253983587346@gcp-sa-eventarc.iam.gserviceaccount.com",
+      "bindings": [
+        {
+          "role": "roles/eventarc.serviceAgent"
+        }
+      ]
+    },
+    {
+      "identity": "service-253983587346@gcp-sa-cloudscheduler.iam.gserviceaccount.com",
+      "bindings": [
+        {
+          "role": "roles/cloudscheduler.serviceAgent"
+        }
+      ]
+    },
+    {
+      "identity": "service-253983587346@gs-project-accounts.iam.gserviceaccount.com",
+      "bindings": [
+        {
+          "role": "roles/pubsub.publisher"
+        }
+      ]
+    },
+    {
+      "identity": "service-253983587346@gcp-sa-firebasestorage.iam.gserviceaccount.com",
+      "bindings": [
+        {
+          "role": "roles/firebaserules.firestoreServiceAgent"
+        },
+        {
+          "role": "roles/firebasestorage.serviceAgent"
+        }
+      ]
+    }
+  ],
+  "moderationPointsInvoker": {
+    "ok": true,
+    "status": 200,
+    "body": {
+      "version": 1,
+      "etag": "BwZVqFrPg2Y=",
+      "bindings": [
+        {
+          "role": "roles/run.invoker",
+          "members": [
+            "allUsers"
+          ]
+        }
+      ]
+    }
+  }
+}

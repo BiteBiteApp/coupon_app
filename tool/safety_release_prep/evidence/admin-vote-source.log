@@ -1,0 +1,37 @@
+✔ actual Admin remove-review query/delete order removes votes and legacy reports, preserving independent cases (467.4735ms)
+[2026-10-17T19:43:37.754Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x28fea339 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2027:24 for 'delete' @ L2027, false for 'delete' @ L2229, false for 'delete' @ L2027, false for 'delete' @ L2229
+[2026-10-17T19:43:37.765Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x28fea33a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2027:24 for 'delete' @ L2027, false for 'delete' @ L2229, false for 'delete' @ L2027, false for 'delete' @ L2229
+[2026-10-17T19:43:37.774Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x28fea33b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2027:24 for 'delete' @ L2027, false for 'delete' @ L2229, false for 'delete' @ L2027, false for 'delete' @ L2229
+[2026-10-17T19:43:37.782Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x28fea33c error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L2027, false for 'delete' @ L2229
+✔ a stranger, author or business owner cannot impersonate Admin to delete another user vote (50.638292ms)
+[2026-10-17T19:43:37.818Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x28fea33f error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2027:24 for 'delete' @ L2027, false for 'delete' @ L2229, false for 'delete' @ L2027, false for 'delete' @ L2229
+✔ Admin vote cleanup preserves deletion fence for admin (35.839667ms)
+[2026-10-17T19:43:37.844Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x28fea342 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2027:24 for 'delete' @ L2027, false for 'delete' @ L2229, false for 'delete' @ L2027, false for 'delete' @ L2229
+✔ Admin vote cleanup preserves deletion fence for voter (26.051833ms)
+[2026-10-17T19:43:37.875Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x28fea345 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2027:24 for 'delete' @ L2027, false for 'delete' @ L2229, false for 'delete' @ L2027, false for 'delete' @ L2229
+✔ Admin vote cleanup preserves dish operation lock (31.139083ms)
+[2026-10-17T19:43:37.903Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x28fea348 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2027:24 for 'delete' @ L2027, false for 'delete' @ L2229, false for 'delete' @ L2027, false for 'delete' @ L2229
+✔ Admin vote cleanup preserves restaurant operation lock (27.715541ms)
+[2026-10-17T19:43:37.926Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x28fea34a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2021:24 for 'update' @ L2021, false for 'update' @ L2229, false for 'update' @ L2021, false for 'update' @ L2229
+[2026-10-17T19:43:37.931Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x28fea34b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L2018, false for 'create' @ L2229, false for 'update' @ L2021, false for 'update' @ L2229
+✔ Admin permission is deletion-only and cannot overwrite or forge another user vote (28.141625ms)
+✔ source own-vote withdrawal remains available (24.821834ms)
+﹣ candidate keeps Admin review movement closed even without screening runtime (0.093583ms) # SKIP
+ℹ tests 9
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 827.8815

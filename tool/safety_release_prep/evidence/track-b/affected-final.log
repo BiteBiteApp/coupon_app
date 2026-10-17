@@ -1,0 +1,295 @@
+✔ finalize ignores other bucket before dependencies (60.747208ms)
+✔ finalize ignores metadata update before dependencies (6.88425ms)
+✔ finalize ignores old photo before dependencies (4.693083ms)
+✔ finalize ignores old shared menu before dependencies (4.343458ms)
+✔ finalize ignores malformed generation before dependencies (4.32475ms)
+✔ finalize ignores unsafe numeric generation before dependencies (5.119708ms)
+✔ finalize ignores forged metadata before dependencies (5.038875ms)
+✔ finalize ignores missing proof before dependencies (5.3535ms)
+✔ finalize ignores extra path segment before dependencies (5.074167ms)
+✔ active A survives, and deleting A cannot affect B or a B URL published by A (146.094875ms)
+✔ core race: complete after ordinary scan, then late finalize deletes exact A generation without resurrection (1726.506209ms)
+✔ stale G1 event preserves newer G2 even when G1 was journaled before replacement (36.190542ms)
+✔ foreign current metadata cannot be used as owner proof even with forged matching event metadata (24.750875ms)
+✔ durable retry recovers temporary through the existing worker (1510.1705ms)
+✔ durable retry recovers lost-ack through the existing worker (1478.49575ms)
+✔ durable retry recovers after-delete-read through the existing worker (1562.526042ms)
+✔ durable retry recovers crash-after-journal through the existing worker (1563.604916ms)
+✔ parallel duplicate deliveries create one journal/revision; already absent event is idempotent (33.222042ms)
+✔ finalize registration racing worker completion prevents false complete and preserves active lease (37.697584ms)
+✔ preexisting known late journal also blocks completion without a revision change (33.888291ms)
+✔ same-email new UID survives; unsafe identical UID reuse preserves bytes and reports identity_changed (1505.817208ms)
+✔ retired menu grant retains exact proof after absent scan/completion; revoked preparation alone is insufficient (1761.6795ms)
+✔ every trusted business prefix resolves exact UID; foreign and malformed grants survive (53.465166ms)
+✔ real local Storage adapter removes late object and preserves forged ownership metadata (1529.931041ms)
+✔ pinned Storage SDK receives exact decimal generation and precondition without Number rounding (6.6ms)
+✔ screened owner namespace late finalize uses durable owner tombstone after screening row purge (1801.080875ms)
+✔ screened owner stale finalize never deletes replacement generation or foreign ownership (39.353542ms)
+✔ trusted save preserves formula, replaces edits, and trigger retry is idempotent (3.121042ms)
+✔ concurrent logical reviews preserve totals and only one contribution per reviewer (5.495875ms)
+✔ delete, stale deletion after restoration, moderation, and actual zero review result (0.544583ms)
+✔ duplicate logical IDs use global freshness and exact document ID tie-break (0.349375ms)
+✔ old delayed save timestamps cannot change logical freshness winner (0.239291ms)
+✔ default off and required post-wipe initialization never backfill old fake data (0.321708ms)
+✔ trusted review rejects an account switch before accessing either account's data (0.061083ms)
+✔ save enforces auth, exact identity, visibility, inputs, and all operation locks (0.357167ms)
+✔ bounded generation rebase preserves destructive aggregate until full scan and cleanup complete (9.2805ms)
+✔ rebuild restarts on intervening review events and waits for active merge locks (3.186583ms)
+✔ shared new-data identity fixtures bind review IDs to dish creation provenance (0.91975ms)
+✔ previously unrated new merge target initializes accounting from bounded operation rebase (0.233125ms)
+✔ dish deletion retires and boundedly cleans its private accounting without recreating scores (2.835375ms)
+✔ logical review tie-break preserves Dart UTF-16 ordering rather than UTF-8 document order (0.173458ms)
+✔ unpublished default is dormant, saves unchanged, and never issues a draft receipt (0.180208ms)
+✔ active trusted write denies missing, obsolete, cross-user and client-asserted receipts atomically (0.243583ms)
+✔ acceptance is UID-bound, minimal, idempotent and preserves private profile fields (0.310375ms)
+✔ guest, signed-out, account-switched and deleting identities cannot accept (0.083875ms)
+✔ existing Rules exclude receipt field from client mutations and existing deletion removes profile root (0.972458ms)
+✔ posting-only restriction rejects trusted rating/review edits before any writes and automatically expires (0.225041ms)
+✔ mandatory runtime with no approved text, stale Function version or malformed metadata fails closed (0.2385ms)
+✔ an explicitly compatible revision honors original receipt without rewriting its date or version (0.12925ms)
+✔ malformed/future receipt time and anonymous trusted review actor cannot publish (0.135208ms)
+✔ photo create verifies actual caller, target upload and returns only public fields; retry preserves one image (5.246792ms)
+✔ photo storage identity preserves canonical Unicode and spaces without accepting sanitized aliases (0.496167ms)
+✔ photo authentication fails before Storage or database reads (0.313208ms)
+✔ photo account pin rejects a replaced actual actor before any Firestore or Storage access (0.182167ms)
+✔ photo creation preserves Admin metadata right but voting requires verified actor (0.254833ms)
+✔ photo create rejects spoofed uploader fields, mismatched upload path/url/token/bucket and invalid objects (1.107459ms)
+✔ photo parent, review attribution, runtime and destructive locks are authoritative (0.652542ms)
+✔ concurrent missing-image additions allow one image and reject identity reuse by another actor (0.198ms)
+✔ photo vote toggles, switches and concurrent users preserve authoritative counts (1.123958ms)
+✔ photo votes reject missing image, wrong parent, locks and another actor's colliding vote document (0.251958ms)
+✔ new photo ownership rejects foreign metadata and forged proof on retired paths (0.231459ms)
+✔ posting restriction blocks photo publication and new votes; existing content and own withdrawal survive (0.391917ms)
+(node:42555) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+✔ review DTO uses exact source identity and established public visibility allowlist (1.060667ms)
+✔ trusted review and feedback projection is duplicate-safe and follows current source across delayed events (5.357667ms)
+✔ reviews apply global Most helpful before paging; 63 records no repeats (6.521084ms)
+✔ reviews apply global Most recent before paging; 63 records no repeats (3.466291ms)
+✔ reviews apply global Highest score before paging; 63 records no repeats (3.449958ms)
+✔ reviews apply global Lowest score before paging; 63 records no repeats (3.222458ms)
+✔ review cursors reject another actor, changed order, and generation changes; stale hidden text is excluded (1.954584ms)
+✔ detail allows only public DTO and server-confirmed owner metadata; hidden roots override stale index (0.286167ms)
+✔ image display DTO excludes uploader and internal storage path (2.966958ms)
+✔ tied reviews preserve Dart UTF16 identity order including long distinct IDs (1.012084ms)
+✔ direct review target beyond initial25 anchors a bounded globallyordered page (2.106375ms)
+✔ accepted long review text remains public written text and contributes helpful ordering (0.034583ms)
+✔ images preserve global helpful, sort, time and UTF16 order across25item pages; primary/count converge (5.56275ms)
+✔ review photo uses global earliest sort/time/UTF16 order independently of gallery helpful order (0.500916ms)
+✔ disabled image runtime indexes safely without replacing legacy primary/count (0.192709ms)
+✔ review/image reordered stored keys are idempotent and submillisecond timestamps retain ordering (2.171833ms)
+✔ public helpful totals follow feedback, author reassignment, and visibility (0.274792ms)
+✔ trusted image writes wait for dish/restaurant/proposal locks without committing accounting ahead (0.782375ms)
+✔ permanent retired and deleted image parents are never patched or resurrected (0.549417ms)
+✔ personal filtering preserves Most helpful, lookahead and all eligible records across bounded pages (4.32325ms)
+✔ personal filtering preserves Most recent, lookahead and all eligible records across bounded pages (5.303875ms)
+✔ personal filtering preserves Highest score, lookahead and all eligible records across bounded pages (5.608458ms)
+✔ personal filtering preserves Lowest score, lookahead and all eligible records across bounded pages (5.063041ms)
+✔ no blocks, signed-out and guest contexts preserve ordinary public results and ignore forged viewer fields (0.676292ms)
+✔ one repeated blocked author adds one exact block read and no excluded text, image, identity or metadata (1.495875ms)
+✔ long blocked prefix yields empty continuing pages without skipping lookahead or eligible reviews (3.168958ms)
+✔ blocked exact target is neutrally unavailable, valid target retains dish/order semantics (4.200875ms)
+✔ block/unblock revisions reject old continuations and account switches even with a reused actor binding (5.039667ms)
+✔ in-flight block/unblock and preference removal fail closed at the final revision check (0.737167ms)
+✔ malformed revision and inconsistent block identity never fall back to public content (0.498625ms)
+✔ authoritative reassignment cannot bypass blocks and inconsistent/stale sources remain fail closed (0.287416ms)
+✔ eligible review votes, pending reports, profile metadata, badges and image remain unchanged (0.370917ms)
+✔ actual review callable uses Firebase UID, keeps guest behavior, and never trusts payload viewer identity (97.742875ms)
+✔ moderated source suppresses stale gallery and review-photo index entries without removing the written review (0.48775ms)
+✔ detail strips a stale primary URL without losing the dish when its search projection lags (0.200208ms)
+✔ managed image is private while scanning, available and registered; only explicit Save publishes (699.897417ms)
+✔ coupon and both menu sources publish only exact intended target; text draft is never created by scan or Admin (554.255167ms)
+✔ held image queue identifies exact owner source; Admin approval alone stays private until owner saves (159.7235ms)
+✔ forged sources, account switches, arbitrary URLs, changed source and deletion fence fail before admission (19.934417ms)
+✔ source removal and byte replacement during scan never publish; exact-generation Admin decision rejects (70.382334ms)
+✔ shared 1000 allowance admits only one of owner and BiteScore at 999; rollover uses same UTC bucket (112.03825ms)
+✔ pending and approved-but-unused expire at original 30 days; failed stored bytes at seven; rejection is prompt (345.117ms)
+[2026-10-17T19:48:19.560Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x24807a84 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1397:24 for 'update' @ L1397, false for 'update' @ L1465, false for 'update' @ L2229, false for 'update' @ L1397, false for 'update' @ L1465, false for 'update' @ L2229
+[2026-10-17T19:48:19.568Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x24807a85 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1382:24 for 'update' @ L1382, false for 'update' @ L1465, false for 'update' @ L2229, false for 'update' @ L1382, false for 'update' @ L1465, false for 'update' @ L2229
+[2026-10-17T19:48:19.571Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x24807a86 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1421:26 for 'create' @ L1421, false for 'create' @ L1465, false for 'create' @ L2229, evaluation error at L1423:24 for 'update' @ L1423, false for 'update' @ L1465, false for 'update' @ L2229, false for 'create' @ L1421, false for 'create' @ L1465, false for 'create' @ L2229
+[2026-10-17T19:48:19.575Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x24807a87 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2147:26 for 'create' @ L2147, false for 'create' @ L2167, false for 'create' @ L2229, evaluation error at L2148:24 for 'update' @ L2148, false for 'update' @ L2167, false for 'update' @ L2229, false for 'create' @ L2147, false for 'create' @ L2167, false for 'create' @ L2229
+✔ after candidate cutover old clients cannot upload public bytes or change image URLs; historical reads and text edits remain (398.438666ms)
+✔ main preserves inactive subscription eligibility; exact save and migration into managed gallery preserve live references (231.853125ms)
+✔ manual special and board use exact targets, text-only entries and exclusive display; crossed gallery assignment fails (381.265708ms)
+✔ global and owner pauses stop new attachment in every lane while unchanged coupon text remains usable (350.268667ms)
+✔ upload absence is cleaned after lease and permits only explicit bounded retry; status never scans (119.154416ms)
+[2026-10-17T19:48:20.733Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x24807a8a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1423:24 for 'update' @ L1423, false for 'update' @ L1465, false for 'update' @ L2229, false for 'update' @ L1423, false for 'update' @ L1465, false for 'update' @ L2229
+[2026-10-17T19:48:20.748Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x24807a8b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1423:24 for 'update' @ L1423, false for 'update' @ L1465, false for 'update' @ L2229, false for 'update' @ L1423, false for 'update' @ L1465, false for 'update' @ L2229
+✔ trusted target token cannot be stripped; deletion/recreation and generation replacement cannot resurrect approval (159.373125ms)
+✔ Admin menu authority retains existing inactive-owner exception and rechecks revoked Admin claims (128.485792ms)
+✔ source revocation and account deletion during provider call fail closed; delayed retire cannot remove live image (229.890458ms)
+✔ deletion drains exact screened shared-menu references even when bytes already absent; other owners and shared text survive (92.45ms)
+[2026-10-17T19:48:21.482Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x24807a8c error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1410:24 for 'update' @ L1410, false for 'update' @ L1465, false for 'update' @ L2229, false for 'update' @ L1410, false for 'update' @ L1465, false for 'update' @ L2229
+✔ manual-special approval cannot follow a deleted/recreated target; draft token survives later text saves (236.779542ms)
+✔ legacy deletion of manual special or board hides bytes immediately and retirement preserves unrelated gallery (495.412625ms)
+✔ removing an unrelated unused photo preserves published special, board and gallery references (838.181083ms)
+✔ full account deletion removes screened shared-menu bytes and references while retaining shared facts and other users (2019.632833ms)
+✔ ordinary photo: actual tokenless Storage bytes denied pending, approved on exact generation, one scan under concurrency (789.092458ms)
+✔ suspicious/ambiguous held privately; authorized preview and decision; no repeated scan (181.182417ms)
+✔ rejection stays nonpublic and cannot be reversed or retried into publication (130.009375ms)
+✔ missing/malformed provider response and timeout fail closed; explicit bounded retry only (208.365834ms)
+✔ auth account switch, malformed identity, forged verdict/URL and deleted account denied (9.932958ms)
+✔ review/missing/gallery share screening; exact review ownership and missing-photo race protected (118.475459ms)
+✔ deleted/retired parents and active posting restriction deny before costs (47.795333ms)
+✔ account deletion/restriction/parent retirement during scan never publishes (239.341375ms)
+✔ changed/deleted generation cannot be automatically or manually approved (124.75ms)
+✔ allowance is atomic across users; disabled or absent allowance/retention never calls provider (2863.871291ms)
+✔ global leases and per-user admission bound concurrency; live pause blocks in-flight auto publication (121.404208ms)
+[2026-10-17T19:48:29.991Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309c5 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1979, false for 'create' @ L2229, evaluation error at L1982:24 for 'update' @ L1982, false for 'update' @ L2229, false for 'create' @ L1979, false for 'create' @ L2229
+[2026-10-17T19:48:29.995Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309c6 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1982:24 for 'update' @ L1982, false for 'update' @ L2229, false for 'update' @ L1982, false for 'update' @ L2229
+[2026-10-17T19:48:29.997Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309c7 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L2229, false for 'update' @ L2229
+[2026-10-17T19:48:30.030Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309c9 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1882, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1882, false for 'update' @ L2229
+[2026-10-17T19:48:30.042Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309ca error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1979, false for 'create' @ L2229, evaluation error at L1982:24 for 'update' @ L1982, false for 'update' @ L2229, false for 'create' @ L1979, false for 'create' @ L2229
+[2026-10-17T19:48:30.045Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309cb error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1982:24 for 'update' @ L1982, false for 'update' @ L2229, false for 'update' @ L1982, false for 'update' @ L2229
+[2026-10-17T19:48:30.048Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309cc error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L2229, false for 'update' @ L2229
+[2026-10-17T19:48:30.077Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309ce error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1882, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1882, false for 'update' @ L2229
+[2026-10-17T19:48:30.088Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309cf error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1979, false for 'create' @ L2229, evaluation error at L1982:24 for 'update' @ L1982, false for 'update' @ L2229, false for 'create' @ L1979, false for 'create' @ L2229
+[2026-10-17T19:48:30.091Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309d0 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1982:24 for 'update' @ L1982, false for 'update' @ L2229, false for 'update' @ L1982, false for 'update' @ L2229
+[2026-10-17T19:48:30.093Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309d1 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L2229, false for 'update' @ L2229
+[2026-10-17T19:48:30.121Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309d3 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1882, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1882, false for 'update' @ L2229
+[2026-10-17T19:48:30.131Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309d4 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1979, false for 'create' @ L2229, evaluation error at L1982:24 for 'update' @ L1982, false for 'update' @ L2229, false for 'create' @ L1979, false for 'create' @ L2229
+[2026-10-17T19:48:30.134Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309d5 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1982:24 for 'update' @ L1982, false for 'update' @ L2229, false for 'update' @ L1982, false for 'update' @ L2229
+[2026-10-17T19:48:30.135Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309d6 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L2229, false for 'update' @ L2229
+[2026-10-17T19:48:30.161Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309d8 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1882:24 for 'update' @ L1882, false for 'update' @ L2229, false for 'update' @ L1882, false for 'update' @ L2229
+[2026-10-17T19:48:30.172Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309d9 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1979, false for 'create' @ L2229, false for 'update' @ L1982, false for 'update' @ L2229
+[2026-10-17T19:48:30.173Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309da error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L1982, false for 'update' @ L2229
+[2026-10-17T19:48:30.175Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309db error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L2229, false for 'update' @ L2229
+[2026-10-17T19:48:30.203Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x6bf309dd error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L1882, false for 'update' @ L2229
+✔ server gate blocks legacy publication and all client public-write/Storage bypasses including Admin and owner (324.072958ms)
+✔ Report Photo exact identity/removal and voting preserved; retries cannot resurrect (173.420083ms)
+✔ real Auth emulator token reaches screened callable wrapper without real provider access (43.611459ms)
+✖ two different missing photos admitted concurrently publish only one and never rescan the held loser (12015.772125ms)
+✔ review-photo contribution point survives delayed Admin approval and trigger/callable retries without duplication (196.281875ms)
+✔ long generation strings remain exact in verdict and object checks, never converted to JS Number (44.063375ms)
+✔ pending photo expires at thirty days plus 0ms and exact bytes disappear (174.7935ms)
+✔ pending photo expires at thirty days plus 1ms and exact bytes disappear (179.40775ms)
+✔ approval immediately before expiry survives future maintenance; transaction crossing expiry cannot approve (209.699583ms)
+✔ rejection is final before physical delete; duplicate cleanup and rejection serialize (126.761833ms)
+✔ Storage failures back off durably, stop at eight attempts, and explicit authorized retry recovers (313.303209ms)
+✔ failed upload without bytes cleans only its own object (70.216667ms)
+✔ failed upload with lost acknowledgement cleans only its own object (69.587542ms)
+✔ failed screening retains real bytes for candidate seven days; retry never extends deadline (188.74075ms)
+✔ cleaned failed upload permits one explicit bounded retry with the original deadline (183.909209ms)
+✔ late original upload with create-only Storage contract preserves approved retry and one scan (131.748125ms)
+✔ crashed cleanup resumes after retry only against its old immutable generation (145.128542ms)
+✔ cleanup pause retains terminal private status and recovery resumes without a provider call (121.220125ms)
+✔ failed upload with no generation can recover cleanup through the Admin queue DTO (161.221291ms)
+✔ candidate retention configuration is explicit and admission cannot use old approval flag alone (146.605792ms)
+✔ late provider response after cleanup cannot publish or recreate deleted bytes (95.857708ms)
+✔ crashed stored scan is recoverable without automatic provider calls (92.905833ms)
+✔ late finalize re-arms an absent failed upload and duplicate event does not restart cleanup (126.156958ms)
+✔ finalize arriving during an absent probe cannot be lost when cleanup completes (127.478542ms)
+✔ replacement generation and forged ownership are retained for attention, never deleted (130.383708ms)
+✔ deletion of the screening record during exact cleanup never resurrects personal state (110.43325ms)
+✔ any public source including removed excludes retention cleanup despite stale pending metadata (71.660417ms)
+✔ expired held bytes are cleaned even when parents retire, without recreating catalog data (118.6235ms)
+✔ maintenance is gated and bounded; due pages advance and Admin queue paginates (347.435916ms)
+✔ 1000 UTC monthly admissions: 999 permits one concurrent reservation, 1000 and 1001 deny, rollover resets (112.634417ms)
+✔ clean new review publishes once and preserves trusted ratings, counts and retry idempotency (197.254625ms)
+✔ rating-only never calls provider and explicit blank removes words (89.074792ms)
+✔ questionable new words are private, rating remains public and Admin rejection erases only proposal words (62.627ms)
+✔ questionable edit retains older words and changes rating exactly once; approval changes no aggregate or timestamps (106.339125ms)
+✔ partial removal is honored while replacement words are held (78.971667ms)
+✔ superseded proposal cannot be approved or rejected (93.956125ms)
+✔ delayed provider cannot publish after newer edit (73.54125ms)
+✔ withdrawal and same-ID recreation cannot revive old proposal, including delayed delete trigger (123.724917ms)
+✔ changed dish identity and deletion fence block decisions and private drafts (62.2505ms)
+✔ provider failure and processing pause retain rating and private words with no false publication (68.364042ms)
+✔ disabled feature preserves historical words without provider traffic; unapproved retention blocks activation (41.193583ms)
+✔ author status is private, rejects account switch; nonadmin queue/decision denied (44.707333ms)
+✔ queue is bounded and paginated; expired text is excluded and cleanup deletes private words (133.9015ms)
+✔ per-user admissions bound calls independently of image allowance (285.224917ms)
+✔ posting restrictions active/expired/released and terms remain independent (86.875667ms)
+✔ explicit failed resubmission retries same version at most twice without extending retention (117.565833ms)
+✔ public projection, reviewer history source and report evidence contain approved words only (116.3395ms)
+✔ deleted account, active posting restriction and dish locks during screening cannot publish (107.37575ms)
+✔ simultaneous ordinary edits still contribute one rating and only current words (3450.597125ms)
+✔ valid flagged completion keeps original 30-day retention while a new posting restriction blocks publication (106.205208ms)
+✔ expired screening lease recovers once, fences abandoned completion, keeps original deadline (87.654917ms)
+✔ terminal receipts do not crowd raw-text expiry and cleanup must be approved before holding words (104.877375ms)
+✔ existing published-review moderation is not bypassed by text approval (80.003041ms)
+✔ approved inert configuration has exact separate durations; incomplete or legacy active contracts fail closed (99.891917ms)
+✔ flagged pending deadline is exactly 30 consecutive days from original submission; duplicate saves and reads never extend it (87.305333ms)
+✔ pending at 30 days + 0ms expires without scheduler and preserves prior public words, ratings and votes (117.502916ms)
+✔ pending at 30 days + 1ms expires without scheduler and preserves prior public words, ratings and votes (120.589333ms)
+✔ failed screening expires at exactly seven days, never publishes automatically and never extends on duplicate resubmission (79.530333ms)
+✔ explicit successful retry clean uses original submission and correct state deadline (86.695084ms)
+✔ explicit successful retry flagged uses original submission and correct state deadline (79.180291ms)
+✔ in-flight lease becomes honest failure; response at seven-day boundary cannot publish (47.122125ms)
+✔ pause and admission failure use seven days; malformed active config blocks late clean publication and Admin approval (90.165542ms)
+✔ Admin rejection wins against an in-flight retry and immediately strips raw words (83.413541ms)
+✔ bounded expiry recovers after partial job failure and duplicate runs; TTL deletion cannot affect public content (139.403834ms)
+✔ decision clock is rechecked after reads crossing the 30-day deadline (55.808583ms)
+✔ provider clock is rechecked after permission reads crossing the seven-day deadline (49.223417ms)
+✔ author and Admin responses use clock after reads and omit words at exact expiry (59.98825ms)
+✔ raw TTL removal keeps only minimal current identity and withdrawal removes that receipt (75.247041ms)
+✔ published exact Terms compose with customer rating/photo and owner explicit attachment without authority grants (773.854334ms)
+✔ simultaneous provider pause keeps held text/customer photos/owner assets private and recovery preserves original versions (7126.979083ms)
+✔ default-OFF is distinct from safe pause; malformed required policy blocks every new screening lane (237.307ms)
+✔ screened photo remains shared after personal block and exact report is actionable after its review disappears (263.594292ms)
+✔ customer: Firestore abort retries completion checks without resubmitting provider or spending admission (1085.538167ms)
+✔ customer: nonretryable completion error reaches transaction adapter without publishing unchecked content (73.055875ms)
+✔ owner: Firestore abort retries completion checks without resubmitting provider or spending admission (708.724875ms)
+✔ owner: nonretryable completion error reaches transaction adapter without publishing unchecked content (56.592791ms)
+✔ text: Firestore abort retries completion checks without resubmitting provider or spending admission (1066.424125ms)
+✔ text: nonretryable completion error reaches transaction adapter without publishing unchecked content (56.949167ms)
+ℹ tests 206
+ℹ suites 0
+ℹ pass 205
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 64031.878666
+
+✖ failing tests:
+
+test at test/photo_screening_emulator.test.js:9:24
+✖ two different missing photos admitted concurrently publish only one and never rescan the held loser (12015.772125ms)
+  Error: 3 INVALID_ARGUMENT: Transaction is invalid or closed.
+      at callErrorFromStatus (/Users/colesmart/dev/coupon_app/functions/node_modules/@grpc/grpc-js/build/src/call.js:32:19)
+      at Object.onReceiveStatus (/Users/colesmart/dev/coupon_app/functions/node_modules/@grpc/grpc-js/build/src/client.js:359:73)
+      at Object.onReceiveStatus (/Users/colesmart/dev/coupon_app/functions/node_modules/@grpc/grpc-js/build/src/client-interceptors.js:327:181)
+      at /Users/colesmart/dev/coupon_app/functions/node_modules/@grpc/grpc-js/build/src/resolving-call.js:135:78
+      at process.processTicksAndRejections (node:internal/process/task_queues:85:11)
+  for call at
+      at ServiceClientImpl.makeServerStreamRequest (/Users/colesmart/dev/coupon_app/functions/node_modules/@grpc/grpc-js/build/src/client.js:342:32)
+      at ServiceClientImpl.<anonymous> (/Users/colesmart/dev/coupon_app/functions/node_modules/@grpc/grpc-js/build/src/make-client.js:105:19)
+      at /Users/colesmart/dev/coupon_app/functions/node_modules/@google-cloud/firestore/build/src/v1/firestore_client.js:242:33
+      at /Users/colesmart/dev/coupon_app/functions/node_modules/google-gax/build/src/streamingCalls/streamingApiCaller.js:38:28
+      at /Users/colesmart/dev/coupon_app/functions/node_modules/google-gax/build/src/normalCalls/timeout.js:44:16
+      at Object.request (/Users/colesmart/dev/coupon_app/functions/node_modules/google-gax/build/src/streamingCalls/streaming.js:234:40)
+      at Timeout.makeRequest [as _onTimeout] (/Users/colesmart/dev/coupon_app/functions/node_modules/retry-request/index.js:159:28)
+      at listOnTimeout (node:internal/timers:635:17)
+      at process.processTimers (node:internal/timers:571:7) {
+    code: 3,
+    details: 'Transaction is invalid or closed.',
+    metadata: { internalRepr: Map(1) { 'content-type' => [Array] }, opaqueData: Map(0) {}, options: {} }
+  }

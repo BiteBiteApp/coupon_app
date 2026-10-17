@@ -1,0 +1,47 @@
+✔ Users Previous queries match each effective reverse index exactly once (35.401291ms)
+✔ Firestore composite indexes exactly match the current production query contract (0.424667ms)
+✔ Firestore composite index contract is unique, scoped, and structurally valid (0.848917ms)
+✔ every explicit and automatic query contract points to current source (0.412875ms)
+✔ Firestore TTL and single-field settings exactly match customer and Admin temporary contracts (0.432208ms)
+✔ legacy public restaurant projection remains an automatic-index query (0.142708ms)
+✔ ordinary photograph approved; medical and spoof never independently prohibit content (0.572042ms)
+✔ adult UNKNOWN held, never automatically rejected (0.048375ms)
+✔ adult POSSIBLE held, never automatically rejected (0.037917ms)
+✔ adult LIKELY held, never automatically rejected (0.032042ms)
+✔ adult VERY_LIKELY held, never automatically rejected (0.031333ms)
+✔ violence UNKNOWN held, never automatically rejected (0.02825ms)
+✔ violence POSSIBLE held, never automatically rejected (0.025917ms)
+✔ violence LIKELY held, never automatically rejected (0.029833ms)
+✔ violence VERY_LIKELY held, never automatically rejected (0.036083ms)
+✔ racy UNKNOWN held, never automatically rejected (0.058792ms)
+✔ racy POSSIBLE held, never automatically rejected (0.033083ms)
+✔ racy LIKELY held, never automatically rejected (0.025833ms)
+✔ racy VERY_LIKELY held, never automatically rejected (0.025ms)
+✔ missing, malformed and numeric provider values fail closed (0.092625ms)
+✔ real provider hard-denies local/test environment before ADC or network use (0.18625ms)
+✔ deterministic clean outcome: Wonderful burger. (0.983167ms)
+✔ deterministic clean outcome: The food was awful. Terrible service. (0.135125ms)
+✔ deterministic clean outcome: Damn good burger. (0.080917ms)
+✔ deterministic clean outcome: Yeah, cold fries. Living the dream. (0.051334ms)
+✔ deterministic clean outcome: Call me at 555-0100. (0.047791ms)
+✔ category risk signal requires human review: harassment/threatening (0.049417ms)
+✔ category risk signal requires human review: hate (0.033167ms)
+✔ category risk signal requires human review: harassment (0.027583ms)
+✔ category risk signal requires human review: sexual (0.036458ms)
+✔ category risk signal requires human review: violence (0.071167ms)
+✔ broad flag and inconsistent category flags are conservative holds, no score thresholds (0.068584ms)
+✔ malformed cardinality, schema, model, scores and input modality fail closed (0.218875ms)
+✔ input limits, missing key, unavailable provider and bounded concurrent requests (0.186875ms)
+✔ fixed HTTPS transport: http-error (0.68225ms)
+✔ fixed HTTPS transport: invalid-json (0.097791ms)
+✔ fixed HTTPS transport: oversized (0.116833ms)
+✔ fixed HTTPS transport: timeout (0.086ms)
+✔ fixed HTTPS transport: valid (0.076584ms)
+ℹ tests 39
+ℹ suites 0
+ℹ pass 39
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 169.48425

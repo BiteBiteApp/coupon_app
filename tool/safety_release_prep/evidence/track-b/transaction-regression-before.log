@@ -1,0 +1,112 @@
+✖ customer: Firestore abort retries completion checks without resubmitting provider or spending admission (787.778542ms)
+✖ customer: nonretryable infrastructure error propagates without publishing unchecked content (75.419209ms)
+✖ owner: Firestore abort retries completion checks without resubmitting provider or spending admission (64.920584ms)
+✖ owner: nonretryable infrastructure error propagates without publishing unchecked content (59.845208ms)
+✖ text: Firestore abort retries completion checks without resubmitting provider or spending admission (70.56525ms)
+✖ text: nonretryable infrastructure error propagates without publishing unchecked content (44.753209ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 0
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3846.530583
+
+✖ failing tests:
+
+test at test/safety_transaction_retry.test.js:11:29
+✖ customer: Firestore abort retries completion checks without resubmitting provider or spending admission (787.778542ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'failed'
+  - 'approved'
+  
+      at TestContext.<anonymous> (/Users/colesmart/dev/coupon_app/functions/test/safety_transaction_retry.test.js:79:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'failed',
+    expected: 'approved',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/safety_transaction_retry.test.js:11:29
+✖ customer: nonretryable infrastructure error propagates without publishing unchecked content (75.419209ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (/Users/colesmart/dev/coupon_app/functions/test/safety_transaction_retry.test.js:87:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at test/safety_transaction_retry.test.js:11:29
+✖ owner: Firestore abort retries completion checks without resubmitting provider or spending admission (64.920584ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'failed'
+  - 'available'
+  
+      at TestContext.<anonymous> (/Users/colesmart/dev/coupon_app/functions/test/safety_transaction_retry.test.js:79:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'failed',
+    expected: 'available',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/safety_transaction_retry.test.js:11:29
+✖ owner: nonretryable infrastructure error propagates without publishing unchecked content (59.845208ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (/Users/colesmart/dev/coupon_app/functions/test/safety_transaction_retry.test.js:87:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at test/safety_transaction_retry.test.js:11:29
+✖ text: Firestore abort retries completion checks without resubmitting provider or spending admission (70.56525ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'screening_failed'
+  - 'published'
+  
+      at TestContext.<anonymous> (/Users/colesmart/dev/coupon_app/functions/test/safety_transaction_retry.test.js:79:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'screening_failed',
+    expected: 'published',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/safety_transaction_retry.test.js:11:29
+✖ text: nonretryable infrastructure error propagates without publishing unchecked content (44.753209ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (/Users/colesmart/dev/coupon_app/functions/test/safety_transaction_retry.test.js:87:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

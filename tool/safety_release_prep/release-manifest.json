@@ -1,0 +1,3051 @@
+{
+  "schemaVersion": 1,
+  "runId": "BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001",
+  "preparedAt": "2026-10-17",
+  "startingHead": "14b341f61eb3e914a5c450cfb4f92de44e665002",
+  "executionEnabled": false,
+  "productionDeploymentPerformed": false,
+  "productionActivationPerformed": false,
+  "providerCallsPerformed": false,
+  "intendedUse": "Concrete nonexecuting release preparation; metadata/resource proposals require later targeted authorization after paid search investigation/findings.",
+  "functionResources": [
+    {
+      "id": "getCustomerBiteScoreTerms",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/getCustomerBiteScoreTerms",
+      "export": "getCustomerBiteScoreTerms",
+      "exportSource": "functions/src/index.ts",
+      "group": "consent",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Serve exact published shared Terms and create only server-timed UID-bound acceptance receipts.",
+      "dependencies": [
+        "published-terms",
+        "terms-source-binding",
+        "firestore-policy"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/bitescore_terms.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/consent"
+    },
+    {
+      "id": "acceptCustomerBiteScoreTerms",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/acceptCustomerBiteScoreTerms",
+      "export": "acceptCustomerBiteScoreTerms",
+      "exportSource": "functions/src/index.ts",
+      "group": "consent",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Serve exact published shared Terms and create only server-timed UID-bound acceptance receipts.",
+      "dependencies": [
+        "published-terms",
+        "terms-source-binding",
+        "firestore-policy"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/bitescore_terms.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/consent"
+    },
+    {
+      "id": "getCustomerPostingStatus",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/getCustomerPostingStatus",
+      "export": "getCustomerPostingStatus",
+      "exportSource": "functions/src/index.ts",
+      "group": "posting",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Show and enforce existing posting restriction without disabling browsing/coupons/owner authority.",
+      "dependencies": [
+        "firestore-policy"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/posting_restrictions.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/posting"
+    },
+    {
+      "id": "submitReviewerReport",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/submitReviewerReport",
+      "export": "submitReviewerReport",
+      "exportSource": "functions/src/index.ts",
+      "group": "reporting-blocking",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Current report/block workflows and private paged list; no new Report Reviewer button.",
+      "dependencies": [
+        "firestore-policy",
+        "bounded-readers"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/reviewer_safety.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/reporting-blocking"
+    },
+    {
+      "id": "blockReviewer",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/blockReviewer",
+      "export": "blockReviewer",
+      "exportSource": "functions/src/index.ts",
+      "group": "reporting-blocking",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Current report/block workflows and private paged list; no new Report Reviewer button.",
+      "dependencies": [
+        "firestore-policy",
+        "bounded-readers"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/reviewer_safety.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/reporting-blocking"
+    },
+    {
+      "id": "unblockReviewer",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/unblockReviewer",
+      "export": "unblockReviewer",
+      "exportSource": "functions/src/index.ts",
+      "group": "reporting-blocking",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Current report/block workflows and private paged list; no new Report Reviewer button.",
+      "dependencies": [
+        "firestore-policy",
+        "bounded-readers"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/reviewer_safety.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/reporting-blocking"
+    },
+    {
+      "id": "getReviewerSafetyStatus",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/getReviewerSafetyStatus",
+      "export": "getReviewerSafetyStatus",
+      "exportSource": "functions/src/index.ts",
+      "group": "reporting-blocking",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Current report/block workflows and private paged list; no new Report Reviewer button.",
+      "dependencies": [
+        "firestore-policy",
+        "bounded-readers"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/reviewer_safety.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/reporting-blocking"
+    },
+    {
+      "id": "submitPhotoReport",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/submitPhotoReport",
+      "export": "submitPhotoReport",
+      "exportSource": "functions/src/index.ts",
+      "group": "photo-reporting",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Exact current image/version report handling and removal, including missing source handling.",
+      "dependencies": [
+        "firestore-policy",
+        "bounded-readers",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/photo_reports.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/photo-reporting"
+    },
+    {
+      "id": "moderatePhotoReport",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/moderatePhotoReport",
+      "export": "moderatePhotoReport",
+      "exportSource": "functions/src/index.ts",
+      "group": "photo-reporting",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Exact current image/version report handling and removal, including missing source handling.",
+      "dependencies": [
+        "firestore-policy",
+        "bounded-readers",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/photo_reports.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/photo-reporting"
+    },
+    {
+      "id": "saveCustomerBiteScoreReview",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/saveCustomerBiteScoreReview",
+      "export": "saveCustomerBiteScoreReview",
+      "exportSource": "functions/src/index.ts",
+      "group": "text",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "projects/coupon-app-29446/locations/us-central1/services/savecustomerbitescorereview/revisions/savecustomerbitescorereview-00002-xs9",
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "AUTOMATIC",
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 20
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Save ratings independently; clean or human text publication and original-deadline retention.",
+      "dependencies": [
+        "terms-source-binding",
+        "text-ttl-indexes",
+        "openai-secret",
+        "cleanup-worker",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 2,
+        "concurrency": 2,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [
+        {
+          "name": "OPENAI_REVIEW_MODERATION_API_KEY",
+          "version": "immutable approved version must be selected later; currently absent"
+        }
+      ],
+      "implementationSources": [
+        "functions/src/bitescore_review_aggregate.ts",
+        "functions/src/review_text_moderation.ts",
+        "functions/src/review_text_provider.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/text"
+    },
+    {
+      "id": "getOwnBiteScoreReviewText",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/getOwnBiteScoreReviewText",
+      "export": "getOwnBiteScoreReviewText",
+      "exportSource": "functions/src/index.ts",
+      "group": "text",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Save ratings independently; clean or human text publication and original-deadline retention.",
+      "dependencies": [
+        "terms-source-binding",
+        "text-ttl-indexes",
+        "openai-secret",
+        "cleanup-worker",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/review_text_handlers.ts",
+        "functions/src/review_text_moderation.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/text"
+    },
+    {
+      "id": "listBiteScoreReviewText",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/listBiteScoreReviewText",
+      "export": "listBiteScoreReviewText",
+      "exportSource": "functions/src/index.ts",
+      "group": "text",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Save ratings independently; clean or human text publication and original-deadline retention.",
+      "dependencies": [
+        "terms-source-binding",
+        "text-ttl-indexes",
+        "openai-secret",
+        "cleanup-worker",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/review_text_handlers.ts",
+        "functions/src/review_text_moderation.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/text"
+    },
+    {
+      "id": "decideBiteScoreReviewText",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/decideBiteScoreReviewText",
+      "export": "decideBiteScoreReviewText",
+      "exportSource": "functions/src/index.ts",
+      "group": "text",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Save ratings independently; clean or human text publication and original-deadline retention.",
+      "dependencies": [
+        "terms-source-binding",
+        "text-ttl-indexes",
+        "openai-secret",
+        "cleanup-worker",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/review_text_handlers.ts",
+        "functions/src/review_text_moderation.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/text"
+    },
+    {
+      "id": "expireBiteScoreReviewTexts",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/expireBiteScoreReviewTexts",
+      "export": "expireBiteScoreReviewTexts",
+      "exportSource": "functions/src/index.ts",
+      "group": "text",
+      "kind": "schedule",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Save ratings independently; clean or human text publication and original-deadline retention.",
+      "dependencies": [
+        "terms-source-binding",
+        "text-ttl-indexes",
+        "openai-secret",
+        "cleanup-worker",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap.",
+        "schedule": "every 15 minutes",
+        "schedulerResource": "projects/coupon-app-29446/locations/us-central1/jobs/firebase-schedule-expireBiteScoreReviewTexts-us-central1"
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/review_text_handlers.ts",
+        "functions/src/review_text_moderation.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/text"
+    },
+    {
+      "id": "submitScreenedBiteScorePhoto",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/submitScreenedBiteScorePhoto",
+      "export": "submitScreenedBiteScorePhoto",
+      "exportSource": "functions/src/index.ts",
+      "group": "customer-photos",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Private screened bytes, conservative approval/human queue, close legacy publication, cleanup before admission.",
+      "dependencies": [
+        "terms-source-binding",
+        "storage-policy",
+        "photo-storage-permissions",
+        "vision-api",
+        "cleanup-worker",
+        "bounded-readers",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 2,
+        "concurrency": 2,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/photo_screening.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/customer-photos"
+    },
+    {
+      "id": "listAdminScreeningPhotos",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/listAdminScreeningPhotos",
+      "export": "listAdminScreeningPhotos",
+      "exportSource": "functions/src/index.ts",
+      "group": "customer-photos",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Private screened bytes, conservative approval/human queue, close legacy publication, cleanup before admission.",
+      "dependencies": [
+        "terms-source-binding",
+        "storage-policy",
+        "photo-storage-permissions",
+        "vision-api",
+        "cleanup-worker",
+        "bounded-readers",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/photo_screening.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/customer-photos"
+    },
+    {
+      "id": "previewAdminScreeningPhoto",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/previewAdminScreeningPhoto",
+      "export": "previewAdminScreeningPhoto",
+      "exportSource": "functions/src/index.ts",
+      "group": "customer-photos",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Private screened bytes, conservative approval/human queue, close legacy publication, cleanup before admission.",
+      "dependencies": [
+        "terms-source-binding",
+        "storage-policy",
+        "photo-storage-permissions",
+        "vision-api",
+        "cleanup-worker",
+        "bounded-readers",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 2,
+        "concurrency": 2,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/photo_screening.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/customer-photos"
+    },
+    {
+      "id": "decideAdminScreeningPhoto",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/decideAdminScreeningPhoto",
+      "export": "decideAdminScreeningPhoto",
+      "exportSource": "functions/src/index.ts",
+      "group": "customer-photos",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Private screened bytes, conservative approval/human queue, close legacy publication, cleanup before admission.",
+      "dependencies": [
+        "terms-source-binding",
+        "storage-policy",
+        "photo-storage-permissions",
+        "vision-api",
+        "cleanup-worker",
+        "bounded-readers",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 2,
+        "concurrency": 2,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/photo_screening.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/customer-photos"
+    },
+    {
+      "id": "cleanupExpiredScreeningPhotos",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/cleanupExpiredScreeningPhotos",
+      "export": "cleanupExpiredScreeningPhotos",
+      "exportSource": "functions/src/index.ts",
+      "group": "customer-photos",
+      "kind": "schedule",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Private screened bytes, conservative approval/human queue, close legacy publication, cleanup before admission.",
+      "dependencies": [
+        "terms-source-binding",
+        "storage-policy",
+        "photo-storage-permissions",
+        "vision-api",
+        "cleanup-worker",
+        "bounded-readers",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 1,
+        "concurrency": 1,
+        "timeoutSeconds": 120,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap.",
+        "schedule": "every 15 minutes",
+        "schedulerResource": "projects/coupon-app-29446/locations/us-central1/jobs/firebase-schedule-cleanupExpiredScreeningPhotos-us-central1",
+        "retryCount": 0,
+        "timeZone": "UTC"
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/photo_screening_retention.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/customer-photos"
+    },
+    {
+      "id": "createCustomerBiteScorePhoto",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/createCustomerBiteScorePhoto",
+      "export": "createCustomerBiteScorePhoto",
+      "exportSource": "functions/src/index.ts",
+      "group": "customer-photos",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "projects/coupon-app-29446/locations/us-central1/services/createcustomerbitescorephoto/revisions/createcustomerbitescorephoto-00002-gdb",
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "AUTOMATIC",
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 20
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Private screened bytes, conservative approval/human queue, close legacy publication, cleanup before admission.",
+      "dependencies": [
+        "terms-source-binding",
+        "storage-policy",
+        "photo-storage-permissions",
+        "vision-api",
+        "cleanup-worker",
+        "bounded-readers",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/customer_bitescore_photos.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/customer-photos"
+    },
+    {
+      "id": "submitScreenedOwnerPhoto",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/submitScreenedOwnerPhoto",
+      "export": "submitScreenedOwnerPhoto",
+      "exportSource": "functions/src/index.ts",
+      "group": "owner-photos",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Main/gallery/coupon/Specials-board/menu approval remains availability only until owner authorized exact attachment; withdrawal cleans exact asset.",
+      "dependencies": [
+        "terms-source-binding",
+        "storage-policy",
+        "vision-api",
+        "cleanup-worker",
+        "owner-client"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 2,
+        "concurrency": 2,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/owner_photo_screening.ts"
+      ],
+      "wrapperSource": "functions/src/index.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/owner-photos"
+    },
+    {
+      "id": "getOwnerScreenedPhoto",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/getOwnerScreenedPhoto",
+      "export": "getOwnerScreenedPhoto",
+      "exportSource": "functions/src/index.ts",
+      "group": "owner-photos",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Main/gallery/coupon/Specials-board/menu approval remains availability only until owner authorized exact attachment; withdrawal cleans exact asset.",
+      "dependencies": [
+        "terms-source-binding",
+        "storage-policy",
+        "vision-api",
+        "cleanup-worker",
+        "owner-client"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 2,
+        "concurrency": 2,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/owner_photo_screening.ts"
+      ],
+      "wrapperSource": "functions/src/index.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/owner-photos"
+    },
+    {
+      "id": "useOwnerScreenedPhoto",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/useOwnerScreenedPhoto",
+      "export": "useOwnerScreenedPhoto",
+      "exportSource": "functions/src/index.ts",
+      "group": "owner-photos",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Main/gallery/coupon/Specials-board/menu approval remains availability only until owner authorized exact attachment; withdrawal cleans exact asset.",
+      "dependencies": [
+        "terms-source-binding",
+        "storage-policy",
+        "vision-api",
+        "cleanup-worker",
+        "owner-client"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 2,
+        "concurrency": 2,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/owner_photo_screening.ts"
+      ],
+      "wrapperSource": "functions/src/index.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/owner-photos"
+    },
+    {
+      "id": "removeBiteSaverOwnerImage",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/removeBiteSaverOwnerImage",
+      "export": "removeBiteSaverOwnerImage",
+      "exportSource": "functions/src/index.ts",
+      "group": "owner-photos",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "absent",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": null,
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "create exact existing export",
+      "reason": "Main/gallery/coupon/Specials-board/menu approval remains availability only until owner authorized exact attachment; withdrawal cleans exact asset.",
+      "dependencies": [
+        "terms-source-binding",
+        "storage-policy",
+        "vision-api",
+        "cleanup-worker",
+        "owner-client"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/bitesaver_owner_media.ts",
+        "functions/src/bitesaver_owner_media_runtime.ts"
+      ],
+      "wrapperSource": "functions/src/index.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/owner-photos"
+    },
+    {
+      "id": "saveBiteSaverRestaurantProfile",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/saveBiteSaverRestaurantProfile",
+      "export": "saveBiteSaverRestaurantProfile",
+      "exportSource": "functions/src/index.ts",
+      "group": "owner-photos",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "projects/coupon-app-29446/locations/us-central1/services/savebitesaverrestaurantprofile/revisions/savebitesaverrestaurantprofile-00003-q5z",
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "AUTOMATIC",
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 10
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [
+          {
+            "key": "GOOGLE_MAPS_API_KEY",
+            "projectId": "coupon-app-29446",
+            "secret": "GOOGLE_MAPS_API_KEY",
+            "version": "1"
+          }
+        ],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Main/gallery/coupon/Specials-board/menu approval remains availability only until owner authorized exact attachment; withdrawal cleans exact asset.",
+      "dependencies": [
+        "terms-source-binding",
+        "storage-policy",
+        "vision-api",
+        "cleanup-worker",
+        "owner-client"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [
+        {
+          "name": "GOOGLE_MAPS_API_KEY",
+          "version": "preserve existing exact binding; metadata not payload"
+        }
+      ],
+      "implementationSources": [
+        "functions/src/bitesaver_restaurant_profile.ts",
+        "functions/src/bitesaver_restaurant_profile_runtime.ts",
+        "functions/src/bitesaver_owner_media.ts",
+        "functions/src/bitesaver_owner_media_runtime.ts"
+      ],
+      "wrapperSource": "functions/src/index.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/owner-photos"
+    },
+    {
+      "id": "reviewBiteSaverApplication",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/reviewBiteSaverApplication",
+      "export": "reviewBiteSaverApplication",
+      "exportSource": "functions/src/index.ts",
+      "group": "delayed-publication",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:41:22.435Z",
+        "revision": null,
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "serviceScaling": null,
+        "revisionScaling": null,
+        "ingress": null,
+        "secretReferences": [],
+        "evidence": "baselines/operational-followup.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Final approval rechecks responsible contributor receipt, not Admin receipt; published Terms source binding refresh is required at later activation.",
+      "dependencies": [
+        "terms-source-binding",
+        "consent"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/bitesaver_restaurant_profile.ts",
+        "functions/src/bitesaver_restaurant_profile_runtime.ts"
+      ],
+      "wrapperSource": "functions/src/index.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/delayed-publication"
+    },
+    {
+      "id": "approveRestaurantNameChange",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/approveRestaurantNameChange",
+      "export": "approveRestaurantNameChange",
+      "exportSource": "functions/src/index.ts",
+      "group": "delayed-publication",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "approverestaurantnamechange-00001-laf",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "approveRestaurantNameChange/function-source.zip",
+          "generation": "1792253713326194"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "serviceScaling": {
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 10
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Final approval rechecks responsible contributor receipt, not Admin receipt; published Terms source binding refresh is required at later activation.",
+      "dependencies": [
+        "terms-source-binding",
+        "consent"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/restaurant_name_approval.ts"
+      ],
+      "wrapperSource": "functions/src/index.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/delayed-publication"
+    },
+    {
+      "id": "applyRatingAdminDishSuggestionGroup",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/applyRatingAdminDishSuggestionGroup",
+      "export": "applyRatingAdminDishSuggestionGroup",
+      "exportSource": "functions/src/index.ts",
+      "group": "delayed-publication",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:44:37.545Z",
+        "revision": "applyratingadmindishsuggestiongroup-00001-hep",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "applyRatingAdminDishSuggestionGroup/function-source.zip",
+          "generation": "1792253709892570"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "serviceScaling": {
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 10
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/boundary-functions.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Final approval rechecks responsible contributor receipt, not Admin receipt; published Terms source binding refresh is required at later activation.",
+      "dependencies": [
+        "terms-source-binding",
+        "consent"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/dish_proposal_runtime_integration.ts",
+        "functions/src/dish_proposal_resolution_jobs.ts"
+      ],
+      "wrapperSource": "functions/src/index.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/delayed-publication"
+    },
+    {
+      "id": "processDishProposalResolutionWork",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/processDishProposalResolutionWork",
+      "export": "processDishProposalResolutionWork",
+      "exportSource": "functions/src/index.ts",
+      "group": "delayed-publication",
+      "kind": "schedule",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "processdishproposalresolutionwork-00002-his",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "processDishProposalResolutionWork/function-source.zip",
+          "generation": "1790214711668380"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "serviceScaling": {
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 10
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Final approval rechecks responsible contributor receipt, not Admin receipt; published Terms source binding refresh is required at later activation.",
+      "dependencies": [
+        "terms-source-binding",
+        "consent"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap.",
+        "schedule": "every 1 minutes",
+        "schedulerResource": "projects/coupon-app-29446/locations/us-central1/jobs/firebase-schedule-processDishProposalResolutionWork-us-central1"
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/dish_proposal_runtime_integration.ts",
+        "functions/src/dish_proposal_resolution_jobs.ts"
+      ],
+      "wrapperSource": "functions/src/index.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/delayed-publication"
+    },
+    {
+      "id": "resolveCustomerBiteScoreRestaurantCreation",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/resolveCustomerBiteScoreRestaurantCreation",
+      "export": "resolveCustomerBiteScoreRestaurantCreation",
+      "exportSource": "functions/src/index.ts",
+      "group": "creation-boundaries",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:44:37.545Z",
+        "revision": "projects/coupon-app-29446/locations/us-central1/services/resolvecustomerbitescorerestaurantcreation/revisions/resolvecustomerbitescorerestaurantcreation-00002-q6l",
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "AUTOMATIC",
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 20
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [
+          {
+            "key": "SEARCH_PAGINATION_CURSOR_KEY",
+            "projectId": "coupon-app-29446",
+            "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+            "version": "1"
+          }
+        ],
+        "evidence": "baselines/boundary-functions.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Existing public contribution creators need the same receipt and posting guard; keep catalog/account identity boundaries.",
+      "dependencies": [
+        "terms-source-binding",
+        "bounded-readers"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [
+        {
+          "name": "SEARCH_PAGINATION_CURSOR_KEY",
+          "version": "preserve current1"
+        }
+      ],
+      "implementationSources": [
+        "functions/src/customer_bitescore_creation.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/creation-boundaries"
+    },
+    {
+      "id": "resolveCustomerBiteScoreDishCreation",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/resolveCustomerBiteScoreDishCreation",
+      "export": "resolveCustomerBiteScoreDishCreation",
+      "exportSource": "functions/src/index.ts",
+      "group": "creation-boundaries",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:44:37.545Z",
+        "revision": "projects/coupon-app-29446/locations/us-central1/services/resolvecustomerbitescoredishcreation/revisions/resolvecustomerbitescoredishcreation-00002-5r2",
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "AUTOMATIC",
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 20
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [
+          {
+            "key": "SEARCH_PAGINATION_CURSOR_KEY",
+            "projectId": "coupon-app-29446",
+            "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+            "version": "1"
+          }
+        ],
+        "evidence": "baselines/boundary-functions.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Existing public contribution creators need the same receipt and posting guard; keep catalog/account identity boundaries.",
+      "dependencies": [
+        "terms-source-binding",
+        "bounded-readers"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [
+        {
+          "name": "SEARCH_PAGINATION_CURSOR_KEY",
+          "version": "preserve current1"
+        }
+      ],
+      "implementationSources": [
+        "functions/src/customer_bitescore_creation.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/creation-boundaries"
+    },
+    {
+      "id": "getCustomerBiteScoreDetail",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/getCustomerBiteScoreDetail",
+      "export": "getCustomerBiteScoreDetail",
+      "exportSource": "functions/src/index.ts",
+      "group": "bounded-readers",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "getcustomerbitescoredetail-00001-puz",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "getCustomerBiteScoreDetail/function-source.zip",
+          "generation": "1790018466647690"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "AUTOMATIC",
+          "maxInstanceCount": 10
+        },
+        "revisionScaling": null,
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [
+          {
+            "key": "SEARCH_PAGINATION_CURSOR_KEY",
+            "projectId": "coupon-app-29446",
+            "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+            "version": "1"
+          }
+        ],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Existing bounded detail/review/image/profile/menu contracts honor personal blocks and screened content. These do not require activation of old discovery search.",
+      "dependencies": [
+        "existing-cursor-secret",
+        "existing-projection-indexes",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [
+        {
+          "name": "SEARCH_PAGINATION_CURSOR_KEY",
+          "version": "preserve current1"
+        }
+      ],
+      "implementationSources": [
+        "functions/src/customer_bitescore_reads.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/bounded-readers"
+    },
+    {
+      "id": "pageCustomerBiteScoreReviews",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/pageCustomerBiteScoreReviews",
+      "export": "pageCustomerBiteScoreReviews",
+      "exportSource": "functions/src/index.ts",
+      "group": "bounded-readers",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "pagecustomerbitescorereviews-00001-yed",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "pageCustomerBiteScoreReviews/function-source.zip",
+          "generation": "1790018466734552"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "AUTOMATIC",
+          "maxInstanceCount": 10
+        },
+        "revisionScaling": null,
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [
+          {
+            "key": "SEARCH_PAGINATION_CURSOR_KEY",
+            "projectId": "coupon-app-29446",
+            "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+            "version": "1"
+          }
+        ],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Existing bounded detail/review/image/profile/menu contracts honor personal blocks and screened content. These do not require activation of old discovery search.",
+      "dependencies": [
+        "existing-cursor-secret",
+        "existing-projection-indexes",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [
+        {
+          "name": "SEARCH_PAGINATION_CURSOR_KEY",
+          "version": "preserve current1"
+        }
+      ],
+      "implementationSources": [
+        "functions/src/customer_bitescore_reads.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/bounded-readers"
+    },
+    {
+      "id": "pageCustomerBiteScoreImages",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/pageCustomerBiteScoreImages",
+      "export": "pageCustomerBiteScoreImages",
+      "exportSource": "functions/src/index.ts",
+      "group": "bounded-readers",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "pagecustomerbitescoreimages-00001-voh",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "pageCustomerBiteScoreImages/function-source.zip",
+          "generation": "1790018466631444"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "AUTOMATIC",
+          "maxInstanceCount": 10
+        },
+        "revisionScaling": null,
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [
+          {
+            "key": "SEARCH_PAGINATION_CURSOR_KEY",
+            "projectId": "coupon-app-29446",
+            "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+            "version": "1"
+          }
+        ],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Existing bounded detail/review/image/profile/menu contracts honor personal blocks and screened content. These do not require activation of old discovery search.",
+      "dependencies": [
+        "existing-cursor-secret",
+        "existing-projection-indexes",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [
+        {
+          "name": "SEARCH_PAGINATION_CURSOR_KEY",
+          "version": "preserve current1"
+        }
+      ],
+      "implementationSources": [
+        "functions/src/customer_bitescore_reads.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/bounded-readers"
+    },
+    {
+      "id": "getCustomerBiteScoreProfileSummary",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/getCustomerBiteScoreProfileSummary",
+      "export": "getCustomerBiteScoreProfileSummary",
+      "exportSource": "functions/src/index.ts",
+      "group": "bounded-readers",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "getcustomerbitescoreprofilesummary-00001-nop",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "getCustomerBiteScoreProfileSummary/function-source.zip",
+          "generation": "1790018781312670"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "AUTOMATIC",
+          "maxInstanceCount": 10
+        },
+        "revisionScaling": null,
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [
+          {
+            "key": "SEARCH_PAGINATION_CURSOR_KEY",
+            "projectId": "coupon-app-29446",
+            "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+            "version": "1"
+          }
+        ],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Existing bounded detail/review/image/profile/menu contracts honor personal blocks and screened content. These do not require activation of old discovery search.",
+      "dependencies": [
+        "existing-cursor-secret",
+        "existing-projection-indexes",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [
+        {
+          "name": "SEARCH_PAGINATION_CURSOR_KEY",
+          "version": "preserve current1"
+        }
+      ],
+      "implementationSources": [
+        "functions/src/customer_bitescore_profile_summary.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/bounded-readers"
+    },
+    {
+      "id": "startCustomerBiteScoreProfileList",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/startCustomerBiteScoreProfileList",
+      "export": "startCustomerBiteScoreProfileList",
+      "exportSource": "functions/src/index.ts",
+      "group": "bounded-readers",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:44:37.545Z",
+        "revision": "projects/coupon-app-29446/locations/us-central1/services/startcustomerbitescoreprofilelist/revisions/startcustomerbitescoreprofilelist-00002-2r5",
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "AUTOMATIC",
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 20
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [
+          {
+            "key": "SEARCH_PAGINATION_CURSOR_KEY",
+            "projectId": "coupon-app-29446",
+            "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+            "version": "1"
+          }
+        ],
+        "evidence": "baselines/boundary-functions.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Existing bounded detail/review/image/profile/menu contracts honor personal blocks and screened content. These do not require activation of old discovery search.",
+      "dependencies": [
+        "existing-cursor-secret",
+        "existing-projection-indexes",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [
+        {
+          "name": "SEARCH_PAGINATION_CURSOR_KEY",
+          "version": "preserve current1"
+        }
+      ],
+      "implementationSources": [
+        "functions/src/customer_bitescore_profile_search.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/bounded-readers"
+    },
+    {
+      "id": "advanceCustomerBiteScoreProfileList",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/advanceCustomerBiteScoreProfileList",
+      "export": "advanceCustomerBiteScoreProfileList",
+      "exportSource": "functions/src/index.ts",
+      "group": "bounded-readers",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:44:37.545Z",
+        "revision": "projects/coupon-app-29446/locations/us-central1/services/advancecustomerbitescoreprofilelist/revisions/advancecustomerbitescoreprofilelist-00002-rm2",
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "AUTOMATIC",
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 20
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [
+          {
+            "key": "SEARCH_PAGINATION_CURSOR_KEY",
+            "projectId": "coupon-app-29446",
+            "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+            "version": "1"
+          }
+        ],
+        "evidence": "baselines/boundary-functions.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Existing bounded detail/review/image/profile/menu contracts honor personal blocks and screened content. These do not require activation of old discovery search.",
+      "dependencies": [
+        "existing-cursor-secret",
+        "existing-projection-indexes",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [
+        {
+          "name": "SEARCH_PAGINATION_CURSOR_KEY",
+          "version": "preserve current1"
+        }
+      ],
+      "implementationSources": [
+        "functions/src/customer_bitescore_profile_search.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/bounded-readers"
+    },
+    {
+      "id": "getCustomerBiteScoreProfileListPage",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/getCustomerBiteScoreProfileListPage",
+      "export": "getCustomerBiteScoreProfileListPage",
+      "exportSource": "functions/src/index.ts",
+      "group": "bounded-readers",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:44:37.545Z",
+        "revision": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitescoreprofilelistpage/revisions/getcustomerbitescoreprofilelistpage-00002-pbr",
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "AUTOMATIC",
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 20
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [
+          {
+            "key": "SEARCH_PAGINATION_CURSOR_KEY",
+            "projectId": "coupon-app-29446",
+            "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+            "version": "1"
+          }
+        ],
+        "evidence": "baselines/boundary-functions.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Existing bounded detail/review/image/profile/menu contracts honor personal blocks and screened content. These do not require activation of old discovery search.",
+      "dependencies": [
+        "existing-cursor-secret",
+        "existing-projection-indexes",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [
+        {
+          "name": "SEARCH_PAGINATION_CURSOR_KEY",
+          "version": "preserve current1"
+        }
+      ],
+      "implementationSources": [
+        "functions/src/customer_bitescore_profile_search.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/bounded-readers"
+    },
+    {
+      "id": "pageCustomerBiteScoreMenu",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/pageCustomerBiteScoreMenu",
+      "export": "pageCustomerBiteScoreMenu",
+      "exportSource": "functions/src/index.ts",
+      "group": "bounded-readers",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "pagecustomerbitescoremenu-00001-lix",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "pageCustomerBiteScoreMenu/function-source.zip",
+          "generation": "1790018466617634"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "AUTOMATIC",
+          "maxInstanceCount": 10
+        },
+        "revisionScaling": null,
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [
+          {
+            "key": "SEARCH_PAGINATION_CURSOR_KEY",
+            "projectId": "coupon-app-29446",
+            "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+            "version": "1"
+          }
+        ],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Existing bounded detail/review/image/profile/menu contracts honor personal blocks and screened content. These do not require activation of old discovery search.",
+      "dependencies": [
+        "existing-cursor-secret",
+        "existing-projection-indexes",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [
+        {
+          "name": "SEARCH_PAGINATION_CURSOR_KEY",
+          "version": "preserve current1"
+        }
+      ],
+      "implementationSources": [
+        "functions/src/customer_bitescore_menu_search.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/bounded-readers"
+    },
+    {
+      "id": "toggleCustomerBiteScorePhotoVote",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/toggleCustomerBiteScorePhotoVote",
+      "export": "toggleCustomerBiteScorePhotoVote",
+      "exportSource": "functions/src/index.ts",
+      "group": "bounded-readers",
+      "kind": "callable",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "projects/coupon-app-29446/locations/us-central1/services/togglecustomerbitescorephotovote/revisions/togglecustomerbitescorephotovote-00002-kv8",
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "AUTOMATIC",
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 20
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Existing bounded detail/review/image/profile/menu contracts honor personal blocks and screened content. These do not require activation of old discovery search.",
+      "dependencies": [
+        "existing-cursor-secret",
+        "existing-projection-indexes",
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/customer_bitescore_photos.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/bounded-readers"
+    },
+    {
+      "id": "maintainCustomerBiteScoreReviewAggregate",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/maintainCustomerBiteScoreReviewAggregate",
+      "export": "maintainCustomerBiteScoreReviewAggregate",
+      "exportSource": "functions/src/index.ts",
+      "group": "aggregate-image-projections",
+      "kind": "firestore-trigger",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "maintaincustomerbitescorereviewaggregate-00002-guw",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "maintainCustomerBiteScoreReviewAggregate/function-source.zip",
+          "generation": "1790215066019823"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 20
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Trusted aggregate/projection repair and detached owner-photo retirement; preserve active aggregation epoch.",
+      "dependencies": [
+        "existing-projection-indexes",
+        "photo-storage-permissions"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap.",
+        "retry": true,
+        "document": "dish_reviews/{reviewId}",
+        "database": "(default)",
+        "eventType": "google.cloud.firestore.document.v1.written"
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/review_text_moderation.ts",
+        "functions/src/bitescore_review_aggregate.ts",
+        "functions/src/customer_bitescore_reads.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/aggregate-image-projections"
+    },
+    {
+      "id": "maintainCustomerBiteScoreDishAggregate",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/maintainCustomerBiteScoreDishAggregate",
+      "export": "maintainCustomerBiteScoreDishAggregate",
+      "exportSource": "functions/src/index.ts",
+      "group": "aggregate-image-projections",
+      "kind": "firestore-trigger",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "maintaincustomerbitescoredishaggregate-00001-xet",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "maintainCustomerBiteScoreDishAggregate/function-source.zip",
+          "generation": "1790017383425760"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": null,
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Trusted aggregate/projection repair and detached owner-photo retirement; preserve active aggregation epoch.",
+      "dependencies": [
+        "existing-projection-indexes",
+        "photo-storage-permissions"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap.",
+        "retry": true,
+        "document": "bitescore_dishes/{dishId}",
+        "database": "(default)",
+        "eventType": "google.cloud.firestore.document.v1.written"
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/bitescore_review_aggregate.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/aggregate-image-projections"
+    },
+    {
+      "id": "maintainCustomerBiteScoreReviewFeedback",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/maintainCustomerBiteScoreReviewFeedback",
+      "export": "maintainCustomerBiteScoreReviewFeedback",
+      "exportSource": "functions/src/index.ts",
+      "group": "aggregate-image-projections",
+      "kind": "firestore-trigger",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "maintaincustomerbitescorereviewfeedback-00002-zer",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "maintainCustomerBiteScoreReviewFeedback/function-source.zip",
+          "generation": "1790215069779529"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 20
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Trusted aggregate/projection repair and detached owner-photo retirement; preserve active aggregation epoch.",
+      "dependencies": [
+        "existing-projection-indexes",
+        "photo-storage-permissions"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap.",
+        "retry": true,
+        "document": "review_feedback_votes/{voteId}",
+        "database": "(default)",
+        "eventType": "google.cloud.firestore.document.v1.written"
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/customer_bitescore_reads.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/aggregate-image-projections"
+    },
+    {
+      "id": "maintainCustomerBiteScoreImage",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/maintainCustomerBiteScoreImage",
+      "export": "maintainCustomerBiteScoreImage",
+      "exportSource": "functions/src/index.ts",
+      "group": "aggregate-image-projections",
+      "kind": "firestore-trigger",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "maintaincustomerbitescoreimage-00001-mok",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "maintainCustomerBiteScoreImage/function-source.zip",
+          "generation": "1790017383303036"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": null,
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Trusted aggregate/projection repair and detached owner-photo retirement; preserve active aggregation epoch.",
+      "dependencies": [
+        "existing-projection-indexes",
+        "photo-storage-permissions"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap.",
+        "retry": true,
+        "document": "bitescore_dish_images/{imageId}",
+        "database": "(default)",
+        "eventType": "google.cloud.firestore.document.v1.written"
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/customer_bitescore_reads.ts",
+        "functions/src/photo_screening.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/aggregate-image-projections"
+    },
+    {
+      "id": "continueCustomerBiteScoreReviewAggregates",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/continueCustomerBiteScoreReviewAggregates",
+      "export": "continueCustomerBiteScoreReviewAggregates",
+      "exportSource": "functions/src/index.ts",
+      "group": "aggregate-image-projections",
+      "kind": "schedule",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "continuecustomerbitescorereviewaggregates-00001-rub",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "continueCustomerBiteScoreReviewAggregates/function-source.zip",
+          "generation": "1790047463403131"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": null,
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Trusted aggregate/projection repair and detached owner-photo retirement; preserve active aggregation epoch.",
+      "dependencies": [
+        "existing-projection-indexes",
+        "photo-storage-permissions"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap.",
+        "schedule": "every 1 minutes",
+        "schedulerResource": "projects/coupon-app-29446/locations/us-central1/jobs/firebase-schedule-continueCustomerBiteScoreReviewAggregates-us-central1"
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/bitescore_review_aggregate.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/aggregate-image-projections"
+    },
+    {
+      "id": "maintainCustomerBiteScoreMenuImage",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/maintainCustomerBiteScoreMenuImage",
+      "export": "maintainCustomerBiteScoreMenuImage",
+      "exportSource": "functions/src/index.ts",
+      "group": "aggregate-image-projections",
+      "kind": "firestore-trigger",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "maintaincustomerbitescoremenuimage-00001-dab",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "maintainCustomerBiteScoreMenuImage/function-source.zip",
+          "generation": "1790017383381863"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": null,
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Trusted aggregate/projection repair and detached owner-photo retirement; preserve active aggregation epoch.",
+      "dependencies": [
+        "existing-projection-indexes",
+        "photo-storage-permissions"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap.",
+        "retry": true,
+        "document": "restaurant_menus/{rootId}/menu_images/{entryId}",
+        "database": "(default)",
+        "eventType": "google.cloud.firestore.document.v1.written"
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/customer_bitescore_menu_search.ts",
+        "functions/src/owner_photo_screening.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/aggregate-image-projections"
+    },
+    {
+      "id": "maintainCustomerBiteScoreLinkedMenuImage",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/maintainCustomerBiteScoreLinkedMenuImage",
+      "export": "maintainCustomerBiteScoreLinkedMenuImage",
+      "exportSource": "functions/src/index.ts",
+      "group": "aggregate-image-projections",
+      "kind": "firestore-trigger",
+      "searchRelationship": "bounded-readers",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "maintaincustomerbitescorelinkedmenuimage-00001-feg",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "maintainCustomerBiteScoreLinkedMenuImage/function-source.zip",
+          "generation": "1790017383428896"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": null,
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Trusted aggregate/projection repair and detached owner-photo retirement; preserve active aggregation epoch.",
+      "dependencies": [
+        "existing-projection-indexes",
+        "photo-storage-permissions"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap.",
+        "retry": true,
+        "document": "restaurant_accounts/{rootId}/menu_images/{entryId}",
+        "database": "(default)",
+        "eventType": "google.cloud.firestore.document.v1.written"
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/customer_bitescore_menu_search.ts",
+        "functions/src/owner_photo_screening.ts"
+      ],
+      "wrapperSource": "functions/src/customer_bitescore_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/aggregate-image-projections"
+    },
+    {
+      "id": "processAccountDeletionRequests",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/processAccountDeletionRequests",
+      "export": "processAccountDeletionRequests",
+      "exportSource": "functions/src/index.ts",
+      "group": "cleanup-worker",
+      "kind": "schedule",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "processaccountdeletionrequests-00003-qif",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "processAccountDeletionRequests/function-source.zip",
+          "generation": "1791493482600233"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "account-deletion-worker@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 1
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [
+          {
+            "key": "STRIPE_SECRET_KEY",
+            "projectId": "coupon-app-29446",
+            "secret": "STRIPE_SECRET_KEY",
+            "version": "3"
+          }
+        ],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Append existing safety-record families and exact late-upload cleanup; retain existing Auth/Stripe/deletion authority and schedules.",
+      "dependencies": [
+        "safety-collection-group-indexes",
+        "existing-deletion-permissions"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "account-deletion-worker@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 1,
+        "concurrency": 1,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap.",
+        "schedule": "every 1 minutes",
+        "schedulerResource": "projects/coupon-app-29446/locations/us-central1/jobs/firebase-schedule-processAccountDeletionRequests-us-central1",
+        "retryCount": 0
+      },
+      "secretReferences": [
+        {
+          "name": "STRIPE_SECRET_KEY",
+          "version": "preserve existing exact binding; no secret operation"
+        }
+      ],
+      "implementationSources": [
+        "functions/src/account_deletion_runtime.ts",
+        "functions/src/account_deletion_service.ts",
+        "functions/src/account_deletion_cleanup.ts",
+        "functions/src/account_deletion_media.ts"
+      ],
+      "wrapperSource": "functions/src/account_deletion_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/cleanup-worker"
+    },
+    {
+      "id": "cleanupAccountDeletionFinalizedImage",
+      "resource": "projects/coupon-app-29446/locations/us-east1/functions/cleanupAccountDeletionFinalizedImage",
+      "export": "cleanupAccountDeletionFinalizedImage",
+      "exportSource": "functions/src/index.ts",
+      "group": "cleanup-worker",
+      "kind": "storage-finalize",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:38:11.722Z",
+        "revision": "cleanupaccountdeletionfinalizedimage-00001-vup",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-east1",
+          "object": "cleanupAccountDeletionFinalizedImage/function-source.zip",
+          "generation": "1790199492133239"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "account-deletion-media@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 2
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/live-metadata.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Append existing safety-record families and exact late-upload cleanup; retain existing Auth/Stripe/deletion authority and schedules.",
+      "dependencies": [
+        "safety-collection-group-indexes",
+        "existing-deletion-permissions"
+      ],
+      "candidateOptions": {
+        "region": "us-east1",
+        "runtimeServiceAccount": "account-deletion-media@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 2,
+        "concurrency": 10,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap.",
+        "retry": true,
+        "bucket": "coupon-app-29446.firebasestorage.app",
+        "eventType": "google.cloud.storage.object.v1.finalized"
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/account_deletion_runtime.ts",
+        "functions/src/account_deletion_finalized_media.ts",
+        "functions/src/photo_screening_retention.ts"
+      ],
+      "wrapperSource": "functions/src/account_deletion_runtime.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/cleanup-worker"
+    },
+    {
+      "id": "reconcileReviewMilestoneContributionPointsAfterModeration",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/reconcileReviewMilestoneContributionPointsAfterModeration",
+      "export": "reconcileReviewMilestoneContributionPointsAfterModeration",
+      "exportSource": "functions/src/index.ts",
+      "group": "moderation-points",
+      "kind": "callable",
+      "searchRelationship": "search-independent",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:44:37.545Z",
+        "revision": "projects/coupon-app-29446/locations/us-central1/services/reconcilereviewmilestonecontributionpointsaftermoderation/revisions/reconcilereviewmilestonecontributionpointsaftermodera-00004-f72",
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "MANUAL",
+          "manualInstanceCount": 0
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 10
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/boundary-functions.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Existing Admin Remove Review invokes this after review deletion; release ONLY its MANUAL0 hold after source and denial checks.",
+      "dependencies": [
+        "aggregate-image-projections"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap."
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/contribution_points_helpers.ts"
+      ],
+      "wrapperSource": "functions/src/index.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/moderation-points"
+    },
+    {
+      "id": "maintainBiteSaverRestaurantSearchIndex",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/maintainBiteSaverRestaurantSearchIndex",
+      "export": "maintainBiteSaverRestaurantSearchIndex",
+      "exportSource": "functions/src/index.ts",
+      "group": "owner-detach-projections",
+      "kind": "firestore-trigger",
+      "searchRelationship": "shared-projection-affected-by-final-search-choice",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:50:27.325Z",
+        "revision": "maintainbitesaverrestaurantsearchindex-00001-jab",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "maintainBiteSaverRestaurantSearchIndex/function-source.zip",
+          "generation": "1790017015847831"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 10
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [
+          {
+            "key": "BITESAVER_CUSTOMER_IDENTITY_KEY_V1",
+            "projectId": "coupon-app-29446",
+            "secret": "BITESAVER_CUSTOMER_IDENTITY_KEY_V1",
+            "version": "1"
+          }
+        ],
+        "evidence": "baselines/owner-projection-functions.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Existing source-write callbacks retire the exact former main/coupon/Specials attachment for cleanup; preserve projection payloads and identity keys. No discovery activation.",
+      "dependencies": [
+        "cleanup-worker",
+        "existing-deletion-permissions"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap.",
+        "retry": true,
+        "document": "restaurant_accounts/{restaurantAccountId}",
+        "database": "(default)",
+        "eventType": "google.cloud.firestore.document.v1.written"
+      },
+      "secretReferences": [
+        {
+          "name": "BITESAVER_CUSTOMER_IDENTITY_KEY_V1",
+          "version": "preserve observed exact1 binding"
+        }
+      ],
+      "implementationSources": [
+        "functions/src/index.ts",
+        "functions/src/owner_photo_screening.ts",
+        "functions/src/search_index_maintenance.ts"
+      ],
+      "wrapperSource": "functions/src/index.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/owner-detach-projections"
+    },
+    {
+      "id": "maintainBiteSaverCouponOfferSearchIndex",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/maintainBiteSaverCouponOfferSearchIndex",
+      "export": "maintainBiteSaverCouponOfferSearchIndex",
+      "exportSource": "functions/src/index.ts",
+      "group": "owner-detach-projections",
+      "kind": "firestore-trigger",
+      "searchRelationship": "shared-projection-affected-by-final-search-choice",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:50:27.325Z",
+        "revision": "maintainbitesavercouponoffersearchindex-00001-gag",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "maintainBiteSaverCouponOfferSearchIndex/function-source.zip",
+          "generation": "1790017015982237"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "serviceScaling": {
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 10
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [
+          {
+            "key": "BITESAVER_CUSTOMER_IDENTITY_KEY_V1",
+            "projectId": "coupon-app-29446",
+            "secret": "BITESAVER_CUSTOMER_IDENTITY_KEY_V1",
+            "version": "1"
+          }
+        ],
+        "evidence": "baselines/owner-projection-functions.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Existing source-write callbacks retire the exact former main/coupon/Specials attachment for cleanup; preserve projection payloads and identity keys. No discovery activation.",
+      "dependencies": [
+        "cleanup-worker",
+        "existing-deletion-permissions"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap.",
+        "retry": true,
+        "document": "restaurant_accounts/{restaurantAccountId}/coupons/{couponId}",
+        "database": "(default)",
+        "eventType": "google.cloud.firestore.document.v1.written"
+      },
+      "secretReferences": [
+        {
+          "name": "BITESAVER_CUSTOMER_IDENTITY_KEY_V1",
+          "version": "preserve observed exact1 binding"
+        }
+      ],
+      "implementationSources": [
+        "functions/src/index.ts",
+        "functions/src/owner_photo_screening.ts",
+        "functions/src/search_index_maintenance.ts"
+      ],
+      "wrapperSource": "functions/src/index.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/owner-detach-projections"
+    },
+    {
+      "id": "maintainBiteSaverDailySpecialSearchIndex",
+      "resource": "projects/coupon-app-29446/locations/us-central1/functions/maintainBiteSaverDailySpecialSearchIndex",
+      "export": "maintainBiteSaverDailySpecialSearchIndex",
+      "exportSource": "functions/src/index.ts",
+      "group": "owner-detach-projections",
+      "kind": "firestore-trigger",
+      "searchRelationship": "shared-projection-affected-by-final-search-choice",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:50:27.325Z",
+        "revision": "maintainbitesaverdailyspecialsearchindex-00001-huk",
+        "source": {
+          "bucket": "gcf-v2-sources-253983587346-us-central1",
+          "object": "maintainBiteSaverDailySpecialSearchIndex/function-source.zip",
+          "generation": "1790017015946615"
+        },
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "serviceScaling": {
+          "maxInstanceCount": 20
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 10
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/owner-projection-functions.json"
+      },
+      "proposedChange": "later targeted source/config refresh only if exact release package differs; compare current revision before mutation",
+      "reason": "Existing source-write callbacks retire the exact former main/coupon/Specials attachment for cleanup; preserve projection payloads and identity keys. No discovery activation.",
+      "dependencies": [
+        "cleanup-worker",
+        "existing-deletion-permissions"
+      ],
+      "candidateOptions": {
+        "region": "us-central1",
+        "runtimeServiceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "concurrency": 80,
+        "timeoutSeconds": 60,
+        "memory": "256MiB",
+        "serviceLevelMaximum": "Set equal to listed maximum if separately authorized; do not inherit accidental platform20 over an intended2/1 cap.",
+        "retry": true,
+        "document": "restaurant_accounts/{restaurantAccountId}/daily_specials/{dailySpecialId}",
+        "database": "(default)",
+        "eventType": "google.cloud.firestore.document.v1.written"
+      },
+      "secretReferences": [],
+      "implementationSources": [
+        "functions/src/index.ts",
+        "functions/src/owner_photo_screening.ts",
+        "functions/src/search_index_maintenance.ts"
+      ],
+      "wrapperSource": "functions/src/index.ts",
+      "qualificationContract": "candidate/qualification-contracts.json#/groups/owner-detach-projections"
+    }
+  ],
+  "policies": {
+    "firestore": {
+      "baseline": {
+        "release": {
+          "name": "projects/coupon-app-29446/releases/cloud.firestore",
+          "rulesetName": "projects/coupon-app-29446/rulesets/53828191-28b8-46d1-8ef1-fc3cbdee09a9",
+          "createTime": "2026-03-24T06:13:18.785504Z",
+          "updateTime": "2026-10-17T16:19:50.925131Z"
+        },
+        "source": [
+          {
+            "name": "firestore.bitesaver-content.rules",
+            "path": "tool/safety_release_prep/baselines/firestore-live.rules",
+            "sha256": "8fcae3e7205961bcb2329db4fd7caa44a5814ceee842cb5bae6daff4adeb8a20"
+          }
+        ]
+      },
+      "candidate": "candidate/firestore.rules",
+      "delta": "candidate/policy-delta.json",
+      "deployRootRules": false
+    },
+    "storage": {
+      "baseline": {
+        "release": {
+          "name": "projects/coupon-app-29446/releases/firebase.storage/coupon-app-29446.firebasestorage.app",
+          "rulesetName": "projects/coupon-app-29446/rulesets/3ba23ec6-d1fe-480d-9a77-c0598dcfc6cf",
+          "createTime": "2026-05-21T22:01:44.696653Z",
+          "updateTime": "2026-09-26T03:45:49.899368Z"
+        },
+        "source": [
+          {
+            "name": "storage.rules",
+            "path": "tool/safety_release_prep/baselines/storage-live.rules",
+            "sha256": "62c6e45edff76a231a1fe49aa31c7b1d00a045981698a1d07c3b3c8f13c50702"
+          }
+        ]
+      },
+      "candidate": "candidate/storage.rules",
+      "affectsBothCustomerAndOwner": true,
+      "deployRootRules": false
+    }
+  },
+  "configurationFiles": [
+    "candidate/approved-terms.json",
+    "candidate/runtime-phases.json",
+    "candidate/index-field-deltas.json",
+    "candidate/iam-proposals.json",
+    "candidate/execution-descriptor.json",
+    "candidate/qualification-contracts.json"
+  ],
+  "exactHoldReleaseProposals": [
+    {
+      "export": "reconcileReviewMilestoneContributionPointsAfterModeration",
+      "baseline": {
+        "status": "present",
+        "observedAt": "2026-10-17T19:44:37.545Z",
+        "revision": "projects/coupon-app-29446/locations/us-central1/services/reconcilereviewmilestonecontributionpointsaftermoderation/revisions/reconcilereviewmilestonecontributionpointsaftermodera-00004-f72",
+        "source": null,
+        "sourceParity": "not asserted; later exact source package/revision comparison required unless cited receipt proves parity",
+        "serviceAccount": "253983587346-compute@developer.gserviceaccount.com",
+        "serviceScaling": {
+          "scalingMode": "MANUAL",
+          "manualInstanceCount": 0
+        },
+        "revisionScaling": {
+          "maxInstanceCount": 10
+        },
+        "ingress": "INGRESS_TRAFFIC_ALL",
+        "secretReferences": [],
+        "evidence": "baselines/boundary-functions.json"
+      },
+      "change": {
+        "ingress": "preserve INGRESS_TRAFFIC_ALL",
+        "scalingMode": "AUTOMATIC",
+        "minimumInstances": 0,
+        "maximumInstances": 10,
+        "preserveRevisionAndTrafficIfSourceParityPasses": true
+      },
+      "reason": "Admin Remove Review awaits this exact callable after deletion; manual0 makes completion fail.",
+      "gate": "Verify exact source revision/current runtime, retained revision Ready+image availability or qualified retained-imported-image recovery and unauthenticated/customer denial before exposure; authorize only this hold release. Image digest availability/recovery has not been checked for this held service in this run.",
+      "recovery": "Return only this service to original MANUAL0, preserving exact recorded traffic/revision; pause Admin remove control if its completion dependency is stopped."
+    }
+  ],
+  "holdsToPreserve": [
+    "issueMenuImageUploadAuthorization INTERNAL/MANUAL0; screened owner upload uses new scoped callables, so no need reopen raw menu grants",
+    "redeemCouponRestaurantInvite held MANUAL0; participation/invite activation is separate",
+    "Coupon deletion permanent lock",
+    "Manual owner menu section/shared-menu item authoring holds remain; first-time empty shared-menu image entry is the only restored routing prerequisite",
+    "Other unrelated invite/content/push/search holds not targeted"
+  ],
+  "alreadyCorrectDoNotRedeploy": [
+    "Published Privacy/Terms/deletion pages and browser deletion route, Hosting version4a31356a19073baf",
+    "October17 Firestore actor/target deletion guards",
+    "getCustomerBiteSaverSearchPage restaurantMedia backport/revision00004-viy",
+    "listRatingAdminDishSuggestionsPage",
+    "rejectRatingAdminDishSuggestionGroup",
+    "getAdminPostingRestriction",
+    "setAdminPostingRestriction",
+    "listCouponAdminCouponsPage restored max10/automatic and its existing invocation binding",
+    "Dish Suggestions READY composite CICAgNiZnYEK",
+    "requestAccountDeletion and getAccountDeletionStatus"
+  ],
+  "conditionalExistingReleaseRefresh": [
+    "approveRestaurantNameChange and applyRatingAdminDishSuggestionGroup already deployed October17; no repeated missing-function fix. Only later Terms source binding requires coordinated exact source refresh with same identities/bindings."
+  ],
+  "ordering": [
+    {
+      "order": 0,
+      "name": "future-release-gates",
+      "actions": [
+        "Re-select and freeze final tested combined source after any intervening relevant work BEFORE separately authorized paid investigation",
+        "Separately authorize paid search investigation, resolve findings and approve production search choice",
+        "Fresh HEAD/source/dependency/live-baseline drift recheck and affected requalification before separately authorized rollout",
+        "Select compatible clients and exact legal Terms binding; independent final bytes review",
+        "Keep all runtime/client production defaults unchanged during preparation"
+      ]
+    },
+    {
+      "order": 1,
+      "name": "exact-prerequisites",
+      "actions": [
+        "Approve exact new provider/API/secret bindings and object-create/delete proposals",
+        "Create only missing targetUserId collection-group indexes and text TTL/exemptions; wait READY",
+        "Verify retained single-field and existing composite indexes",
+        "Retain protected Hosting/deletion/Admin/media/index baseline"
+      ]
+    },
+    {
+      "order": 2,
+      "name": "trusted-backend-and-cleanup",
+      "actions": [
+        "Deploy required targeted new/changed exports with admission still paused",
+        "Deploy deletion cleanup+late finalizer, text cleanup, photo cleanup and projection triggers before any new content admission",
+        "Compile exact Terms into all contributing/delayed-publishing writers before required metadata",
+        "Release only approved exact moderation-points hold after source/authority qualification"
+      ]
+    },
+    {
+      "order": 3,
+      "name": "coordinated-client-policy-cutover",
+      "actions": [
+        "Pause uploads and confirm supported customer/owner/Admin clients ready together",
+        "Deploy only reviewed live-baseline policy candidates",
+        "Apply enforcedPaused runtime metadata; never required:false rollback",
+        "Qualify ratings-only, private held text/photos, explicit owner attachment, Admin exact removal and deletion with approved synthetic production fixtures"
+      ]
+    },
+    {
+      "order": 4,
+      "name": "provider-and-enable",
+      "actions": [
+        "Separately authorized minimal real provider synthetic checks and device workflow verification",
+        "Enable cleanup first; enable photo/customer+owner and text processing only after all privacy/permission/quota tests",
+        "Verify UTC allowance counters/admission/retry/timeouts and human queue ownership",
+        "Keep open search/Linux/guest/privacy/SQL-ownership decisions distinct until owner resolves them"
+      ]
+    }
+  ],
+  "recovery": {
+    "primary": "Stop processing/admission with retained enforcedPaused runtime values. Keep required=true/ownerRequired=true, private policy, Admin withdrawal/rejection, TTL and deletion cleanup.",
+    "never": [
+      "Do not delete mandatory runtime docs",
+      "Do not restore unchecked public upload Rules or raw text writer",
+      "Do not remove recent deletion protections",
+      "Do not disable all held services or restore historical blanket Rules",
+      "Do not roll back Auth/billing/identity/financial/customer content"
+    ],
+    "revisionProcedure": "Immediately before later change record exact Ready revision, traffic, package hashes, secret version references, policy etag and runtime metadata. Recovery applies only if current resources still belong to that authorized release. Ready metadata alone does not prove rollback is executable. Before proposing traffic rollback verify the exact retained revision still serves, its image/artifacts remain usable and traffic can be restored; where a retained imported image is the recovery path qualify that exact path. If no compatible executable revision/image and traffic recovery is demonstrated, stop admissions while preserving required enforcement and cleanup.",
+    "providerDeletionLimit": "Bucket metadata shows604800-second soft-delete policy; client/public withdrawal and async exact deletion can be qualified, not immediate permanent purge or removal of all backups."
+  },
+  "liveUnknowns": [
+    "No per-object ACL/token/private-content inspection performed; uniform bucket access disabled and inherited publicAccessPrevention do not prove tokenless private object confidentiality. Later authorized synthetic reads must test Firebase REST, SDK, GCS and signed-out public path behavior.",
+    "No real Vision/OpenAI request; deterministic results prove workflow only, not classifier accuracy, provider availability, quota or spend.",
+    "No complete source provenance/parity assertion for imported historical revisions lacking buildConfig sourceProvenance. Before release freeze exact proposed package and verify required retained revisions.",
+    "No production Storage cross-service access guarantee from emulator tests; verify actual service agents/Rules/read generation behavior.",
+    "No mobile final acceptance or store submission."
+  ],
+  "searchDecisionsPreserved": [
+    "Linux execution/image qualification unverified",
+    "Guest search does not consistently meet2seconds",
+    "Further guest protocol/privacy changes require decision",
+    "SQL exclusive ownership versus supervised deletion unresolved",
+    "Paid investigation unauthorized in this run",
+    "Frozen v4 evidence remains immutable; relevant file changes require affected requalification and combined-source re-freeze before paid investigation"
+  ],
+  "qualificationContractFile": "candidate/qualification-contracts.json"
+}

@@ -1,0 +1,219 @@
+{
+  "observedAt": "2026-10-17T19:41:22.435Z",
+  "method": "Bounded read-only metadata followup; corrected exact API paths, no provider calls or secret payloads",
+  "items": [
+    {
+      "label": "bucket",
+      "result": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "name": "coupon-app-29446.firebasestorage.app",
+          "metageneration": "4",
+          "location": "US-EAST1",
+          "softDeletePolicy": {
+            "retentionDurationSeconds": "604800",
+            "effectiveTime": "2026-05-21T22:01:40.240Z"
+          },
+          "iamConfiguration": {
+            "bucketPolicyOnly": {
+              "enabled": false
+            },
+            "uniformBucketLevelAccess": {
+              "enabled": false
+            },
+            "publicAccessPrevention": "inherited"
+          }
+        }
+      }
+    },
+    {
+      "label": "bucketIam",
+      "result": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "bindings": [
+            {
+              "role": "projects/coupon-app-29446/roles/bitestarBiteScorePhotoObjectRead",
+              "members": [
+                "serviceAccount:account-deletion-media@coupon-app-29446.iam.gserviceaccount.com",
+                "serviceAccount:account-deletion-worker@coupon-app-29446.iam.gserviceaccount.com",
+                "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+              ]
+            },
+            {
+              "role": "projects/coupon-app-29446/roles/bitestarDeletionObjectDelete",
+              "members": [
+                "serviceAccount:account-deletion-media@coupon-app-29446.iam.gserviceaccount.com",
+                "serviceAccount:account-deletion-worker@coupon-app-29446.iam.gserviceaccount.com"
+              ]
+            },
+            {
+              "role": "projects/coupon-app-29446/roles/bitestarDeletionObjectList",
+              "members": [
+                "serviceAccount:account-deletion-worker@coupon-app-29446.iam.gserviceaccount.com"
+              ]
+            },
+            {
+              "role": "roles/storage.legacyBucketOwner",
+              "members": [
+                "projectEditor:coupon-app-29446",
+                "projectOwner:coupon-app-29446"
+              ]
+            },
+            {
+              "role": "roles/storage.legacyBucketReader",
+              "members": [
+                "projectViewer:coupon-app-29446"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "cursorSecretIam",
+      "result": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "bindings": [
+            {
+              "role": "roles/secretmanager.secretAccessor",
+              "members": [
+                "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+                "serviceAccount:bitestar-admin-support-runtime@coupon-app-29446.iam.gserviceaccount.com"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "label": "moderationSecretIam",
+      "result": {
+        "ok": false,
+        "status": 404,
+        "code": "NOT_FOUND"
+      }
+    },
+    {
+      "label": "photoMaintenanceIndex",
+      "result": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/private_bitescore_photo_screenings/fields/maintenanceAt",
+          "indexConfig": {
+            "indexes": [
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "maintenanceAt",
+                    "order": "ASCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "maintenanceAt",
+                    "order": "DESCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "maintenanceAt",
+                    "arrayConfig": "CONTAINS"
+                  }
+                ],
+                "state": "READY"
+              }
+            ],
+            "usesAncestorConfig": true,
+            "ancestorField": "projects/coupon-app-29446/databases/(default)/collectionGroups/__default__/fields/*"
+          }
+        }
+      }
+    },
+    {
+      "label": "visionApi",
+      "result": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "name": "projects/253983587346/services/vision.googleapis.com",
+          "state": "DISABLED"
+        }
+      }
+    },
+    {
+      "label": "reviewBiteSaverApplication",
+      "result": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/reviewBiteSaverApplication",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "reviewBiteSaverApplication"
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/reviewbitesaverapplication",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 10,
+            "serviceAccountEmail": "253983587346-compute@developer.gserviceaccount.com",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE"
+        }
+      }
+    },
+    {
+      "label": "authReadRole",
+      "result": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "name": "projects/coupon-app-29446/roles/bitestarBiteScoreAuthRead",
+          "title": "bitestarBiteScoreAuthRead",
+          "description": "Approved BiteStar runtime least-privilege permission",
+          "includedPermissions": [
+            "firebaseauth.users.get"
+          ],
+          "stage": "GA",
+          "etag": "BwZb3TKxF2A="
+        }
+      }
+    },
+    {
+      "label": "deletionFirestoreRole",
+      "result": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "name": "projects/coupon-app-29446/roles/bitestarDeletionFirestoreWrite",
+          "title": "bitestarDeletionFirestoreWrite",
+          "description": "Dedicated BiteStar account deletion runtime capability; scope constrained by exact resource bindings.",
+          "includedPermissions": [
+            "datastore.databases.get",
+            "datastore.entities.create",
+            "datastore.entities.get",
+            "datastore.entities.list",
+            "datastore.entities.update"
+          ],
+          "stage": "GA",
+          "etag": "BwZcK/8JZD4="
+        }
+      }
+    }
+  ]
+}

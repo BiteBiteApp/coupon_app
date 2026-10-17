@@ -201,7 +201,12 @@ export async function submitScreenedPhotoHandler(db: Firestore, request: Callabl
     }
     let dish: Data | undefined;
     try { requireRuntime(runtime.data(), false); dish = await eligible(db, tx, value, now(), options); }
-    catch { classification = "failed"; }
+    catch (error) {
+      // Policy denials hold the photo; Firestore aborts must reach the SDK so
+      // it can retry this transaction without repeating the provider request.
+      if (!(error instanceof HttpsError)) throw error;
+      classification = "failed";
+    }
     // A paused runtime also stops publication of an in-flight auto approval.
     if (runtime.get("enabled") !== true || now() >= value.leaseUntil) classification = "failed";
     const final: Data = {...current.data(), state: classification, scanStatus: likelihoods ? "completed" : "failed", likelihoods,

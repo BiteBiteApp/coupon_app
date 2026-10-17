@@ -1,0 +1,335 @@
+{
+  "schemaVersion": 1,
+  "runId": "BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001",
+  "executionEnabled": false,
+  "productionWritesAuthorized": false,
+  "purpose": "Recorded local verification provenance and reproduction invocations. Creating this file did not execute or rerun these commands.",
+  "runtime": {
+    "nodeVersion": "24.19.0",
+    "nodeExecutable": "/Users/colesmart/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+    "originalInvocation": "The recorded shell commands used node with the bundled Node bin directory prepended to inherited PATH. The explicit executable in command arrays is equivalent."
+  },
+  "prerequisites": [
+    "Integrator-owned isolated Firestore/Auth/Storage emulators must be ready on the loopback endpoints below.",
+    "Run backend suites serially because several clear the same synthetic demo-coupon-app-rules project and replace emulator Rules.",
+    "GOOGLE_APPLICATION_CREDENTIALS must be unset. Tests enforce this; no credentials or production endpoints are needed.",
+    "Run npm run build in functions with bundled Node on PATH after source edits before invoking backend tests.",
+    "These are reproduction descriptors only, not authority to start services, activate production, call providers, or deploy."
+  ],
+  "countInterpretation": "Suite counts overlap. Do not sum them as unique tests or discard recorded failures when a focused rerun passed.",
+  "runs": [
+    {
+      "id": "initial-lifecycle-13",
+      "cwd": "/Users/colesmart/dev/coupon_app/functions",
+      "files": [
+        "test/photo_screening_provider.test.js",
+        "test/review_text_provider.test.js",
+        "test/photo_screening_retention.test.js",
+        "test/posting_restrictions.test.js",
+        "test/account_deletion.test.js",
+        "test/review_text_moderation_emulator.test.js",
+        "test/owner_photo_screening_emulator.test.js",
+        "test/photo_screening_emulator.test.js",
+        "test/photo_reports.test.js",
+        "test/reviewer_safety.test.js",
+        "test/posting_restrictions_emulator.test.js",
+        "test/account_deletion_emulator.test.js",
+        "test/bitescore_terms_coverage_emulator.test.js"
+      ],
+      "command": [
+        "/Users/colesmart/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "--test",
+        "--test-concurrency=1",
+        "test/photo_screening_provider.test.js",
+        "test/review_text_provider.test.js",
+        "test/photo_screening_retention.test.js",
+        "test/posting_restrictions.test.js",
+        "test/account_deletion.test.js",
+        "test/review_text_moderation_emulator.test.js",
+        "test/owner_photo_screening_emulator.test.js",
+        "test/photo_screening_emulator.test.js",
+        "test/photo_reports.test.js",
+        "test/reviewer_safety.test.js",
+        "test/posting_restrictions_emulator.test.js",
+        "test/account_deletion_emulator.test.js",
+        "test/bitescore_terms_coverage_emulator.test.js"
+      ],
+      "environment": {
+        "FIRESTORE_EMULATOR_HOST": "127.0.0.1:8792",
+        "FIREBASE_AUTH_EMULATOR_HOST": "127.0.0.1:9198",
+        "FIREBASE_STORAGE_EMULATOR_HOST": "127.0.0.1:9298",
+        "GCLOUD_PROJECT": "demo-coupon-app-rules",
+        "RUN_REVIEW_TEXT_EMULATOR": "1",
+        "RUN_OWNER_SCREENING_EMULATOR": "1",
+        "RUN_PHOTO_SCREENING_EMULATOR": "1",
+        "RUN_PHOTO_REPORT_EMULATOR": "1",
+        "RUN_REVIEWER_SAFETY_EMULATOR": "1",
+        "RUN_POSTING_RESTRICTION_EMULATOR": "1",
+        "RUN_ACCOUNT_DELETION_EMULATOR": "1",
+        "RUN_UGC_TERMS_EMULATOR": "1"
+      },
+      "log": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/lifecycle.log",
+      "observed": {
+        "tests": 214,
+        "pass": 213,
+        "fail": 1,
+        "skipped": 0,
+        "exitCode": 1
+      },
+      "notes": "Before the three transaction-catch corrections. The unmodified concurrent missing-photo case failed with emulator code 3 invalid/closed transaction; evidence retained."
+    },
+    {
+      "id": "affected-final-9",
+      "cwd": "/Users/colesmart/dev/coupon_app/functions",
+      "files": [
+        "test/review_text_moderation_emulator.test.js",
+        "test/owner_photo_screening_emulator.test.js",
+        "test/photo_screening_emulator.test.js",
+        "test/safety_release_integration_emulator.test.js",
+        "test/safety_transaction_retry.test.js",
+        "test/account_deletion_finalized_media.test.js",
+        "test/customer_bitescore_reads.test.js",
+        "test/customer_bitescore_photos.test.js",
+        "test/bitescore_review_aggregate.test.js"
+      ],
+      "command": [
+        "/Users/colesmart/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "--test",
+        "--test-concurrency=1",
+        "test/review_text_moderation_emulator.test.js",
+        "test/owner_photo_screening_emulator.test.js",
+        "test/photo_screening_emulator.test.js",
+        "test/safety_release_integration_emulator.test.js",
+        "test/safety_transaction_retry.test.js",
+        "test/account_deletion_finalized_media.test.js",
+        "test/customer_bitescore_reads.test.js",
+        "test/customer_bitescore_photos.test.js",
+        "test/bitescore_review_aggregate.test.js"
+      ],
+      "environment": {
+        "FIRESTORE_EMULATOR_HOST": "127.0.0.1:8792",
+        "FIREBASE_AUTH_EMULATOR_HOST": "127.0.0.1:9198",
+        "FIREBASE_STORAGE_EMULATOR_HOST": "127.0.0.1:9298",
+        "GCLOUD_PROJECT": "demo-coupon-app-rules",
+        "RUN_REVIEW_TEXT_EMULATOR": "1",
+        "RUN_OWNER_SCREENING_EMULATOR": "1",
+        "RUN_PHOTO_SCREENING_EMULATOR": "1",
+        "RUN_SAFETY_RELEASE_EMULATOR": "1",
+        "RUN_SAFETY_TRANSACTION_EMULATOR": "1",
+        "RUN_ACCOUNT_DELETION_EMULATOR": "1"
+      },
+      "log": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/affected-final.log",
+      "observed": {
+        "tests": 206,
+        "pass": 205,
+        "fail": 1,
+        "skipped": 0,
+        "exitCode": 1
+      },
+      "notes": "After the three source corrections. Same intermittent emulator code 3 contention failure. The combined fixture was subsequently augmented with strict candidate-metadata equality assertions and rerun separately below."
+    },
+    {
+      "id": "provider-index-final-3",
+      "cwd": "/Users/colesmart/dev/coupon_app/functions",
+      "files": [
+        "test/photo_screening_provider.test.js",
+        "test/review_text_provider.test.js",
+        "test/firestore_index_contract.test.js"
+      ],
+      "command": [
+        "/Users/colesmart/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "--test",
+        "--test-concurrency=1",
+        "test/photo_screening_provider.test.js",
+        "test/review_text_provider.test.js",
+        "test/firestore_index_contract.test.js"
+      ],
+      "environment": {},
+      "log": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/provider-index-final.log",
+      "observed": {
+        "tests": 39,
+        "pass": 39,
+        "fail": 0,
+        "skipped": 0,
+        "exitCode": 0
+      },
+      "notes": "Final deterministic provider transport/schema and strict index-contract checks. No real provider request."
+    },
+    {
+      "id": "rules-source-final-5",
+      "cwd": "/Users/colesmart/dev/coupon_app/firestore_rules_tests",
+      "files": [
+        "test/photo_report_rules.test.js",
+        "test/review_text_rules.test.js",
+        "test/account_deletion_rules.test.js",
+        "test/reviewer_safety_rules.test.js",
+        "test/posting_restriction_rules.test.js"
+      ],
+      "command": [
+        "/Users/colesmart/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "--test",
+        "--test-concurrency=1",
+        "test/photo_report_rules.test.js",
+        "test/review_text_rules.test.js",
+        "test/account_deletion_rules.test.js",
+        "test/reviewer_safety_rules.test.js",
+        "test/posting_restriction_rules.test.js"
+      ],
+      "environment": {
+        "FIRESTORE_EMULATOR_HOST": "127.0.0.1:8792",
+        "FIREBASE_AUTH_EMULATOR_HOST": "127.0.0.1:9198",
+        "FIREBASE_STORAGE_EMULATOR_HOST": "127.0.0.1:9298",
+        "GCLOUD_PROJECT": "demo-coupon-app-rules"
+      },
+      "log": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/rules-source.log",
+      "observed": {
+        "tests": 25,
+        "pass": 25,
+        "fail": 0,
+        "skipped": 0,
+        "exitCode": 0
+      },
+      "notes": "Repository policy regressions after the narrow Admin vote-cleanup Rules correction."
+    },
+    {
+      "id": "transaction-regression-final-1",
+      "cwd": "/Users/colesmart/dev/coupon_app/functions",
+      "files": [
+        "test/safety_transaction_retry.test.js"
+      ],
+      "command": [
+        "/Users/colesmart/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "--test",
+        "--test-concurrency=1",
+        "test/safety_transaction_retry.test.js"
+      ],
+      "environment": {
+        "RUN_SAFETY_TRANSACTION_EMULATOR": "1",
+        "FIRESTORE_EMULATOR_HOST": "127.0.0.1:8792"
+      },
+      "log": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/transaction-regression-final.log",
+      "observed": {
+        "tests": 6,
+        "pass": 6,
+        "fail": 0,
+        "skipped": 0,
+        "exitCode": 0
+      },
+      "notes": "Final actual Firestore transaction fault-injection tests: code 10 retries completion without new provider/admission; code 3 reaches the transaction adapter while publication remains private and saved numerical rating remains honest."
+    },
+    {
+      "id": "combined-source-final-1",
+      "cwd": "/Users/colesmart/dev/coupon_app/functions",
+      "files": [
+        "test/safety_release_integration_emulator.test.js"
+      ],
+      "command": [
+        "/Users/colesmart/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "--test",
+        "--test-concurrency=1",
+        "test/safety_release_integration_emulator.test.js"
+      ],
+      "environment": {
+        "FIRESTORE_EMULATOR_HOST": "127.0.0.1:8792",
+        "FIREBASE_AUTH_EMULATOR_HOST": "127.0.0.1:9198",
+        "FIREBASE_STORAGE_EMULATOR_HOST": "127.0.0.1:9298",
+        "GCLOUD_PROJECT": "demo-coupon-app-rules",
+        "RUN_SAFETY_RELEASE_EMULATOR": "1",
+        "SAFETY_RELEASE_RULES": "source"
+      },
+      "log": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/integration-source-final.log",
+      "observed": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0,
+        "skipped": 0,
+        "exitCode": 0
+      },
+      "notes": "Final reviewed fixture verifies exact published Terms, candidate approved-terms/runtime-phases metadata, pause/recovery and real local Storage behavior against repository Rules."
+    },
+    {
+      "id": "combined-candidate-final-1",
+      "cwd": "/Users/colesmart/dev/coupon_app/functions",
+      "files": [
+        "test/safety_release_integration_emulator.test.js"
+      ],
+      "command": [
+        "/Users/colesmart/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "--test",
+        "--test-concurrency=1",
+        "test/safety_release_integration_emulator.test.js"
+      ],
+      "environment": {
+        "FIRESTORE_EMULATOR_HOST": "127.0.0.1:8792",
+        "FIREBASE_AUTH_EMULATOR_HOST": "127.0.0.1:9198",
+        "FIREBASE_STORAGE_EMULATOR_HOST": "127.0.0.1:9298",
+        "GCLOUD_PROJECT": "demo-coupon-app-rules",
+        "RUN_SAFETY_RELEASE_EMULATOR": "1",
+        "SAFETY_RELEASE_RULES": "candidate"
+      },
+      "log": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/integration-candidate-final.log",
+      "observed": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0,
+        "skipped": 0,
+        "exitCode": 0
+      },
+      "notes": "Same final fixture and exact metadata against baseline-aware candidate Firestore/Storage policies."
+    },
+    {
+      "id": "original-contention-after-restart",
+      "cwd": "/Users/colesmart/dev/coupon_app/functions",
+      "files": [
+        "test/photo_screening_emulator.test.js"
+      ],
+      "command": [
+        "/Users/colesmart/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "--test",
+        "--test-concurrency=1",
+        "--test-name-pattern=two different missing photos",
+        "test/photo_screening_emulator.test.js"
+      ],
+      "environment": {
+        "FIRESTORE_EMULATOR_HOST": "127.0.0.1:8792",
+        "FIREBASE_AUTH_EMULATOR_HOST": "127.0.0.1:9198",
+        "FIREBASE_STORAGE_EMULATOR_HOST": "127.0.0.1:9298",
+        "GCLOUD_PROJECT": "demo-coupon-app-rules",
+        "RUN_PHOTO_SCREENING_EMULATOR": "1"
+      },
+      "log": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/photo-contention-after-restart.log",
+      "observed": {
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "skipped": 0,
+        "exitCode": 0
+      },
+      "notes": "Exact unchanged case after one restart of only the task-owned emulators. Does not erase earlier failures or prove their precise cause. No code 3 retry shim or assertion change."
+    }
+  ],
+  "preservedFailureLogs": [
+    "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/integration-first.log",
+    "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/photo-contention-rerun.log",
+    "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/photo-contention-trace.log",
+    "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/transaction-regression-before.log",
+    "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/transaction-regression-after.log"
+  ],
+  "sourceBuild": {
+    "cwd": "/Users/colesmart/dev/coupon_app/functions",
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "environmentRequirement": "PATH begins with /Users/colesmart/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin",
+    "log": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/build.log",
+    "observedExitCode": 0
+  },
+  "limitations": [
+    "Fake provider outcomes prove workflow behavior, not classification accuracy or live provider availability.",
+    "Storage emulator does not prove production GCS generation preconditions, IAM/ACL/token/cache/soft-delete guarantees or live TTL timing.",
+    "Intermittent local emulator code 3 concurrency failures remain recorded; later authorized live acceptance includes exact concurrent missing-photo publication."
+  ],
+  "report": "tool/safety_release_prep/track-b.md"
+}

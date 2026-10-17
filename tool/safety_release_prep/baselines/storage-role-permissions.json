@@ -1,0 +1,56 @@
+{
+  "observedAt": "2026-10-17T19:44:02.104Z",
+  "roles": [
+    {
+      "name": "bitestarBiteScorePhotoObjectRead",
+      "result": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "name": "projects/coupon-app-29446/roles/bitestarBiteScorePhotoObjectRead",
+          "title": "bitestarBiteScorePhotoObjectRead",
+          "description": "Approved BiteStar runtime least-privilege permission",
+          "includedPermissions": [
+            "storage.objects.get"
+          ],
+          "stage": "GA",
+          "etag": "BwZb3TK9bPI="
+        }
+      }
+    },
+    {
+      "name": "bitestarDeletionObjectDelete",
+      "result": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "name": "projects/coupon-app-29446/roles/bitestarDeletionObjectDelete",
+          "title": "bitestarDeletionObjectDelete",
+          "description": "Dedicated BiteStar account deletion runtime capability; scope constrained by exact resource bindings.",
+          "includedPermissions": [
+            "storage.objects.delete"
+          ],
+          "stage": "GA",
+          "etag": "BwZcK/87Q0U="
+        }
+      }
+    },
+    {
+      "name": "bitestarDeletionObjectList",
+      "result": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "name": "projects/coupon-app-29446/roles/bitestarDeletionObjectList",
+          "title": "bitestarDeletionObjectList",
+          "description": "Dedicated BiteStar account deletion runtime capability; scope constrained by exact resource bindings.",
+          "includedPermissions": [
+            "storage.objects.list"
+          ],
+          "stage": "GA",
+          "etag": "BwZcK/9IRiI="
+        }
+      }
+    }
+  ]
+}

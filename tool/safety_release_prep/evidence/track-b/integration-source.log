@@ -1,0 +1,12 @@
+✔ published exact Terms compose with customer rating/photo and owner explicit attachment without authority grants (1082.519292ms)
+✔ simultaneous provider pause keeps held text/customer photos/owner assets private and recovery preserves original versions (3162.802584ms)
+✔ default-OFF is distinct from safe pause; malformed required policy blocks every new screening lane (219.761834ms)
+✔ screened photo remains shared after personal block and exact report is actionable after its review disappears (244.016208ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5091.009625

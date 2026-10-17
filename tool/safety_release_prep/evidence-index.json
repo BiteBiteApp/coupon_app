@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "runId": "BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001",
+  "copiedAt": "2026-10-17T19:53:35.188592+00:00",
+  "description": "Raw local test logs, including failures and superseded runs. Counts overlap; report tables define final qualifying scope. No live provider or production mutation evidence is claimed.",
+  "files": [
+    {
+      "path": "tool/safety_release_prep/evidence/admin-vote-before.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/admin-vote-before.log",
+      "bytes": 4496,
+      "sha256": "13483f5f8630a25bdc7b06ec7f53863a852cf0f57cd4cbe052b5c63dff6aeae5",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/admin-vote-candidate.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/admin-vote-candidate.log",
+      "bytes": 4719,
+      "sha256": "c32cd50cea85315d41885238f664b1df61c796992aa7c053b09ba0b401122c5a",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/admin-vote-source.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/admin-vote-source.log",
+      "bytes": 3742,
+      "sha256": "2ff564060fc764bfa8bd220e17e74e2b8d2a3692548e52d265d585d8b1a78087",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/policy-candidate.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/policy-candidate.log",
+      "bytes": 14089,
+      "sha256": "c7ec45bc6e9e60a5574889ed192f7eca3658f2bc8505a63085e08a28d56d7e75",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/policy-source.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/policy-source.log",
+      "bytes": 11322,
+      "sha256": "302247852a2d8e9275e8c2819bebec14ba952154c13ba939a7b42ee423f80009",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-a/flutter-focused.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-a/flutter-focused.log",
+      "bytes": 93269,
+      "sha256": "093660ead555a2e39f30d9de527a2fb192a50d6e83f6b9ac15016c699d20aace",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-a/flutter-legal.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-a/flutter-legal.log",
+      "bytes": 11100,
+      "sha256": "5f77459465b4341191d8473d88f1e6fa50defc3d4df9ada4d12cec3fd1eab9df",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-a/flutter-protective-recovery.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-a/flutter-protective-recovery.log",
+      "bytes": 15914,
+      "sha256": "752b386d68dd0f35505d2723459f726021b8a51e7c0694e12931f4f05810dd60",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/affected-final.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/affected-final.log",
+      "bytes": 33210,
+      "sha256": "8ae3efe60299592c1dc060e6af273341a572ce98f60e123571a12c6759f085d9",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/build.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/build.log",
+      "bytes": 16,
+      "sha256": "8fe4571ad4e1c8d99b7bc7e6576a20f57e5d161cc24c4d631421068c0431e2c1",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/integration-candidate-final.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/integration-candidate-final.log",
+      "bytes": 635,
+      "sha256": "2385b812f511b9441c6430698bf9b55eb634ce9d943e8104fac7c37b17c982c9",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/integration-first.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/integration-first.log",
+      "bytes": 3057,
+      "sha256": "cd4f8ca127f24d9903004e4ac4d658509ccbd2a55ed48342d2e02e711c345911",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/integration-source-final.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/integration-source-final.log",
+      "bytes": 635,
+      "sha256": "cb7bdec31270e1b8fa60104612434a579ab91e7613c4d29b963539e41cedc908",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/integration-source.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/integration-source.log",
+      "bytes": 637,
+      "sha256": "4a02087835221842007a70fa6247899fbf984dbaac883a18f105a79b0ac37e8b",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/lifecycle.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/lifecycle.log",
+      "bytes": 32959,
+      "sha256": "1b1c790753c7f709d82c471cb5c569ff46e16993403109e059195774f29fcb04",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/photo-contention-after-restart.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/photo-contention-after-restart.log",
+      "bytes": 235,
+      "sha256": "849d1d381542e41f1141fbba7b3996d30454b863299f8d4a950b6455e9a86d8f",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/photo-contention-after-source.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/photo-contention-after-source.log",
+      "bytes": 236,
+      "sha256": "89573f6ae2c74bb6550c0a88344681d721a98d8f11d9d41fb05f7b700f71bd0a",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/photo-contention-rerun.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/photo-contention-rerun.log",
+      "bytes": 2735,
+      "sha256": "1476048916700964209cd20662938f4a434ce8f934be2711f3ea324f375a87ad",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/photo-contention-trace.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/photo-contention-trace.log",
+      "bytes": 3047,
+      "sha256": "12e2c7516a22cfe7992fd13cd1ef092165cd5bc7c990e5ec88437fb088f97a98",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/provider-index-final.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/provider-index-final.log",
+      "bytes": 3014,
+      "sha256": "aed23e53b2e5536addfa19871e66ac56cdee60a40806a72a4051415492c71571",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/rules-source.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/rules-source.log",
+      "bytes": 89413,
+      "sha256": "4ad3da298cf5d53af419d76531ecf31b67167cb8d0e5ba96bb66e545b8937ad4",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/transaction-regression-after.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/transaction-regression-after.log",
+      "bytes": 1445,
+      "sha256": "cefcf959e875b94649c5a366599cde4baedd0d3a67baa84c3a2fe161a9c616f2",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/transaction-regression-before.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/transaction-regression-before.log",
+      "bytes": 4889,
+      "sha256": "a0fd1cf9d58a70a6021d80be591e83ab419fab4b8d6b44f3c154c4cb2de849f1",
+      "byteIdentical": true
+    },
+    {
+      "path": "tool/safety_release_prep/evidence/track-b/transaction-regression-final.log",
+      "originalLocalPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001/track-b/transaction-regression-final.log",
+      "bytes": 839,
+      "sha256": "a25608ed92e208fe47ded9acd5ba5efd17b4fc55a5934f53b557f482cfa3faff",
+      "byteIdentical": true
+    }
+  ]
+}

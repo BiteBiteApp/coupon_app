@@ -1,0 +1,89 @@
+{
+  "executionEnabled": false,
+  "productionWritesAuthorized": false,
+  "existingDefaultsUnchanged": true,
+  "phases": {
+    "enforcedPaused": {
+      "private_bitescore_runtime/terms": {
+        "schemaVersion": 1,
+        "required": true,
+        "version": "bitestar-terms-v1",
+        "acceptedVersions": [
+          "bitestar-terms-v1"
+        ]
+      },
+      "private_bitescore_runtime/photo_screening": {
+        "required": true,
+        "enabled": false,
+        "ownerRequired": true,
+        "ownerEnabled": false,
+        "policyVersion": "conservative-hold-v1",
+        "monthlyAllowance": 1000,
+        "retentionPolicyVersion": "photo-retention-v1",
+        "retentionApproved": true,
+        "failedScreeningRetentionDays": 7,
+        "failedScreeningRetentionApproved": true,
+        "cleanupEnabled": true
+      },
+      "private_bitescore_runtime/review_text": {
+        "required": true,
+        "processingEnabled": false,
+        "cleanupEnabled": true,
+        "retentionApproved": true,
+        "retentionPolicyVersion": "review-text-retention-v2",
+        "pendingRetentionSeconds": 2592000,
+        "failedRetentionSeconds": 604800,
+        "policyVersion": "openai-clean-or-human-v1"
+      }
+    },
+    "isolatedEnabledTestsOnly": {
+      "private_bitescore_runtime/photo_screening": {
+        "required": true,
+        "enabled": true,
+        "ownerRequired": true,
+        "ownerEnabled": true,
+        "policyVersion": "conservative-hold-v1",
+        "monthlyAllowance": 1000,
+        "retentionPolicyVersion": "photo-retention-v1",
+        "retentionApproved": true,
+        "failedScreeningRetentionDays": 7,
+        "failedScreeningRetentionApproved": true,
+        "cleanupEnabled": true
+      },
+      "private_bitescore_runtime/review_text": {
+        "required": true,
+        "processingEnabled": true,
+        "cleanupEnabled": true,
+        "retentionApproved": true,
+        "retentionPolicyVersion": "review-text-retention-v2",
+        "pendingRetentionSeconds": 2592000,
+        "failedRetentionSeconds": 604800,
+        "policyVersion": "openai-clean-or-human-v1"
+      }
+    }
+  },
+  "preserveLiveAggregation": {
+    "name": "projects/coupon-app-29446/databases/(default)/documents/private_bitescore_runtime/aggregation",
+    "fields": {
+      "enabled": {
+        "booleanValue": true
+      },
+      "version": {
+        "integerValue": "1"
+      },
+      "epoch": {
+        "stringValue": "bitestar-postreset-20260921-142642-4dc76b06"
+      }
+    },
+    "createTime": "2026-09-21T19:19:25.378338Z",
+    "updateTime": "2026-09-21T19:19:25.378338Z"
+  },
+  "pauseMustNever": [
+    "Delete terms/photo_screening/review_text runtime documents",
+    "Set required or ownerRequired false",
+    "Restore old client direct public uploads",
+    "Restore unchecked pre-moderation trusted writer",
+    "Disable deletion/privacy worker as a generic rollback"
+  ],
+  "providerLimit": "1000 admitted image attempts per UTC month shared across customer and owner; no guaranteed total spending cap."
+}

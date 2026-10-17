@@ -162,7 +162,12 @@ export async function submitScreenedOwnerPhotoHandler(db: Firestore, request: Ca
     if (!current.exists || current.get("attemptId") !== attemptId || current.get("state") !== "scanning") {
       tx.set(slotsRef, {active}); return current.exists ? ownerPhotoResponse(current.data()!) : {schemaVersion: 1, state: "unavailable", imageId: row.imageId};
     }
-    try { runtimeAllows(runtime.data(), true); await requireOwnerPhotoAuthority(db, tx, row); } catch { state = "failed"; }
+    try { runtimeAllows(runtime.data(), true); await requireOwnerPhotoAuthority(db, tx, row); }
+    catch (error) {
+      // Keep policy denials private while preserving SDK transaction retries.
+      if (!(error instanceof HttpsError)) throw error;
+      state = "failed";
+    }
     if (now() >= row.leaseUntil) state = "failed";
     const next: Data = {...current.data(), state, likelihoods, scanStatus: likelihoods ? "completed" : "failed",
       provider: options.provider?.name ?? "google-vision-safesearch-v1", updatedAt: new Date(now()),

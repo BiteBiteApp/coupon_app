@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "runId": "BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001",
+  "executionEnabled": false,
+  "deploymentAuthorized": false,
+  "activationAuthorized": false,
+  "providerCallsAuthorized": false,
+  "paidResourcesAuthorized": false,
+  "commands": [],
+  "requiredReleaseOrder": [
+    "Finish search and safety/backend source preparation",
+    "Re-select and freeze final tested combined source after intervening relevant work BEFORE paid investigation",
+    "Separately authorize and conduct approximately $300 hosted search investigation",
+    "Resolve findings and approve production search choice",
+    "Fresh source/dependency/live-baseline drift recheck and affected requalification before separately authorizing exact targeted rollout",
+    "Final Android/iPhone acceptance and app-store readiness"
+  ],
+  "clientCandidate": {
+    "unchangedSourceDefaults": [
+      "BiteScoreTermsService.enabled=false",
+      "RegistrationAgePolicy.enabled=false",
+      "approvedBiteScoreTerms=null",
+      "reviewTextProviderWiringEnabled=false"
+    ],
+    "futureSafetyDefines": {
+      "REVIEWER_SAFETY_CUSTOMER_UI": true,
+      "BITESCORE_PHOTO_REPORTING": true,
+      "BITESCORE_REVIEW_TEXT_MODERATION": true,
+      "BITESCORE_PHOTO_SCREENING": true,
+      "BITESAVER_PHOTO_SCREENING": true
+    },
+    "sharedReaderGate": "CustomerBiteScoreRuntime must be enabled by the ultimately approved search candidate selector or explicit bounded read mode; selection does not authorize the old discovery implementation.",
+    "futureSourceBindings": [
+      {
+        "path": "lib/services/bitescore_terms_service.dart",
+        "symbol": "BiteScoreTermsService.enabled",
+        "currentValue": false,
+        "proposedValue": true,
+        "authorized": false
+      },
+      {
+        "path": "lib/services/registration_age_policy.dart",
+        "symbol": "RegistrationAgePolicy.enabled",
+        "currentValue": false,
+        "proposedValue": true,
+        "authorized": false
+      },
+      {
+        "path": "functions/src/bitescore_terms.ts",
+        "symbol": "approvedBiteScoreTerms",
+        "currentValue": null,
+        "proposedValueReference": "tool/safety_release_prep/candidate/approved-terms.json (exact version,text, acceptedPriorVersions)",
+        "authorized": false
+      },
+      {
+        "path": "functions/src/customer_bitescore_runtime.ts",
+        "symbol": "reviewTextProviderWiringEnabled",
+        "currentValue": false,
+        "proposedValue": true,
+        "authorized": false,
+        "requires": "immutable approved OPENAI_REVIEW_MODERATION_API_KEY secret version binding"
+      }
+    ],
+    "minimumSupportedClient": "Owner must select tested version at later rollout; current prelaunch owner test client must retain legacy readable routes until that cutover."
+  }
+}

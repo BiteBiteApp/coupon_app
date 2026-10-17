@@ -1,0 +1,3027 @@
+{
+  "observedAt": "2026-10-17T19:38:11.722Z",
+  "method": "Bounded read-only provider metadata; no customer content, secret payloads, or production writes",
+  "functions": [
+    {
+      "name": "getCustomerBiteScoreTerms",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "acceptCustomerBiteScoreTerms",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "getCustomerPostingStatus",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "getAdminPostingRestriction",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/getAdminPostingRestriction",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "getAdminPostingRestriction",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "getAdminPostingRestriction/function-source.zip",
+                "generation": "1792253715252317"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/getadminpostingrestriction",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 10,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "revision": "getadminpostingrestriction-00001-buj",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-10-17T16:16:15.806409016Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/getadminpostingrestriction",
+          "updateTime": "2026-10-17T16:16:02.971673Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 10
+            },
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-10-17T16:16:15.509937Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/getadminpostingrestriction/revisions/getadminpostingrestriction-00001-buj",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "getadminpostingrestriction-00001-buj",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CMK-ztYGEKibqs8D/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvZ2V0YWRtaW5wb3N0aW5ncmVzdHJpY3Rpb24\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZeC6ua/0k=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "allUsers"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "setAdminPostingRestriction",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/setAdminPostingRestriction",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "setAdminPostingRestriction",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "setAdminPostingRestriction/function-source.zip",
+                "generation": "1792253716910831"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/setadminpostingrestriction",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 10,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "revision": "setadminpostingrestriction-00001-nag",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-10-17T16:16:11.090977533Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/setadminpostingrestriction",
+          "updateTime": "2026-10-17T16:15:57.695356Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 10
+            },
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-10-17T16:16:10.237247Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/setadminpostingrestriction/revisions/setadminpostingrestriction-00001-nag",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "setadminpostingrestriction-00001-nag",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CL2-ztYGEOCUycsC/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvc2V0YWRtaW5wb3N0aW5ncmVzdHJpY3Rpb24\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZeC6u6too=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "allUsers"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "submitPhotoReport",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "moderatePhotoReport",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "submitReviewerReport",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "blockReviewer",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "unblockReviewer",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "getReviewerSafetyStatus",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "saveCustomerBiteScoreReview",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/saveCustomerBiteScoreReview",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "saveCustomerBiteScoreReview"
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/savecustomerbitescorereview",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 20,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-19T23:23:30.230457931Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/savecustomerbitescorereview",
+          "updateTime": "2026-09-26T03:51:15.169289Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 20
+            },
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "scalingMode": "AUTOMATIC",
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-26T03:51:15.516177Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/savecustomerbitescorereview/revisions/savecustomerbitescorereview-00002-xs9",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "savecustomerbitescorereview-00002-xs9",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CLOC3dUGEKjK3FA/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvc2F2ZWN1c3RvbWVyYml0ZXNjb3JlcmV2aWV3\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZb3lFwzDw=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "allUsers"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "getOwnBiteScoreReviewText",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "listBiteScoreReviewText",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "decideBiteScoreReviewText",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "expireBiteScoreReviewTexts",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "maintainCustomerBiteScoreReviewAggregate",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/maintainCustomerBiteScoreReviewAggregate",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "maintainCustomerBiteScoreReviewAggregate",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "maintainCustomerBiteScoreReviewAggregate/function-source.zip",
+                "generation": "1790215066019823"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescorereviewaggregate",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 20,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "revision": "maintaincustomerbitescorereviewaggregate-00002-guw",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "eventTrigger": {
+            "trigger": "projects/coupon-app-29446/locations/nam5/triggers/maintaincustomerbitescorereviewaggregate-681188",
+            "triggerRegion": "nam5",
+            "eventType": "google.cloud.firestore.document.v1.written",
+            "eventFilters": [
+              {
+                "attribute": "namespace",
+                "value": "(default)"
+              },
+              {
+                "attribute": "document",
+                "value": "dish_reviews/{reviewId}",
+                "operator": "match-path-pattern"
+              },
+              {
+                "attribute": "database",
+                "value": "(default)"
+              }
+            ],
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "retryPolicy": "RETRY_POLICY_RETRY"
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-24T01:58:41.859362319Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescorereviewaggregate",
+          "updateTime": "2026-09-24T01:58:23.210025Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 20
+            },
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-24T01:58:41.292371Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescorereviewaggregate/revisions/maintaincustomerbitescorereviewaggregate-00002-guw",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "maintaincustomerbitescorereviewaggregate-00002-guw",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CL-H0tUGEKj0kmQ/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvbWFpbnRhaW5jdXN0b21lcmJpdGVzY29yZXJldmlld2FnZ3JlZ2F0ZQ\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZcAw3EGPk=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "maintainCustomerBiteScoreDishAggregate",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/maintainCustomerBiteScoreDishAggregate",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "maintainCustomerBiteScoreDishAggregate",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "maintainCustomerBiteScoreDishAggregate/function-source.zip",
+                "generation": "1790017383425760"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescoredishaggregate",
+            "timeoutSeconds": 60,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "revision": "maintaincustomerbitescoredishaggregate-00001-xet",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "eventTrigger": {
+            "trigger": "projects/coupon-app-29446/locations/nam5/triggers/maintaincustomerbitescoredishaggregate-071532",
+            "triggerRegion": "nam5",
+            "eventType": "google.cloud.firestore.document.v1.written",
+            "eventFilters": [
+              {
+                "attribute": "namespace",
+                "value": "(default)"
+              },
+              {
+                "attribute": "document",
+                "value": "bitescore_dishes/{dishId}",
+                "operator": "match-path-pattern"
+              },
+              {
+                "attribute": "database",
+                "value": "(default)"
+              }
+            ],
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "retryPolicy": "RETRY_POLICY_RETRY"
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-21T19:03:59.672337009Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescoredishaggregate",
+          "updateTime": "2026-09-21T19:03:04.461054Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-21T19:03:47.322645Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescoredishaggregate/revisions/maintaincustomerbitescoredishaggregate-00001-xet",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "maintaincustomerbitescoredishaggregate-00001-xet",
+              "percent": 100
+            }
+          ],
+          "etag": "\"COj-xdUGELDA7NsB/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvbWFpbnRhaW5jdXN0b21lcmJpdGVzY29yZWRpc2hhZ2dyZWdhdGU\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZcAw3lo2Y=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "maintainCustomerBiteScoreReviewFeedback",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/maintainCustomerBiteScoreReviewFeedback",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "maintainCustomerBiteScoreReviewFeedback",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "maintainCustomerBiteScoreReviewFeedback/function-source.zip",
+                "generation": "1790215069779529"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescorereviewfeedback",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 20,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "revision": "maintaincustomerbitescorereviewfeedback-00002-zer",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "eventTrigger": {
+            "trigger": "projects/coupon-app-29446/locations/nam5/triggers/maintaincustomerbitescorereviewfeedback-883391",
+            "triggerRegion": "nam5",
+            "eventType": "google.cloud.firestore.document.v1.written",
+            "eventFilters": [
+              {
+                "attribute": "namespace",
+                "value": "(default)"
+              },
+              {
+                "attribute": "document",
+                "value": "review_feedback_votes/{voteId}",
+                "operator": "match-path-pattern"
+              },
+              {
+                "attribute": "database",
+                "value": "(default)"
+              }
+            ],
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "retryPolicy": "RETRY_POLICY_RETRY"
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-24T01:58:44.942559437Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescorereviewfeedback",
+          "updateTime": "2026-09-24T01:58:34.578172Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 20
+            },
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-24T01:58:44.645648Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescorereviewfeedback/revisions/maintaincustomerbitescorereviewfeedback-00002-zer",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "maintaincustomerbitescorereviewfeedback-00002-zer",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CMqH0tUGEODo2JMC/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvbWFpbnRhaW5jdXN0b21lcmJpdGVzY29yZXJldmlld2ZlZWRiYWNr\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZcAw4BI+M=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "maintainCustomerBiteScoreImage",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/maintainCustomerBiteScoreImage",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "maintainCustomerBiteScoreImage",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "maintainCustomerBiteScoreImage/function-source.zip",
+                "generation": "1790017383303036"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescoreimage",
+            "timeoutSeconds": 60,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "revision": "maintaincustomerbitescoreimage-00001-mok",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "eventTrigger": {
+            "trigger": "projects/coupon-app-29446/locations/nam5/triggers/maintaincustomerbitescoreimage-399891",
+            "triggerRegion": "nam5",
+            "eventType": "google.cloud.firestore.document.v1.written",
+            "eventFilters": [
+              {
+                "attribute": "namespace",
+                "value": "(default)"
+              },
+              {
+                "attribute": "document",
+                "value": "bitescore_dish_images/{imageId}",
+                "operator": "match-path-pattern"
+              },
+              {
+                "attribute": "database",
+                "value": "(default)"
+              }
+            ],
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "retryPolicy": "RETRY_POLICY_RETRY"
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-21T19:03:58.816431889Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescoreimage",
+          "updateTime": "2026-09-21T19:03:04.176762Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-21T19:03:48.205910Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescoreimage/revisions/maintaincustomerbitescoreimage-00001-mok",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "maintaincustomerbitescoreimage-00001-mok",
+              "percent": 100
+            }
+          ],
+          "etag": "\"COj-xdUGEJDZpFQ/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvbWFpbnRhaW5jdXN0b21lcmJpdGVzY29yZWltYWdl\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZcAw4eHCQ=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "continueCustomerBiteScoreReviewAggregates",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/continueCustomerBiteScoreReviewAggregates",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "continueCustomerBiteScoreReviewAggregates",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "continueCustomerBiteScoreReviewAggregates/function-source.zip",
+                "generation": "1790047463403131"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/continuecustomerbitescorereviewaggregates",
+            "timeoutSeconds": 60,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "revision": "continuecustomerbitescorereviewaggregates-00001-rub",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-22T03:26:02.931267787Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/continuecustomerbitescorereviewaggregates",
+          "updateTime": "2026-09-22T03:25:06.014307Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-22T03:26:02.299460Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/continuecustomerbitescorereviewaggregates/revisions/continuecustomerbitescorereviewaggregates-00001-rub",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "continuecustomerbitescorereviewaggregates-00001-rub",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CJLqx9UGELid6QY/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvY29udGludWVjdXN0b21lcmJpdGVzY29yZXJldmlld2FnZ3JlZ2F0ZXM\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZcCe3R9uE=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "submitScreenedBiteScorePhoto",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "listAdminScreeningPhotos",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "previewAdminScreeningPhoto",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "decideAdminScreeningPhoto",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "cleanupExpiredScreeningPhotos",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "submitScreenedOwnerPhoto",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "getOwnerScreenedPhoto",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "useOwnerScreenedPhoto",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "removeBiteSaverOwnerImage",
+      "function": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "name": "saveBiteSaverRestaurantProfile",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/saveBiteSaverRestaurantProfile",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "saveBiteSaverRestaurantProfile"
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/savebitesaverrestaurantprofile",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 10,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "253983587346-compute@developer.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "secretEnvironmentVariables": [
+              {
+                "key": "GOOGLE_MAPS_API_KEY",
+                "projectId": "coupon-app-29446",
+                "secret": "GOOGLE_MAPS_API_KEY",
+                "version": "1"
+              }
+            ],
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-07-26T05:38:42.658262883Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/savebitesaverrestaurantprofile",
+          "updateTime": "2026-10-03T01:55:18.960621Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 10
+            },
+            "serviceAccount": "253983587346-compute@developer.gserviceaccount.com"
+          },
+          "scaling": {
+            "scalingMode": "AUTOMATIC",
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_FAILED",
+            "message": "Revision 'savebitesaverrestaurantprofile-00004-2jq' is not ready and cannot serve traffic. Image 'us-central1-docker.pkg.dev/coupon-app-29446/gcf-artifacts/coupon--app--29446__us--central1__process_dish_proposal_resolution_work@sha256:43723d4f5acd27d214066c364a50606a94b7493f4320f7f414e6251ae6cb08f3' not found.",
+            "lastTransitionTime": "2026-10-03T01:55:19.629671Z",
+            "reason": "REVISION_FAILED"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/savebitesaverrestaurantprofile/revisions/savebitesaverrestaurantprofile-00003-q5z",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "savebitesaverrestaurantprofile-00003-q5z",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CIbBgdYGEMjTh8oD/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvc2F2ZWJpdGVzYXZlcnJlc3RhdXJhbnRwcm9maWxl\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZXdVGqD8A=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "allUsers"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "issueMenuImageUploadAuthorization",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/issueMenuImageUploadAuthorization",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "issueMenuImageUploadAuthorization"
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/issuemenuimageuploadauthorization",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 10,
+            "ingressSettings": "ALLOW_INTERNAL_ONLY",
+            "serviceAccountEmail": "253983587346-compute@developer.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-22T17:20:49.593716119Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/issuemenuimageuploadauthorization",
+          "updateTime": "2026-09-24T02:12:55.789883Z",
+          "ingress": "INGRESS_TRAFFIC_INTERNAL_ONLY",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 10
+            },
+            "serviceAccount": "253983587346-compute@developer.gserviceaccount.com"
+          },
+          "scaling": {
+            "scalingMode": "MANUAL",
+            "manualInstanceCount": 0
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-24T02:13:04.611901Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/issuemenuimageuploadauthorization/revisions/issuemenuimageuploadauthorization-00002-qr8",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "issuemenuimageuploadauthorization-00002-qr8",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CKeO0tUGEPjQ0vgC/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvaXNzdWVtZW51aW1hZ2V1cGxvYWRhdXRob3JpemF0aW9u\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "etag": "ACAB"
+        }
+      }
+    },
+    {
+      "name": "createCustomerBiteScorePhoto",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/createCustomerBiteScorePhoto",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "createCustomerBiteScorePhoto"
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/createcustomerbitescorephoto",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 20,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-19T23:23:22.368947774Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/createcustomerbitescorephoto",
+          "updateTime": "2026-09-26T03:52:40.664731Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 20
+            },
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "scalingMode": "AUTOMATIC",
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-26T03:52:40.988984Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/createcustomerbitescorephoto/revisions/createcustomerbitescorephoto-00002-gdb",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "createcustomerbitescorephoto-00002-gdb",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CIiD3dUGEPj6-7wC/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvY3JlYXRlY3VzdG9tZXJiaXRlc2NvcmVwaG90bw\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZb3lGBo8o=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "allUsers"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "toggleCustomerBiteScorePhotoVote",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/toggleCustomerBiteScorePhotoVote",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "toggleCustomerBiteScorePhotoVote"
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/togglecustomerbitescorephotovote",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 20,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-19T23:23:30.763865093Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/togglecustomerbitescorephotovote",
+          "updateTime": "2026-09-26T03:52:50.672451Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 20
+            },
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "scalingMode": "AUTOMATIC",
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-26T03:52:51.082248Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/togglecustomerbitescorephotovote/revisions/togglecustomerbitescorephotovote-00002-kv8",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "togglecustomerbitescorephotovote-00002-kv8",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CJKD3dUGELiT08AC/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvdG9nZ2xlY3VzdG9tZXJiaXRlc2NvcmVwaG90b3ZvdGU\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZb3lGSTkI=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "allUsers"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "getCustomerBiteScoreDetail",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/getCustomerBiteScoreDetail",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "getCustomerBiteScoreDetail",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "getCustomerBiteScoreDetail/function-source.zip",
+                "generation": "1790018466647690"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitescoredetail",
+            "timeoutSeconds": 60,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "secretEnvironmentVariables": [
+              {
+                "key": "SEARCH_PAGINATION_CURSOR_KEY",
+                "projectId": "coupon-app-29446",
+                "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+                "version": "1"
+              }
+            ],
+            "revision": "getcustomerbitescoredetail-00001-puz",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-21T19:21:16.965074841Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitescoredetail",
+          "updateTime": "2026-09-26T03:47:32.611100Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "scalingMode": "AUTOMATIC",
+            "maxInstanceCount": 10
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-26T03:47:34.286909Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitescoredetail/revisions/getcustomerbitescoredetail-00001-puz",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "getcustomerbitescoredetail-00001-puz",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CNSA3dUGEODKsqMC/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvZ2V0Y3VzdG9tZXJiaXRlc2NvcmVkZXRhaWw\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZcWrFLG/w=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "allUsers"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "pageCustomerBiteScoreReviews",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/pageCustomerBiteScoreReviews",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "pageCustomerBiteScoreReviews",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "pageCustomerBiteScoreReviews/function-source.zip",
+                "generation": "1790018466734552"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/pagecustomerbitescorereviews",
+            "timeoutSeconds": 60,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "secretEnvironmentVariables": [
+              {
+                "key": "SEARCH_PAGINATION_CURSOR_KEY",
+                "projectId": "coupon-app-29446",
+                "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+                "version": "1"
+              }
+            ],
+            "revision": "pagecustomerbitescorereviews-00001-yed",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-21T19:21:19.664273628Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/pagecustomerbitescorereviews",
+          "updateTime": "2026-09-26T03:47:42.776025Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "scalingMode": "AUTOMATIC",
+            "maxInstanceCount": 10
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-26T03:47:45.182297Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/pagecustomerbitescorereviews/revisions/pagecustomerbitescorereviews-00001-yed",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "pagecustomerbitescorereviews-00001-yed",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CN6A3dUGEKjnhPIC/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvcGFnZWN1c3RvbWVyYml0ZXNjb3JlcmV2aWV3cw\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZcWrHj+ec=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "allUsers"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "pageCustomerBiteScoreImages",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/pageCustomerBiteScoreImages",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "pageCustomerBiteScoreImages",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "pageCustomerBiteScoreImages/function-source.zip",
+                "generation": "1790018466631444"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/pagecustomerbitescoreimages",
+            "timeoutSeconds": 60,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "secretEnvironmentVariables": [
+              {
+                "key": "SEARCH_PAGINATION_CURSOR_KEY",
+                "projectId": "coupon-app-29446",
+                "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+                "version": "1"
+              }
+            ],
+            "revision": "pagecustomerbitescoreimages-00001-voh",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-21T19:21:22.124450276Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/pagecustomerbitescoreimages",
+          "updateTime": "2026-09-26T03:47:52.662767Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "scalingMode": "AUTOMATIC",
+            "maxInstanceCount": 10
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-26T03:47:54.308408Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/pagecustomerbitescoreimages/revisions/pagecustomerbitescoreimages-00001-voh",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "pagecustomerbitescoreimages-00001-voh",
+              "percent": 100
+            }
+          ],
+          "etag": "\"COiA3dUGEJiLhLwC/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvcGFnZWN1c3RvbWVyYml0ZXNjb3JlaW1hZ2Vz\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZcWrJ8yIc=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "allUsers"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "getCustomerBiteScoreProfileSummary",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/getCustomerBiteScoreProfileSummary",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "getCustomerBiteScoreProfileSummary",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "getCustomerBiteScoreProfileSummary/function-source.zip",
+                "generation": "1790018781312670"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitescoreprofilesummary",
+            "timeoutSeconds": 60,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "secretEnvironmentVariables": [
+              {
+                "key": "SEARCH_PAGINATION_CURSOR_KEY",
+                "projectId": "coupon-app-29446",
+                "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+                "version": "1"
+              }
+            ],
+            "revision": "getcustomerbitescoreprofilesummary-00001-nop",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-21T19:26:34.505989150Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitescoreprofilesummary",
+          "updateTime": "2026-09-26T03:48:43.042913Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "scalingMode": "AUTOMATIC",
+            "maxInstanceCount": 10
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-26T03:48:44.845305Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitescoreprofilesummary/revisions/getcustomerbitescoreprofilesummary-00001-nop",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "getcustomerbitescoreprofilesummary-00001-nop",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CJuB3dUGEOiZuxQ/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvZ2V0Y3VzdG9tZXJiaXRlc2NvcmVwcm9maWxlc3VtbWFyeQ\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZcWrWA8pA=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "allUsers"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "pageCustomerBiteScoreMenu",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/pageCustomerBiteScoreMenu",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "pageCustomerBiteScoreMenu",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "pageCustomerBiteScoreMenu/function-source.zip",
+                "generation": "1790018466617634"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/pagecustomerbitescoremenu",
+            "timeoutSeconds": 60,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "secretEnvironmentVariables": [
+              {
+                "key": "SEARCH_PAGINATION_CURSOR_KEY",
+                "projectId": "coupon-app-29446",
+                "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+                "version": "1"
+              }
+            ],
+            "revision": "pagecustomerbitescoremenu-00001-lix",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-21T19:21:23.835255737Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/pagecustomerbitescoremenu",
+          "updateTime": "2026-09-26T03:48:03.498743Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "scalingMode": "AUTOMATIC",
+            "maxInstanceCount": 10
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-26T03:48:05.102832Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/pagecustomerbitescoremenu/revisions/pagecustomerbitescoremenu-00001-lix",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "pagecustomerbitescoremenu-00001-lix",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CPOA3dUGENjt6O0B/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvcGFnZWN1c3RvbWVyYml0ZXNjb3JlbWVudQ\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZcWrMcn+M=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "allUsers"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "maintainCustomerBiteScoreMenuImage",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/maintainCustomerBiteScoreMenuImage",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "maintainCustomerBiteScoreMenuImage",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "maintainCustomerBiteScoreMenuImage/function-source.zip",
+                "generation": "1790017383381863"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescoremenuimage",
+            "timeoutSeconds": 60,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "revision": "maintaincustomerbitescoremenuimage-00001-dab",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "eventTrigger": {
+            "trigger": "projects/coupon-app-29446/locations/nam5/triggers/maintaincustomerbitescoremenuimage-883894",
+            "triggerRegion": "nam5",
+            "eventType": "google.cloud.firestore.document.v1.written",
+            "eventFilters": [
+              {
+                "attribute": "database",
+                "value": "(default)"
+              },
+              {
+                "attribute": "namespace",
+                "value": "(default)"
+              },
+              {
+                "attribute": "document",
+                "value": "restaurant_menus/{rootId}/menu_images/{entryId}",
+                "operator": "match-path-pattern"
+              }
+            ],
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "retryPolicy": "RETRY_POLICY_RETRY"
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-21T19:03:59.442567455Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescoremenuimage",
+          "updateTime": "2026-09-21T19:03:04.426286Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-21T19:03:47.588030Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescoremenuimage/revisions/maintaincustomerbitescoremenuimage-00001-dab",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "maintaincustomerbitescoremenuimage-00001-dab",
+              "percent": 100
+            }
+          ],
+          "etag": "\"COj-xdUGELC3ossB/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvbWFpbnRhaW5jdXN0b21lcmJpdGVzY29yZW1lbnVpbWFnZQ\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZcAw482QY=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "maintainCustomerBiteScoreLinkedMenuImage",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/maintainCustomerBiteScoreLinkedMenuImage",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "maintainCustomerBiteScoreLinkedMenuImage",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "maintainCustomerBiteScoreLinkedMenuImage/function-source.zip",
+                "generation": "1790017383428896"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescorelinkedmenuimage",
+            "timeoutSeconds": 60,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "revision": "maintaincustomerbitescorelinkedmenuimage-00001-feg",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "eventTrigger": {
+            "trigger": "projects/coupon-app-29446/locations/nam5/triggers/maintaincustomerbitescorelinkedmenuimage-281278",
+            "triggerRegion": "nam5",
+            "eventType": "google.cloud.firestore.document.v1.written",
+            "eventFilters": [
+              {
+                "attribute": "database",
+                "value": "(default)"
+              },
+              {
+                "attribute": "namespace",
+                "value": "(default)"
+              },
+              {
+                "attribute": "document",
+                "value": "restaurant_accounts/{rootId}/menu_images/{entryId}",
+                "operator": "match-path-pattern"
+              }
+            ],
+            "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "retryPolicy": "RETRY_POLICY_RETRY"
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-21T19:03:58.058368359Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescorelinkedmenuimage",
+          "updateTime": "2026-09-21T19:03:04.387511Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "serviceAccount": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-21T19:03:46.109701Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescorelinkedmenuimage/revisions/maintaincustomerbitescorelinkedmenuimage-00001-feg",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "maintaincustomerbitescorelinkedmenuimage-00001-feg",
+              "percent": 100
+            }
+          ],
+          "etag": "\"COj-xdUGENjl47gB/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvbWFpbnRhaW5jdXN0b21lcmJpdGVzY29yZWxpbmtlZG1lbnVpbWFnZQ\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZcAw6F6pc=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "processAccountDeletionRequests",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/processAccountDeletionRequests",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "processAccountDeletionRequests",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "processAccountDeletionRequests/function-source.zip",
+                "generation": "1791493482600233"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/processaccountdeletionrequests",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 1,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "account-deletion-worker@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "secretEnvironmentVariables": [
+              {
+                "key": "STRIPE_SECRET_KEY",
+                "projectId": "coupon-app-29446",
+                "secret": "STRIPE_SECRET_KEY",
+                "version": "3"
+              }
+            ],
+            "revision": "processaccountdeletionrequests-00003-qif",
+            "maxInstanceRequestConcurrency": 1
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-10-08T21:05:46.688382868Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/processaccountdeletionrequests",
+          "updateTime": "2026-10-08T21:05:30.443114Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 1
+            },
+            "serviceAccount": "account-deletion-worker@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-10-08T21:05:46.440029Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/processaccountdeletionrequests/revisions/processaccountdeletionrequests-00003-qif",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "processaccountdeletionrequests-00003-qif",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CJqLoNYGEJDEpdMB/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvcHJvY2Vzc2FjY291bnRkZWxldGlvbnJlcXVlc3Rz\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZcLEzbG2I=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "serviceAccount:account-deletion-worker@coupon-app-29446.iam.gserviceaccount.com"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "cleanupAccountDeletionFinalizedImage",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-east1/functions/cleanupAccountDeletionFinalizedImage",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "cleanupAccountDeletionFinalizedImage",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-east1",
+                "object": "cleanupAccountDeletionFinalizedImage/function-source.zip",
+                "generation": "1790199492133239"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-east1/services/cleanupaccountdeletionfinalizedimage",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 2,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "account-deletion-media@coupon-app-29446.iam.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "revision": "cleanupaccountdeletionfinalizedimage-00001-vup",
+            "maxInstanceRequestConcurrency": 10
+          },
+          "eventTrigger": {
+            "trigger": "projects/coupon-app-29446/locations/us-east1/triggers/cleanupaccountdeletionfinalizedimage-027223",
+            "triggerRegion": "us-east1",
+            "eventType": "google.cloud.storage.object.v1.finalized",
+            "eventFilters": [
+              {
+                "attribute": "bucket",
+                "value": "coupon-app-29446.firebasestorage.app"
+              }
+            ],
+            "serviceAccountEmail": "account-deletion-media@coupon-app-29446.iam.gserviceaccount.com",
+            "retryPolicy": "RETRY_POLICY_RETRY"
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-23T21:39:30.243683028Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-east1/services/cleanupaccountdeletionfinalizedimage",
+          "updateTime": "2026-09-23T21:39:06.894218Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 2
+            },
+            "serviceAccount": "account-deletion-media@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-23T21:39:17.188091Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-east1/services/cleanupaccountdeletionfinalizedimage/revisions/cleanupaccountdeletionfinalizedimage-00001-vup",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "cleanupaccountdeletionfinalizedimage-00001-vup",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CPqN0dUGEJDesqoD/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtZWFzdDEvc2VydmljZXMvY2xlYW51cGFjY291bnRkZWxldGlvbmZpbmFsaXplZGltYWdl\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZcMHaZ2s4=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "serviceAccount:account-deletion-media@coupon-app-29446.iam.gserviceaccount.com"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "processDishProposalResolutionWork",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/processDishProposalResolutionWork",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "processDishProposalResolutionWork",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "processDishProposalResolutionWork/function-source.zip",
+                "generation": "1790214711668380"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/processdishproposalresolutionwork",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 10,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "253983587346-compute@developer.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "revision": "processdishproposalresolutionwork-00002-his",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-09-24T01:52:52.026502213Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/processdishproposalresolutionwork",
+          "updateTime": "2026-09-24T01:52:38.243108Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 10
+            },
+            "serviceAccount": "253983587346-compute@developer.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-24T01:52:51.783101Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/processdishproposalresolutionwork/revisions/processdishproposalresolutionwork-00002-his",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "processdishproposalresolutionwork-00002-his",
+              "percent": 100
+            }
+          ],
+          "etag": "\"COaE0tUGEKCR9nM/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvcHJvY2Vzc2Rpc2hwcm9wb3NhbHJlc29sdXRpb253b3Jr\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZcCsq0hng=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "serviceAccount:253983587346-compute@developer.gserviceaccount.com"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "approveRestaurantNameChange",
+      "function": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/approveRestaurantNameChange",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "approveRestaurantNameChange",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "approveRestaurantNameChange/function-source.zip",
+                "generation": "1792253713326194"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/approverestaurantnamechange",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 10,
+            "ingressSettings": "ALLOW_ALL",
+            "serviceAccountEmail": "253983587346-compute@developer.gserviceaccount.com",
+            "availableMemory": "256Mi",
+            "revision": "approverestaurantnamechange-00001-laf",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE",
+          "updateTime": "2026-10-17T16:16:04.535261329Z"
+        }
+      },
+      "service": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/approverestaurantnamechange",
+          "updateTime": "2026-10-17T16:15:48.803888Z",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 10
+            },
+            "serviceAccount": "253983587346-compute@developer.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-10-17T16:16:04.293620Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/approverestaurantnamechange/revisions/approverestaurantnamechange-00001-laf",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "approverestaurantnamechange-00001-laf",
+              "percent": 100
+            }
+          ],
+          "etag": "\"CLS-ztYGEIC3qf8C/cHJvamVjdHMvY291cG9uLWFwcC0yOTQ0Ni9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvYXBwcm92ZXJlc3RhdXJhbnRuYW1lY2hhbmdl\""
+        }
+      },
+      "invoker": {
+        "ok": true,
+        "value": {
+          "version": 1,
+          "etag": "BwZeC6trTcs=",
+          "bindings": [
+            {
+              "role": "roles/run.invoker",
+              "members": [
+                "allUsers"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "rules": [
+    {
+      "release": {
+        "name": "projects/coupon-app-29446/releases/cloud.firestore",
+        "rulesetName": "projects/coupon-app-29446/rulesets/53828191-28b8-46d1-8ef1-fc3cbdee09a9",
+        "createTime": "2026-03-24T06:13:18.785504Z",
+        "updateTime": "2026-10-17T16:19:50.925131Z"
+      },
+      "source": [
+        {
+          "name": "firestore.bitesaver-content.rules",
+          "path": "tool/safety_release_prep/baselines/firestore-live.rules",
+          "sha256": "8fcae3e7205961bcb2329db4fd7caa44a5814ceee842cb5bae6daff4adeb8a20"
+        }
+      ]
+    },
+    {
+      "release": {
+        "name": "projects/coupon-app-29446/releases/firebase.storage/coupon-app-29446.firebasestorage.app",
+        "rulesetName": "projects/coupon-app-29446/rulesets/3ba23ec6-d1fe-480d-9a77-c0598dcfc6cf",
+        "createTime": "2026-05-21T22:01:44.696653Z",
+        "updateTime": "2026-09-26T03:45:49.899368Z"
+      },
+      "source": [
+        {
+          "name": "storage.rules",
+          "path": "tool/safety_release_prep/baselines/storage-live.rules",
+          "sha256": "62c6e45edff76a231a1fe49aa31c7b1d00a045981698a1d07c3b3c8f13c50702"
+        }
+      ]
+    }
+  ],
+  "indexes": [
+    {
+      "group": "private_bitescore_review_text",
+      "result": {
+        "ok": true,
+        "value": {
+          "indexes": []
+        }
+      }
+    },
+    {
+      "group": "private_bitescore_review_aggregates",
+      "result": {
+        "ok": true,
+        "value": {
+          "indexes": [
+            {
+              "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/private_bitescore_review_aggregates/indexes/CICAgLiT6IEK",
+              "queryScope": "COLLECTION",
+              "fields": [
+                {
+                  "fieldPath": "status",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "updatedAt",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "__name__",
+                  "order": "ASCENDING"
+                }
+              ],
+              "state": "READY",
+              "density": "SPARSE_ALL"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "group": "private_bitescore_review_index",
+      "result": {
+        "ok": true,
+        "value": {
+          "indexes": [
+            {
+              "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/private_bitescore_review_index/indexes/CICAgJim18AI",
+              "queryScope": "COLLECTION",
+              "fields": [
+                {
+                  "fieldPath": "dishId",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "publicVisible",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "overallBiteScore",
+                  "order": "DESCENDING"
+                },
+                {
+                  "fieldPath": "createdAtMicros",
+                  "order": "DESCENDING"
+                },
+                {
+                  "fieldPath": "reviewOrder0",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "reviewOrder1",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "__name__",
+                  "order": "ASCENDING"
+                }
+              ],
+              "state": "READY",
+              "density": "SPARSE_ALL"
+            },
+            {
+              "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/private_bitescore_review_index/indexes/CICAgJj7z4EJ",
+              "queryScope": "COLLECTION",
+              "fields": [
+                {
+                  "fieldPath": "userId",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "publicVisible",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "__name__",
+                  "order": "ASCENDING"
+                }
+              ],
+              "state": "READY",
+              "density": "SPARSE_ALL"
+            },
+            {
+              "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/private_bitescore_review_index/indexes/CICAgJiljJcJ",
+              "queryScope": "COLLECTION",
+              "fields": [
+                {
+                  "fieldPath": "dishId",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "publicVisible",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "createdAtMicros",
+                  "order": "DESCENDING"
+                },
+                {
+                  "fieldPath": "reviewOrder0",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "reviewOrder1",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "__name__",
+                  "order": "ASCENDING"
+                }
+              ],
+              "state": "READY",
+              "density": "SPARSE_ALL"
+            },
+            {
+              "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/private_bitescore_review_index/indexes/CICAgNiryokK",
+              "queryScope": "COLLECTION",
+              "fields": [
+                {
+                  "fieldPath": "userId",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "publicVisible",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "createdAtMs",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "__name__",
+                  "order": "ASCENDING"
+                }
+              ],
+              "state": "READY",
+              "density": "SPARSE_ALL"
+            },
+            {
+              "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/private_bitescore_review_index/indexes/CICAgNirtJAK",
+              "queryScope": "COLLECTION",
+              "fields": [
+                {
+                  "fieldPath": "dishId",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "publicVisible",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "writtenText",
+                  "order": "DESCENDING"
+                },
+                {
+                  "fieldPath": "helpfulScore",
+                  "order": "DESCENDING"
+                },
+                {
+                  "fieldPath": "createdAtMicros",
+                  "order": "DESCENDING"
+                },
+                {
+                  "fieldPath": "reviewOrder0",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "reviewOrder1",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "__name__",
+                  "order": "ASCENDING"
+                }
+              ],
+              "state": "READY",
+              "density": "SPARSE_ALL"
+            },
+            {
+              "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/private_bitescore_review_index/indexes/CICAgJiH2JAK",
+              "queryScope": "COLLECTION",
+              "fields": [
+                {
+                  "fieldPath": "dishId",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "publicVisible",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "overallBiteScore",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "createdAtMicros",
+                  "order": "DESCENDING"
+                },
+                {
+                  "fieldPath": "reviewOrder0",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "reviewOrder1",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "__name__",
+                  "order": "ASCENDING"
+                }
+              ],
+              "state": "READY",
+              "density": "SPARSE_ALL"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "group": "private_bitescore_image_state",
+      "result": {
+        "ok": true,
+        "value": {
+          "indexes": [
+            {
+              "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/private_bitescore_image_state/indexes/CICAgJilmo4K",
+              "queryScope": "COLLECTION",
+              "fields": [
+                {
+                  "fieldPath": "dishId",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "helpfulCount",
+                  "order": "DESCENDING"
+                },
+                {
+                  "fieldPath": "sortOrder",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "createdAtMicros",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "imageOrder0",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "imageOrder1",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "__name__",
+                  "order": "ASCENDING"
+                }
+              ],
+              "state": "READY",
+              "density": "SPARSE_ALL"
+            },
+            {
+              "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/private_bitescore_image_state/indexes/CICAgLjRnZMK",
+              "queryScope": "COLLECTION",
+              "fields": [
+                {
+                  "fieldPath": "reviewId",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "dishId",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "sortOrder",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "createdAtMicros",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "imageOrder0",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "imageOrder1",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "__name__",
+                  "order": "ASCENDING"
+                }
+              ],
+              "state": "READY",
+              "density": "SPARSE_ALL"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "group": "review_reports",
+      "result": {
+        "ok": true,
+        "value": {
+          "indexes": [
+            {
+              "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/review_reports/indexes/CICAgNjp84oJ",
+              "queryScope": "COLLECTION",
+              "fields": [
+                {
+                  "fieldPath": "status",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "createdAt",
+                  "order": "DESCENDING"
+                },
+                {
+                  "fieldPath": "__name__",
+                  "order": "DESCENDING"
+                }
+              ],
+              "state": "READY",
+              "density": "SPARSE_ALL"
+            },
+            {
+              "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/review_reports/indexes/CICAgNi47sMK",
+              "queryScope": "COLLECTION",
+              "fields": [
+                {
+                  "fieldPath": "reviewId",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "reportingUserId",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "status",
+                  "order": "ASCENDING"
+                },
+                {
+                  "fieldPath": "__name__",
+                  "order": "ASCENDING"
+                }
+              ],
+              "state": "READY",
+              "density": "SPARSE_ALL"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "fields": [
+    {
+      "group": "private_bitescore_review_text",
+      "field": "expiresAt",
+      "result": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/private_bitescore_review_text/fields/expiresAt",
+          "indexConfig": {
+            "indexes": [
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "expiresAt",
+                    "order": "ASCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "expiresAt",
+                    "order": "DESCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "expiresAt",
+                    "arrayConfig": "CONTAINS"
+                  }
+                ],
+                "state": "READY"
+              }
+            ],
+            "usesAncestorConfig": true,
+            "ancestorField": "projects/coupon-app-29446/databases/(default)/collectionGroups/__default__/fields/*"
+          }
+        }
+      }
+    },
+    {
+      "group": "private_bitescore_review_text",
+      "field": "headline",
+      "result": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/private_bitescore_review_text/fields/headline",
+          "indexConfig": {
+            "indexes": [
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "headline",
+                    "order": "ASCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "headline",
+                    "order": "DESCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "headline",
+                    "arrayConfig": "CONTAINS"
+                  }
+                ],
+                "state": "READY"
+              }
+            ],
+            "usesAncestorConfig": true,
+            "ancestorField": "projects/coupon-app-29446/databases/(default)/collectionGroups/__default__/fields/*"
+          }
+        }
+      }
+    },
+    {
+      "group": "private_bitescore_review_text",
+      "field": "notes",
+      "result": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/private_bitescore_review_text/fields/notes",
+          "indexConfig": {
+            "indexes": [
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "notes",
+                    "order": "ASCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "notes",
+                    "order": "DESCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "notes",
+                    "arrayConfig": "CONTAINS"
+                  }
+                ],
+                "state": "READY"
+              }
+            ],
+            "usesAncestorConfig": true,
+            "ancestorField": "projects/coupon-app-29446/databases/(default)/collectionGroups/__default__/fields/*"
+          }
+        }
+      }
+    },
+    {
+      "group": "private_bitescore_review_text",
+      "field": "signal",
+      "result": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/private_bitescore_review_text/fields/signal",
+          "indexConfig": {
+            "indexes": [
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "signal",
+                    "order": "ASCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "signal",
+                    "order": "DESCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "signal",
+                    "arrayConfig": "CONTAINS"
+                  }
+                ],
+                "state": "READY"
+              }
+            ],
+            "usesAncestorConfig": true,
+            "ancestorField": "projects/coupon-app-29446/databases/(default)/collectionGroups/__default__/fields/*"
+          }
+        }
+      }
+    },
+    {
+      "group": "reviewer_safety_state",
+      "field": "targetUserId",
+      "result": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/reviewer_safety_state/fields/targetUserId",
+          "indexConfig": {
+            "indexes": [
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "targetUserId",
+                    "order": "ASCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "targetUserId",
+                    "order": "DESCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "targetUserId",
+                    "arrayConfig": "CONTAINS"
+                  }
+                ],
+                "state": "READY"
+              }
+            ],
+            "usesAncestorConfig": true,
+            "ancestorField": "projects/coupon-app-29446/databases/(default)/collectionGroups/__default__/fields/*"
+          }
+        }
+      }
+    },
+    {
+      "group": "blocked_reviewers",
+      "field": "targetUserId",
+      "result": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/blocked_reviewers/fields/targetUserId",
+          "indexConfig": {
+            "indexes": [
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "targetUserId",
+                    "order": "ASCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "targetUserId",
+                    "order": "DESCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "targetUserId",
+                    "arrayConfig": "CONTAINS"
+                  }
+                ],
+                "state": "READY"
+              }
+            ],
+            "usesAncestorConfig": true,
+            "ancestorField": "projects/coupon-app-29446/databases/(default)/collectionGroups/__default__/fields/*"
+          }
+        }
+      }
+    },
+    {
+      "group": "menu_images",
+      "field": "storagePath",
+      "result": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/menu_images/fields/storagePath",
+          "indexConfig": {
+            "indexes": [
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "storagePath",
+                    "order": "ASCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "storagePath",
+                    "order": "DESCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "storagePath",
+                    "arrayConfig": "CONTAINS"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION_GROUP",
+                "fields": [
+                  {
+                    "fieldPath": "storagePath",
+                    "order": "ASCENDING"
+                  }
+                ],
+                "state": "READY"
+              }
+            ],
+            "ancestorField": "projects/coupon-app-29446/databases/(default)/collectionGroups/__default__/fields/*"
+          }
+        }
+      }
+    },
+    {
+      "group": "menu_images",
+      "field": "imageUrl",
+      "result": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/databases/(default)/collectionGroups/menu_images/fields/imageUrl",
+          "indexConfig": {
+            "indexes": [
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "imageUrl",
+                    "order": "ASCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "imageUrl",
+                    "order": "DESCENDING"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION",
+                "fields": [
+                  {
+                    "fieldPath": "imageUrl",
+                    "arrayConfig": "CONTAINS"
+                  }
+                ],
+                "state": "READY"
+              },
+              {
+                "queryScope": "COLLECTION_GROUP",
+                "fields": [
+                  {
+                    "fieldPath": "imageUrl",
+                    "order": "ASCENDING"
+                  }
+                ],
+                "state": "READY"
+              }
+            ],
+            "ancestorField": "projects/coupon-app-29446/databases/(default)/collectionGroups/__default__/fields/*"
+          }
+        }
+      }
+    }
+  ],
+  "runtime": [
+    {
+      "path": "private_bitescore_runtime/terms",
+      "result": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "path": "private_bitescore_runtime/aggregation",
+      "result": {
+        "ok": true,
+        "value": {
+          "name": "projects/coupon-app-29446/databases/(default)/documents/private_bitescore_runtime/aggregation",
+          "fields": {
+            "enabled": {
+              "booleanValue": true
+            },
+            "version": {
+              "integerValue": "1"
+            },
+            "epoch": {
+              "stringValue": "bitestar-postreset-20260921-142642-4dc76b06"
+            }
+          },
+          "createTime": "2026-09-21T19:19:25.378338Z",
+          "updateTime": "2026-09-21T19:19:25.378338Z"
+        }
+      }
+    },
+    {
+      "path": "private_bitescore_runtime/photo_screening",
+      "result": {
+        "ok": false,
+        "status": 404
+      }
+    },
+    {
+      "path": "private_bitescore_runtime/review_text",
+      "result": {
+        "ok": false,
+        "status": 404
+      }
+    }
+  ],
+  "projectIam": {
+    "ok": true,
+    "etag": "BwZcLUymD8c=",
+    "identities": [
+      {
+        "identity": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+        "bindings": [
+          {
+            "role": "projects/coupon-app-29446/roles/bitestarBiteScoreAuthRead"
+          },
+          {
+            "role": "roles/datastore.user"
+          },
+          {
+            "role": "roles/eventarc.eventReceiver"
+          }
+        ]
+      },
+      {
+        "identity": "account-deletion-worker@coupon-app-29446.iam.gserviceaccount.com",
+        "bindings": [
+          {
+            "role": "projects/coupon-app-29446/roles/bitestarBiteScoreAuthRead"
+          },
+          {
+            "role": "projects/coupon-app-29446/roles/bitestarDeletionAuthDelete"
+          },
+          {
+            "role": "projects/coupon-app-29446/roles/bitestarDeletionFirestoreDelete",
+            "condition": {
+              "expression": "resource.name==\"projects/coupon-app-29446/databases/(default)\"",
+              "title": "bitestar-deletion-default-database",
+              "description": "Deletion runtime Firestore access only to the approved default database via REST and client libraries."
+            }
+          },
+          {
+            "role": "projects/coupon-app-29446/roles/bitestarDeletionFirestoreWrite",
+            "condition": {
+              "expression": "resource.name==\"projects/coupon-app-29446/databases/(default)\"",
+              "title": "bitestar-deletion-default-database",
+              "description": "Deletion runtime Firestore access only to the approved default database via REST and client libraries."
+            }
+          }
+        ]
+      },
+      {
+        "identity": "account-deletion-media@coupon-app-29446.iam.gserviceaccount.com",
+        "bindings": [
+          {
+            "role": "projects/coupon-app-29446/roles/bitestarBiteScoreAuthRead"
+          },
+          {
+            "role": "projects/coupon-app-29446/roles/bitestarDeletionFirestoreWrite",
+            "condition": {
+              "expression": "resource.name==\"projects/coupon-app-29446/databases/(default)\"",
+              "title": "bitestar-deletion-default-database",
+              "description": "Deletion runtime Firestore access only to the approved default database via REST and client libraries."
+            }
+          },
+          {
+            "role": "roles/eventarc.eventReceiver"
+          }
+        ]
+      },
+      {
+        "identity": "253983587346-compute@developer.gserviceaccount.com",
+        "bindings": [
+          {
+            "role": "roles/editor"
+          },
+          {
+            "role": "roles/eventarc.eventReceiver"
+          },
+          {
+            "role": "roles/run.invoker"
+          }
+        ]
+      }
+    ]
+  },
+  "secrets": [
+    {
+      "secret": "SEARCH_PAGINATION_CURSOR_KEY",
+      "policy": {
+        "ok": false,
+        "status": 500
+      }
+    },
+    {
+      "secret": "OPENAI_REVIEW_MODERATION_API_KEY",
+      "policy": {
+        "ok": false,
+        "status": 500
+      }
+    }
+  ],
+  "bucket": {
+    "ok": false,
+    "status": 500
+  },
+  "bucketIam": {
+    "ok": false,
+    "status": 500
+  },
+  "readLimitations": [
+    "Source parity for every imported historical function revision has not been independently downloaded; exact observed revision metadata is evidence of deployed state, not parity with current source.",
+    "Initial metadata adapter returned500 for Storage/secret paths; operational-followup.json supersedes those unsuccessful reads using the correct exact REST paths.",
+    "No content document or object was read; runtime documents are named configuration only."
+  ]
+}

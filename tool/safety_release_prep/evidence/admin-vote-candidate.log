@@ -1,0 +1,49 @@
+✔ actual Admin remove-review query/delete order removes votes and legacy reports, preserving independent cases (635.683ms)
+[2026-10-17T19:43:38.770Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d154 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1080, false for 'delete' @ L1609
+[2026-10-17T19:43:38.780Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d155 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1080, false for 'delete' @ L1609
+[2026-10-17T19:43:38.787Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d156 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1080, false for 'delete' @ L1609
+[2026-10-17T19:43:38.796Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d157 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1080, false for 'delete' @ L1609
+✔ a stranger, author or business owner cannot impersonate Admin to delete another user vote (49.440583ms)
+[2026-10-17T19:43:38.829Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d15a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1080:24 for 'delete' @ L1080, false for 'delete' @ L1609, false for 'delete' @ L1080, false for 'delete' @ L1609
+✔ Admin vote cleanup preserves deletion fence for admin (32.319709ms)
+[2026-10-17T19:43:38.856Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d15d error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1080:24 for 'delete' @ L1080, false for 'delete' @ L1609, false for 'delete' @ L1080, false for 'delete' @ L1609
+✔ Admin vote cleanup preserves deletion fence for voter (27.465792ms)
+[2026-10-17T19:43:38.884Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d160 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1080:24 for 'delete' @ L1080, false for 'delete' @ L1609, false for 'delete' @ L1080, false for 'delete' @ L1609
+✔ Admin vote cleanup preserves dish operation lock (27.975333ms)
+[2026-10-17T19:43:38.912Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d163 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1080:24 for 'delete' @ L1080, false for 'delete' @ L1609, false for 'delete' @ L1080, false for 'delete' @ L1609
+✔ Admin vote cleanup preserves restaurant operation lock (27.907416ms)
+[2026-10-17T19:43:38.931Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d165 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L1079, false for 'update' @ L1609
+[2026-10-17T19:43:38.934Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d166 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1078, false for 'create' @ L1609, false for 'update' @ L1079, false for 'update' @ L1609
+✔ Admin permission is deletion-only and cannot overwrite or forge another user vote (21.816875ms)
+﹣ source own-vote withdrawal remains available (0.06075ms) # SKIP
+[2026-10-17T19:43:38.954Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d168 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L1054, false for 'update' @ L1609
+[2026-10-17T19:43:38.957Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d169 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L1054, false for 'update' @ L1609
+[2026-10-17T19:43:38.966Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d16b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L1054, false for 'update' @ L1609
+[2026-10-17T19:43:38.968Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d16c error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L1054, false for 'update' @ L1609
+[2026-10-17T19:43:38.978Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d16e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L1054, false for 'update' @ L1609
+[2026-10-17T19:43:38.980Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8ae4d16f error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L1054, false for 'update' @ L1609
+✔ candidate keeps Admin review movement closed even without screening runtime (45.671125ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 974.234

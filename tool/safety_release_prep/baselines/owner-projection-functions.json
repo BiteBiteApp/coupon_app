@@ -1,0 +1,202 @@
+{
+  "observedAt": "2026-10-17T19:50:27.325Z",
+  "scope": "Only owner detach projection callbacks required by existing image publication lifecycle",
+  "functions": [
+    {
+      "name": "maintainBiteSaverRestaurantSearchIndex",
+      "function": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/maintainBiteSaverRestaurantSearchIndex",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "maintainBiteSaverRestaurantSearchIndex",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "maintainBiteSaverRestaurantSearchIndex/function-source.zip",
+                "generation": "1790017015847831"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/maintainbitesaverrestaurantsearchindex",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 10,
+            "serviceAccountEmail": "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "secretEnvironmentVariables": [
+              {
+                "key": "BITESAVER_CUSTOMER_IDENTITY_KEY_V1",
+                "projectId": "coupon-app-29446",
+                "secret": "BITESAVER_CUSTOMER_IDENTITY_KEY_V1",
+                "version": "1"
+              }
+            ],
+            "revision": "maintainbitesaverrestaurantsearchindex-00001-jab",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE"
+        }
+      },
+      "service": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/maintainbitesaverrestaurantsearchindex",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 10
+            },
+            "serviceAccount": "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-21T18:57:09.226186Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/maintainbitesaverrestaurantsearchindex/revisions/maintainbitesaverrestaurantsearchindex-00001-jab",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "maintainbitesaverrestaurantsearchindex-00001-jab",
+              "percent": 100
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "maintainBiteSaverCouponOfferSearchIndex",
+      "function": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/maintainBiteSaverCouponOfferSearchIndex",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "maintainBiteSaverCouponOfferSearchIndex",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "maintainBiteSaverCouponOfferSearchIndex/function-source.zip",
+                "generation": "1790017015982237"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/maintainbitesavercouponoffersearchindex",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 10,
+            "serviceAccountEmail": "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com",
+            "secretEnvironmentVariables": [
+              {
+                "key": "BITESAVER_CUSTOMER_IDENTITY_KEY_V1",
+                "projectId": "coupon-app-29446",
+                "secret": "BITESAVER_CUSTOMER_IDENTITY_KEY_V1",
+                "version": "1"
+              }
+            ],
+            "revision": "maintainbitesavercouponoffersearchindex-00001-gag",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE"
+        }
+      },
+      "service": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/maintainbitesavercouponoffersearchindex",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 10
+            },
+            "serviceAccount": "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-21T18:57:07.120685Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/maintainbitesavercouponoffersearchindex/revisions/maintainbitesavercouponoffersearchindex-00001-gag",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "maintainbitesavercouponoffersearchindex-00001-gag",
+              "percent": 100
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "maintainBiteSaverDailySpecialSearchIndex",
+      "function": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "name": "projects/coupon-app-29446/locations/us-central1/functions/maintainBiteSaverDailySpecialSearchIndex",
+          "buildConfig": {
+            "runtime": "nodejs24",
+            "entryPoint": "maintainBiteSaverDailySpecialSearchIndex",
+            "sourceProvenance": {
+              "resolvedStorageSource": {
+                "bucket": "gcf-v2-sources-253983587346-us-central1",
+                "object": "maintainBiteSaverDailySpecialSearchIndex/function-source.zip",
+                "generation": "1790017015946615"
+              }
+            }
+          },
+          "serviceConfig": {
+            "service": "projects/coupon-app-29446/locations/us-central1/services/maintainbitesaverdailyspecialsearchindex",
+            "timeoutSeconds": 60,
+            "maxInstanceCount": 10,
+            "serviceAccountEmail": "253983587346-compute@developer.gserviceaccount.com",
+            "revision": "maintainbitesaverdailyspecialsearchindex-00001-huk",
+            "maxInstanceRequestConcurrency": 80
+          },
+          "state": "ACTIVE"
+        }
+      },
+      "service": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "name": "projects/coupon-app-29446/locations/us-central1/services/maintainbitesaverdailyspecialsearchindex",
+          "ingress": "INGRESS_TRAFFIC_ALL",
+          "template": {
+            "scaling": {
+              "maxInstanceCount": 10
+            },
+            "serviceAccount": "253983587346-compute@developer.gserviceaccount.com"
+          },
+          "scaling": {
+            "maxInstanceCount": 20
+          },
+          "terminalCondition": {
+            "type": "Ready",
+            "state": "CONDITION_SUCCEEDED",
+            "lastTransitionTime": "2026-09-21T18:57:06.855099Z"
+          },
+          "latestReadyRevision": "projects/coupon-app-29446/locations/us-central1/services/maintainbitesaverdailyspecialsearchindex/revisions/maintainbitesaverdailyspecialsearchindex-00001-huk",
+          "trafficStatuses": [
+            {
+              "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST",
+              "revision": "maintainbitesaverdailyspecialsearchindex-00001-huk",
+              "percent": 100
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

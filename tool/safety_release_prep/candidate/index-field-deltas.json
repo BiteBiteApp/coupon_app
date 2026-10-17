@@ -1,0 +1,82 @@
+{
+  "executionEnabled": false,
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "private_bitescore_review_text",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "private_bitescore_review_text",
+      "fieldPath": "headline",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private_bitescore_review_text",
+      "fieldPath": "notes",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private_bitescore_review_text",
+      "fieldPath": "signal",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "reviewer_safety_state",
+      "fieldPath": "targetUserId",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "blocked_reviewers",
+      "fieldPath": "targetUserId",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    }
+  ],
+  "preserveExisting": [
+    "All unrelated composites and field indexes",
+    "private_dish_edit_proposal_groups resolutionIdentitiesValid ASC, oldestTrustedServerCreateTime ASC, __name__ ASC (READY from October17 release)",
+    "Existing private review-index6, image-state2, aggregate status/updatedAt composite indexes (observed READY)",
+    "menu_images storagePath/imageUrl COLLECTION_GROUP ascending already READY",
+    "private_bitescore_photo_screenings.maintenanceAt COLLECTION ascending already READY"
+  ],
+  "notes": [
+    "Apply exact field resource update masks, never blanket deploy firestore.indexes.json.",
+    "TTL expiresAt deletes entire private text proposal; minimal no-text receipt stays until existing account-deletion cleanup.",
+    "No TTL on pending photos: worker must remove exact Storage object first.",
+    "Admin photo queue queueOpen plus __name__ and text status-in plus __name__ rely on retained ordinary single-field indexes; later live synthetic exact query check remains required.",
+    "Review_reports reportingUserId+updatedAt/createdAt source composites absent in snapshot but not used by safety-block/retention current callers; not proposed incidental indexes."
+  ]
+}

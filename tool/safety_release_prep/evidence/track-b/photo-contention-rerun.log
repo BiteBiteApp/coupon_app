@@ -1,0 +1,37 @@
+✖ two different missing photos admitted concurrently publish only one and never rescan the held loser (10227.148417ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10505.715709
+
+✖ failing tests:
+
+test at test/photo_screening_emulator.test.js:9:24
+✖ two different missing photos admitted concurrently publish only one and never rescan the held loser (10227.148417ms)
+  Error: 3 INVALID_ARGUMENT: Transaction is invalid or closed.
+      at callErrorFromStatus (/Users/colesmart/dev/coupon_app/functions/node_modules/@grpc/grpc-js/build/src/call.js:32:19)
+      at Object.onReceiveStatus (/Users/colesmart/dev/coupon_app/functions/node_modules/@grpc/grpc-js/build/src/client.js:193:76)
+      at Object.onReceiveStatus (/Users/colesmart/dev/coupon_app/functions/node_modules/@grpc/grpc-js/build/src/client-interceptors.js:367:141)
+      at Object.onReceiveStatus (/Users/colesmart/dev/coupon_app/functions/node_modules/@grpc/grpc-js/build/src/client-interceptors.js:327:181)
+      at /Users/colesmart/dev/coupon_app/functions/node_modules/@grpc/grpc-js/build/src/resolving-call.js:135:78
+      at process.processTicksAndRejections (node:internal/process/task_queues:85:11)
+  for call at
+      at ServiceClientImpl.makeUnaryRequest (/Users/colesmart/dev/coupon_app/functions/node_modules/@grpc/grpc-js/build/src/client.js:161:32)
+      at ServiceClientImpl.<anonymous> (/Users/colesmart/dev/coupon_app/functions/node_modules/@grpc/grpc-js/build/src/make-client.js:105:19)
+      at /Users/colesmart/dev/coupon_app/functions/node_modules/@google-cloud/firestore/build/src/v1/firestore_client.js:242:33
+      at /Users/colesmart/dev/coupon_app/functions/node_modules/google-gax/build/src/normalCalls/timeout.js:44:16
+      at repeat (/Users/colesmart/dev/coupon_app/functions/node_modules/google-gax/build/src/normalCalls/retries.js:82:25)
+      at /Users/colesmart/dev/coupon_app/functions/node_modules/google-gax/build/src/normalCalls/retries.js:125:13
+      at OngoingCallPromise.call (/Users/colesmart/dev/coupon_app/functions/node_modules/google-gax/build/src/call.js:67:27)
+      at NormalApiCaller.call (/Users/colesmart/dev/coupon_app/functions/node_modules/google-gax/build/src/normalCalls/normalApiCaller.js:34:19)
+      at /Users/colesmart/dev/coupon_app/functions/node_modules/google-gax/build/src/createApiCall.js:112:30
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    code: 3,
+    details: 'Transaction is invalid or closed.',
+    metadata: { internalRepr: Map(1) { 'content-type' => [Array] }, opaqueData: Map(0) {}, options: {} },
+    note: 'Exception occurred in retry method that was not classified as transient'
+  }

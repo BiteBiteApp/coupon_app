@@ -1,0 +1,14 @@
+✔ customer: Firestore abort retries completion checks without resubmitting provider or spending admission (1585.77925ms)
+✔ customer: nonretryable completion error reaches transaction adapter without publishing unchecked content (53.565791ms)
+✔ owner: Firestore abort retries completion checks without resubmitting provider or spending admission (1308.461792ms)
+✔ owner: nonretryable completion error reaches transaction adapter without publishing unchecked content (47.05775ms)
+✔ text: Firestore abort retries completion checks without resubmitting provider or spending admission (729.98875ms)
+✔ text: nonretryable completion error reaches transaction adapter without publishing unchecked content (50.082084ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3964.299333

@@ -2023,8 +2023,9 @@ service cloud.firestore {
         request.resource.data.userId == request.auth.uid &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data));
-      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && (signedIn() &&
-        resource.data.userId == request.auth.uid &&
+      // Existing Admin review removal cleans the review's votes before deletion.
+      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && ((isAdmin() || (signedIn() &&
+        resource.data.userId == request.auth.uid)) &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data));
     }
 

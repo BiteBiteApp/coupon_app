@@ -1,0 +1,292 @@
+{
+  "executionEnabled": false,
+  "scope": "Relevant test file inventory plus explicit executed-evidence references; files listed alone do not claim a current rerun. Live acceptance remains separately authorized and unexecuted.",
+  "groups": {
+    "consent": {
+      "testFiles": [
+        "functions/test/bitescore_terms_coverage_emulator.test.js",
+        "functions/test/shared_owner_terms_emulator.test.js",
+        "functions/test/legal_terms_copy.test.js",
+        "functions/test/safety_release_integration_emulator.test.js",
+        "test/services/bitescore_terms_service_test.dart",
+        "test/widgets/bitescore_terms_gate_test.dart"
+      ],
+      "evidence": [
+        "track-a.md: focused/legal client runs",
+        "track-b.md: lifecycle and final integration source/candidate runs",
+        "UGC_SHARED_TERMS_QUALIFICATION.txt: historical source qualification; recheck changed dependencies"
+      ],
+      "laterAuthorizedLiveAcceptance": [
+        "Fetch exact version/text and compare legal SHA; Accept writes exact UID/server time; Cancel creates no receipt or provider work.",
+        "Reject spoofed UID/direct receipt write and account deletion; account switching cannot reuse another UID acceptance.",
+        "Keep receipt enforcement active across all customer/owner/delayed publishers with exact source binding and valid required runtime."
+      ],
+      "recovery": "Pause new content processing with mandatory enforcement, privacy policy, retained approved content, Admin withdrawal/rejection and deletion/retention cleanup intact. Do not restore an unchecked writer."
+    },
+    "posting": {
+      "testFiles": [
+        "functions/test/posting_restrictions.test.js",
+        "functions/test/posting_restrictions_emulator.test.js",
+        "firestore_rules_tests/test/posting_restriction_rules.test.js",
+        "test/services/posting_restriction_service_test.dart"
+      ],
+      "evidence": [
+        "track-b.md: lifecycle and rules-source runs",
+        "track-a.md: focused client run",
+        "WEB_RELEASE_003_COMPLETION.txt: existing Admin callable deployment"
+      ],
+      "laterAuthorizedLiveAcceptance": [
+        "Verify existing deployed Admin7/14day/indefinite set/release authority and server expiry; ordinary callers cannot set restrictions.",
+        "Restricted caller cannot review, upload or create public catalog contributions; browsing, Auth identity, coupons and owner authority remain supported."
+      ],
+      "recovery": "Keep existing restriction state/expiry semantics and Admin set/release deployed; pause contributing writers if status compatibility fails."
+    },
+    "reporting-blocking": {
+      "testFiles": [
+        "functions/test/reviewer_safety.test.js",
+        "firestore_rules_tests/test/reviewer_safety_rules.test.js",
+        "functions/test/safety_release_integration_emulator.test.js",
+        "test/services/reviewer_safety_service_test.dart",
+        "test/screens/reviewer_safety_ui_test.dart"
+      ],
+      "evidence": [
+        "track-a.md: focused and reporting client runs",
+        "track-b.md: lifecycle/rules-source and final integration runs"
+      ],
+      "laterAuthorizedLiveAcceptance": [
+        "Current Report Review then Block prompt works with exact review/reviewer scope; no new Report Reviewer control.",
+        "Block/unblock UID pair and paged private list work after account switch and stale page; private list cannot be read by another caller.",
+        "Public photo remains public after personal block; delete target user removes inbound references using targetUserId group indexes."
+      ],
+      "recovery": "Keep private block state and existing report queue; pause only incompatible UI entry if necessary, preserving unblock, review withdrawal and account deletion."
+    },
+    "photo-reporting": {
+      "testFiles": [
+        "functions/test/photo_reports.test.js",
+        "firestore_rules_tests/test/photo_report_rules.test.js",
+        "functions/test/safety_release_integration_emulator.test.js",
+        "test/services/photo_report_service_test.dart",
+        "test/screens/photo_reporting_ui_test.dart",
+        "test/widgets/photo_report_admin_test.dart"
+      ],
+      "evidence": [
+        "track-a.md: reporting client run",
+        "track-b.md: lifecycle/rules-source and final integration runs"
+      ],
+      "laterAuthorizedLiveAcceptance": [
+        "Authenticate report author and captured source/version; ordinary reporter cannot moderate.",
+        "Admin removes only exact current photo even after supporting review disappears; stale decision cannot delete a replacement.",
+        "Public read/projection disappears after exact withdrawal and a late finalize event cannot resurrect it."
+      ],
+      "recovery": "Retain report queue and exact Admin remove/reject; pause new image admission instead of disabling moderation or cleanup."
+    },
+    "text": {
+      "testFiles": [
+        "functions/test/review_text_moderation_emulator.test.js",
+        "functions/test/review_text_provider.test.js",
+        "functions/test/safety_transaction_retry.test.js",
+        "functions/test/safety_release_integration_emulator.test.js",
+        "firestore_rules_tests/test/review_text_rules.test.js",
+        "test/services/review_text_moderation_service_test.dart",
+        "test/screens/review_text_admin_screen_test.dart"
+      ],
+      "evidence": [
+        "track-b.md: affected-final205/206 (documented unrelated intermittent photo transaction failure), provider-index-final39/39, transaction-regression-final6/6 and final integration4/4 per policy",
+        "track-a.md: focused and reporting client runs",
+        "REVIEW_TEXT_MODERATION_QUALIFICATION.txt and REVIEW_TEXT_RETENTION_QUALIFICATION.txt: historical qualification"
+      ],
+      "laterAuthorizedLiveAcceptance": [
+        "Exact OpenAI secret version/service identity and enabled source wiring succeed only after Terms permission; no secret/client leakage.",
+        "Clean response publishes words; flagged/error/timeout/malformed remains private; rating commits honestly; prior approved words survive pending replacement.",
+        "Admin list/get/decision denies ordinary callers; exact version, original30day/7day deadlines, TTL and expiry worker hold after retry/pause/re-enable.",
+        "Provider-completion race with policy pause/deletion stays private; transaction retry reuses provider result without another provider call."
+      ],
+      "recovery": "Pause new content processing with mandatory enforcement, privacy policy, retained approved content, Admin withdrawal/rejection and deletion/retention cleanup intact. Do not restore an unchecked writer."
+    },
+    "customer-photos": {
+      "testFiles": [
+        "functions/test/photo_screening_emulator.test.js",
+        "functions/test/photo_screening_provider.test.js",
+        "functions/test/photo_screening_retention.test.js",
+        "functions/test/customer_bitescore_photos_emulator.test.js",
+        "functions/test/safety_transaction_retry.test.js",
+        "functions/test/safety_release_integration_emulator.test.js",
+        "test/services/photo_screening_service_test.dart",
+        "test/screens/photo_screening_admin_screen_test.dart"
+      ],
+      "evidence": [
+        "track-b.md: affected-final205/206 with exact missing-photo concurrency failure retained; focused unchanged case1/1 after emulator restart; provider-index39/39, retry6/6 and integration4/4 per policy",
+        "track-a.md: focused client run",
+        "SAFESEARCH_SOURCE_QUALIFICATION.txt and SAFESEARCH_RETENTION_QUALIFICATION.txt: historical qualification"
+      ],
+      "laterAuthorizedLiveAcceptance": [
+        "Verify exact runtime bucket get/create/delete capabilities and enabled Vision ADC/quota with tokenless immutable generation0 objects.",
+        "Pending/rejected/failed objects denied through Firebase SDK/REST and GCS; only approved current exact generation publicly readable; no direct client upload or legacy callable bypass.",
+        "Shared UTC1000 reservations, four leases, per-UID4/minute, two explicit attempts and no automatic provider retry; quota/outage holds without unchecked publication.",
+        "Admin queue/preview/decision denies non-Admin and stale generation; cleanup deletes exact failed/expired objects with preconditions; delayed finalize cannot resurrect.",
+        "Repeat concurrent missing-photo publication against actual production Storage preconditions; emulator intermittent code3 is not a live guarantee."
+      ],
+      "recovery": "Pause new content processing with mandatory enforcement, privacy policy, retained approved content, Admin withdrawal/rejection and deletion/retention cleanup intact. Do not restore an unchecked writer."
+    },
+    "owner-photos": {
+      "testFiles": [
+        "functions/test/owner_photo_screening_emulator.test.js",
+        "functions/test/bitesaver_owner_media.test.js",
+        "functions/test/shared_owner_terms_emulator.test.js",
+        "functions/test/safety_transaction_retry.test.js",
+        "functions/test/safety_release_integration_emulator.test.js",
+        "firestore_rules_tests/test/safety_release_candidate_rules.test.js",
+        "test/services/owner_photo_screening_service_test.dart",
+        "test/screens/bitesaver_media_editor_test.dart",
+        "test/screens/restaurant_menu_bounded_test.dart"
+      ],
+      "evidence": [
+        "track-b.md: affected-final, retry6/6 and integration4/4 per policy",
+        "track-a.md: focused client and actual candidate policy15/15 evidence review",
+        "SAFESEARCH_OWNER_MEDIA_QUALIFICATION.txt: historical qualification"
+      ],
+      "laterAuthorizedLiveAcceptance": [
+        "Owner submit/get/use rejects other owner, customer and wrong target/source; approval creates availability only, never attachment.",
+        "Exact attachment works for main/gallery/coupon/Specials/menu; first-time shared-menu empty initialization+link succeeds; shared menu item/section holds remain.",
+        "Pending/unattached asset has no public route/token/ACL; approved attached current-target object reads; replacement and withdrawal retire only old exact generation.",
+        "Shared admission/deadlines/provider timeout match customer lane; preserve existing compute runtime and Maps reference, no identity migration."
+      ],
+      "recovery": "Pause new content processing with mandatory enforcement, privacy policy, retained approved content, Admin withdrawal/rejection and deletion/retention cleanup intact. Do not restore an unchecked writer."
+    },
+    "delayed-publication": {
+      "testFiles": [
+        "functions/test/shared_owner_terms_emulator.test.js",
+        "functions/test/bitescore_terms_coverage_emulator.test.js",
+        "functions/test/bitesaver_restaurant_profile.test.js",
+        "functions/test/dish_proposal_resolution_jobs.test.js",
+        "firestore_rules_tests/test/safety_release_candidate_rules.test.js"
+      ],
+      "evidence": [
+        "track-b.md: lifecycle shared Terms coverage",
+        "WEB_RELEASE_003_COMPLETION.txt: existing name/suggestion Admin release",
+        "track-a.md: candidate15/15 review; historical UGC_SHARED_TERMS_QUALIFICATION.txt"
+      ],
+      "laterAuthorizedLiveAcceptance": [
+        "Application/name/suggestion final approval rechecks responsible contributor receipt; Admin receipt cannot substitute; deletion or revoked validity denies publication.",
+        "Current owner name request succeeds after Terms; Admin exact status/server-time rejection works; direct approval and identity rewriting denied.",
+        "Existing dish resolution schedule runs exact identity/runtime/locks; do not broaden held direct catalog writers."
+      ],
+      "recovery": "Retain pending proposals and exact rejection; stop affected approval entry/scheduler only if its compatibility fails, preserving unrelated Admin and cleanup capabilities."
+    },
+    "creation-boundaries": {
+      "testFiles": [
+        "functions/test/customer_bitescore_creation.test.js",
+        "functions/test/customer_bitescore_creation_emulator.test.js",
+        "functions/test/bitescore_terms_coverage_emulator.test.js",
+        "test/services/bitescore_trusted_creation_test.dart"
+      ],
+      "evidence": [
+        "track-b.md: lifecycle Terms coverage; existing UGC_TERMS_COVERAGE_QUALIFICATION.txt",
+        "track-a.md: client authority/Terms trace; individual test presence is not a current execution claim"
+      ],
+      "laterAuthorizedLiveAcceptance": [
+        "Exact restaurant/dish callable denies missing Terms/restricted/deleting contributor; existing cursor secret version1 remains bound to same runtime.",
+        "Returned public catalog IDs retain restaurant-account separation, QR/profile/menu identity contracts and exact write scope."
+      ],
+      "recovery": "Pause new content processing with mandatory enforcement, privacy policy, retained approved content, Admin withdrawal/rejection and deletion/retention cleanup intact. Do not restore an unchecked writer."
+    },
+    "bounded-readers": {
+      "testFiles": [
+        "functions/test/customer_bitescore_reads.test.js",
+        "functions/test/customer_bitescore_photos.test.js",
+        "functions/test/customer_bitescore_profile_search.test.js",
+        "functions/test/customer_bitescore_profile_summary.test.js",
+        "functions/test/customer_bitescore_menu_search.test.js",
+        "test/services/customer_bitescore_reads_test.dart",
+        "test/services/customer_bitescore_profile_service_test.dart",
+        "test/screens/restaurant_menu_bounded_test.dart"
+      ],
+      "evidence": [
+        "track-b.md: affected-final public reads/photo DTOs; exact results in report",
+        "track-a.md: current selected client paths; test-file listing is relevant coverage inventory, not blanket rerun claim"
+      ],
+      "laterAuthorizedLiveAcceptance": [
+        "Review results omit personally blocked reviewers; approved public photos remain shared even when their author is blocked. Detail/profile/menu and all other reads retain their existing visibility contracts and exclude unapproved words/photos; cursor secret, collection indexes and revision invalidation work after mutation/account switch.",
+        "Vote endpoint enforces exact image/user/visibility; legacy public website/owner reads preserved during selected supported-client cutover.",
+        "Enable shared bounded reader gate through selected release build; do not activate old discovery just for safety."
+      ],
+      "recovery": "Preserve active aggregation epoch and compatible readers; pause unsafe new writes and retain approved content reads; do not blanket restore old read/write Rules."
+    },
+    "aggregate-image-projections": {
+      "testFiles": [
+        "functions/test/customer_bitescore_aggregate_emulator.test.js",
+        "functions/test/bitescore_review_aggregate.test.js",
+        "functions/test/customer_bitescore_reads.test.js",
+        "functions/test/customer_bitescore_menu_search.test.js",
+        "functions/test/owner_photo_screening_emulator.test.js"
+      ],
+      "evidence": [
+        "track-b.md: affected-final aggregate/read/owner suites with only documented intermittent photo failure",
+        "SAFESEARCH_OWNER_MEDIA_QUALIFICATION.txt: historical detach integration"
+      ],
+      "laterAuthorizedLiveAcceptance": [
+        "Exact Firestore trigger paths/service principals invoke and retry; numerical ratings are preserved independently, words are exposed only after approval, and approved image/review DTOs stay current.",
+        "Maintain live aggregation version1 and existing epoch; no reset/backfill; continuation schedule processes bounded work.",
+        "Menu replacement/withdrawal retires exact old owner asset and updates menu generation; retry cannot delete or expose replacement."
+      ],
+      "recovery": "Keep compatible trusted projections and continuation/cleanup while pausing admission; never reset live epoch or restore unchecked source publication."
+    },
+    "cleanup-worker": {
+      "testFiles": [
+        "functions/test/account_deletion_emulator.test.js",
+        "functions/test/account_deletion_finalized_media.test.js",
+        "functions/test/owner_photo_screening_emulator.test.js",
+        "functions/test/photo_screening_retention.test.js",
+        "functions/test/safety_release_integration_emulator.test.js",
+        "firestore_rules_tests/test/account_deletion_rules.test.js"
+      ],
+      "evidence": [
+        "track-b.md: lifecycle/deletion/finalized media/retention, rules-source and final integration",
+        "WEB_RELEASE_003_COMPLETION.txt: request/status/web deletion already deployed"
+      ],
+      "laterAuthorizedLiveAcceptance": [
+        "Keep exact worker/media identities, Stripe reference, max1 worker and us-east1 finalizer scope; execute only authorized synthetic deletion.",
+        "Remove new safety records and inbound block/reviewer references via exact group indexes; preserve mixed account/billing/catalog durable boundaries.",
+        "Late Storage finalize for tombstoned/deleted/screened object performs exact generation cleanup; stale event cannot remove replacement.",
+        "Observe physical asynchronous deletion/soft-delete limitations without claiming immediate purge; request/status/browser recovery remain operational."
+      ],
+      "recovery": "Restore compatible cleanup worker/finalizer first. If temporarily stopping broken cleanup is essential, stop new admissions, preserve tombstones/private states and resume bounded due work; never disable all deletion as generic rollback."
+    },
+    "moderation-points": {
+      "testFiles": [
+        "functions/test/contribution_points_helpers.test.js",
+        "functions/test/review_milestone_reconciliation_lock.test.js",
+        "firestore_rules_tests/test/safety_release_candidate_rules.test.js",
+        "test/services/contribution_points_service_test.dart"
+      ],
+      "evidence": [
+        "track-a.md: actual Admin caller-to-contract review; candidate15/15 proof of vote/report/review policy cleanup",
+        "Existing contribution source test inventory; not rerun by Track C and not a held-service execution receipt"
+      ],
+      "laterAuthorizedLiveAcceptance": [
+        "Verify held Ready revision image digest/executable availability and exact recoverable traffic before releasing only this MANUAL0 service.",
+        "Unauthenticated/customer denied, Admin exact review with votes/reports deletes and awaited reconciliation completes idempotently; contribution locks and deletion fences remain honored.",
+        "Automatic min0/max10 revision/service cap and existing allUsers transport binding validated; Admin move remains denied."
+      ],
+      "recovery": "Return only this service to recorded MANUAL0/traffic if required; suspend Admin Remove completion control when its dependency cannot run. Do not undo deleted content or loosen contribution locks."
+    },
+    "owner-detach-projections": {
+      "testFiles": [
+        "functions/test/search_index_maintenance.test.js",
+        "functions/test/search_index_runtime_wiring.test.js",
+        "functions/test/owner_photo_screening_emulator.test.js",
+        "functions/test/customer_bitesaver_runtime_wiring.test.js"
+      ],
+      "evidence": [
+        "SAFESEARCH_OWNER_MEDIA_QUALIFICATION.txt: source detach-retirement wiring",
+        "track-b.md: owner lifecycle; current baseline in baselines/owner-projection-functions.json; search choice still open"
+      ],
+      "laterAuthorizedLiveAcceptance": [
+        "Restaurant/coupon/Specials source replacement and removal invokes exact exported document trigger and retires old attached photo; no new object delete authority for browse runtime.",
+        "Preserve BiteSaver browse identity/key version1 for restaurant+coupon; preserve compute identity for Specials; projection DTO/identity fields remain compatible with final selected search package.",
+        "Retried event cannot retire newly attached target; cleanup worker later deletes exact old generation."
+      ],
+      "recovery": "Preserve source projections and key/identity contracts; pause new owner attachments if compatibility fails while retaining withdrawal, retirement and cleanup. Do not activate discovery or roll back frozen search evidence."
+    }
+  }
+}

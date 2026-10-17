@@ -1,0 +1,659 @@
+00:00 +0: loading /Users/colesmart/dev/coupon_app/test/services/bitescore_terms_service_test.dart
+00:00 +0: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +1: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +2: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +3: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +4: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +5: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +6: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +7: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +8: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +9: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +10: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +11: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +12: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +13: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +14: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +15: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +16: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +17: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +18: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +19: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +20: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +21: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +21: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: enabled registration preflight on actual provider paths denied/cancelled preflight: guest=false google=false
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:00 +22: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +22: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: enabled registration preflight on actual provider paths eligible continues and preserves guest UID: guest=false google=false
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:00 +23: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +24: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +25: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +25: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: enabled registration preflight on actual provider paths denied/cancelled preflight: guest=true google=false
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:00 +26: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +26: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: enabled registration preflight on actual provider paths eligible continues and preserves guest UID: guest=true google=false
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:00 +27: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +28: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +29: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +30: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +31: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +31: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: enabled registration preflight on actual provider paths existing-only email login does not ask age
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:00 +32: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +33: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +33: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: enabled registration preflight on actual provider paths pending age invalidated: google=false accountChange=false
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:00 +34: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +34: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: enabled registration preflight on actual provider paths pending age invalidated: google=false accountChange=true
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:00 +35: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +36: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +37: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +38: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +39: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +39: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: enabled registration preflight on actual provider paths default off never invokes age callback
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:00 +40: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +41: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +42: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +43: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +44: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +44: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter cleanup failure releases normal email operation for retry
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:00 +45: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +45: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter Google-first normal email flow preserves UID/data; register=false guest=false
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:00 +46: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +46: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter Google-first normal email flow preserves UID/data; register=false guest=true
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:00 +47: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +47: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter existing password normal email flow never requests Google; register=false
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:00 +48: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +48: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter existing Google/password account rejects password replacement; register=false
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:00 +49: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +49: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter Google-first normal email flow preserves UID/data; register=true guest=false
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:00 +50: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +50: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter Google-first normal email flow preserves UID/data; register=true guest=true
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:00 +51: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +51: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter existing password normal email flow never requests Google; register=true
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:00 +52: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +52: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter existing Google/password account rejects password replacement; register=true
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:00 +53: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +53: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter pending verification still requires Google after SDK sign-in
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:00 +54: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:00 +54: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter SDK email result must keep the UID confirmed before linking
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:00 +55: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +55: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter Google-confirmed password continues with verification pending; register=false
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:01 +56: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +56: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter Google-confirmed password continues with verification pending; register=true
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:01 +57: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +57: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter normal email route close during reload discards stale success
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +58: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +58: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter normal email sign out during reload discards stale success
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +59: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +59: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter normal email route close during finalization discards stale success
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +60: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +60: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter normal email sign out during finalization discards stale success
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +61: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +61: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter unknown email sign-in cannot create through Google confirmation
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:01 +62: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +62: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter fresh registration still creates and requires email verification
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:01 +63: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +63: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter cancel confirmation during email confirmation never links or finalizes
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +64: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +64: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter route closed during email confirmation never links or finalizes
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +65: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +65: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter other account during email confirmation never links or finalizes
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +66: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +66: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter sign out during email confirmation never links or finalizes
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +67: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +67: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter late password-link result after cancellation cannot sign in
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +68: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +68: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: native credential adapter late email SDK completion after sign-out clears the stale session
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +69: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +70: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +71: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +72: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +73: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +74: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +75: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +76: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +77: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +78: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +79: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +80: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +81: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +82: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +83: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +84: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +85: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +85: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter cleanup failure releases normal email operation for retry
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:01 +86: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +86: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter Google-first normal email flow preserves UID/data; register=false guest=false
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:01 +87: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +87: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter Google-first normal email flow preserves UID/data; register=false guest=true
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:01 +88: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +88: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter existing password normal email flow never requests Google; register=false
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:01 +89: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +89: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter existing Google/password account rejects password replacement; register=false
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:01 +90: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +90: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter Google-first normal email flow preserves UID/data; register=true guest=false
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:01 +91: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +91: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter Google-first normal email flow preserves UID/data; register=true guest=true
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:01 +92: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +92: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter existing password normal email flow never requests Google; register=true
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:01 +93: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +93: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter existing Google/password account rejects password replacement; register=true
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:01 +94: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +94: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter pending verification still requires Google after SDK sign-in
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:01 +95: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +95: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter SDK email result must keep the UID confirmed before linking
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:01 +96: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +96: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter Google-confirmed password continues with verification pending; register=false
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:01 +97: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +98: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +98: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter Google-confirmed password continues with verification pending; register=true
+BS_AUTH_DIAG stage=emailContinuation check=started
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:01 +99: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +99: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter normal email route close during reload discards stale success
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +100: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +100: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter normal email sign out during reload discards stale success
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +101: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +101: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter normal email route close during finalization discards stale success
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +102: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +102: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter normal email sign out during finalization discards stale success
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +103: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +103: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter unknown email sign-in cannot create through Google confirmation
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:01 +104: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +104: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter fresh registration still creates and requires email verification
+BS_AUTH_DIAG stage=emailContinuation check=accepted
+00:01 +105: /Users/colesmart/dev/coupon_app/test/screens/bitescore_category_terms_test.dart: dish category: customer accepts
+00:01 +106: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +106: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter cancel confirmation during email confirmation never links or finalizes
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +107: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +107: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter route closed during email confirmation never links or finalizes
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +108: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +108: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter other account during email confirmation never links or finalizes
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +109: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +109: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter sign out during email confirmation never links or finalizes
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +110: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +110: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter late password-link result after cancellation cannot sign in
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +111: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +111: /Users/colesmart/dev/coupon_app/test/services/account_provider_service_test.dart: web popup adapter late email SDK completion after sign-out clears the stale session
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:01 +112: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +113: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +114: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +115: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +116: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +117: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +118: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +119: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +120: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +121: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +122: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +123: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +124: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +125: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +126: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +127: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +128: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +129: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +130: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +131: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +132: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: default disabled menu preserves Report review and makes no safety calls
+00:01 +133: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=12 actual control path
+00:01 +134: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=12 actual control path
+00:02 +135: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=12 actual control path
+00:02 +136: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=12 actual control path
+00:02 +137: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=12 actual control path
+00:02 +138: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=12 actual control path
+00:02 +139: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=12 actual control path
+00:02 +140: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=12 actual control path
+00:02 +141: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=12 actual control path
+00:02 +142: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=12 actual control path
+00:02 +143: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=12 actual control path
+00:02 +144: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=12 actual control path
+00:02 +145: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=12 actual control path
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:02 +146: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: confirmation Cancel performs no call; successful block refreshes the trusted review page
+00:02 +147: /Users/colesmart/dev/coupon_app/test/account_deletion_screen_test.dart: old startup restore cannot erase a newer saved receipt; reopening signed out recovers pending
+00:03 +148: /Users/colesmart/dev/coupon_app/test/account_deletion_screen_test.dart: old startup restore cannot erase a newer saved receipt; reopening signed out recovers pending
+00:03 +149: /Users/colesmart/dev/coupon_app/test/account_deletion_screen_test.dart: old startup restore cannot erase a newer saved receipt; reopening signed out recovers pending
+00:03 +150: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=13 actual control path
+00:03 +151: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=13 actual control path
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:03 +152: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: retained dish refreshes after unblock on a pushed private route
+00:03 +153: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: retained dish refreshes after unblock on a pushed private route
+00:03 +154: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateExisting: saved review with unconfirmed points exits without a retry or false failure
+00:03 +155: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=42 actual control path
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:03 +156: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +157: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +158: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +159: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +160: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +161: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +162: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +163: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +164: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +165: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +166: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +167: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +168: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +169: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +170: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +170: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer email age=cancel actual control path
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:04 +171: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +172: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +173: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +174: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +175: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +176: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +177: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +178: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +179: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +180: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +181: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +182: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +183: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +184: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: blocking on a second dish clears the retained first dish
+00:04 +185: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer google age=13 actual control path
+00:04 +186: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateNew: failed review after catalog selection never reports a saved review
+00:04 +187: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateNew: failed review after catalog selection never reports a saved review
+00:04 +188: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateNew: failed review after catalog selection never reports a saved review
+00:04 +189: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer google age=cancel actual control path
+00:04 +190: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: guest sign-in upgrade uses existing gate without a safety write
+00:04 +191: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: guest sign-in upgrade uses existing gate without a safety write
+00:04 +192: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: guest sign-in upgrade uses existing gate without a safety write
+00:04 +193: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: guest sign-in upgrade uses existing gate without a safety write
+00:04 +194: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: guest sign-in upgrade uses existing gate without a safety write
+00:04 +195: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: guest sign-in upgrade uses existing gate without a safety write
+00:04 +196: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: guest sign-in upgrade uses existing gate without a safety write
+00:04 +197: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: guest sign-in upgrade uses existing gate without a safety write
+00:04 +198: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: guest sign-in upgrade uses existing gate without a safety write
+00:04 +199: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: guest sign-in upgrade uses existing gate without a safety write
+00:04 +200: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: guest sign-in upgrade uses existing gate without a safety write
+00:04 +201: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: guest sign-in upgrade uses existing gate without a safety write
+00:05 +202: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: guest sign-in upgrade uses existing gate without a safety write
+00:05 +203: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: existing: screening_failed truthfully distinguishes saved rating from held words
+00:05 +204: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer phone age=13 actual control path
+00:05 +205: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer phone age=13 actual control path
+00:05 +206: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: account switching during status cannot dispatch a block or apply its result
+00:05 +207: /Users/colesmart/dev/coupon_app/test/screens/reviewer_safety_ui_test.dart: account switching during status cannot dispatch a block or apply its result
+00:05 +208: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: expired photo has no decision or preview; cleanup pending is truthful
+00:05 +209: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: expired photo has no decision or preview; cleanup pending is truthful
+00:05 +210: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: expired photo has no decision or preview; cleanup pending is truthful
+00:05 +211: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: expired photo has no decision or preview; cleanup pending is truthful
+00:05 +212: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: expired photo has no decision or preview; cleanup pending is truthful
+00:05 +213: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: expired photo has no decision or preview; cleanup pending is truthful
+00:05 +214: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: expired photo has no decision or preview; cleanup pending is truthful
+00:05 +214: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer existing email login never prompts
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:05 +215: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: expired photo has no decision or preview; cleanup pending is truthful
+00:05 +216: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: expired photo has no decision or preview; cleanup pending is truthful
+00:05 +217: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: expired photo has no decision or preview; cleanup pending is truthful
+00:05 +218: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: expired photo has no decision or preview; cleanup pending is truthful
+00:05 +218: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer default-off registration unchanged
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:05 +219: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: expired photo has no decision or preview; cleanup pending is truthful
+00:05 +220: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: expired photo has no decision or preview; cleanup pending is truthful
+00:05 +221: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: expired photo has no decision or preview; cleanup pending is truthful
+00:05 +222: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: expired photo has no decision or preview; cleanup pending is truthful
+00:05 +223: /Users/colesmart/dev/coupon_app/test/screens/review_text_admin_screen_test.dart: shows original age/deadline and clears expired raw words without another query
+00:05 +223: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: customer account switch during age prevents registration
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:05 +224: /Users/colesmart/dev/coupon_app/test/screens/review_text_admin_screen_test.dart: shows original age/deadline and clears expired raw words without another query
+00:05 +225: /Users/colesmart/dev/coupon_app/test/screens/review_text_admin_screen_test.dart: shows original age/deadline and clears expired raw words without another query
+00:05 +226: /Users/colesmart/dev/coupon_app/test/screens/review_text_admin_screen_test.dart: shows original age/deadline and clears expired raw words without another query
+00:06 +227: /Users/colesmart/dev/coupon_app/test/screens/review_text_admin_screen_test.dart: shows original age/deadline and clears expired raw words without another query
+00:06 +228: /Users/colesmart/dev/coupon_app/test/screens/review_text_admin_screen_test.dart: shows original age/deadline and clears expired raw words without another query
+00:06 +229: /Users/colesmart/dev/coupon_app/test/screens/review_text_admin_screen_test.dart: shows original age/deadline and clears expired raw words without another query
+00:06 +230: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: owner email age=12 actual control path
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:06 +231: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: manual: rejected truthfully distinguishes saved rating from held words
+00:06 +232: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: manual: rejected truthfully distinguishes saved rating from held words
+00:06 +233: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: Admin approved applies only to the inspected generation at large text
+00:06 +234: /Users/colesmart/dev/coupon_app/test/screens/review_text_admin_screen_test.dart: approve sends exact version; pagination replaces bounded page
+00:06 +235: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: owner email age=13 actual control path
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:06 +236: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: owner email age=13 actual control path
+00:06 +237: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: owner email age=13 actual control path
+00:06 +238: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: Admin rejected applies only to the inspected generation at large text
+00:06 +239: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateExisting: pending truthfully distinguishes saved rating from held words
+00:06 +240: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateExisting: pending truthfully distinguishes saved rating from held words
+00:06 +241: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateExisting: pending truthfully distinguishes saved rating from held words
+00:06 +241: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: owner email age=42 actual control path
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:06 +242: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: owner email age=42 actual control path
+00:06 +243: /Users/colesmart/dev/coupon_app/test/screens/photo_screening_admin_screen_test.dart: undecodable preview cannot be approved but can be rejected
+00:06 +244: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateExisting: screening_failed truthfully distinguishes saved rating from held words
+00:06 +245: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateExisting: screening_failed truthfully distinguishes saved rating from held words
+00:06 +246: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: owner email age=cancel actual control path
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:06 +247: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateExisting: rejected truthfully distinguishes saved rating from held words
+00:06 +248: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: owner google age=12 actual control path
+00:06 +249: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: shared Terms Cancel preserves owner draft and sends no upload/save
+00:06 +250: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: shared Terms Cancel preserves owner draft and sends no upload/save
+00:06 +251: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: shared Terms Cancel preserves owner draft and sends no upload/save
+00:06 +252: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: shared Terms Cancel preserves owner draft and sends no upload/save
+00:07 +253: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: shared Terms Cancel preserves owner draft and sends no upload/save
+00:07 +254: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: shared Terms Cancel preserves owner draft and sends no upload/save
+00:07 +255: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: shared Terms Cancel preserves owner draft and sends no upload/save
+00:07 +256: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: shared Terms Cancel preserves owner draft and sends no upload/save
+00:07 +257: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: shared Terms Cancel preserves owner draft and sends no upload/save
+00:07 +258: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: shared Terms Cancel preserves owner draft and sends no upload/save
+00:07 +259: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: shared Terms Cancel preserves owner draft and sends no upload/save
+00:07 +260: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: shared Terms Cancel preserves owner draft and sends no upload/save
+00:07 +260: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: owner existing email login never prompts
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:07 +261: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: shared Terms Cancel preserves owner draft and sends no upload/save
+00:07 +262: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: shared Terms Cancel preserves owner draft and sends no upload/save
+00:07 +263: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: shared Terms Cancel preserves owner draft and sends no upload/save
+00:07 +263: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: owner default-off registration unchanged
+BS_AUTH_DIAG stage=emailContinuation check=failed
+00:07 +264: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:07 +265: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:07 +266: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:07 +267: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:07 +268: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:07 +268: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: owner account switch during age prevents registration
+BS_AUTH_DIAG stage=emailContinuation check=cancelled
+00:07 +269: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:07 +270: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:07 +271: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:08 +272: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:08 +273: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:08 +274: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:08 +275: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:08 +276: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:08 +277: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:08 +278: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:08 +279: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: held coupon photo preserves editable text and never publishes its bytes
+00:08 +280: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: newDish: approved acceptance precedes every public mutation
+00:08 +281: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: invite coupon age=13 real creation path
+00:08 +282: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: invite coupon age=13 real creation path
+00:08 +283: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: manual text-only multiple specials have no image holders and save together
+00:08 +284: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: manual text-only multiple specials have no image holders and save together
+00:08 +285: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: manual text-only multiple specials have no image holders and save together
+00:08 +286: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: manual text-only multiple specials have no image holders and save together
+00:08 +287: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: invite bitescore age=12 real creation path
+00:08 +288: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: manual: disabled Terms preserve save path without a prompt or receipt
+00:08 +289: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: owner update sends approved text and current version while blocking duplicates
+00:08 +290: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: owner update sends approved text and current version while blocking duplicates
+00:08 +291: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: owner update sends approved text and current version while blocking duplicates
+00:08 +292: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: manual: approved acceptance precedes every public mutation
+00:08 +293: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: manual: approved acceptance precedes every public mutation
+00:08 +294: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: photo-board draft is exclusive; switching back preserves it until confirmed save
+00:08 +295: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: photo-board draft is exclusive; switching back preserves it until confirmed save
+00:08 +296: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: photo-board draft is exclusive; switching back preserves it until confirmed save
+00:08 +297: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: Cuisine edits normalize, retry safely, preserve pending edits and clear
+00:09 +298: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: Cuisine edits normalize, retry safely, preserve pending edits and clear
+00:09 +299: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: Cuisine edits normalize, retry safely, preserve pending edits and clear
+00:09 +300: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: Cuisine edits normalize, retry safely, preserve pending edits and clear
+00:09 +301: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: Cuisine edits normalize, retry safely, preserve pending edits and clear
+00:09 +302: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: Cuisine edits normalize, retry safely, preserve pending edits and clear
+00:09 +303: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateExisting: disabled Terms preserve save path without a prompt or receipt
+00:09 +304: /Users/colesmart/dev/coupon_app/test/screens/registration_age_test.dart: phone sheet accepted callback; session=registered
+00:09 +305: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: cancel does not save or delete published content
+00:09 +306: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: cancel does not save or delete published content
+00:09 +307: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: Cuisine loads saved labels and invalid values never invoke writer
+00:09 +308: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: Cuisine loads saved labels and invalid values never invoke writer
+00:09 +309: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: Cuisine loads saved labels and invalid values never invoke writer
+00:09 +310: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: narrow large text authoring remains usable
+00:09 +311: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateExisting: cancel preserves complete draft and photo; retry reuses draft
+00:09 +312: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateExisting: cancel preserves complete draft and photo; retry reuses draft
+00:09 +313: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateExisting: cancel preserves complete draft and photo; retry reuses draft
+00:09 +314: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: invalid draft can be corrected without losing text or entering retry state
+00:09 +315: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: Basic save preserves custom Hours without sending them
+00:09 +316: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateNew: disabled Terms preserve save path without a prompt or receipt
+00:09 +317: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: optional photo replacement and removal do not delete saved files before publish
+00:09 +318: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: opening default Hours is local-only and Basic never sends the defaults
+00:09 +319: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateNew: approved acceptance precedes every public mutation
+00:09 +320: /Users/colesmart/dev/coupon_app/test/screens/bitesaver_media_editor_test.dart: removing a draft special requires confirmation and only changes the published save
+00:09 +321: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: explicit Save Hours sends only exact Hours and concurrency metadata
+00:10 +322: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: duplicateNew: cancel preserves complete draft and photo; retry reuses draft
+00:10 +323: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: explicit Restaurant Image save has an image-only payload
+00:10 +324: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: cancelling Terms produces no Home refresh, write or save result
+00:10 +325: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: cancelling Terms produces no Home refresh, write or save result
+00:10 +326: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: cancelling Terms produces no Home refresh, write or save result
+00:10 +327: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: production-default validator accepts valid PNG in the screen flow
+00:10 +328: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: expired auth lease stops pending Terms even when the same UID returns
+00:10 +329: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: expired auth lease stops pending Terms even when the same UID returns
+00:10 +330: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: production-default validator rejects unsupported and corrupt formats
+00:10 +331: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: production-default validator rejects unsupported and corrupt formats
+00:10 +332: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: production-default validator rejects unsupported and corrupt formats
+00:10 +333: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: production-default validator rejects unsupported and corrupt formats
+00:10 +334: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: production-default validator rejects unsupported and corrupt formats
+00:10 +335: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: production-default validator rejects unsupported and corrupt formats
+00:10 +336: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: production-default validator rejects unsupported and corrupt formats
+00:10 +337: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: production-default validator rejects unsupported and corrupt formats
+00:10 +338: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: account switch while Terms dialog is open stops receipt and review
+00:10 +339: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: empty bytes through default screen validator preserve image and versions
+00:10 +340: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: empty bytes through default screen validator preserve image and versions
+00:10 +341: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: empty bytes through default screen validator preserve image and versions
+00:10 +342: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: cancelled sign-in never requests Terms or writes
+00:10 +343: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: selected bytes preview before upload completes and the same bytes upload
+00:10 +344: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: manual validation fails before Terms or public mutation
+00:11 +345: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: rendered picker suppresses duplicate picker and upload taps
+00:11 +346: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: missing ratings or category do not prompt or mutate
+00:11 +347: /Users/colesmart/dev/coupon_app/test/screens/bitescore_create_rate_terms_test.dart: missing ratings or category do not prompt or mutate
+00:11 +348: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: invalid bytes are rejected before a fake successful upload or save
+00:11 +349: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: decoder exceptions use fixed feedback and start no upload
+00:11 +350: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: invalid replacement preserves prior state then accepts a valid retry
+00:11 +351: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: upload failure preserves controlled feedback and retries safely
+00:11 +352: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: image save failure preserves one upload and exact retry state
+00:11 +353: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: approved owner A cache never seeds no-account owner B application
+00:11 +354: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: owner transition loads only owner B authoritative profile (different UID)
+00:11 +355: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: owner transition loads only owner B authoritative profile (same UID document)
+00:12 +356: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: delayed owner A account success cannot disturb loaded owner B
+00:12 +357: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: delayed owner A account failure cannot disturb loaded owner B
+00:12 +358: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: owner switch before picker return ignores prior owner bytes
+00:12 +359: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: owner switch during validation starts no prior-owner upload
+00:12 +360: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: owner switch during upload ignores prior-owner completion
+00:12 +361: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: owner switch before explicit save invalidates captured state
+00:12 +362: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same UID account document switch clears prior selection
+00:12 +363: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same UID document switch during save ignores old result and versions
+00:12 +364: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: sign-out makes selected bytes and uploaded URL inaccessible
+00:12 +365: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: owner switch during image save cannot reconcile versions or success
+00:12 +366: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: transition during post-call reload hides old transient state and ignores stale reconciliation
+00:12 +367: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: later selection wins when its upload completes first
+00:13 +368: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: late stale upload failure cannot alter current selection or save state
+00:13 +369: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: disposal during picker validation upload and image save is safe
+00:13 +370: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: saved URL renders unchanged in owner and persisted Customer Preview
+00:13 +371: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: empty restaurant image keeps owner and customer empty states
+00:13 +372: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: Basic and Hours saves cannot persist or clear a selected image preview
+00:13 +373: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: explicit save persists uploaded URL once then retains location version
+00:13 +374: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: approved name stays separate from a proposed name during owner update
+00:13 +375: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: failed name request retains proposal and cannot replace approved name
+00:13 +376: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: case-only name changes cannot bypass name approval
+00:13 +377: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: failed and stale owner saves retain form data and bind retry IDs exactly
+00:14 +378: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: stale conflict recovers after authoritative reload and uses new versions
+00:14 +379: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: concurrent owner edits are not overwritten by authoritative reload
+00:14 +380: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: server-backed owner save and authoritative reload enable posting readiness
+00:14 +381: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: stale posting-readiness load cannot install versions for a new owner
+00:14 +382: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks missing coordinates without coordinate repair
+00:14 +383: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks missing street without coordinate repair
+00:14 +384: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks missing city without coordinate repair
+00:15 +385: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks missing state without coordinate repair
+00:15 +386: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks missing ZIP without coordinate repair
+00:15 +387: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks invalid coordinates without coordinate repair
+00:15 +388: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks nonfinite latitude without coordinate repair
+00:15 +389: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks nonfinite longitude without coordinate repair
+00:15 +390: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks exact origin without coordinate repair
+00:15 +391: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks missing fingerprint without coordinate repair
+00:15 +392: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks missing validation timestamp without coordinate repair
+00:15 +393: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks malformed validation timestamp without coordinate repair
+00:15 +394: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks unsupported validation timestamp shape without coordinate repair
+00:15 +395: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks missing source without coordinate repair
+00:16 +396: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks empty source without coordinate repair
+00:16 +397: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks untrusted source without coordinate repair
+00:16 +398: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks nonpositive location version without coordinate repair
+00:16 +399: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting readiness blocks unsaved address mismatch without coordinate repair
+00:16 +400: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: initial account load may complete after disposal safely
+00:16 +401: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: B submits immediately while pending A application success is ignored after UID switch
+00:16 +402: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: B submits immediately while pending A application failure is ignored after UID switch
+00:16 +403: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: B submits immediately while pending A application success is ignored after same-UID document switch
+00:16 +404: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: B submits immediately while pending A application failure is ignored after same-UID document switch
+00:16 +405: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: application submission may complete after disposal safely
+00:16 +406: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: owner save success may complete after disposal safely
+00:16 +407: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: owner save failure may complete after disposal safely
+00:16 +408: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: authoritative owner reload may complete after disposal safely
+00:16 +409: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: posting-readiness account load may complete after disposal safely
+00:17 +410: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: subscription refresh completion after disposal does not mutate screen state
+00:17 +411: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: renewing trial retains its ordinary active presentation
+00:17 +412: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: scheduled trial cancellation survives fresh load and preserves access
+00:17 +413: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: scheduled paid cancellation preserves access through period end
+00:17 +414: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: undoing scheduled cancellation clears its trial presentation
+00:17 +415: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: actually ended subscription retains inactive presentation
+00:17 +416: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: active billing status with posting disabled exposes delete-only coupon management
+00:17 +417: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: inactive owner deletion failure retains the selected coupon
+00:17 +418: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: active owner retains create edit and delete controls
+00:17 +419: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: inactive same-UID account transition replaces delete-only coupon state
+00:17 +420: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: inactive owner sign-out clears coupon state immediately
+00:17 +421: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: customer portal return refreshes subscription state once
+00:17 +422: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: checkout success refreshes immediately and again after three seconds
+00:17 +423: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: checkout cancel preserves its single-refresh behavior
+00:17 +424: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: signed-out pending checkoutSuccess refreshes after an eligible Hub mounts and does not replay
+00:17 +425: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: signed-out pending checkoutCancel refreshes after an eligible Hub mounts and does not replay
+00:18 +426: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: checkoutSuccess refresh failure is nonfatal and does not poison later returns
+00:18 +427: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: checkoutCancel refresh failure is nonfatal and does not poison later returns
+00:18 +428: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: pre-mount portal return waits for initial load and does not replay on remount
+00:18 +429: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: portal return arriving during initial load is serialized
+00:18 +430: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: disposing before the queued refresh claim leaves it for one remount
+00:18 +431: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: genuine repeated portal events queue, survive failure, and remain processable
+00:18 +432: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: failed return claim retries exactly once on the next lifecycle resume
+00:18 +433: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: permanent return claim failure attempts once per lifecycle episode
+00:18 +434: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: return appearing between resume peeks consumes that resume episode
+00:18 +435: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: pre-mount return success does not suppress a later resume episode
+00:18 +436: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: failed local return refresh does not suppress the next normal resume
+00:18 +437: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: resume during portal refresh does not queue a duplicate account read
+00:18 +438: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: portal return coalesces with an in-flight lifecycle resume refresh
+00:18 +439: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: portal return consumes a completed refresh from the same resume episode
+00:18 +440: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: completed portal refresh suppresses the following resume fallback
+00:18 +441: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: two mounted Hubs globally claim one portal refresh
+00:18 +442: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: two mounted Hubs globally claim one checkoutSuccess refresh sequence
+00:18 +443: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: two mounted Hubs globally claim one checkoutCancel refresh sequence
+00:18 +444: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: two mounted Hubs coalesce one lifecycle resume with a portal return
+00:18 +445: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: mounted subscription refresh success clears duplicate suppression
+00:18 +446: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: mounted subscription refresh failure clears duplicate suppression
+00:19 +447: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: daily-special save completion after disposal does not start refresh
+00:19 +448: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: daily-special refresh completion after disposal does not mutate UI
+00:19 +449: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: daily-special save failure after disposal does not access context
+00:19 +450: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: mounted daily-special save refreshes once and suppresses duplicates
+00:19 +451: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: fresh State clears A legacy cache before loading no-account owner B
+00:19 +452: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: fresh State clears A legacy cache before loading existing-account owner B
+00:19 +453: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: current application rejects a mismatched canonical document
+00:19 +454: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same-UID document switch rejects stale rendered coupon and daily edits
+00:19 +455: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: owner transition dismisses an open owner-scoped paywall route
+00:19 +456: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same-UID widget update clears document A before document B first frame
+00:19 +457: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: stale rendered sign-out callback cannot sign out the current owner
+00:19 +458: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: B coupon save starts before A completes (UID switch, A success)
+00:19 +459: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: B coupon save starts before A completes (same UID/document switch, A failure)
+00:20 +460: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same-UID document B delete remains pending after A coupon delete completes
+00:20 +461: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same-UID document switch ignores pending A coupon date picker
+00:20 +462: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same-UID document switch ignores pending A coupon time picker
+00:20 +463: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: UID switch lets B start coupon image while A remains pending
+00:20 +464: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same-UID document switch lets B start coupon image while A remains pending
+00:20 +465: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: B coupon image completes and saves before late A upload success
+00:20 +466: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: stale A image failure is silent while same-UID document B stays busy
+00:20 +467: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: UID switch before A coupon picker returns starts no stale image work
+00:20 +468: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: UID switch during A coupon URL retrieval discards the stale URL
+00:20 +469: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: sign-out before A coupon picker returns isolates later owner B
+00:20 +470: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: newer same-owner coupon selection supersedes the pending old draft
+00:21 +471: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: current coupon image cancellation is silent and suppresses duplicates
+00:21 +472: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: current coupon image failure clears busy and permits a successful retry
+00:21 +473: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: current coupon image failure preserves friendly mapping and retry
+00:21 +474: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same-UID document switch synchronously clears coupon and daily drafts
+00:21 +475: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same-UID document switch ignores pending A daily-special time picker
+00:21 +476: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same-UID document B daily save survives pending A failure
+00:21 +477: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same-UID document B delete survives pending A daily-special deletion
+00:21 +478: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: owner B can checkout while owner A preparation remains pending
+00:21 +479: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: owner B can open Portal while owner A preparation remains pending
+00:21 +480: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same-UID document change after preparation blocks A launch and preserves B
+00:21 +481: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same-UID document change after Portal preparation blocks A launch
+00:21 +482: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: failed Checkout launch preserves the server return context for redemption
+00:21 +483: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: failed Portal launch preserves the server return context for redemption
+00:21 +484: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: successful Portal launch uses its validated server-prepared session
+00:22 +485: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: Start Subscription launches an exact fragment-bearing Checkout URL
+00:22 +486: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: return during pending Checkout launch redeems once and replay stays inert
+00:22 +487: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: return consumed during pending Checkout survives the same launcher failing
+00:22 +488: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: Paywall pending preparation is invalidated by same-UID document change
+00:22 +489: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same-UID document B checkout remains busy after A checkout completes
+00:22 +490: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: same-UID document B portal remains busy after A portal fails
+00:22 +491: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: late A subscription refresh cannot replace B subscription state
+00:22 +492: /Users/colesmart/dev/coupon_app/test/screens/restaurant_create_coupon_lifecycle_test.dart: pending A sign-out completion cannot navigate or sign out owner B
+00:22 +493: All tests passed!

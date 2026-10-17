@@ -1,0 +1,667 @@
+{
+  "runId": "BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001",
+  "checkedAt": "2026-10-17T19:53:35.179332+00:00",
+  "startingHead": "14b341f61eb3e914a5c450cfb4f92de44e665002",
+  "protectedFilesCount": 13,
+  "frozenPostgisFilesCount": 118,
+  "allMatch": true,
+  "protectedFiles": {
+    "APPROVAL-ADDENDUM-A2.md": {
+      "expected": "865f38522f833bb7a9a8a3157d49a292db627c29435093eb24f2c8e8d04581ea",
+      "actual": "865f38522f833bb7a9a8a3157d49a292db627c29435093eb24f2c8e8d04581ea",
+      "matches": true
+    },
+    "LEGAL_HOSTING_PUBLICATION_BASELINE.json": {
+      "expected": "f927ace463fa7bb637ac47888d5754ee3736a8b789f4509808eeaa7a7ea2003e",
+      "actual": "f927ace463fa7bb637ac47888d5754ee3736a8b789f4509808eeaa7a7ea2003e",
+      "matches": true
+    },
+    "LEGAL_HOSTING_PUBLICATION_BLOCKER.txt": {
+      "expected": "d939a8196370c8ebdc358a40eea131e3edd88d53a48b1524d99ea8326be6760d",
+      "actual": "d939a8196370c8ebdc358a40eea131e3edd88d53a48b1524d99ea8326be6760d",
+      "matches": true
+    },
+    "WEB_BETA_RELEASE_002_EVIDENCE.json": {
+      "expected": "99440601239ebcd4fc4af8d0fc14e24e3dbd721b3fb0811957428c4a686ae6ae",
+      "actual": "99440601239ebcd4fc4af8d0fc14e24e3dbd721b3fb0811957428c4a686ae6ae",
+      "matches": true
+    },
+    "WEB_BETA_RELEASE_002_QUALIFICATION.txt": {
+      "expected": "a349006dc30190b8f71a0768131421eeb3c8e9a7ba6bca05a7eb8b5ed6274457",
+      "actual": "a349006dc30190b8f71a0768131421eeb3c8e9a7ba6bca05a7eb8b5ed6274457",
+      "matches": true
+    },
+    "WEB_DELETION_RELEASE_BLOCKER.txt": {
+      "expected": "530d58ed3a5964697975be6f0e9c26c64048918cf3910c72e69e286e44d31850",
+      "actual": "530d58ed3a5964697975be6f0e9c26c64048918cf3910c72e69e286e44d31850",
+      "matches": true
+    },
+    "WEB_DELETION_RELEASE_EVIDENCE.json": {
+      "expected": "3f5b0abb6ec7ca56d9983edc8462bbc6203f3aae0801970126af3e6d26dfaae0",
+      "actual": "3f5b0abb6ec7ca56d9983edc8462bbc6203f3aae0801970126af3e6d26dfaae0",
+      "matches": true
+    },
+    "test/cuisine_fixture/main.dart": {
+      "expected": "453e3b3412bcb1e35d97e3af8e2c868cbd7965f93dab75f701f13395489474f0",
+      "actual": "453e3b3412bcb1e35d97e3af8e2c868cbd7965f93dab75f701f13395489474f0",
+      "matches": true
+    },
+    "test/screens/customer_bitesaver_browse_screen_test.dart": {
+      "expected": "28aa68c86b59fefd9fd9aea798cad83b52b4b80e9cabea4be324711f7d31c2ee",
+      "actual": "28aa68c86b59fefd9fd9aea798cad83b52b4b80e9cabea4be324711f7d31c2ee",
+      "matches": true
+    },
+    "test/screens/restaurant_profile_bitescore_menu_test.dart": {
+      "expected": "278ffbfd9f139d003baf6b03f0b6f72549e84335e102718cfd17e6ce6344dafb",
+      "actual": "278ffbfd9f139d003baf6b03f0b6f72549e84335e102718cfd17e6ce6344dafb",
+      "matches": true
+    },
+    "test/visual_fixture/README.md": {
+      "expected": "b3bf2b57779323981b54aa6cf0a55ec1ab59651b202f5d9f78e0cd3887151130",
+      "actual": "b3bf2b57779323981b54aa6cf0a55ec1ab59651b202f5d9f78e0cd3887151130",
+      "matches": true
+    },
+    "test/visual_fixture/data.dart": {
+      "expected": "38cda097fae724e82f02c9f4c8c1fab9c6e731283b3879bac3bedf661129fef8",
+      "actual": "38cda097fae724e82f02c9f4c8c1fab9c6e731283b3879bac3bedf661129fef8",
+      "matches": true
+    },
+    "test/visual_fixture/main.dart": {
+      "expected": "c753b469e78938b7e6d5a25d36100b938bf24c262fbcc9cea09ad0802b36ff5c",
+      "actual": "c753b469e78938b7e6d5a25d36100b938bf24c262fbcc9cea09ad0802b36ff5c",
+      "matches": true
+    }
+  },
+  "frozenPostgisFiles": {
+    "tool/postgis_staging/.gitignore": {
+      "expected": "e1954ebd8abc57cde5973e638af28b72c787d063d5536473fd6fae07c0bb9bb0",
+      "actual": "e1954ebd8abc57cde5973e638af28b72c787d063d5536473fd6fae07c0bb9bb0",
+      "matches": true
+    },
+    "tool/postgis_staging/Controller.Dockerfile": {
+      "expected": "ee3a5ea7a12bd5690784d7330f16fdc56ce672ba4135c66dbace4f7d57e4334b",
+      "actual": "ee3a5ea7a12bd5690784d7330f16fdc56ce672ba4135c66dbace4f7d57e4334b",
+      "matches": true
+    },
+    "tool/postgis_staging/DURABLE-SNAPSHOTS.md": {
+      "expected": "0071b3e5c4850e8a03ee649d124f2f8e731f96da047921776af6ad7d87256ebd",
+      "actual": "0071b3e5c4850e8a03ee649d124f2f8e731f96da047921776af6ad7d87256ebd",
+      "matches": true
+    },
+    "tool/postgis_staging/GATE0-QUALIFICATION.md": {
+      "expected": "a4a58419ed7f0671a81f226f8b5ad57b8176f146befef9cedc7e66097a84eec5",
+      "actual": "a4a58419ed7f0671a81f226f8b5ad57b8176f146befef9cedc7e66097a84eec5",
+      "matches": true
+    },
+    "tool/postgis_staging/HOSTED-ADAPTER.md": {
+      "expected": "ee6264e77c198e70be6684dcdf1ebb09f61f789c9dd267e3870b24a7ed2cdb5b",
+      "actual": "ee6264e77c198e70be6684dcdf1ebb09f61f789c9dd267e3870b24a7ed2cdb5b",
+      "matches": true
+    },
+    "tool/postgis_staging/LOCAL-INTEGRATION.md": {
+      "expected": "78dc32e90b351bef58fc41d0d2d00e728abe07d7028e40fc0582fec6c753672b",
+      "actual": "78dc32e90b351bef58fc41d0d2d00e728abe07d7028e40fc0582fec6c753672b",
+      "matches": true
+    },
+    "tool/postgis_staging/PROVIDER-GATE1.md": {
+      "expected": "1b6abaa8de202b0cbe5363de65caf4eed2a230d8ab4639ddd19e130f5d5e663e",
+      "actual": "1b6abaa8de202b0cbe5363de65caf4eed2a230d8ab4639ddd19e130f5d5e663e",
+      "matches": true
+    },
+    "tool/postgis_staging/QUERY-TEST-PLAN.md": {
+      "expected": "5b8437e52b4aa68972daa1234e8652e8cddd258718322a73d1179a0d887c91fc",
+      "actual": "5b8437e52b4aa68972daa1234e8652e8cddd258718322a73d1179a0d887c91fc",
+      "matches": true
+    },
+    "tool/postgis_staging/READINESS-FINISH-002.md": {
+      "expected": "e4ed42750c0ea1daf4b7eb9f13c400438b9de2107bd9a71d5103e262539156dc",
+      "actual": "e4ed42750c0ea1daf4b7eb9f13c400438b9de2107bd9a71d5103e262539156dc",
+      "matches": true
+    },
+    "tool/postgis_staging/README.md": {
+      "expected": "2e797a0562723b02298ec1ae9b90c302e7439d5140717c926cb89f355733f101",
+      "actual": "2e797a0562723b02298ec1ae9b90c302e7439d5140717c926cb89f355733f101",
+      "matches": true
+    },
+    "tool/postgis_staging/candidate-manifest.json": {
+      "expected": "51c3d67c0dcdfdd79d15de874bdebb7ff6fc29c8b63ecacb3e797ae0aab4302e",
+      "actual": "51c3d67c0dcdfdd79d15de874bdebb7ff6fc29c8b63ecacb3e797ae0aab4302e",
+      "matches": true
+    },
+    "tool/postgis_staging/candidate-manifest.v2.json": {
+      "expected": "8747ba47d516328a8f0f406fe4f2da7d2701f6a79ad4917f058efe620c7d7316",
+      "actual": "8747ba47d516328a8f0f406fe4f2da7d2701f6a79ad4917f058efe620c7d7316",
+      "matches": true
+    },
+    "tool/postgis_staging/candidate-manifest.v3.json": {
+      "expected": "0b5ea002c3662d417269714fa94d208b8b75ab1b86b58daa6c52f1252c542fa8",
+      "actual": "0b5ea002c3662d417269714fa94d208b8b75ab1b86b58daa6c52f1252c542fa8",
+      "matches": true
+    },
+    "tool/postgis_staging/candidate-manifest.v4.json": {
+      "expected": "79a2c417ec491869da13fcbabc2e65232209449c760f89fd4dba69feb33e2341",
+      "actual": "79a2c417ec491869da13fcbabc2e65232209449c760f89fd4dba69feb33e2341",
+      "matches": true
+    },
+    "tool/postgis_staging/config/approval.template.json": {
+      "expected": "2005f66393029aad1f10c7b11e8354597ff6abc889cd049883a39c53a8d80b01",
+      "actual": "2005f66393029aad1f10c7b11e8354597ff6abc889cd049883a39c53a8d80b01",
+      "matches": true
+    },
+    "tool/postgis_staging/config/bootstrap.template.json": {
+      "expected": "8c2bb02699a82fbdc2afe3d4e891b8e1c5d5b0dec9476a7771f8d05eea93f359",
+      "actual": "8c2bb02699a82fbdc2afe3d4e891b8e1c5d5b0dec9476a7771f8d05eea93f359",
+      "matches": true
+    },
+    "tool/postgis_staging/config/cloud-run-job.DRAFT.json": {
+      "expected": "7036f5bfe4251bd7476b68e480603b574089c61d8d99c16f16b8295acc37acdb",
+      "actual": "7036f5bfe4251bd7476b68e480603b574089c61d8d99c16f16b8295acc37acdb",
+      "matches": true
+    },
+    "tool/postgis_staging/config/provider.example.json": {
+      "expected": "f272197c0368b45886aa32e564251b93bd91f6de9dd42f113d4c3a7854527b81",
+      "actual": "f272197c0368b45886aa32e564251b93bd91f6de9dd42f113d4c3a7854527b81",
+      "matches": true
+    },
+    "tool/postgis_staging/config/resource-plan.json": {
+      "expected": "23a222a76319ca88ada4d5e81f5137d0131a68dbad73d66feec362b5c02fa85b",
+      "actual": "23a222a76319ca88ada4d5e81f5137d0131a68dbad73d66feec362b5c02fa85b",
+      "matches": true
+    },
+    "tool/postgis_staging/config/resource-receipt.template.json": {
+      "expected": "785d1485c57032760213d995fc5138ee5bea4d38411f8f51269933632040993b",
+      "actual": "785d1485c57032760213d995fc5138ee5bea4d38411f8f51269933632040993b",
+      "matches": true
+    },
+    "tool/postgis_staging/config/sql-instance.DRAFT.json": {
+      "expected": "63c2e1dd40a28a969c3c50ad406a524935c2ed404bd62e323e2a01e81ebfc802",
+      "actual": "63c2e1dd40a28a969c3c50ad406a524935c2ed404bd62e323e2a01e81ebfc802",
+      "matches": true
+    },
+    "tool/postgis_staging/config/staging.json": {
+      "expected": "0f95e9300e8661867389a967a39413ebac7f6bdf0e5a1b60f3d5137ae25bd83d",
+      "actual": "0f95e9300e8661867389a967a39413ebac7f6bdf0e5a1b60f3d5137ae25bd83d",
+      "matches": true
+    },
+    "tool/postgis_staging/hosted/README.md": {
+      "expected": "bf053b8d7f529101fa7552ba8841d952b76c53446a23829c2d8f7e001d2e4bf7",
+      "actual": "bf053b8d7f529101fa7552ba8841d952b76c53446a23829c2d8f7e001d2e4bf7",
+      "matches": true
+    },
+    "tool/postgis_staging/hosted/hosted.example.json": {
+      "expected": "37d1d4358fd70613d415afb35c4813af48ebbe93577a174403d27aed6074d2f4",
+      "actual": "37d1d4358fd70613d415afb35c4813af48ebbe93577a174403d27aed6074d2f4",
+      "matches": true
+    },
+    "tool/postgis_staging/hosted/render-job.cjs": {
+      "expected": "5c536e9d0aa72becc7425d5a0061baf4dd2484a25fe89e6d3e7f2e27d4a44193",
+      "actual": "5c536e9d0aa72becc7425d5a0061baf4dd2484a25fe89e6d3e7f2e27d4a44193",
+      "matches": true
+    },
+    "tool/postgis_staging/hosted/render-service.cjs": {
+      "expected": "17fc441f4dc52c59426d08a8fe050ade64275fd256b8b2c4e4f5cfc0648d5f70",
+      "actual": "17fc441f4dc52c59426d08a8fe050ade64275fd256b8b2c4e4f5cfc0648d5f70",
+      "matches": true
+    },
+    "tool/postgis_staging/linux/Dockerfile": {
+      "expected": "bb569df458e399960202c932ee2099e3c14c6d4adab011cd26544d253d8f4bd3",
+      "actual": "bb569df458e399960202c932ee2099e3c14c6d4adab011cd26544d253d8f4bd3",
+      "matches": true
+    },
+    "tool/postgis_staging/linux/README.md": {
+      "expected": "4ec46d2afd7e57a6263b0bfeaadf0b915c1727fb5b443822965cff3322ba540a",
+      "actual": "4ec46d2afd7e57a6263b0bfeaadf0b915c1727fb5b443822965cff3322ba540a",
+      "matches": true
+    },
+    "tool/postgis_staging/linux/numerical-diagnostics.cjs": {
+      "expected": "21e2465db0ae227126c4864180ebeed8dc495ddccebe5c68de7e8319c17f8147",
+      "actual": "21e2465db0ae227126c4864180ebeed8dc495ddccebe5c68de7e8319c17f8147",
+      "matches": true
+    },
+    "tool/postgis_staging/linux/runtime-source.json": {
+      "expected": "1154d8aac54305233944ca7158c44e7c2d01310d37e742cbebbcc2b214f44bae",
+      "actual": "1154d8aac54305233944ca7158c44e7c2d01310d37e742cbebbcc2b214f44bae",
+      "matches": true
+    },
+    "tool/postgis_staging/pricing-2026-10-17.json": {
+      "expected": "3f1c8b5dc736564c9fb184233ca2b9a906aabcb3007393feba7f25aac8ce752a",
+      "actual": "3f1c8b5dc736564c9fb184233ca2b9a906aabcb3007393feba7f25aac8ce752a",
+      "matches": true
+    },
+    "tool/postgis_staging/provenance.json": {
+      "expected": "6a7ce2cd93379dc0d7c45b166f29fea230d89109f2abf1abd49d3c9de0f32a2a",
+      "actual": "6a7ce2cd93379dc0d7c45b166f29fea230d89109f2abf1abd49d3c9de0f32a2a",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/baseline.json": {
+      "expected": "7a43bd45ca3aa1ba76be90e857b4dd5458a75c612d56c1155a63bb33a25104ad",
+      "actual": "7a43bd45ca3aa1ba76be90e857b4dd5458a75c612d56c1155a63bb33a25104ad",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/current-price-worksheet.json": {
+      "expected": "c1183423193680a49294a8ba206148c778cc7de42df4dee43b25285a3eab7617",
+      "actual": "c1183423193680a49294a8ba206148c778cc7de42df4dee43b25285a3eab7617",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/final-local-controller-pricing-v2.log": {
+      "expected": "6c65808350f41f797a603e25ef0fdbfada53847dd66f91d297e89b06e6db4fa8",
+      "actual": "6c65808350f41f797a603e25ef0fdbfada53847dd66f91d297e89b06e6db4fa8",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/final-snapshot-qualification.log": {
+      "expected": "825d7e68b3238ea1d59ef9b2296e12d6524681e123240a57c6ba56b1db4c15c0",
+      "actual": "825d7e68b3238ea1d59ef9b2296e12d6524681e123240a57c6ba56b1db4c15c0",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/final-typescript-build.log": {
+      "expected": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "actual": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-after-flutter.json": {
+      "expected": "9c5f9435cc019e70906ce952b8c3212c953babd5600313f384bf0a437777d4e0",
+      "actual": "9c5f9435cc019e70906ce952b8c3212c953babd5600313f384bf0a437777d4e0",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-after-host.json": {
+      "expected": "8915a1b0db6d96a2d6143acf94c3b18bfdc3232e0bb2d27fa46b5e70ab7c2973",
+      "actual": "8915a1b0db6d96a2d6143acf94c3b18bfdc3232e0bb2d27fa46b5e70ab7c2973",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-after-server.jsonl": {
+      "expected": "3638c060ba3049395bc62bee1def0b94970924cb654e8d28b684c72d277aa5f3",
+      "actual": "3638c060ba3049395bc62bee1def0b94970924cb654e8d28b684c72d277aa5f3",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-baseline-flutter.json": {
+      "expected": "8978d6d15d0ba3f7596003194e7b60aca57ce813b7f40691e79e06945e83fb61",
+      "actual": "8978d6d15d0ba3f7596003194e7b60aca57ce813b7f40691e79e06945e83fb61",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-baseline-host.json": {
+      "expected": "40ccf91df31b1645e90327fd0c2577ddf6c30dafeec91d41cd897c78bf181621",
+      "actual": "40ccf91df31b1645e90327fd0c2577ddf6c30dafeec91d41cd897c78bf181621",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-baseline-server.jsonl": {
+      "expected": "fb7e4ef65fdadb7140f7179a7226539f4fc251c0a826d32ceed07b9b09b4eb4a",
+      "actual": "fb7e4ef65fdadb7140f7179a7226539f4fc251c0a826d32ceed07b9b09b4eb4a",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-coordinator-final-tests.log": {
+      "expected": "f04ed8ffc0e7013552fb55a9ae56b7be171fc699244eacfdfffc4f24f3a91a64",
+      "actual": "f04ed8ffc0e7013552fb55a9ae56b7be171fc699244eacfdfffc4f24f3a91a64",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-final-flutter.json": {
+      "expected": "826dfcd97ce1bb8ce5830ee8c6bdb5811999b6fc80f5d41e96098516f3dd91c9",
+      "actual": "826dfcd97ce1bb8ce5830ee8c6bdb5811999b6fc80f5d41e96098516f3dd91c9",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-final-host.json": {
+      "expected": "1e0f57b2409bdbb568190a6a02653704a89528f564b91973aba41047823931b9",
+      "actual": "1e0f57b2409bdbb568190a6a02653704a89528f564b91973aba41047823931b9",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-final-native-integration-rerun.json": {
+      "expected": "2ab16185a8b4d00ba48da3bb134881fea1fe9f340ee1f9d0108af519bb1113cf",
+      "actual": "2ab16185a8b4d00ba48da3bb134881fea1fe9f340ee1f9d0108af519bb1113cf",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-final-native-integration-rerun.log": {
+      "expected": "a11df6b11ee837f8d00f92e77cb445763a09f3761204c6b5f7dad74614c769c8",
+      "actual": "a11df6b11ee837f8d00f92e77cb445763a09f3761204c6b5f7dad74614c769c8",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-final-native-integration.json": {
+      "expected": "f0c48dfa88b089b39600bef3fc3ecc660925715b5af46535dc6ccf828668c167",
+      "actual": "f0c48dfa88b089b39600bef3fc3ecc660925715b5af46535dc6ccf828668c167",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-final-server.frozen.jsonl": {
+      "expected": "23fbb1aea7ebd0d3525697a24d6e6c434d0e5118c8afa054f9de0991bce33f32",
+      "actual": "23fbb1aea7ebd0d3525697a24d6e6c434d0e5118c8afa054f9de0991bce33f32",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-native-final-tests.log": {
+      "expected": "48975ad57fb30705682b615a8f20005bc1d39f3f4ee3a3818097c1812d38fe40",
+      "actual": "48975ad57fb30705682b615a8f20005bc1d39f3f4ee3a3818097c1812d38fe40",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-native-tests.log": {
+      "expected": "281578ab7f24bd61ecb18069fc761db53d2dc511e40923a18f643bc0ab0cf6bb",
+      "actual": "281578ab7f24bd61ecb18069fc761db53d2dc511e40923a18f643bc0ab0cf6bb",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/guest-repeat-flutter.json": {
+      "expected": "a68b3bd02cd9a217d8f01fb6eec029ff9ba4f15967b664c7f2f5ef67d2e3cef9",
+      "actual": "a68b3bd02cd9a217d8f01fb6eec029ff9ba4f15967b664c7f2f5ef67d2e3cef9",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/integrator-final-source-review.json": {
+      "expected": "3b10daa3ecdda25841973615640b7e01f6e415b93581fea9850024ea47956205",
+      "actual": "3b10daa3ecdda25841973615640b7e01f6e415b93581fea9850024ea47956205",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/integrator-independent-track-a-review.json": {
+      "expected": "9f563ab5d8d5102cbe44f10926406a760ed4fdb6b2ee1b605c40f093394f6d46",
+      "actual": "9f563ab5d8d5102cbe44f10926406a760ed4fdb6b2ee1b605c40f093394f6d46",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/local-cleanup.json": {
+      "expected": "2ac48c90fbf4a402b28075b9aa5886e0f80e4b86349a7e47329778c2e28c700d",
+      "actual": "2ac48c90fbf4a402b28075b9aa5886e0f80e4b86349a7e47329778c2e28c700d",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/preservation-pre-freeze.json": {
+      "expected": "c1caf110a41ea403930e8ff19340acedfd723727771668d3f8ec3a40ace379f5",
+      "actual": "c1caf110a41ea403930e8ff19340acedfd723727771668d3f8ec3a40ace379f5",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/qualification.json": {
+      "expected": "b49b5c4fbc9cec7a29aa8bde69b620ffb677432e5239e93842a18ef3ad167b35",
+      "actual": "b49b5c4fbc9cec7a29aa8bde69b620ffb677432e5239e93842a18ef3ad167b35",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/recovery-snapshot-qvA0O2/qualification.json": {
+      "expected": "b0eca3d47ef8b05b562a30eef7892261970acf38397a76b32e448284fa414aa1",
+      "actual": "b0eca3d47ef8b05b562a30eef7892261970acf38397a76b32e448284fa414aa1",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/recovery-snapshot-uelDdT/qualification.json": {
+      "expected": "3d2a6a6bd29608f6c364702c83701d6de290ca275f1566f32145c7c176acdaab",
+      "actual": "3d2a6a6bd29608f6c364702c83701d6de290ca275f1566f32145c7c176acdaab",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-a-hosted-job-controller-horizon.log": {
+      "expected": "76c42e4787b90a1a22c9094182fb57aecd7b8c5c4a31c41604403d0e17bb7196",
+      "actual": "76c42e4787b90a1a22c9094182fb57aecd7b8c5c4a31c41604403d0e17bb7196",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-a-hosted-job-dispatch-review-final.cjs": {
+      "expected": "1a5844d481ebdd6cc18631ecb4ecf49420716b5e3640cfb19deede4fe93bf21e",
+      "actual": "1a5844d481ebdd6cc18631ecb4ecf49420716b5e3640cfb19deede4fe93bf21e",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-a-hosted-job-dispatch-review-final.log": {
+      "expected": "3530e9e86fa1c38f68b9fc722c76f7a3b4fc8047e2b3c249d3a2522c7caae5dd",
+      "actual": "3530e9e86fa1c38f68b9fc722c76f7a3b4fc8047e2b3c249d3a2522c7caae5dd",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-a-hosted-jobs-contracts-final.log": {
+      "expected": "31e6814909e071c40621b6b9d4e09411b9ffa0108818dee639fb6289ba6f7c5f",
+      "actual": "31e6814909e071c40621b6b9d4e09411b9ffa0108818dee639fb6289ba6f7c5f",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-a-hosted-jobs-emulator-final.log": {
+      "expected": "0260fcdf83304c5f574eb6fbd24bc61d3d32840dc1b4e7089f19a365bef620d3",
+      "actual": "0260fcdf83304c5f574eb6fbd24bc61d3d32840dc1b4e7089f19a365bef620d3",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-a-independent-hosted-jobs-review.json": {
+      "expected": "209b30a32eae1c40fdd8d3990f1a54f1391a07a83bd7777f40c3523c94ce352c",
+      "actual": "209b30a32eae1c40fdd8d3990f1a54f1391a07a83bd7777f40c3523c94ce352c",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-a-independent-snapshot-pricing-review.json": {
+      "expected": "072c97900b913c5f680b20a55e491f290989c1b589f589c2dc1e682d72bbc4fa",
+      "actual": "072c97900b913c5f680b20a55e491f290989c1b589f589c2dc1e682d72bbc4fa",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-a-legacy-runtime-wiring.log": {
+      "expected": "55bb84afce779f664e2152741fd0df58a4313f5db2216dad7c861781df4f71a2",
+      "actual": "55bb84afce779f664e2152741fd0df58a4313f5db2216dad7c861781df4f71a2",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-a-performance-authority.json": {
+      "expected": "633c955d0c95a33ad77dc6f2738e35d79c62de45639213ab3d323756aaef3ea5",
+      "actual": "633c955d0c95a33ad77dc6f2738e35d79c62de45639213ab3d323756aaef3ea5",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-a-runtime-default-off-checks.json": {
+      "expected": "b9b70d2294188b92ac83050a7a366245d821f569e4862d1954cce86677945f74",
+      "actual": "b9b70d2294188b92ac83050a7a366245d821f569e4862d1954cce86677945f74",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-a-runtime-default-off-flutter.log": {
+      "expected": "932584941b09ed7a4ac773236531cf9e5c444203a7870bfd96ee58b030f556d3",
+      "actual": "932584941b09ed7a4ac773236531cf9e5c444203a7870bfd96ee58b030f556d3",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-a-runtime-default-off-native.log": {
+      "expected": "005843c8a2e6b675fe5f14b37025f1cce2eec64a3e6141affc463c0821ae8281",
+      "actual": "005843c8a2e6b675fe5f14b37025f1cce2eec64a3e6141affc463c0821ae8281",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-b/build.v2.log": {
+      "expected": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "actual": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-b/contracts.v2.log": {
+      "expected": "c0fcc11b629b9a20cd6330157a52a184d9b6bb1415e457d8c95529acd93efbd8",
+      "actual": "c0fcc11b629b9a20cd6330157a52a184d9b6bb1415e457d8c95529acd93efbd8",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-b/controller-independent-review.v2.json": {
+      "expected": "f93b548b5541a70f65883eae652542720f788d7c216c6030caa79764c310c6b3",
+      "actual": "f93b548b5541a70f65883eae652542720f788d7c216c6030caa79764c310c6b3",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-b/controller-independent-tests.v2.log": {
+      "expected": "b43fde4e986f1e23ecb0582e7e8d30ce1e8ab9e4cec5e3e66f3d5f064cc578af",
+      "actual": "b43fde4e986f1e23ecb0582e7e8d30ce1e8ab9e4cec5e3e66f3d5f064cc578af",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-b/source-job-emulator.log": {
+      "expected": "9441bf2d72a8b9afc9e119241746d750ab81ba23967a5ad3838c0ec707a2583c",
+      "actual": "9441bf2d72a8b9afc9e119241746d750ab81ba23967a5ad3838c0ec707a2583c",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-b/source-qualified.v2.json": {
+      "expected": "738293e7057a17f6a148ebbf362a46acad576a636bcfeabfef80eaa8663ffe6a",
+      "actual": "738293e7057a17f6a148ebbf362a46acad576a636bcfeabfef80eaa8663ffe6a",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-c/controller-source-qualified.v3.json": {
+      "expected": "6c02d41b5f148bd5951f98b3a127b41975f960afb12a9d7e69053f0b51ab2e6a",
+      "actual": "6c02d41b5f148bd5951f98b3a127b41975f960afb12a9d7e69053f0b51ab2e6a",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-c/owner-handoff-independent-review.v2.json": {
+      "expected": "acd6966fb767a2ce1de7a6bfbc3dad9db410a5f26496d56fb17d6915e5ad7f78",
+      "actual": "acd6966fb767a2ce1de7a6bfbc3dad9db410a5f26496d56fb17d6915e5ad7f78",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-c/test_cloud_controller-approval-window.log": {
+      "expected": "5e60df980894b366fafff89c0e9f3a2e813a1099f0aae478efe677ec5557ae60",
+      "actual": "5e60df980894b366fafff89c0e9f3a2e813a1099f0aae478efe677ec5557ae60",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence-v4/track-c/track-b-independent-review.v2.json": {
+      "expected": "7cdc2e822160db53dcbd16b872be68cfaeff666d62bd71d21ae344488622d1d0",
+      "actual": "7cdc2e822160db53dcbd16b872be68cfaeff666d62bd71d21ae344488622d1d0",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/distance-arithmetic-reproduced.json": {
+      "expected": "8b866cb66b2efe2cd7147a48f256e2787669eac8875370db56a2ae439e9bb081",
+      "actual": "8b866cb66b2efe2cd7147a48f256e2787669eac8875370db56a2ae439e9bb081",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/distance-bound-current.json": {
+      "expected": "d601a6c7a8852a20d4144eaa59e291cc0433f7aecea0290e38a93e52101c7363",
+      "actual": "d601a6c7a8852a20d4144eaa59e291cc0433f7aecea0290e38a93e52101c7363",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/postgis-api-benchmark.json": {
+      "expected": "16068f696adb36ec69bdbdeca97cd9e47225f4c8b7117b19eb86061e439b3777",
+      "actual": "16068f696adb36ec69bdbdeca97cd9e47225f4c8b7117b19eb86061e439b3777",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/postgis-flutter-after-restart.json": {
+      "expected": "ecd85b8974fa4a473f6f28d3efc867f8acf36388dd971543123077cf9b184c38",
+      "actual": "ecd85b8974fa4a473f6f28d3efc867f8acf36388dd971543123077cf9b184c38",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/postgis-flutter-useful-pages-final.json": {
+      "expected": "378885530084c68ee61abaa7e53e4b659a25860365291a4309a56cc158b9aee5",
+      "actual": "378885530084c68ee61abaa7e53e4b659a25860365291a4309a56cc158b9aee5",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/postgis-query-evidence.json": {
+      "expected": "e36994302257180133c804f7fcbb0543eef9b2a4dbfdab27efac8466945c547d",
+      "actual": "e36994302257180133c804f7fcbb0543eef9b2a4dbfdab27efac8466945c547d",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/postgres-restart-evidence.json": {
+      "expected": "a0ce513dafee8f383bd2082685972f6b0bdf54de0ca710a3e583149ae12a71ee",
+      "actual": "a0ce513dafee8f383bd2082685972f6b0bdf54de0ca710a3e583149ae12a71ee",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/qualification.json": {
+      "expected": "761018b47a10a59216677f96c49f6b3e61afe39310e480d2cd71539de3b7d6b9",
+      "actual": "761018b47a10a59216677f96c49f6b3e61afe39310e480d2cd71539de3b7d6b9",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/runtime-resource-review.json": {
+      "expected": "f8cb523b2f309b998ee41ef7000c6f5ce2fe61050222c584c45ffc7893012565",
+      "actual": "f8cb523b2f309b998ee41ef7000c6f5ce2fe61050222c584c45ffc7893012565",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/staging-independent-review.json": {
+      "expected": "aa23f2ca365429a98f31fd0292c0f4a10435a28ca423c1c97434ca7601832b8c",
+      "actual": "aa23f2ca365429a98f31fd0292c0f4a10435a28ca423c1c97434ca7601832b8c",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/staging-manifest-v3-implementation.json": {
+      "expected": "9f93d73b93ce2588c11188400e77854275c9b57d275b5890cf74365cdc1fcf75",
+      "actual": "9f93d73b93ce2588c11188400e77854275c9b57d275b5890cf74365cdc1fcf75",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/staging-safety-review-final.json": {
+      "expected": "753acf15307486942c85e97e2a6e2e2be2cb659878ab389dfdabfb33b0422115",
+      "actual": "753acf15307486942c85e97e2a6e2e2be2cb659878ab389dfdabfb33b0422115",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/task-runtime-shutdown-receipt.json": {
+      "expected": "c15f6f53b4883247753c9d6c4bdd15a9b8e75938c4ab6e369c457454fd57b93a",
+      "actual": "c15f6f53b4883247753c9d6c4bdd15a9b8e75938c4ab6e369c457454fd57b93a",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/track-c-final-deliverable-review.json": {
+      "expected": "288cb997c5d7b69c58ae7b7dd84f9f1809a27244874051f170d95ef07bbac01e",
+      "actual": "288cb997c5d7b69c58ae7b7dd84f9f1809a27244874051f170d95ef07bbac01e",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/track-c-local-teardown.json": {
+      "expected": "520fd3e3eec4d9236bd0e58aef07dd49cae00c901fddcc1dd0d464699872abb0",
+      "actual": "520fd3e3eec4d9236bd0e58aef07dd49cae00c901fddcc1dd0d464699872abb0",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/track-c-manifest-v3-review.json": {
+      "expected": "01504bb0b9f4894da6d95924d76ff7615fc4c0dd252db50df434c059ee8641c1",
+      "actual": "01504bb0b9f4894da6d95924d76ff7615fc4c0dd252db50df434c059ee8641c1",
+      "matches": true
+    },
+    "tool/postgis_staging/qualified-evidence/track-c-review-track-b-final.json": {
+      "expected": "020dd46dded23f3b619e0b22126fd05743b4e3f22339b2c26ba803982b9fc65c",
+      "actual": "020dd46dded23f3b619e0b22126fd05743b4e3f22339b2c26ba803982b9fc65c",
+      "matches": true
+    },
+    "tool/postgis_staging/readiness-manifest.json": {
+      "expected": "180eaef1b1580cbdb6bd1b96af39feebe0d857c8eada30bc50e22652e219e359",
+      "actual": "180eaef1b1580cbdb6bd1b96af39feebe0d857c8eada30bc50e22652e219e359",
+      "matches": true
+    },
+    "tool/postgis_staging/readiness-manifest.v2.json": {
+      "expected": "caac9214de7e234c00c3548d5b24fd6b5dd9dd52fa7547edab8f781b1b676094",
+      "actual": "caac9214de7e234c00c3548d5b24fd6b5dd9dd52fa7547edab8f781b1b676094",
+      "matches": true
+    },
+    "tool/postgis_staging/readiness-manifest.v3.json": {
+      "expected": "d2de285724ebe07d44faa1826978e82cefa57c5ebe63187ab347b37bf6f39bf8",
+      "actual": "d2de285724ebe07d44faa1826978e82cefa57c5ebe63187ab347b37bf6f39bf8",
+      "matches": true
+    },
+    "tool/postgis_staging/readiness-manifest.v4.json": {
+      "expected": "1637bb72feba1c62503baa1b8da35b0b75903d5ca6b02c17112bfd9be2bd28d5",
+      "actual": "1637bb72feba1c62503baa1b8da35b0b75903d5ca6b02c17112bfd9be2bd28d5",
+      "matches": true
+    },
+    "tool/postgis_staging/scripts/cloud_controller.py": {
+      "expected": "65a940a9509ed4d99fd0f33e6bc3b2b75f8286c1baf7b516d49dfcd5780f036d",
+      "actual": "65a940a9509ed4d99fd0f33e6bc3b2b75f8286c1baf7b516d49dfcd5780f036d",
+      "matches": true
+    },
+    "tool/postgis_staging/scripts/cloud_provider.py": {
+      "expected": "8f6cbb4cd5f6dcff35a253d63f8f882bf5ac1aa847b8810704876c45c962ef93",
+      "actual": "8f6cbb4cd5f6dcff35a253d63f8f882bf5ac1aa847b8810704876c45c962ef93",
+      "matches": true
+    },
+    "tool/postgis_staging/scripts/freeze.py": {
+      "expected": "366f8b7d24fb22c7df8becdcfcf86e41ad4a6258dadf1179c198b72e64c7fa16",
+      "actual": "366f8b7d24fb22c7df8becdcfcf86e41ad4a6258dadf1179c198b72e64c7fa16",
+      "matches": true
+    },
+    "tool/postgis_staging/scripts/guard.py": {
+      "expected": "35727623fdb0caeec1666e672cd684785a60288d2837f0cf898d6e11dd32eb6d",
+      "actual": "35727623fdb0caeec1666e672cd684785a60288d2837f0cf898d6e11dd32eb6d",
+      "matches": true
+    },
+    "tool/postgis_staging/scripts/ledger.py": {
+      "expected": "098076e904c695386d2bdfa1553616894e18c512ad823e65cae4de515de97b28",
+      "actual": "098076e904c695386d2bdfa1553616894e18c512ad823e65cae4de515de97b28",
+      "matches": true
+    },
+    "tool/postgis_staging/scripts/price_worksheet.py": {
+      "expected": "98fb707c651d069a4790e08e77e6cd3e85eee43274fda920550c30ee48fcaa51",
+      "actual": "98fb707c651d069a4790e08e77e6cd3e85eee43274fda920550c30ee48fcaa51",
+      "matches": true
+    },
+    "tool/postgis_staging/scripts/price_worksheet_20261017.py": {
+      "expected": "d04e91bbd7c5277718fb2a974def8968e35198e2aae47d5084b2fee861d128b5",
+      "actual": "d04e91bbd7c5277718fb2a974def8968e35198e2aae47d5084b2fee861d128b5",
+      "matches": true
+    },
+    "tool/postgis_staging/scripts/provider_entrypoint.py": {
+      "expected": "2bc722a16cc10896c008fbd4290420aa3bc942932a0432d5a23d8e90a3025432",
+      "actual": "2bc722a16cc10896c008fbd4290420aa3bc942932a0432d5a23d8e90a3025432",
+      "matches": true
+    },
+    "tool/postgis_staging/scripts/render_provider_descriptors.py": {
+      "expected": "1c9ed3a86eee93a5837d445693a2192752564f1a650fbeb5cbdd5961c1cffeff",
+      "actual": "1c9ed3a86eee93a5837d445693a2192752564f1a650fbeb5cbdd5961c1cffeff",
+      "matches": true
+    },
+    "tool/postgis_staging/scripts/render_watchdog.py": {
+      "expected": "b90c13ce95934e4d5d96625c1fa6b16b1f2044c9eeb0d0bf0dd65fcd20ff215c",
+      "actual": "b90c13ce95934e4d5d96625c1fa6b16b1f2044c9eeb0d0bf0dd65fcd20ff215c",
+      "matches": true
+    },
+    "tool/postgis_staging/scripts/test_cloud_controller.py": {
+      "expected": "702f2af9383f3bcb16ffe09e039b7e9f417c2b013d2c704815464af58287b592",
+      "actual": "702f2af9383f3bcb16ffe09e039b7e9f417c2b013d2c704815464af58287b592",
+      "matches": true
+    },
+    "tool/postgis_staging/scripts/test_gate0_controls.py": {
+      "expected": "ae6a1ddf0170b28d29dde7df4979005d68413e354a9b927df976a2387abc0df8",
+      "actual": "ae6a1ddf0170b28d29dde7df4979005d68413e354a9b927df976a2387abc0df8",
+      "matches": true
+    },
+    "tool/postgis_staging/scripts/test_guard.py": {
+      "expected": "fd036f016676ed5d4bd2b2c52768db5619a0a7c1d75684a115794e55db444e24",
+      "actual": "fd036f016676ed5d4bd2b2c52768db5619a0a7c1d75684a115794e55db444e24",
+      "matches": true
+    },
+    "tool/postgis_staging/scripts/test_price_worksheet_20261017.py": {
+      "expected": "bdab12f6f98eb85fffb5a9cea9d8622c47dcb164b88a043834c356d2e061da5c",
+      "actual": "bdab12f6f98eb85fffb5a9cea9d8622c47dcb164b88a043834c356d2e061da5c",
+      "matches": true
+    },
+    "tool/postgis_staging/verify-approval.cjs": {
+      "expected": "3564fb6779cb33d7f91a332110ff4d43a4c7b1a15007da6a3ad87cb3f899b99e",
+      "actual": "3564fb6779cb33d7f91a332110ff4d43a4c7b1a15007da6a3ad87cb3f899b99e",
+      "matches": true
+    }
+  }
+}

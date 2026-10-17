@@ -1,0 +1,513 @@
+{
+  "executionEnabled": false,
+  "productionMutationAuthorized": false,
+  "bindings": [
+    {
+      "id": "photo-create",
+      "kind": "proposed-custom-role-and-bucket-binding",
+      "role": "projects/coupon-app-29446/roles/bitestarScreeningObjectCreate",
+      "includedPermissions": [
+        "storage.objects.create"
+      ],
+      "member": "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/_/buckets/coupon-app-29446.firebasestorage.app",
+      "baseline": "No create grant observed for BiteScore runtime; existing custom read only.",
+      "reason": "screeningObjects.put saves tokenless immutable image with generation0 precondition. No object ACL/IAM modification needed."
+    },
+    {
+      "id": "photo-delete",
+      "kind": "existing-custom-role-new-bucket-member",
+      "role": "projects/coupon-app-29446/roles/bitestarDeletionObjectDelete",
+      "includedPermissions": [
+        "storage.objects.delete"
+      ],
+      "member": "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/_/buckets/coupon-app-29446.firebasestorage.app",
+      "baseline": "Role exists, exact permission inspected; only deletion-media/worker currently bound.",
+      "reason": "Prompt rejection/expiry and detached cleanup from customer runtime need exact generation deletion."
+    },
+    {
+      "id": "vision-quota-use",
+      "kind": "conditional-exact-project-binding",
+      "role": "roles/serviceusage.serviceUsageConsumer",
+      "member": "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446",
+      "requiredPermission": "serviceusage.services.use",
+      "baseline": "Not in inspected project bindings for this identity; quota/API qualification remains later.",
+      "reason": "Use enabled Vision service/quota under attached server ADC. Never grant invented vision.user or project Editor."
+    },
+    {
+      "id": "openai-secret",
+      "kind": "proposed-secret-binding",
+      "role": "roles/secretmanager.secretAccessor",
+      "member": "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/secrets/OPENAI_REVIEW_MODERATION_API_KEY",
+      "baseline": "Secret404 in metadata; no payload read or creation.",
+      "reason": "Server-only moderation key for saveCustomerBiteScoreReview. Select immutable approved version later; source wiring remains false now."
+    }
+  ],
+  "callableInvoker": [
+    {
+      "export": "getCustomerBiteScoreTerms",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitescoreterms",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "acceptCustomerBiteScoreTerms",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/acceptcustomerbitescoreterms",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "getCustomerPostingStatus",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/getcustomerpostingstatus",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "submitReviewerReport",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/submitreviewerreport",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "blockReviewer",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/blockreviewer",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "unblockReviewer",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/unblockreviewer",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "getReviewerSafetyStatus",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/getreviewersafetystatus",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "submitPhotoReport",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/submitphotoreport",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "moderatePhotoReport",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/moderatephotoreport",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "saveCustomerBiteScoreReview",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/savecustomerbitescorereview",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "getOwnBiteScoreReviewText",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/getownbitescorereviewtext",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "listBiteScoreReviewText",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/listbitescorereviewtext",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "decideBiteScoreReviewText",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/decidebitescorereviewtext",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "submitScreenedBiteScorePhoto",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/submitscreenedbitescorephoto",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "listAdminScreeningPhotos",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/listadminscreeningphotos",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "previewAdminScreeningPhoto",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/previewadminscreeningphoto",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "decideAdminScreeningPhoto",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/decideadminscreeningphoto",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "createCustomerBiteScorePhoto",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/createcustomerbitescorephoto",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "submitScreenedOwnerPhoto",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/submitscreenedownerphoto",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "getOwnerScreenedPhoto",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/getownerscreenedphoto",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "useOwnerScreenedPhoto",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/useownerscreenedphoto",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "removeBiteSaverOwnerImage",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/removebitesaverownerimage",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "saveBiteSaverRestaurantProfile",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/savebitesaverrestaurantprofile",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "reviewBiteSaverApplication",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/reviewbitesaverapplication",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "approveRestaurantNameChange",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/approverestaurantnamechange",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "applyRatingAdminDishSuggestionGroup",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/applyratingadmindishsuggestiongroup",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "resolveCustomerBiteScoreRestaurantCreation",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/resolvecustomerbitescorerestaurantcreation",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "resolveCustomerBiteScoreDishCreation",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/resolvecustomerbitescoredishcreation",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "getCustomerBiteScoreDetail",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitescoredetail",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "pageCustomerBiteScoreReviews",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/pagecustomerbitescorereviews",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "pageCustomerBiteScoreImages",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/pagecustomerbitescoreimages",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "getCustomerBiteScoreProfileSummary",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitescoreprofilesummary",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "startCustomerBiteScoreProfileList",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/startcustomerbitescoreprofilelist",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "advanceCustomerBiteScoreProfileList",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/advancecustomerbitescoreprofilelist",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "getCustomerBiteScoreProfileListPage",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/getcustomerbitescoreprofilelistpage",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "pageCustomerBiteScoreMenu",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/pagecustomerbitescoremenu",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "toggleCustomerBiteScorePhotoVote",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/togglecustomerbitescorephotovote",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    },
+    {
+      "export": "reconcileReviewMilestoneContributionPointsAfterModeration",
+      "role": "roles/run.invoker",
+      "member": "allUsers",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/reconcilereviewmilestonecontributionpointsaftermoderation",
+      "applyOnlyWhereMissingAfterRecheck": true,
+      "reason": "Firebase callable transport; actual UID/role authority remains server-enforced."
+    }
+  ],
+  "scheduleAndTriggerInvoker": [
+    {
+      "export": "expireBiteScoreReviewTexts",
+      "role": "roles/run.invoker",
+      "member": "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/expirebitescorereviewtexts",
+      "action": "Preserve existing exact binding, or propose only this member for missing new trigger/schedule service; verify before later release."
+    },
+    {
+      "export": "cleanupExpiredScreeningPhotos",
+      "role": "roles/run.invoker",
+      "member": "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/cleanupexpiredscreeningphotos",
+      "action": "Preserve existing exact binding, or propose only this member for missing new trigger/schedule service; verify before later release."
+    },
+    {
+      "export": "processDishProposalResolutionWork",
+      "role": "roles/run.invoker",
+      "member": "serviceAccount:253983587346-compute@developer.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/processdishproposalresolutionwork",
+      "action": "Preserve existing exact binding, or propose only this member for missing new trigger/schedule service; verify before later release."
+    },
+    {
+      "export": "maintainCustomerBiteScoreReviewAggregate",
+      "role": "roles/run.invoker",
+      "member": "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescorereviewaggregate",
+      "action": "Preserve existing exact binding, or propose only this member for missing new trigger/schedule service; verify before later release."
+    },
+    {
+      "export": "maintainCustomerBiteScoreDishAggregate",
+      "role": "roles/run.invoker",
+      "member": "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescoredishaggregate",
+      "action": "Preserve existing exact binding, or propose only this member for missing new trigger/schedule service; verify before later release."
+    },
+    {
+      "export": "maintainCustomerBiteScoreReviewFeedback",
+      "role": "roles/run.invoker",
+      "member": "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescorereviewfeedback",
+      "action": "Preserve existing exact binding, or propose only this member for missing new trigger/schedule service; verify before later release."
+    },
+    {
+      "export": "maintainCustomerBiteScoreImage",
+      "role": "roles/run.invoker",
+      "member": "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescoreimage",
+      "action": "Preserve existing exact binding, or propose only this member for missing new trigger/schedule service; verify before later release."
+    },
+    {
+      "export": "continueCustomerBiteScoreReviewAggregates",
+      "role": "roles/run.invoker",
+      "member": "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/continuecustomerbitescorereviewaggregates",
+      "action": "Preserve existing exact binding, or propose only this member for missing new trigger/schedule service; verify before later release."
+    },
+    {
+      "export": "maintainCustomerBiteScoreMenuImage",
+      "role": "roles/run.invoker",
+      "member": "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescoremenuimage",
+      "action": "Preserve existing exact binding, or propose only this member for missing new trigger/schedule service; verify before later release."
+    },
+    {
+      "export": "maintainCustomerBiteScoreLinkedMenuImage",
+      "role": "roles/run.invoker",
+      "member": "serviceAccount:bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/maintaincustomerbitescorelinkedmenuimage",
+      "action": "Preserve existing exact binding, or propose only this member for missing new trigger/schedule service; verify before later release."
+    },
+    {
+      "export": "processAccountDeletionRequests",
+      "role": "roles/run.invoker",
+      "member": "serviceAccount:account-deletion-worker@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/processaccountdeletionrequests",
+      "action": "Preserve existing exact binding, or propose only this member for missing new trigger/schedule service; verify before later release."
+    },
+    {
+      "export": "cleanupAccountDeletionFinalizedImage",
+      "role": "roles/run.invoker",
+      "member": "serviceAccount:account-deletion-media@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/locations/us-east1/services/cleanupaccountdeletionfinalizedimage",
+      "action": "Preserve existing exact binding, or propose only this member for missing new trigger/schedule service; verify before later release."
+    },
+    {
+      "export": "maintainBiteSaverRestaurantSearchIndex",
+      "role": "roles/run.invoker",
+      "member": "serviceAccount:bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/maintainbitesaverrestaurantsearchindex",
+      "action": "Preserve existing exact binding, or propose only this member for missing new trigger/schedule service; verify before later release."
+    },
+    {
+      "export": "maintainBiteSaverCouponOfferSearchIndex",
+      "role": "roles/run.invoker",
+      "member": "serviceAccount:bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/maintainbitesavercouponoffersearchindex",
+      "action": "Preserve existing exact binding, or propose only this member for missing new trigger/schedule service; verify before later release."
+    },
+    {
+      "export": "maintainBiteSaverDailySpecialSearchIndex",
+      "role": "roles/run.invoker",
+      "member": "serviceAccount:253983587346-compute@developer.gserviceaccount.com",
+      "scope": "projects/coupon-app-29446/locations/us-central1/services/maintainbitesaverdailyspecialsearchindex",
+      "action": "Preserve existing exact binding, or propose only this member for missing new trigger/schedule service; verify before later release."
+    }
+  ],
+  "preserved": [
+    "Existing Firestore datastore.user + eventarc.eventReceiver + auth-read bindings for BiteScore runtime",
+    "Existing deletion-worker/media project/bucket roles and Stripe binding",
+    "Existing owner default-compute identity and its historical project roles; no new Editor grant or identity migration",
+    "Existing SEARCH_PAGINATION_CURSOR_KEY binding/version1",
+    "Storage cross-service Rules identity authorization (must be verified later for candidate cross-document reads)"
+  ],
+  "officialSources": [
+    "https://docs.cloud.google.com/vision/docs/authentication",
+    "https://docs.cloud.google.com/service-usage/docs/access-control",
+    "https://docs.cloud.google.com/storage/docs/access-control/iam-json"
+  ],
+  "existingServiceAgents": [
+    {
+      "identity": "service-253983587346@gcp-sa-eventarc.iam.gserviceaccount.com",
+      "bindings": [
+        {
+          "role": "roles/eventarc.serviceAgent"
+        }
+      ]
+    },
+    {
+      "identity": "service-253983587346@gcp-sa-cloudscheduler.iam.gserviceaccount.com",
+      "bindings": [
+        {
+          "role": "roles/cloudscheduler.serviceAgent"
+        }
+      ]
+    },
+    {
+      "identity": "service-253983587346@gs-project-accounts.iam.gserviceaccount.com",
+      "bindings": [
+        {
+          "role": "roles/pubsub.publisher"
+        }
+      ]
+    },
+    {
+      "identity": "service-253983587346@gcp-sa-firebasestorage.iam.gserviceaccount.com",
+      "bindings": [
+        {
+          "role": "roles/firebaserules.firestoreServiceAgent"
+        },
+        {
+          "role": "roles/firebasestorage.serviceAgent"
+        }
+      ]
+    }
+  ],
+  "serviceAgentAction": "All listed role memberships observed present; preserve and verify immediately before later release. No new service-agent grant proposed. Storage Rules cross-Firestore agent has roles/firebaserules.firestoreServiceAgent.",
+  "minimumScopeNote": "Bucket has uniform access disabled, so do not assume new conditional object-prefix IAM works; no bucket policy migration is proposed. Custom create + existing read/delete scoped to existing bucket are exact source-required object capabilities."
+}

@@ -1,0 +1,115 @@
+{
+  "executionEnabled": false,
+  "baseFirestoreSha256": "8fcae3e7205961bcb2329db4fd7caa44a5814ceee842cb5bae6daff4adeb8a20",
+  "baseStorageSha256": "62c6e45edff76a231a1fe49aa31c7b1d00a045981698a1d07c3b3c8f13c50702",
+  "firestoreSha256": "d6b852ffb8a3b313525d6a8692173fa8e5d0bae4b2370585f3dd55e26be4d913",
+  "storageSha256": "d6c78226ac081972d53889bb7042a78ce47f505975f08d980a396f106f9ce269",
+  "firestoreChanges": [
+    {
+      "path": "/user_profiles/{userId}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/user_profiles/{userId}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/public_reviewer_profiles/{userId}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/public_usernames/{username}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/restaurant_accounts/{restaurantUid}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/coupons/{couponId}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/daily_specials/{specialId}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/menu_items/{itemId}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/dish_reviews/{reviewId}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/bitescore_dish_images/{imageId}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/review_reports/{reportId}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/review_reports/{reportId}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/dish_edit_proposals/{proposalId}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/review_feedback_votes/{voteId}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/restaurant_menus/{menuId}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/bitescore_restaurants/{restaurantId}",
+      "kind": "targeted-match-edit"
+    },
+    {
+      "path": "/restaurant_name_change_requests/{requestId}",
+      "kind": "targeted-match-edit"
+    }
+  ],
+  "exactSourceHelpers": [
+    "canonicalExistingDishId",
+    "canonicalPrivateReviewMilestoneIdentity",
+    "createsEmptySharedMenu",
+    "currentTermsReceipt",
+    "customerPostingAllowed",
+    "customerTermsAccepted",
+    "customerTermsRequired",
+    "deletionCatalogAttributionMayWrite",
+    "deletionCatalogFieldMayWrite",
+    "generatedPublicIdentity",
+    "initializesEmptySharedMenuLink",
+    "legacyReviewReport",
+    "mergeLockBlocksClientReviews",
+    "ownerContentTermsAllowed",
+    "ownerImageCreateAllowed",
+    "ownerImageUpdateAllowed",
+    "ownerPhotoScreeningRequired",
+    "ownerWithdrawalOnly",
+    "postingRestrictionInactive",
+    "publicIdentityTermsAllowed",
+    "publicUsernameTermsAllowed",
+    "restaurantProfileTermsAllowed",
+    "reviewDataHasBlockingMergeLock",
+    "reviewDataHasCanonicalDishId",
+    "reviewDataUserAllowsMilestoneMutation",
+    "reviewMilestoneLockAllowsClientMutation",
+    "sharedTermsAccepted",
+    "strictReleasedReviewMilestoneLock",
+    "validBiteScoreRestaurantUpdateRevision",
+    "validBiteScoreRestaurantWriteRevision"
+  ],
+  "storageChanges": [
+    "Customer screened exact-get rules replace current unchecked-create grant; all customer direct create/update/delete denied",
+    "Owner screened exact approved+attached target reads added",
+    "Historical owner/public paths and their create/update/delete holds unchanged",
+    "No public_menu_images read/write reopening"
+  ]
+}

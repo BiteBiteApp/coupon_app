@@ -170,7 +170,12 @@ export async function finishReviewText(database: Database, attempt: TextAttempt,
     const p = stored?.data;
     if (!p || p.version !== attempt.version || p.attemptId !== attempt.attemptId || p.status !== "screening" || !currentTextProposal(p, review?.data)) return "superseded";
     let allowed = false;
-    try { allowed = isCustomerBiteScorePublicReview(review!.data) && await publicationAllowed(tx, p, clock(), terms); } catch { /* fences hold words */ }
+    try { allowed = isCustomerBiteScorePublicReview(review!.data) && await publicationAllowed(tx, p, clock(), terms); }
+    catch (error) {
+      // Fences hold words; infrastructure errors must reach the transaction
+      // adapter so an abort retries these checks, not the provider submission.
+      if (!(error instanceof HttpsError)) throw error;
+    }
     const now = clock();
     if (reviewTextDeadline(p) <= now.getTime()) {
       storeReviewText(tx, attempt.reviewId, withoutWords(p, "expired", now)); return "expired";

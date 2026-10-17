@@ -1,0 +1,50 @@
+{
+  "runId": "BS-BITESTAR-SAFETY-BACKEND-RELEASE-PREP-001",
+  "checkedAt": "2026-10-17T19:53:35.200942+00:00",
+  "onlyTaskOwnedServicesStopped": true,
+  "terminatedParentPids": [
+    40112,
+    43108
+  ],
+  "verifiedExitedPids": [
+    40112,
+    40136,
+    40144,
+    43108,
+    43125,
+    43129
+  ],
+  "ports": [
+    {
+      "host": "127.0.0.1",
+      "port": 8792,
+      "listening": false
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 9198,
+      "listening": false
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 9298,
+      "listening": false
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 4498,
+      "listening": false
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 4598,
+      "listening": false
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 9150,
+      "listening": false
+    }
+  ],
+  "ownerAndroidEmulatorAndOtherProcesses": "left untouched"
+}

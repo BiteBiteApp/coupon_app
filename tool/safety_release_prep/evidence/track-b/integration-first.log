@@ -1,0 +1,68 @@
+✖ published exact Terms compose with customer rating/photo and owner explicit attachment without authority grants (3078.617708ms)
+✖ simultaneous provider pause keeps held text/customer photos/owner assets private and recovery preserves original versions (3469.673667ms)
+✔ default-OFF is distinct from safe pause; malformed required policy blocks every new screening lane (242.517208ms)
+✖ screened photo remains shared after personal block and exact report is actionable after its review disappears (179.455375ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 1
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7300.713625
+
+✖ failing tests:
+
+test at test/safety_release_integration_emulator.test.js:24:29
+✖ published exact Terms compose with customer rating/photo and owner explicit attachment without authority grants (3078.617708ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  403 !== 200
+  
+      at TestContext.<anonymous> (/Users/colesmart/dev/coupon_app/functions/test/safety_release_integration_emulator.test.js:135:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/safety_release_integration_emulator.test.js:24:29
+✖ simultaneous provider pause keeps held text/customer photos/owner assets private and recovery preserves original versions (3469.673667ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  403 !== 200
+  
+      at TestContext.<anonymous> (/Users/colesmart/dev/coupon_app/functions/test/safety_release_integration_emulator.test.js:173:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/safety_release_integration_emulator.test.js:24:29
+✖ screened photo remains shared after personal block and exact report is actionable after its review disappears (179.455375ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  403 !== 200
+  
+      at TestContext.<anonymous> (/Users/colesmart/dev/coupon_app/functions/test/safety_release_integration_emulator.test.js:209:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
