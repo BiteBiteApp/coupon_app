@@ -7,6 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'app_error_text.dart';
 import 'existing_google_password_link.dart';
 import 'registration_diagnostics.dart';
+import 'registration_age_policy.dart';
 
 typedef ConfirmAccountPassword = Future<String?> Function(String email);
 // Returns a freshly confirmed Google ID token, or null when cancelled.
@@ -28,6 +29,9 @@ class AccountProviderService {
   static AccountProviderService? _shared;
   static AccountProviderService get instance =>
       _shared ??= AccountProviderService(auth: FirebaseAuth.instance);
+  @visibleForTesting
+  static set instanceForTesting(AccountProviderService? service) =>
+      _shared = service;
   static void cancelCurrentOperation() => _shared?.cancelPending();
   static final _activity = ValueNotifier<bool>(false);
   static ValueListenable<bool> get activity => _activity;
@@ -171,6 +175,7 @@ class AccountProviderService {
   Future<User> signInWithGoogle({
     required bool linkGuest,
     ConfirmAccountPassword? confirmPassword,
+    Future<bool> Function()? requestAge,
     bool Function()? isActive,
     Future<void> Function(User user, bool Function() isCurrent)?
     onAuthenticated,
@@ -185,6 +190,14 @@ class AccountProviderService {
           code: 'already-signed-in',
           message: 'Sign out before selecting another Google account.',
         );
+      }
+      if (RegistrationAgePolicy.isEnabled) {
+        await RegistrationAgePolicy.requireEligible(
+          user: initialUser,
+          isCurrent: operation.isCurrent,
+          requestAge: requestAge,
+        );
+        operation.check();
       }
       AuthCredential? googleCredential;
       if (!_isWeb) {
@@ -294,6 +307,7 @@ class AccountProviderService {
     required bool register,
     required bool linkGuest,
     ConfirmGoogleAccount? confirmGoogle,
+    Future<bool> Function()? requestAge,
     bool Function()? isActive,
     Future<void> Function(User user, bool Function() isCurrent)?
     onAuthenticated,
@@ -306,6 +320,14 @@ class AccountProviderService {
       final initial = _auth.currentUser;
       if (initial != null && !initial.isAnonymous) {
         throw FirebaseAuthException(code: 'already-signed-in');
+      }
+      if (register && RegistrationAgePolicy.isEnabled) {
+        await RegistrationAgePolicy.requireEligible(
+          user: initial,
+          isCurrent: operation.isCurrent,
+          requestAge: requestAge,
+        );
+        operation.check();
       }
       Future<UserCredential> signIn() => operation.signIn(
         () => _auth.signInWithEmailAndPassword(

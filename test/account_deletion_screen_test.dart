@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'package:coupon_app/services/registration_age_policy.dart';
 import 'package:coupon_app/screens/account_deletion_screen.dart';
 import 'package:coupon_app/services/account_deletion_service.dart';
 import 'package:coupon_app/main.dart';
@@ -59,6 +60,8 @@ Future<void> confirm(WidgetTester tester) async {
 }
 
 void main() {
+  setUp(() => RegistrationAgePolicy.enabledForTesting = true);
+  tearDown(() => RegistrationAgePolicy.enabledForTesting = null);
   test(
     'receipt persistence is high entropy, UID scoped, and recovers after lost response',
     () async {

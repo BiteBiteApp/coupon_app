@@ -19,6 +19,7 @@ import '../widgets/password_recovery_dialog.dart';
 import '../widgets/password_field.dart';
 import '../widgets/account_auth_confirmation.dart';
 import '../widgets/phone_auth_sheet.dart';
+import '../widgets/registration_age_dialog.dart';
 import 'bitescore_owner_screen.dart';
 import 'main_navigation_screen.dart';
 import 'restaurant_create_coupon_screen.dart';
@@ -224,6 +225,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
               password: password,
             )
           : await RestaurantAuthService.signInOrCreateWithEmail(
+              requestAge: () => requestRegistrationAge(context),
               email: email,
               password: password,
               isLoginMode: isLoginMode,
@@ -295,6 +297,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
 
     try {
       final user = await RestaurantAuthService.signInWithGoogle(
+        requestAge: () => requestRegistrationAge(context),
         confirmPassword: (email) =>
             confirmExistingAccountPassword(context, email),
         isActive: isActive,

@@ -14,6 +14,7 @@ import '../widgets/password_recovery_dialog.dart';
 import '../widgets/password_field.dart';
 import '../widgets/account_auth_confirmation.dart';
 import '../widgets/phone_auth_sheet.dart';
+import '../widgets/registration_age_dialog.dart';
 import 'admin_gate_screen.dart';
 import 'customer_profile_screen.dart';
 import 'main_navigation_screen.dart';
@@ -170,6 +171,7 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
 
     try {
       final user = await CustomerAuthService.signInOrLinkWithGoogle(
+        requestAge: () => requestRegistrationAge(context),
         confirmPassword: (email) =>
             confirmExistingAccountPassword(context, email),
         isActive: isActive,
@@ -262,6 +264,7 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
     try {
       if (isCreateMode) {
         await CustomerAuthService.createAccountWithEmailPassword(
+          requestAge: () => requestRegistrationAge(context),
           email: email,
           password: password,
           confirmGoogle: (email) =>

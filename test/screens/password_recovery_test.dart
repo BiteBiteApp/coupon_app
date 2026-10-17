@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:coupon_app/services/registration_age_policy.dart';
 
 import 'package:coupon_app/screens/customer_account_screen.dart';
 import 'package:coupon_app/screens/restaurant_auth_screen.dart';
@@ -26,7 +27,9 @@ void main() {
     FirebasePlatform.instance = _Core();
     FirebaseAuthPlatform.instance = _auth;
   });
+  tearDown(() => RegistrationAgePolicy.enabledForTesting = null);
   setUp(() {
+    RegistrationAgePolicy.enabledForTesting = true;
     SharedPreferences.setMockInitialValues({});
     _auth.emails.clear();
     _auth.error = null;

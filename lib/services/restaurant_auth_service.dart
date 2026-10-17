@@ -23,11 +23,13 @@ class RestaurantAuthService {
   }
 
   static Future<User?> signInWithGoogle({
+    Future<bool> Function()? requestAge,
     ConfirmAccountPassword? confirmPassword,
     bool Function()? isActive,
   }) async {
     return AccountProviderService.instance.signInWithGoogle(
       linkGuest: false,
+      requestAge: requestAge,
       confirmPassword: confirmPassword,
       isActive: isActive,
       onAuthenticated: (user, isCurrent) =>
@@ -85,6 +87,7 @@ class RestaurantAuthService {
     required String email,
     required String password,
     required bool isLoginMode,
+    Future<bool> Function()? requestAge,
     ConfirmGoogleAccount? confirmGoogle,
     bool Function()? isActive,
   }) => AccountProviderService.instance.authenticateWithEmail(
@@ -92,6 +95,7 @@ class RestaurantAuthService {
     password: password,
     register: !isLoginMode,
     linkGuest: false,
+    requestAge: requestAge,
     confirmGoogle: confirmGoogle,
     isActive: isActive,
     onAuthenticated: (user, isCurrent) async {

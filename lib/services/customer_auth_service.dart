@@ -21,11 +21,13 @@ class CustomerAuthService {
   }
 
   static Future<User?> signInOrLinkWithGoogle({
+    Future<bool> Function()? requestAge,
     ConfirmAccountPassword? confirmPassword,
     bool Function()? isActive,
   }) async {
     return AccountProviderService.instance.signInWithGoogle(
       linkGuest: true,
+      requestAge: requestAge,
       confirmPassword: confirmPassword,
       isActive: isActive,
       onAuthenticated: (user, isCurrent) => _finalizeSignedInCustomerSession(
@@ -38,12 +40,14 @@ class CustomerAuthService {
   static Future<User?> createAccountWithEmailPassword({
     required String email,
     required String password,
+    Future<bool> Function()? requestAge,
     ConfirmGoogleAccount? confirmGoogle,
     bool Function()? isActive,
   }) => _authenticateWithEmail(
     email: email,
     password: password,
     register: true,
+    requestAge: requestAge,
     confirmGoogle: confirmGoogle,
     isActive: isActive,
   );
@@ -65,6 +69,7 @@ class CustomerAuthService {
     required String email,
     required String password,
     required bool register,
+    Future<bool> Function()? requestAge,
     ConfirmGoogleAccount? confirmGoogle,
     bool Function()? isActive,
   }) => AccountProviderService.instance.authenticateWithEmail(
@@ -72,6 +77,7 @@ class CustomerAuthService {
     password: password,
     register: register,
     linkGuest: true,
+    requestAge: requestAge,
     confirmGoogle: confirmGoogle,
     isActive: isActive,
     onAuthenticated: (user, isCurrent) async {

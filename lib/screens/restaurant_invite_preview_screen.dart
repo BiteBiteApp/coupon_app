@@ -1,3 +1,6 @@
+import '../services/account_provider_service.dart';
+import '../services/registration_age_policy.dart';
+import '../widgets/registration_age_dialog.dart';
 import '../services/bitescore_terms_service.dart';
 import '../widgets/bitescore_terms_gate.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -15,11 +18,13 @@ import 'restaurant_create_coupon_screen.dart';
 class RestaurantInvitePreviewScreen extends StatefulWidget {
   final String side;
   final String token;
+  final Future<RestaurantInvitePreview>? previewForTesting;
 
   const RestaurantInvitePreviewScreen({
     super.key,
     required this.side,
     required this.token,
+    @visibleForTesting this.previewForTesting,
   });
 
   @override
@@ -39,10 +44,12 @@ class _RestaurantInvitePreviewScreenState
   @override
   void initState() {
     super.initState();
-    _previewFuture = RestaurantInviteService.previewInvite(
-      token: widget.token,
-      side: widget.side,
-    );
+    _previewFuture =
+        widget.previewForTesting ??
+        RestaurantInviteService.previewInvite(
+          token: widget.token,
+          side: widget.side,
+        );
   }
 
   @override
@@ -175,6 +182,13 @@ class _RestaurantInvitePreviewScreenState
       return null;
     }
 
+    if (RegistrationAgePolicy.isEnabled) {
+      await RegistrationAgePolicy.requireEligibleForAuth(
+        auth: FirebaseAuth.instance,
+        isActive: () => mounted && (ModalRoute.of(context)?.isActive ?? false),
+        requestAge: () => requestRegistrationAge(context),
+      );
+    }
     final credential = await FirebaseAuth.instance
         .createUserWithEmailAndPassword(email: email, password: password);
     final user = credential.user;
@@ -300,6 +314,7 @@ class _RestaurantInvitePreviewScreenState
           ),
         );
     } catch (error) {
+      if (AccountProviderService.wasCancelled(error)) return;
       if (!mounted) {
         return;
       }
@@ -382,6 +397,7 @@ class _RestaurantInvitePreviewScreenState
           ),
         );
     } catch (error) {
+      if (AccountProviderService.wasCancelled(error)) return;
       if (!mounted) {
         return;
       }

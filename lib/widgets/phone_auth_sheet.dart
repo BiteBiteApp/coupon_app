@@ -4,6 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/app_error_text.dart';
+import '../services/registration_age_policy.dart';
+import '../services/account_provider_service.dart';
+import 'registration_age_dialog.dart';
 
 Future<bool?> showPhoneAuthSheet({
   required BuildContext context,
@@ -11,17 +14,57 @@ Future<bool?> showPhoneAuthSheet({
   onVerifiedCredential,
   String? initialPhoneNumber,
   bool sendCodeImmediately = false,
-}) {
-  return showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    builder: (context) => _PhoneAuthSheet(
-      onVerifiedCredential: onVerifiedCredential,
-      initialPhoneNumber: initialPhoneNumber,
-      sendCodeImmediately: sendCodeImmediately,
-    ),
-  );
+  @visibleForTesting FirebaseAuth? authForTesting,
+}) async {
+  // The age screen runs before opening the SMS sheet or contacting Firebase.
+  // Its authorization lasts only for this sheet and its original auth session.
+  final auth = authForTesting ?? FirebaseAuth.instance;
+  final initial = auth.currentUser;
+  final initialUid = initial?.uid;
+  final initialAnonymous = initial?.isAnonymous;
+  final route = ModalRoute.of(context);
+  var changed = false;
+  StreamSubscription<User?>? subscription;
+  bool isCurrent() =>
+      !changed &&
+      (route?.isActive ?? context.mounted) &&
+      auth.currentUser?.uid == initialUid &&
+      auth.currentUser?.isAnonymous == initialAnonymous;
+  if (RegistrationAgePolicy.isEnabled) {
+    subscription = auth.authStateChanges().listen((user) {
+      if (user?.uid != initialUid || user?.isAnonymous != initialAnonymous) {
+        changed = true;
+      }
+    });
+  }
+  try {
+    if (RegistrationAgePolicy.isEnabled) {
+      await RegistrationAgePolicy.requireEligible(
+        user: initial,
+        isCurrent: isCurrent,
+        requestAge: () => requestRegistrationAge(context),
+      );
+      if (!isCurrent() || !context.mounted) return false;
+    }
+    if (!context.mounted) return false;
+    return await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => _PhoneAuthSheet(
+        auth: auth,
+        isCurrent: RegistrationAgePolicy.isEnabled ? isCurrent : () => true,
+        onVerifiedCredential: onVerifiedCredential,
+        initialPhoneNumber: initialPhoneNumber,
+        sendCodeImmediately: sendCodeImmediately,
+      ),
+    );
+  } catch (error) {
+    if (AccountProviderService.wasCancelled(error)) return false;
+    rethrow;
+  } finally {
+    await subscription?.cancel();
+  }
 }
 
 String? normalizePhoneNumber(String rawInput) {
@@ -51,12 +94,16 @@ String? normalizePhoneNumber(String rawInput) {
 class _PhoneAuthSheet extends StatefulWidget {
   const _PhoneAuthSheet({
     required this.onVerifiedCredential,
+    required this.auth,
+    required this.isCurrent,
     this.initialPhoneNumber,
     this.sendCodeImmediately = false,
   });
 
   final Future<void> Function(PhoneAuthCredential credential)
   onVerifiedCredential;
+  final FirebaseAuth auth;
+  final bool Function() isCurrent;
   final String? initialPhoneNumber;
   final bool sendCodeImmediately;
 
@@ -152,8 +199,11 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
     return AppErrorText.friendly(error, fallback: fallback);
   }
 
+  bool get _sheetActive =>
+      mounted && (ModalRoute.of(context)?.isActive ?? false);
+
   Future<void> _sendCode({bool isResend = false}) async {
-    if (_cooldownSecondsRemaining > 0) {
+    if (!_sheetActive || !widget.isCurrent() || _cooldownSecondsRemaining > 0) {
       return;
     }
 
@@ -178,15 +228,15 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
     _startCodeCooldown();
 
     try {
-      await FirebaseAuth.instance.verifyPhoneNumber(
+      await widget.auth.verifyPhoneNumber(
         phoneNumber: normalizedPhoneNumber,
         forceResendingToken: isResend ? _resendToken : null,
         verificationCompleted: (credential) async {
+          if (!_sheetActive || !widget.isCurrent() || _isVerifyingCode) return;
+          setState(() => _isVerifyingCode = true);
           try {
             await widget.onVerifiedCredential(credential);
-            if (!mounted) {
-              return;
-            }
+            if (!mounted || !_sheetActive) return;
             Navigator.of(context).pop(true);
           } catch (error) {
             if (!mounted) {
@@ -253,6 +303,7 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
   }
 
   Future<void> _verifyCode() async {
+    if (!_sheetActive || !widget.isCurrent() || _isVerifyingCode) return;
     final verificationId = _verificationId;
     final smsCode = _codeController.text.trim();
 
@@ -283,9 +334,7 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
 
       await widget.onVerifiedCredential(credential);
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted || !_sheetActive) return;
       Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) {

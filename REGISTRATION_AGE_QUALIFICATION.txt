@@ -1,0 +1,251 @@
+BiteStar — Minimal 13+ Registration Age Check
+Run: BS-BITESTAR-REGISTRATION-AGE-MINIMAL-001
+Prompt prepared: October 16, 2026, 11:30 PM EDT (UTC-04:00)
+Role: source implementation, focused guest-data assessment, independent review,
+authorized checkpoint on main. No production action.
+Expected and actual starting HEAD: c51e280e0ef757fe019a27902dcfbd82377171d0
+Checkpoint tag: bs-bitestar-registration-age-minimal-001
+The commit containing this report is the qualified checkpoint; resolve the
+annotated tag to its commit. Final commit/remote readback is recorded in the
+canonical backlog and owner handoff after checkpointing.
+
+1. WHAT CHANGED?
+
+Permitted change area: registration presentation and client preflight state;
+focused tests and this report. Guest assessment is read-only. No backend,
+schema, Rules, infrastructure, billing, Terms or moderation changes.
+
+Default released source remains OFF: RegistrationAgePolicy.enabled=false.
+Tests use enabledForTesting; no remote flag, service, collection or migration.
+Enable the source switch only in a separately owner-authorized, qualified release.
+
+When enabled, an account-capable action asks “How old are you?” with one blank
+“Age in years” field and Continue/Cancel. There is no selected eligible value,
+minimum-age hint, yes/no certification or independently-verified-age claim.
+Whole-number input 0–120 is accepted as age input. Blank, nonnumeric, negative,
+fractional and out-of-range input keeps the dialog open with a neutral error.
+Under 13 clears the input and shows “Registration unavailable” / “Account
+registration is unavailable.” Only Close remains. Exactly 13 or above clears
+the input and continues. Cancel/dismiss stops that operation without success.
+
+Only a boolean leaves the dialog. Raw age is cleared on evaluation and disposed
+on dismissal. Neither exact age nor DOB nor an eligibility receipt is written
+to Firebase, Firestore, analytics, logs or device storage. The new age logic
+has no network transport. Existing generic Auth stage diagnostics contain no age.
+No anonymous fallback, account deletion, provider replacement or account lookup
+is performed by the check. Contact fields may already contain locally entered
+text, but denied attempts do not submit it to Auth or begin Google/SMS work.
+
+Actual paths:
+- Customer email Create Account -> CustomerAuthService -> shared provider
+  service -> age check -> createUserWithEmailAndPassword or guest link.
+- Restaurant email Create Account -> RestaurantAuthService -> same shared
+  provider preflight -> existing owner creation/completion behavior.
+- Customer/owner Google -> shared provider preflight before native account
+  picker/credential acquisition or web signInWithPopup; guest link and existing
+  account collision recovery retain their previous behavior and Firebase UID.
+- Customer/owner phone -> shared showPhoneAuthSheet preflight before sheet/SMS;
+  existing verified-credential handlers still perform sign-in/guest linking.
+- Coupon and BiteScore restaurant invites -> direct creation preflight before
+  their existing createUserWithEmailAndPassword. Invite preview still loads
+  before registration; no invite authority or redemption contract changed.
+- Signed-out account-deletion Google entry also preflights because Firebase
+  Google login can create an identity. Its signed-out phone entry shares the
+  phone preflight. Email existing-only login remains exempt.
+
+Google/phone cannot know new-versus-existing before obtaining credentials.
+Consequently a signed-out existing user can see the neutral question again on
+those routes. Established registered sessions are exempt, including deletion
+reauthentication. Ordinary email sign-in, password recovery, email verification,
+opening the app, mode switches, guest browsing and existing posting authority do
+not gain age questions. There is no durable eligible-user marker or backfill.
+
+Pending age answers are bound to the original account and active route. A
+changed account or cancelled route cannot use a stale answer. Phone callbacks
+also check the sheet's own route, including its dismissal animation; late or
+duplicate verification cannot initiate authentication or pop an underlying page.
+An Auth request already submitted to a provider cannot be undone by this local
+screen; the check is not a new Auth transaction/rollback system.
+
+2. DOES IT WORK?
+
+Final focused Flutter suite: 182/182 passed:
+  test/services/account_provider_service_test.dart (101 tests)
+  test/screens/registration_age_test.dart (45 tests)
+  test/account_deletion_screen_test.dart
+  test/services/restaurant_invite_service_test.dart
+The last two contribute 36 tests. The UI tests invoke actual customer/owner
+controls and wrappers, the shared provider service, phone sheet, both invite
+screens and signed-out deletion Google flow. Fake SDK transports record calls;
+no real Firebase, Google account, SMS, geocoder or user data was exercised.
+Allowed UI attempts deliberately stop with a fake network failure at the SDK
+boundary; complete provider success/UID continuity is tested separately.
+
+The provider suite covers native/web adapters, missing-callback fail-closed,
+denial/cancel before contact/picker, email sign-in exemption, eligible creation,
+guest UID-preserving email/Google links, provider collisions, cancellation,
+account switching, profile-finalization guards and default-off operation.
+UI coverage includes 12/13/42, blank/invalid values, empty initial field, cleared
+input, no preferences written, no false success, signed-out/guest/registered
+phone sessions, accepted callback and callback during dismissal/account change.
+Small-screen dialog test: 320x640 at 2x text scale, no layout exceptions.
+
+Broader regression run: 260 passed, 1 failed. Covered password recovery,
+customer/owner lifecycle, real customer registration continuation, Auth
+continuity, deletion, Terms, ZIP/location restoration, legacy redemption,
+bounded guest usage and runtime routes. One unrelated test failure:
+  test/screens/customer_bitesaver_runtime_test.dart
+  “actual CouponApp factory stays default off”
+It casts the unchanged AppUpdateOpening wrapper to MainNavigationScreen.
+Reproduced the same failure using an isolated git archive of starting HEAD at
+/tmp/bs-age-baseline.FP1fqn with local dependencies, no branch/worktree changes.
+This is a pre-existing test expectation failure, not an age-gate regression.
+The test and app wrapper remain unchanged.
+
+Additional enabled-policy recovery/deletion regression: 33/33 passed. Existing
+password recovery and deletion tests now explicitly enable the policy so their
+previous assertions also qualify the enabled build. Counts above overlap; they
+are not unique totals and no whole-repository pass is claimed.
+
+Scoped analysis: zero errors/warnings, two pre-existing withOpacity deprecation
+information messages in restaurant_auth_screen.dart. No new analysis issues.
+Diff whitespace check passes. No backend tests were needed (no backend changes),
+no emulator was started/interrupted, no APK or signed device build was produced.
+
+Independent review: PASS on all 14 frozen source/test hashes. Reviewer inspected
+actual source/diff, test evidence, owner hashes and this report; no independent
+full test rerun is claimed. All three review findings were corrected and
+requalified. No remaining actionable in-scope source findings.
+Source/test inventory and SHA-256: REGISTRATION_AGE_FILES.sha256 (14 files).
+Manifest SHA-256: 8327a66776f2d9abd5eb9a74c2eaddcd4fc2c4bd0734b78096a64374fb4efa8b
+
+3. WHAT REMAINS?
+
+Source-tested self-report is not independently verified age or a tamper-proof
+security boundary. A modified client/direct Auth API can bypass it. Dismissing
+and reopening registration or restarting can allow another answer; this run
+adds no persistent denial cookie, device identifier, age receipt or child-account
+processing. The underage dialog itself offers no age-edit/back button. Assess
+this limitation with final legal/store review rather than claiming compliance.
+No existing accounts are changed. No public-version migration is required by
+this prelaunch task. No new verification platform is proposed.
+
+Before activation: owner-authorized coordinated client release; real supported
+Android/iOS/web provider and lifecycle checks; final target audience/jurisdiction,
+Privacy Policy and Apple/Google disclosures matched to actual released runtime
+and SDK behavior. Actual child-account handling or jurisdiction-specific rules
+remain owner/legal decisions, not invented behavior. Existing dormant Terms and
+moderation release requirements are unchanged and are not reopened here.
+
+FOCUSED GUEST-DATA ASSESSMENT (SOURCE EVIDENCE, NOT LIVE NETWORK CERTIFICATION)
+
+LOCAL ONLY — storage operations observed:
+- SharedLocationStateService persists saved_zip_code (the last typed location
+  string, potentially city text) and prefers_live_location in SharedPreferences.
+  It holds derived/current coordinates and detected city/ZIP in memory. The
+  inspected implementation has a last-location value, not a separate ZIP-history
+  list. Radius preferences also remain local. This does NOT mean the same ZIP
+  value never leaves the device; geocoding/search transmission is below.
+- CustomerSessionService stores guest_device_id, a stable generated local key.
+  Call-site tracing found it used for local redemption namespaces, not serialized
+  directly into the inspected outgoing requests. Legacy DemoRedemptionStore
+  guest timers/history use guest_coupon_redemptions_<guest key> locally.
+- The bounded CustomerBiteSaverGuestUsageStore uses SharedPreferences for local
+  per-offer history/journal/meta under that guest key. Bounded composition creates
+  the key even while signed out. It is not a new age-check identifier.
+
+TRANSMITTED / STORED SERVER-SIDE — existing source paths:
+- Typed/saved ZIP or city text enters geocoding.locationFromAddress, including
+  restore-on-launch (iOS may try “ZIP, USA”). Treat it as supplied to the native
+  geocoder/platform service; source cannot promise this is an offline operation.
+- Permission-based Geolocator requests current coordinates; reverse lookup sends
+  coordinates to geocoding. Existing granted live-location preference can refresh
+  at startup without a new prompt; denied permission prevents that live lookup.
+- Candidate bounded BiteSaver search sends latitude/longitude, typed ZIP/place,
+  search text, radius and timezone to Firebase callable search; its private
+  server session stores canonical criteria. Bounded BiteScore sends locationText
+  and center coordinates through its callable search and private sessions.
+  BITESAVER_BOUNDED_CUSTOMER and BITESCORE_BOUNDED_CUSTOMER default to false. Legacy search
+  reads restaurant data and filters locally; selected bounded-build behavior
+  must not be silently presented as the deployed/default behavior.
+- Firebase initializes at main startup. ensureAuthReady restores an existing
+  session; it does NOT automatically create anonymous Auth. signInAsGuest can
+  call signInAnonymously; restoreGuestSession delegates to it. Current source
+  call-site search found no normal UI caller of those two explicit helpers.
+  Restored anonymous sessions may still exist. Guest browsing itself does not
+  trigger this new registration screen or a new anonymous fallback.
+- Anonymous Firebase UID, when the explicit helper is used, is a server Auth
+  identity. UserProfileService skips anonymous users; registered profile
+  completion stores existing provider contact/name fields, never age.
+- Candidate bounded coupon use obtains device evidence using Android Play
+  Integrity / installation keys or Apple App Attest / native credentials, then
+  sends proof, request/offer/session identifiers and client instance binding to
+  Firebase callables. Server code stores device-bound coupon usage in
+  private_bitesaver_device_coupon_usage plus proof/receipt/session records. Thus
+  guest coupon use in that candidate is not exclusively local. The guest_device_id
+  preference key is distinct from this transmitted device-proof identity.
+- SDKs directly involved: firebase_core/auth, cloud_firestore, cloud_functions,
+  geolocator, geocoding, shared_preferences; public images can involve
+  firebase_storage/network image delivery. Bounded device proof adds platform
+  Play Integrity/App Attest clients. Google sign-in is account-related, not a
+  new age-screen SDK. No analytics/crash SDK dependency was found in pubspec.
+
+UNKNOWN / NEEDS DEVICE VERIFICATION:
+- Current deployed Functions/Rules/runtime flags and installed-client choices.
+- Native geocoder provider requests, caches, retention and precise wire behavior.
+- OS location-service traffic, Firebase/Google/platform SDK operational metadata,
+  IP/installation telemetry, native backups and actual provider retention.
+- Complete network inventory under guest startup, restored sessions, typed ZIP,
+  granted/denied location, coupon use and image/menu loading on real devices.
+No claim of “no data collected,” legal certification or production qualification.
+No guest location, ZIP, coupon limits, search, Saved, QR or identity code changed.
+
+Official guidance reviewed October 2026:
+FTC general-audience guidance supports neutral age input without coaching or an
+eligible default; it does not promise prevention of false answers, and recommends
+technical retry prevention. Birth month/year is an example, not a demonstrated
+requirement displacing the owner's minimal age-in-years choice. Final review must
+consider the revised COPPA rule and the actual audience/data practices.
+https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions
+Google's target-audience guidance requires accurate audience and SDK disclosures;
+Apple privacy information must reflect actual app/third-party practices.
+https://support.google.com/googleplay/android-developer/answer/9867159
+https://developer.apple.com/app-store/user-privacy-and-data-use/
+
+BUG FILTER
+FIX NOW / DIRECTLY REQUIRED: covered invite/direct Google account-creation
+entries found by independent review; stopped stale phone callbacks during sheet
+dismissal. Retested. No broader Auth architecture was introduced.
+FIX SEPARATELY — REAL BUG: pre-existing runtime test casts an app-update wrapper
+to the old shell type. Real consequence is a false failing test; no demonstrated
+customer break. Reproduced at starting HEAD; left unchanged outside this scope.
+PRODUCT DECISION REQUIRED: final legal/store audience/disclosure and release
+qualification, including limitations of local self-report and retry handling.
+ACCEPT AND CLOSE: Stage 2D stays closed. Owner expressly rejects Admin review
+movement. The historical Rules test for moving a review is not a product defect
+to repair; no review-moving feature, replacement or Rules relaxation was added.
+
+PROTECTED OWNER FILES
+Seven pre-existing files remain byte-for-byte unchanged and unstaged. Baseline
+and final SHA-256 checks passed. Hashes:
+28aa68c86b59fefd9fd9aea798cad83b52b4b80e9cabea4be324711f7d31c2ee  test/screens/customer_bitesaver_browse_screen_test.dart
+278ffbfd9f139d003baf6b03f0b6f72549e84335e102718cfd17e6ce6344dafb  test/screens/restaurant_profile_bitescore_menu_test.dart
+865f38522f833bb7a9a8a3157d49a292db627c29435093eb24f2c8e8d04581ea  APPROVAL-ADDENDUM-A2.md
+453e3b3412bcb1e35d97e3af8e2c868cbd7965f93dab75f701f13395489474f0  test/cuisine_fixture/main.dart
+b3bf2b57779323981b54aa6cf0a55ec1ab59651b202f5d9f78e0cd3887151130  test/visual_fixture/README.md
+38cda097fae724e82f02c9f4c8c1fab9c6e731283b3879bac3bedf661129fef8  test/visual_fixture/data.dart
+c753b469e78938b7e6d5a25d36100b938bf24c262fbcc9cea09ad0802b36ff5c  test/visual_fixture/main.dart
+
+EXACT CHANGED FILES
+The 14 source/test files are listed in REGISTRATION_AGE_FILES.sha256. This report
+and that manifest are the other two files (16 intended checkpoint files total).
+Everything else in the initial dirty/untracked state remains owner work.
+
+NO PRODUCTION CHANGES
+No deployment/activation, production data mutation, Auth/IAM/secret/signing/store
+console change, payment/Stripe/trial change, Terms text/value approval, moderation
+activation, cleanup or guest-policy change. approvedBiteScoreTerms remains null.
+Source-corrected/tested/reviewed/checkpointed is distinct from enabled, deployed,
+physically verified, store-qualified and legally reviewed.
+
+Source qualification completed: 2026-10-16T23:46:14.647631-04:00

@@ -1,11 +1,237 @@
 import 'dart:async';
 
 import 'package:coupon_app/services/account_provider_service.dart';
+import 'package:coupon_app/services/registration_age_policy.dart';
 import 'package:coupon_app/services/existing_google_password_link.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('enabled registration preflight on actual provider paths', () {
+    late _Auth auth;
+    late AccountProviderService service;
+    var pickerCalls = 0;
+    setUp(() {
+      RegistrationAgePolicy.enabledForTesting = true;
+      pickerCalls = 0;
+      auth = _Auth();
+      service = AccountProviderService(
+        auth: auth,
+        isWeb: false,
+        googleCredential: () async {
+          pickerCalls++;
+          return auth.googleCredential;
+        },
+      );
+    });
+    tearDown(() {
+      RegistrationAgePolicy.enabledForTesting = null;
+      auth.changes.close();
+    });
+    for (final guest in [false, true]) {
+      for (final google in [false, true]) {
+        test(
+          'denied/cancelled preflight: guest=$guest google=$google',
+          () async {
+            final original = guest
+                ? auth.add('guest', 'new@example.test', [], anonymous: true)
+                : null;
+            auth.current = original;
+            var writes = 0;
+            await expectLater(
+              google
+                  ? service.signInWithGoogle(
+                      linkGuest: true,
+                      requestAge: () async => false,
+                      onAuthenticated: (_, _) async => writes++,
+                    )
+                  : service.authenticateWithEmail(
+                      email: 'new@example.test',
+                      password: 'password',
+                      register: true,
+                      linkGuest: true,
+                      requestAge: () async => false,
+                      onAuthenticated: (_, _) async => writes++,
+                    ),
+              throwsCode('flow-cancelled'),
+            );
+            expect(auth.current, same(original));
+            expect(original?.linkCalls ?? 0, 0);
+            expect(
+              auth.createCalls + auth.credentialCalls + auth.popupCalls,
+              0,
+            );
+            expect(pickerCalls, 0);
+            expect(writes, 0);
+            expect(AccountProviderService.lastOperationSucceeded, isFalse);
+          },
+        );
+        test(
+          'eligible continues and preserves guest UID: guest=$guest google=$google',
+          () async {
+            final original = guest
+                ? auth.add('guest', 'new@example.test', [], anonymous: true)
+                : null;
+            auth.current = original;
+            auth.googleEmail = 'new@example.test';
+            if (google && !guest) {
+              auth.add('google-new', auth.googleEmail, ['google.com']);
+            }
+            var prompts = 0;
+            Future<bool> age() async {
+              prompts++;
+              return true;
+            }
+
+            final result = google
+                ? await service.signInWithGoogle(
+                    linkGuest: true,
+                    requestAge: age,
+                  )
+                : await service.authenticateWithEmail(
+                    email: 'new@example.test',
+                    password: 'password',
+                    register: true,
+                    linkGuest: true,
+                    requestAge: age,
+                  );
+            expect(prompts, 1);
+            expect(result.isAnonymous, isFalse);
+            if (guest) expect(result.uid, 'guest');
+            expect(AccountProviderService.lastOperationSucceeded, isTrue);
+            expect(
+              auth.data[result.uid]!.keys,
+              unorderedEquals(['reviews', 'favorites', 'role']),
+            );
+          },
+        );
+      }
+    }
+    for (final web in [false, true]) {
+      test(
+        'Google blocks before ${web ? 'popup' : 'picker'} and missing callback fails closed',
+        () async {
+          final flow = AccountProviderService(
+            auth: auth,
+            isWeb: web,
+            googleCredential: () async {
+              pickerCalls++;
+              return auth.googleCredential;
+            },
+          );
+          await expectLater(
+            flow.signInWithGoogle(linkGuest: false),
+            throwsCode('flow-cancelled'),
+          );
+          expect(pickerCalls + auth.popupCalls + auth.credentialCalls, 0);
+        },
+      );
+    }
+    test('existing-only email login does not ask age', () async {
+      final original = auth.add('existing', 'same@example.test', ['password']);
+      final result = await service.authenticateWithEmail(
+        email: original.email!,
+        password: original.password!,
+        register: false,
+        linkGuest: false,
+        requestAge: () => throw StateError('Unexpected prompt'),
+      );
+      expect(result.uid, original.uid);
+      expect(auth.createCalls, 0);
+    });
+    test(
+      'authenticated Google operation preserves account without prompt',
+      () async {
+        auth.current = auth.add('existing', 'same@example.test', [
+          'google.com',
+        ]);
+        await expectLater(
+          service.signInWithGoogle(
+            linkGuest: true,
+            requestAge: () => throw StateError('Unexpected prompt'),
+          ),
+          throwsCode('already-signed-in'),
+        );
+        expect(auth.current!.uid, 'existing');
+        expect(pickerCalls, 0);
+      },
+    );
+    for (final google in [false, true]) {
+      for (final accountChange in [false, true]) {
+        test(
+          'pending age invalidated: google=$google accountChange=$accountChange',
+          () async {
+            final answer = Completer<bool>();
+            var active = true;
+            final attempt = google
+                ? service.signInWithGoogle(
+                    linkGuest: true,
+                    requestAge: () => answer.future,
+                    isActive: () => active,
+                  )
+                : service.authenticateWithEmail(
+                    email: 'new@example.test',
+                    password: 'password',
+                    register: true,
+                    linkGuest: true,
+                    requestAge: () => answer.future,
+                    isActive: () => active,
+                  );
+            final checked = expectLater(attempt, throwsCode('flow-cancelled'));
+            if (accountChange) {
+              auth.switchTo(
+                auth.add('other', 'other@example.test', ['password']),
+              );
+            } else {
+              active = false;
+            }
+            answer.complete(true);
+            await checked;
+            expect(auth.current?.uid, accountChange ? 'other' : null);
+            expect(pickerCalls + auth.createCalls + auth.credentialCalls, 0);
+          },
+        );
+      }
+    }
+    test(
+      'direct creation preflight cancels on transient account change',
+      () async {
+        final answer = Completer<bool>();
+        final attempt = RegistrationAgePolicy.requireEligibleForAuth(
+          auth: auth,
+          isActive: () => true,
+          requestAge: () => answer.future,
+        );
+        final checked = expectLater(attempt, throwsCode('flow-cancelled'));
+        auth.switchTo(auth.add('other', 'other@example.test', ['password']));
+        auth.signOutNow();
+        answer.complete(true);
+        await checked;
+        expect(auth.createCalls, 0);
+      },
+    );
+    test('direct existing account preflight never asks age', () async {
+      auth.current = auth.add('existing', 'same@example.test', ['password']);
+      await RegistrationAgePolicy.requireEligibleForAuth(
+        auth: auth,
+        isActive: () => true,
+        requestAge: () => throw StateError('Unexpected prompt'),
+      );
+      expect(auth.current!.uid, 'existing');
+    });
+    test('default off never invokes age callback', () async {
+      RegistrationAgePolicy.enabledForTesting = null;
+      expect(RegistrationAgePolicy.enabled, isFalse);
+      await service.authenticateWithEmail(
+        email: 'new@example.test',
+        password: 'password',
+        register: true,
+        linkGuest: false,
+        requestAge: () => throw StateError('Unexpected prompt'),
+      );
+      expect(auth.createCalls, 1);
+    });
+  });
   for (final web in [false, true]) {
     group(web ? 'web popup adapter' : 'native credential adapter', () {
       late _Auth auth;

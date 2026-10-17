@@ -1,3 +1,6 @@
+import '../services/account_provider_service.dart';
+import '../services/registration_age_policy.dart';
+import '../widgets/registration_age_dialog.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -262,6 +265,13 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
           password: _password.text,
         );
       } else if (provider == 'google') {
+        if (RegistrationAgePolicy.isEnabled) {
+          await RegistrationAgePolicy.requireEligibleForAuth(
+            auth: FirebaseAuth.instance,
+            isActive: () => _current(epoch, null),
+            requestAge: () => requestRegistrationAge(context),
+          );
+        }
         if (kIsWeb) {
           await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
         } else {
@@ -278,7 +288,8 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
           },
         );
       }
-    } catch (_) {
+    } catch (error) {
+      if (AccountProviderService.wasCancelled(error)) return;
       if (mounted && epoch == _epoch) {
         setState(
           () => _message =
