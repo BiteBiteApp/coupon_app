@@ -239,9 +239,186 @@ class CloudControls(unittest.TestCase):
         config['provider']['sqlExclusiveDeletion'] = {'approved': True, 'singleUseNames': True,
             'exclusiveControllerOwnership': True, 'ownerApprovalReference': 'synthetic-policy'}
         provider = GoogleResources(config, self.transport)
-        self.transport.replies = [raw, {'name': 'delete-op'}]
-        provider.delete(sql, receipt)
+        self.transport.replies = [raw]
+        with self.assertRaisesRegex(Rejected, 'ownership evidence'): provider.delete(sql, receipt)
+
+    def _sql_cleanup_fixture(self):
+        sql = {'kind':'sql.instance','id':'synthetic-sql','disposable':True,'body':{}}
+        self.config['provider']['resources'] = [sql]
+        self.resources = GoogleResources(self.config,self.transport)
+        self.controller = Controller(self.config,Approval(self.config),self.store,self.resources,lambda:self.now)
+        self.running()
+        raw = {'project':self.config['projectId'],'name':sql['id'],'createTime':'1970-01-01T00:16:40Z',
+               'settings':{'userLabels':self.resources.labels(),'settingsVersion':'7','activationPolicy':'ALWAYS'}}
+        receipt=self.resources.identity(sql,raw)
+        self.store.value['state']['receipts']['sql.instance/synthetic-sql']=receipt
+        self.store.value['state']['costUpper']=70  # $30 reserve reaches the separate $100 checkpoint.
+        return sql,raw
+
+    def _safety_step(self,replies):
+        self.now+=60
+        self.transport.replies=replies+[{'messageIds':['synthetic']}]
+        result=self.controller.safety_tick()
+        self.assertEqual(self.transport.replies,[])
+        self.assertEqual(result['action'],'pause-load-stop-sql-and-alert')
+        return result['resources'][0]['state']
+
+    def test_checkpoint_lost_sql_stop_is_not_confirmed_and_keeps_admission_paused(self):
+        sql,raw=self._sql_cleanup_fixture()
+        deadline=self.store.value['state']['deadline']
+        self.assertEqual(self._safety_step([raw,raw,ProviderError(None)]),'unknown-or-refused')
+        stopped=copy.deepcopy(raw);stopped['settings']['activationPolicy']='NEVER'
+        self.assertEqual(self._safety_step([stopped]),'sql-stop-configured-completion-unconfirmed')
+        self.assertEqual(self.store.value['state']['status'],'paused')
+        self.assertEqual(self.store.value['state']['deadline'],deadline)
+        with self.assertRaises(Rejected):self.controller.reserve_create(sql,self.request)
+        self.assertFalse(any(method=='DELETE' for method,_,_ in self.transport.calls))
+
+    def test_checkpoint_sql_stop_requires_operation_completion_and_reports_retained_storage(self):
+        sql,raw=self._sql_cleanup_fixture()
+        self.assertEqual(self._safety_step([raw,raw,{'name':'stop-op'}]),'mutation-requested-absence-unproven')
+        self.assertEqual(self._safety_step([{'status':'RUNNING'}]),'provider-operation-pending')
+        self.assertEqual(self._safety_step([{'status':'DONE'}]),'provider-operation-completed-recheck-required')
+        stopped=copy.deepcopy(raw);stopped['settings']['activationPolicy']='NEVER'
+        self.assertEqual(self._safety_step([stopped]),'sql-stop-confirmed-storage-charges-remain')
+        self.assertEqual(self._safety_step([ProviderError(403)]),'unknown-or-refused')
+        self.assertEqual(self._safety_step([ProviderError(404)]),'absence-verified-retained-charges-unreconciled')
+        self.assertNotIn('retainedChargesReconciled',self.store.value['state'])
+
+    def test_checkpoint_cancels_job_before_polling_its_pending_run_operation(self):
+        job={'kind':'run.job','id':'synthetic-load','disposable':True,'body':{}}
+        self.config['provider']['resources']=[job]
+        self.resources=GoogleResources(self.config,self.transport)
+        self.controller=Controller(self.config,Approval(self.config),self.store,self.resources,lambda:self.now)
+        self.running()
+        raw={**self.observed,'name':self.resources.url(job).split('/v2/')[1]}
+        key='run.job/synthetic-load';state=self.store.value['state']
+        state['receipts'][key]=self.resources.identity(job,raw)
+        prefix='projects/'+self.config['projectId']+'/locations/us-central1/operations/'
+        state['operations'][key]={'name':prefix+'still-running'}
+        state['jobRuns']={key:{'phase':'sent','sentAt':self.now}}
+        state['costUpper']=70
+        execution={'name':raw['name']+'/executions/one','job':raw['name'],'labels':self.resources.labels(),
+                   'uid':'execution-one','etag':'e1','createTime':raw['createTime']}
+        self.assertEqual(self._safety_step([raw,{'executions':[execution]},{'name':prefix+'cancel'}]),
+                         'execution-cancellation-pending')
+        self.assertTrue(any(url.endswith(':cancel') for _,url,_ in self.transport.calls))
+        self.assertFalse(any(url.endswith('still-running') for _,url,_ in self.transport.calls))
+        self.assertEqual(self._safety_step([{'done':False}]),'execution-cancellation-pending')
+        self.assertEqual(self._safety_step([{'done':True}]),'execution-cancellation-completed-recheck-required')
+        completed={**execution,'completionTime':'1970-01-01T00:17:40Z'}
+        self.assertEqual(self._safety_step([raw,{'executions':[completed]},raw,raw,{'name':prefix+'delete'}]),
+                         'mutation-requested-absence-unproven')
+        self.assertEqual(self.store.value['state']['status'],'paused')
+        self.assertFalse(any(url.endswith('still-running') for _,url,_ in self.transport.calls))
+        self.assertEqual(self._safety_step([{'done':True}]),'provider-operation-completed-recheck-required')
+        self.assertEqual(self._safety_step([ProviderError(404)]),'absence-verified-retained-charges-unreconciled')
+
+    def test_lost_cancellation_and_missing_execution_never_mean_completion(self):
+        job={'kind':'run.job','id':'synthetic-load','disposable':True,'body':{}}
+        self.config['provider']['resources']=[job]
+        self.resources=GoogleResources(self.config,self.transport)
+        self.controller=Controller(self.config,Approval(self.config),self.store,self.resources,lambda:self.now)
+        self.running()
+        raw={**self.observed,'name':self.resources.url(job).split('/v2/')[1]}
+        key='run.job/synthetic-load';state=self.store.value['state']
+        state['receipts'][key]=self.resources.identity(job,raw)
+        state['jobRuns']={key:{'phase':'sent','sentAt':self.now}};state['costUpper']=70
+        execution={'name':raw['name']+'/executions/one','job':raw['name'],'labels':self.resources.labels(),
+                   'uid':'execution-one','etag':'e1','createTime':raw['createTime']}
+        self.assertEqual(self._safety_step([raw,{'executions':[execution]},ProviderError(None)]),'unknown-or-refused')
+        self.assertEqual(self._safety_step([raw,{'executions':[]}]),'execution-outcome-unresolved')
+        self.assertEqual(self._safety_step([ProviderError(403)]),'unknown-or-refused')
+        self.assertNotIn(key,self.store.value['state'].get('cleanupExecutionsQuiescent',{}))
+        self.assertFalse(any(method=='DELETE' for method,_,_ in self.transport.calls))
+
+    def _sql_proof(self,sql):
+        provider=self.config['provider']
+        provider.update(controllerServiceAccount='controller@synthetic.test',watchdogServiceAccount='watchdog@synthetic.test')
+        proof={key:self.config[key] for key in ('projectId','projectNumber','runId','candidateDigest')}
+        proof.update(protocol='bitestar-sql-exclusive-preflight-v1',sqlName=sql['id'],
+            resourcePlanDigest=digest(provider['resources']),firstBillableAtMs=provider['firstBillableAtMs'],
+            deadlineMs=provider['firstBillableAtMs']+self.config['lifetimeSeconds']*1000,
+            principals={key:provider[key] for key in ('controllerServiceAccount','watchdogServiceAccount')},
+            reviewerId='independent-synthetic-reviewer',reviewedAtMs=900000,
+            validUntilMs=provider['firstBillableAtMs']+self.config['lifetimeSeconds']*1000+7200000,
+            effectiveLifecyclePermissionsEvidenceSha256='a'*64,permanentSingleUseRegistryEvidenceSha256='b'*64)
+        provider['sqlExclusiveDeletion']={'approved':True,'singleUseNames':True,'exclusiveControllerOwnership':True,
+            'ownerApprovalReference':'synthetic-policy','evidence':proof,'evidenceDigest':digest(proof)}
+        return proof
+
+    def test_sql_automatic_eligibility_binds_independent_evidence_and_exact_created_incarnation(self):
+        sql={'kind':'sql.instance','id':'synthetic-sql','disposable':True,'body':{}}
+        self.config['provider']['resources']=[sql];proof=self._sql_proof(sql)
+        self.resources=GoogleResources(self.config,self.transport)
+        self.controller=Controller(self.config,Approval(self.config),self.store,self.resources,lambda:self.now)
+        self.running();key='sql.instance/synthetic-sql'
+        intent={'phase':'sent','sentAt':self.now,'resourceDigest':digest(sql)}
+        self.store.value['state']['intents'][key]=intent
+        raw={'project':self.config['projectId'],'name':sql['id'],'createTime':'1970-01-01T00:16:40Z',
+             'settings':{'userLabels':self.resources.labels(),'settingsVersion':'7','activationPolicy':'NEVER'}}
+        self.transport.replies=[raw];self.controller.reconcile_create(sql)
+        binding=self.store.value['state']['sqlDeletionEligibility'][key]
+        self.assertEqual(binding['receipt'],self.resources.identity(sql,raw))
+        self.assertEqual(binding['evidenceDigest'],digest(proof))
+        self.store.value['state']['status']='paused'
+        self.transport.replies=[raw,{'name':'delete-op'}]
+        self.assertEqual(self.controller.delete_owned(sql),{'deletionRequested':True,'absenceVerified':False})
         self.assertTrue(self.transport.calls[-1][1].endswith('?enableFinalBackup=false'))
+        for mutation in ('revoked','receipt','intent'):
+            with self.subTest(mutation=mutation):
+                saved=copy.deepcopy(self.store.value)
+                saved_version=self.store.version
+                if mutation=='revoked':self.store.value['state']['sqlDeletionEligibility'][key]['revoked']=True
+                if mutation=='receipt':self.store.value['state']['sqlDeletionEligibility'][key]['receipt']['uid']='replacement'
+                if mutation=='intent':self.store.value['state']['intents'][key]['sentAt']+=1
+                self.transport.replies=[raw] if mutation!='intent' else []
+                before=len(self.transport.calls)
+                with self.assertRaises(Rejected):self.controller.delete_owned(sql)
+                self.assertFalse(any(method=='DELETE' for method,_,_ in self.transport.calls[before:]))
+                self.store.value=saved
+                self.store.version=saved_version
+        self.now=proof['validUntilMs']/1000+1
+        self.transport.replies=[raw]
+        with self.assertRaisesRegex(Rejected,'stale'):self.controller.delete_owned(sql)
+
+    def test_sql_independent_evidence_rejects_missing_mismatched_stale_or_nonindependent_proof(self):
+        sql={'kind':'sql.instance','id':'synthetic-sql','disposable':True,'body':{}}
+        self.config['provider']['resources']=[sql];proof=self._sql_proof(sql)
+        for field,value in [('projectId','other'),('projectNumber','999'),('runId','other'),('sqlName','other'),
+                            ('firstBillableAtMs',1000001),('deadlineMs',2000000),('resourcePlanDigest','c'*64),
+                            ('reviewerId','controller@synthetic.test'),('reviewedAtMs',1000001),
+                            ('validUntilMs',999999),('effectiveLifecyclePermissionsEvidenceSha256',''),
+                            ('permanentSingleUseRegistryEvidenceSha256','')]:
+            with self.subTest(field=field):
+                config=copy.deepcopy(self.config);policy=config['provider']['sqlExclusiveDeletion']
+                policy['evidence'][field]=value;policy['evidenceDigest']=digest(policy['evidence'])
+                with self.assertRaises(Rejected):GoogleResources(config,self.transport).sql_exclusivity_evidence(sql,1000000)
+        self.assertEqual(self.transport.calls,[])
+
+    def test_prior_stop_confirmation_cannot_confirm_a_later_lost_stop(self):
+        sql,raw=self._sql_cleanup_fixture();key='sql.instance/synthetic-sql'
+        state=self.store.value['state'];state['cleanupSqlStopConfirmed']={key:state['receipts'][key]}
+        self.assertEqual(self._safety_step([raw,raw,ProviderError(None)]),'unknown-or-refused')
+        self.assertNotIn(key,self.store.value['state']['cleanupSqlStopConfirmed'])
+        stopped=copy.deepcopy(raw);stopped['settings']['activationPolicy']='NEVER'
+        self.assertEqual(self._safety_step([stopped]),'sql-stop-configured-completion-unconfirmed')
+
+    def test_direct_job_delete_cannot_use_missing_or_old_completed_execution(self):
+        job={'kind':'run.job','id':'synthetic-load','disposable':True,'body':{}}
+        self.config['provider']['resources']=[job]
+        self.resources=GoogleResources(self.config,self.transport)
+        self.controller=Controller(self.config,Approval(self.config),self.store,self.resources,lambda:self.now)
+        self.running();raw={**self.observed,'name':self.resources.url(job).split('/v2/')[1]}
+        key='run.job/synthetic-load';state=self.store.value['state']
+        state['receipts'][key]=self.resources.identity(job,raw);state['status']='paused'
+        state['jobRuns']={key:{'phase':'sent','sentAt':self.now}}
+        old={'name':raw['name']+'/executions/old','job':raw['name'],'labels':self.resources.labels(),
+             'uid':'old','etag':'old','createTime':'1970-01-01T00:00:00Z','completionTime':'1970-01-01T00:01:00Z'}
+        for rows in ([],[old]):
+            self.transport.replies=[raw,{'executions':rows}]
+            with self.assertRaisesRegex(Rejected,'execution outcome'):self.controller.delete_owned(job)
+        self.assertFalse(any(method=='DELETE' for method,_,_ in self.transport.calls))
 
     def test_gcs_generation_cas_reads_exact_version_and_permission_is_not_absence(self):
         store = GcsControlStore(self.config, self.transport)

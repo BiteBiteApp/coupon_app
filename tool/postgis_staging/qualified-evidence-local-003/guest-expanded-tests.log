@@ -1,0 +1,17 @@
+✔ restaurant window combines 26 one-ID checks without changing page membership (332.717708ms)
+✔ restaurant window preserves exact filtered membership and never leaks full history (139.510833ms)
+✔ restaurant window global 75-ID boundary spans dense parents (126.159625ms)
+✔ restaurant window lost replies and replay never expand an unanswered challenge (101.81ms)
+✔ restaurant window keeps all-filtered and sparse pages continuing until actual exhaustion (111.969417ms)
+✔ restaurant window rejects caller, revision, extra ID and disabled-mode continuation (78.504417ms)
+✔ restaurant window rejects forged parent slices and a 76th ID before mutations (87.42225ms)
+✔ restaurant window expired reissue preserves the exact parent slices and history set (80.444167ms)
+✔ restaurant window detects a later parent's withdrawal before completing any page (51.164625ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1447.396667

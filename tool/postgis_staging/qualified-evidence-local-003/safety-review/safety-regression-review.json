@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 1,
+  "runId": "BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003",
+  "role": "Independent focused safety completion, root Rules and source projection regression verifier",
+  "finishedAtUtc": "2026-10-17T22:05:19.035469+00:00",
+  "selectedSource": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source",
+  "startingStateReceipt": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/starting-state.json",
+  "startingStateSha256": "86c42f899b617398e025f8feb36e1474809986ea8f0eb85714fbfd940b5176db",
+  "reportedStartingHead": "4a3241d722d347067db8a6960763e9e90c2dc665",
+  "gitActionsPerformed": false,
+  "sourceEditsPerformed": false,
+  "installationPerformed": false,
+  "cloudActionsPerformed": false,
+  "runtime": {
+    "node": "v24.21.0",
+    "v8": "13.6.233.17-node.53",
+    "platform": "darwin",
+    "arch": "arm64",
+    "path": "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node",
+    "resolvedPath": "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node-v24.21.0-darwin-arm64/bin/node",
+    "sha256": "e4b5a3af0e05c75de2eae013904145f40fe7fc2a6e6f17510128bf45cca4e79b"
+  },
+  "commands": [
+    {
+      "log": "transaction-completion.log",
+      "logSha256": "58bd5fe5d146e7627558e99a1f5beed794c4411ccd588aada610547e1d663ab1",
+      "cwd": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source",
+      "environmentOverrides": {
+        "FIRESTORE_EMULATOR_HOST": "127.0.0.1:8792",
+        "RUN_SAFETY_TRANSACTION_EMULATOR": "1"
+      },
+      "argv": [
+        "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node",
+        "--test",
+        "--test-concurrency=1",
+        "functions/test/safety_transaction_retry.test.js"
+      ],
+      "stdoutStderrRedirect": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/safety-review/transaction-completion.log",
+      "exitCode": 0,
+      "counts": {
+        "tests": 6,
+        "pass": 6,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "status": "PASS",
+      "note": null
+    },
+    {
+      "log": "projection-provider-contracts.log",
+      "logSha256": "b2a7f1ccdd9b90a8b7098c2ac3af4689e185e7a6b0b27a180e2669519549813e",
+      "cwd": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source",
+      "environmentOverrides": {},
+      "argv": [
+        "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node",
+        "--test",
+        "--test-concurrency=1",
+        "functions/test/search_index_contract.test.js",
+        "functions/test/search_index_builders.test.js",
+        "functions/test/search_index_maintenance.test.js",
+        "functions/test/search_index_runtime_wiring.test.js",
+        "functions/test/photo_screening_provider.test.js",
+        "functions/test/review_text_provider.test.js",
+        "functions/test/firestore_index_contract.test.js"
+      ],
+      "stdoutStderrRedirect": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/safety-review/projection-provider-contracts.log",
+      "exitCode": 0,
+      "counts": {
+        "tests": 341,
+        "pass": 341,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "status": "PASS",
+      "note": null
+    },
+    {
+      "log": "root-rules-existing.log",
+      "logSha256": "0dfec579509fc45706f6a82071baa1ececc31921f09c5feebc51c0d2c0d41857",
+      "cwd": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source",
+      "environmentOverrides": {
+        "NODE_PATH": "/Users/colesmart/dev/coupon_app/firestore_rules_tests/node_modules",
+        "FIRESTORE_EMULATOR_HOST": "127.0.0.1:8088"
+      },
+      "argv": [
+        "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node",
+        "--test",
+        "--test-concurrency=1",
+        "firestore_rules_tests/test/photo_report_rules.test.js",
+        "firestore_rules_tests/test/review_text_rules.test.js",
+        "firestore_rules_tests/test/account_deletion_rules.test.js",
+        "firestore_rules_tests/test/reviewer_safety_rules.test.js",
+        "firestore_rules_tests/test/posting_restriction_rules.test.js"
+      ],
+      "stdoutStderrRedirect": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/safety-review/root-rules-existing.log",
+      "exitCode": 1,
+      "counts": {
+        "tests": 25,
+        "pass": 13,
+        "fail": 12,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "status": "SETUP_FAILURE_RETAINED",
+      "note": "13 passed; 12 setup failures: photo/reviewer exact8792 guard and account-deletion Firestore8792 plus Storage9298 guard. Does not establish product failure. Corrected Firestore-only invocation passes separately; account-deletion5 remains unverified."
+    },
+    {
+      "log": "root-rules-rerun.log",
+      "logSha256": "52cee24ce6035d87f9f1c103ec4c24e3ea8ab828c1438afe35e0a92eac944117",
+      "cwd": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source",
+      "environmentOverrides": {
+        "NODE_PATH": "/Users/colesmart/dev/coupon_app/firestore_rules_tests/node_modules",
+        "FIRESTORE_EMULATOR_HOST": "127.0.0.1:8792"
+      },
+      "argv": [
+        "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node",
+        "--test",
+        "--test-concurrency=1",
+        "firestore_rules_tests/test/photo_report_rules.test.js",
+        "firestore_rules_tests/test/review_text_rules.test.js",
+        "firestore_rules_tests/test/reviewer_safety_rules.test.js",
+        "firestore_rules_tests/test/posting_restriction_rules.test.js"
+      ],
+      "stdoutStderrRedirect": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/safety-review/root-rules-rerun.log",
+      "exitCode": 0,
+      "counts": {
+        "tests": 20,
+        "pass": 20,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "status": "PASS",
+      "note": null
+    },
+    {
+      "log": "root-rules-completion.log",
+      "logSha256": "c57124555a3c8243a5969c60080c634e72f426e86dc741c86171dab1d17fbba5",
+      "cwd": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source",
+      "environmentOverrides": {
+        "NODE_PATH": "/Users/colesmart/dev/coupon_app/firestore_rules_tests/node_modules",
+        "FIRESTORE_EMULATOR_HOST": "127.0.0.1:8792",
+        "SAFETY_RULES_POLICY": "source"
+      },
+      "argv": [
+        "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node",
+        "--test",
+        "--test-concurrency=1",
+        "firestore_rules_tests/test/safety_release_candidate_rules.test.js"
+      ],
+      "stdoutStderrRedirect": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/safety-review/root-rules-completion.log",
+      "exitCode": 0,
+      "counts": {
+        "tests": 13,
+        "pass": 13,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "status": "PASS",
+      "note": null
+    },
+    {
+      "log": "root-rules-source-projection.log",
+      "logSha256": "2d01aa3cecd99b16a26a858280dc4d94025ab6d30cb20752f63f078289b6848d",
+      "cwd": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source",
+      "environmentOverrides": {
+        "NODE_PATH": "/Users/colesmart/dev/coupon_app/firestore_rules_tests/node_modules",
+        "FIRESTORE_EMULATOR_HOST": "127.0.0.1:8792"
+      },
+      "argv": [
+        "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node",
+        "--test",
+        "--test-concurrency=1",
+        "firestore_rules_tests/test/firestore_bitescore_cutover.test.js",
+        "firestore_rules_tests/test/firestore_bitescore_bounded.test.js"
+      ],
+      "stdoutStderrRedirect": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/safety-review/root-rules-source-projection.log",
+      "exitCode": 0,
+      "counts": {
+        "tests": 11,
+        "pass": 11,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "status": "PASS",
+      "note": null
+    }
+  ],
+  "passedUniqueSelectedSuiteTests": 391,
+  "skippedInPassingCommands": 0,
+  "scope": "Actual local Firestore rules and transaction behavior; deterministic provider/injected projection/runtime wiring contracts. Does not claim live providers, deployed triggers, hosted/Linux qualification or Storage integration. One of11 cutover/private tests intentionally loads preceding frozen policy; the other43 Rules tests use current root policy.",
+  "limitations": [
+    {
+      "file": "firestore_rules_tests/test/account_deletion_rules.test.js",
+      "tests": 5,
+      "status": "NOT_EXECUTED_SUCCESSFULLY",
+      "reason": "Requires exact Storage emulator9298; unavailable. Initial attempt was blocked in setup. No new Storage service was started."
+    },
+    {
+      "file": "functions/test/safety_release_integration_emulator.test.js",
+      "tests": 4,
+      "status": "NOT_RUN",
+      "reason": "Connected fixture requires Storage9298 in addition to Firestore/Auth. Prior evidence is not presented as current execution."
+    },
+    "No full functions rebuild was performed by this reviewer. Executed existing selected-source compiled lib supplied by parent; compiled/source identities are retained.",
+    "No broad prior205/206 safety suite rerun and no claim resolving its historical intermittent concurrency failure."
+  ],
+  "frozenSafetyComparison": {
+    "manifest": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/tool/safety_release_prep/combined-source.json",
+    "manifestSha256": "8ccf369d6b062610a32c23c30327b14f752a75442c3c35d080a957f36e9ccc91",
+    "candidateDigest": "803765331aa21d9594018d42f14011f5fe3d46a309375cc70d5bc018eb9e4d0c",
+    "files": {
+      "functions/test/safety_transaction_retry.test.js": {
+        "currentSha256": "ca3c77cea1fc80ac2765df1c2fb174384a3a2e92bda39a4aa7541a8ed690a8b0",
+        "frozenSha256": "ca3c77cea1fc80ac2765df1c2fb174384a3a2e92bda39a4aa7541a8ed690a8b0",
+        "equal": true
+      },
+      "functions/src/photo_screening.ts": {
+        "currentSha256": "97e8c588185c92eaad07ff5c82330ef03988799220ac0fe01cfb5550b803430f",
+        "frozenSha256": "97e8c588185c92eaad07ff5c82330ef03988799220ac0fe01cfb5550b803430f",
+        "equal": true
+      },
+      "functions/src/owner_photo_screening.ts": {
+        "currentSha256": "33bd9ae05e99e377fe1e7a774021550ad2e5cae001bfcf2a20a25c10afc029d3",
+        "frozenSha256": "33bd9ae05e99e377fe1e7a774021550ad2e5cae001bfcf2a20a25c10afc029d3",
+        "equal": true
+      },
+      "functions/src/review_text_moderation.ts": {
+        "currentSha256": "26898d5a4538666b4fe698063e811b0654f8a79ca99deb2307ca50440ac98ac1",
+        "frozenSha256": "26898d5a4538666b4fe698063e811b0654f8a79ca99deb2307ca50440ac98ac1",
+        "equal": true
+      },
+      "firestore.rules": {
+        "currentSha256": "5c85dc83ace3374a0d590e08287d5cd19e440234327798647077a387a984f5a8",
+        "frozenSha256": "5c85dc83ace3374a0d590e08287d5cd19e440234327798647077a387a984f5a8",
+        "equal": true
+      }
+    }
+  },
+  "hashTiming": "Hashes captured after tests; no claim of independent before-and-after byte attestation. Parent supplied selected-source and compiled lib.",
+  "testedFilesSha256Manifest": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/safety-review/tested-files.sha256",
+  "testedFilesManifestSha256": "6936cbd6fcfdfbc1316584b368644c5856ab07589bb363c27efc803a76c392fd",
+  "hashedFileCount": 312,
+  "relayShutdown": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/safety-review/relay-shutdown.json",
+  "relayShutdownSha256": "9557feda936fc8c584f42425666fb437e7bce4bcda70581ac8db56acf994f000",
+  "bugFilter": [
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "finding": "Initial test invocation used8088 although several unchanged fixtures require8792. Corrected using report-only transparent loopback relay; passing reruns and original failure retained."
+    }
+  ],
+  "verdict": "PASS for391 focused executed tests; Storage-dependent9 tests remain unverified in this run."
+}

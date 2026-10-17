@@ -1,0 +1,70 @@
+{
+  "scope": "Pure local deterministic fixture transports; no provider network or credentials",
+  "checkpointWaitsForJobLro": {
+    "result": {
+      "action": "pause-load-stop-sql-and-alert",
+      "resources": [
+        {
+          "resource": "run.job/synthetic-load",
+          "state": "provider-operation-pending"
+        }
+      ],
+      "alert": "publish-accepted-delivery-unproven"
+    },
+    "calls": [
+      {
+        "method": "GET",
+        "url": "https://run.googleapis.com/v2/projects/bs-synthetic-test-001/locations/us-central1/operations/running-work"
+      },
+      {
+        "method": "POST",
+        "url": "https://pubsub.googleapis.com/v1/projects/bs-synthetic-test-001/topics/synthetic-alert:publish"
+      }
+    ],
+    "forecastUsd": 100,
+    "cancellationRequested": false
+  },
+  "sqlPolicyBooleanOnly": {
+    "independentOwnershipEvidenceSupplied": false,
+    "deleteRequested": true,
+    "policyFields": [
+      "approved",
+      "singleUseNames",
+      "exclusiveControllerOwnership",
+      "ownerApprovalReference"
+    ]
+  },
+  "lostSqlStopReplyClaimsStopped": {
+    "firstResult": {
+      "action": "pause-load-stop-sql-and-alert",
+      "resources": [
+        {
+          "resource": "sql.instance/synthetic-sql",
+          "state": "unknown-or-refused"
+        }
+      ],
+      "alert": "publish-accepted-delivery-unproven"
+    },
+    "secondResult": {
+      "action": "pause-load-stop-sql-and-alert",
+      "resources": [
+        {
+          "resource": "sql.instance/synthetic-sql",
+          "state": "sql-stopped-storage-charges-remain"
+        }
+      ],
+      "alert": "publish-accepted-delivery-unproven"
+    },
+    "completionObserved": false,
+    "secondCalls": [
+      {
+        "method": "GET",
+        "url": "https://sqladmin.googleapis.com/sql/v1beta4/projects/bs-synthetic-test-001/instances/synthetic-sql"
+      },
+      {
+        "method": "POST",
+        "url": "https://pubsub.googleapis.com/v1/projects/bs-synthetic-test-001/topics/synthetic-alert:publish"
+      }
+    ]
+  }
+}

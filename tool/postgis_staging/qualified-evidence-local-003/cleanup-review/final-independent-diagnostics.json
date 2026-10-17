@@ -1,0 +1,76 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003",
+  "reviewer": "Track C staging_recovery",
+  "recordedAt": "2026-10-17T22:04:40.411270+00:00",
+  "kind": "Independent deterministic negative and recovery diagnostics; no cloud",
+  "cases": [
+    {
+      "name": "proof_digest_tamper",
+      "pass": true
+    },
+    {
+      "name": "controller_principal_drift",
+      "pass": true
+    },
+    {
+      "name": "resource_plan_drift",
+      "pass": true
+    },
+    {
+      "name": "policy_disabled",
+      "pass": true
+    },
+    {
+      "name": "after_evidence_expiry",
+      "pass": true
+    },
+    {
+      "name": "before_review_time",
+      "pass": true
+    },
+    {
+      "name": "missing_actual_ledger_binding",
+      "pass": true
+    },
+    {
+      "name": "revoked_actual_binding",
+      "pass": true
+    },
+    {
+      "name": "different_actual_incarnation",
+      "pass": true
+    },
+    {
+      "name": "cli_failure_execution-outcome-unresolved",
+      "pass": true
+    },
+    {
+      "name": "cli_failure_sql-stop-configured-completion-unconfirmed",
+      "pass": true
+    },
+    {
+      "name": "failed_stop_operation_never_confirms_or_refunds",
+      "pass": true
+    },
+    {
+      "name": "denied_stop_poll_recovery_preserves_deadline_and_liability",
+      "pass": true
+    }
+  ],
+  "pass": 13,
+  "fail": 0,
+  "sourceSha256": {
+    "tool/postgis_staging/scripts/cloud_controller.py": "d8ed5eade98216424d07396037381f26f0377fdb3e6c2c4c29f9baede5c2a9af",
+    "tool/postgis_staging/scripts/cloud_provider.py": "b6a465032526a5b3c6e17d4797a1f082d268fbb9fca7ca371f0fba8274830fd8",
+    "tool/postgis_staging/scripts/provider_entrypoint.py": "ff8af3fb4901eded6c6a0a971c4c114f8bb2ed6f257f71f6ac96c9bd544fbe91",
+    "tool/postgis_staging/config/provider.example.json": "15d9ffe2dc6ce57aded62748736bd842d843e8441587044066fe5f127ab4fe15",
+    "tool/postgis_staging/scripts/test_cloud_controller.py": "2a68eb4d5edc5e6b959ed4e69856128c2d360c8502bfd8cf8049061b7a8775ae"
+  },
+  "suite": {
+    "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tool/postgis_staging/scripts -p test_*.py -v",
+    "pass": 89,
+    "fail": 0,
+    "log": "final-independent-controller-guard-pricing.log"
+  },
+  "sourceStableDuringVerification": true
+}

@@ -1,0 +1,61 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003",
+  "role": "Independent Linux/numerical/runtime pre-execution reviewer",
+  "recordedAt": "2026-10-17T21:47:53.913683+00:00",
+  "expectedHeadFromAssignment": "4a3241d722d347067db8a6960763e9e90c2dc665",
+  "gitInspectedByReviewer": false,
+  "status": "PENDING_ACTUAL_EXECUTION_EVIDENCE; NO_RUNTIME_TUPLE_APPROVAL",
+  "sourceEdits": false,
+  "installs": false,
+  "builds": false,
+  "testsExecuted": false,
+  "cloudResourcesContacted": false,
+  "files": {
+    "tool/postgis_staging/linux/Dockerfile": "bb569df458e399960202c932ee2099e3c14c6d4adab011cd26544d253d8f4bd3",
+    "tool/postgis_staging/linux/README.md": "4ec46d2afd7e57a6263b0bfeaadf0b915c1727fb5b443822965cff3322ba540a",
+    "tool/postgis_staging/linux/runtime-source.json": "1154d8aac54305233944ca7158c44e7c2d01310d37e742cbebbcc2b214f44bae",
+    "tool/postgis_staging/linux/numerical-diagnostics.cjs": "21e2465db0ae227126c4864180ebeed8dc495ddccebe5c68de7e8319c17f8147",
+    "tool/postgis_staging/Controller.Dockerfile": "ee3a5ea7a12bd5690784d7330f16fdc56ce672ba4135c66dbace4f7d57e4334b",
+    "functions/src/postgis_runtime.ts": "c020f3dc8e253571d5efd2c4e907508e5cf9c956a26508cdb2346375f021c920",
+    "functions/src/postgis_query.ts": "309e27651e330a1fd04fd3c9063605c59b2bce83d8364e98bd85c6b8803dacdf",
+    "functions/src/postgis_store.ts": "3c7f49cc9d57acb4ad26d39448f9f2af26af5b6078dad5336269fcd9afa7469c",
+    "functions/src/restaurant_geo_helpers.ts": "8fc56748c811d848b853be0912522b451e1e7c01c0cd1060be2f1cde7ffd9066",
+    "functions/search_candidate/schema.sql": "454389fddc179b9e7a9c9e0b4f4b36b91004e2717739836b616caf8903933adb",
+    "functions/test/postgis_query.test.js": "ad9cef97efe0324b18282fca2987d627c43a0d725e7ed24bcdabb681a33955fc",
+    "functions/test/postgis_staging_runtime.test.js": "6d9d404734a21457dfbb24ea930a88870e75251b83b6f23f007313bf025e13b0",
+    "functions/test/postgis_integration.test.js": "01f7f4c9e8a6ba0a1c81035867ee1008adbcc5a3623538d72b400113a49392e0",
+    "functions/test/postgis_snapshot_integration.test.js": "868f19c21d270d1d42fd0f5258cf3fb4a6cece7718fe5148d010de25e7cc09d5",
+    "functions/test/postgis_cleanup.test.js": "35330a6e7eff17a08ea4e5668104f5bb37e5e6d88c74c2437dba9951b084ae7a"
+  },
+  "retainedProof": {
+    "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-CORRECT-001-20261001-140350-EDT/distance-bound-arithmetic-audit.py": "b0445dca0915ceb2938085cdf7bd0bd0702bc967a9e45ede71364ea247d0d94d",
+    "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-CORRECT-001-20261001-140350-EDT/evidence/math/node-v24.21.0-ieee754.cc": "1bf999809d4c4c1d31ad5ff3578d32614796f159e08b9e7782560d017721a0c2",
+    "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-CORRECT-001-20261001-140350-EDT/DISTANCE-BOUND-REVIEW.md": "11640dc74aac39eede3db72d8f5365b3a7411d87bb6c5dbacecb2a1188d30346",
+    "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-CORRECT-001-20261001-140350-EDT/DISTANCE-LONGITUDE-ADDENDUM.md": "92b8d1cf33b6ed57d004d35dbbfb82f7f0e44654ee93b8d732cae06fe4010771",
+    "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-CORRECT-001-20261001-140350-EDT/DISTANCE-FINAL-REVIEW.md": "c8d5bbb422cc897800c0c2d0cafcb83bb00f0f78e7de4adc036a3ea26491b883",
+    "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-CORRECT-001-20261001-140350-EDT/DISTANCE-FINAL-REVIEW-MEMO.md": "0fbf16d3abd76782139ab354a79e7f95643d068b5ff269c5a22061925be6c1eb"
+  },
+  "findings": [
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "issue": "Any future Linux tuple must remain local-only: current numerical guard is shared by local staging and hosted entrypoints. Emulated qualification does not justify native hosted acceptance.",
+      "status": "PRECONDITION; current source correctly remains closed to Linux"
+    },
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "issue": "The exact Linux math dispatch/build/flags must be established. Pinned source has an optional V8_USE_LIBM_TRIG_FUNCTIONS path whose use_libm_trig_functions flag defaults true. Existing fdlibm branch audit cannot cover an unexamined alternative solely through version/hash labels.",
+      "status": "AWAITING_ACTUAL_BINARY_EVIDENCE"
+    },
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "issue": "Prepared build explicitly supplies pinned Python and exact provider/guard sources; cross-language tests cannot silently skip. Actual linker/build execution remains an ordinary verification obligation.",
+      "status": "SOURCE_REVIEW_ONLY"
+    },
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "issue": "Controller image deliberately copies a compiled host verifier; require fresh source-to-compiled hash provenance before building it. Do not silently use stale functions/lib.",
+      "status": "BUILD_INPUT_OBLIGATION"
+    }
+  ],
+  "reviewNotes": "Finite318/1512 vectors are corroboration, not universal proof. No installation eligibility inferred. No existing frozen artifact modified."
+}

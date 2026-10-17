@@ -1,0 +1,38 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003",
+  "reviewer": "/root/query_client",
+  "role": "Independent guest security/privacy/performance review only",
+  "startedAt": "2026-10-17T21:48:29.931155+00:00",
+  "expectedStartingHead": "4a3241d722d347067db8a6960763e9e90c2dc665",
+  "observedHead": "4a3241d722d347067db8a6960763e9e90c2dc665",
+  "baselineCommittedSha256": {
+    "functions/src/customer_bitesaver_search_session.ts": "1bdbf6716fe5ec1d7af07dad6a76b4b1c5df1a592de317ad8014f9b7984d6f81",
+    "functions/src/customer_bitesaver_guest_offer_checks.ts": "4892ffa7db34c4999d02290b8a8ebaf3100031db1b374732ff35d481c84fb34a",
+    "lib/services/customer_bitesaver_search_coordinator.dart": "ac84b6a852ee7b8a7b303ca87ca0094ddf14eee220b3a92fdf4f9614830ebae6",
+    "lib/services/customer_bitesaver_guest_usage_store.dart": "79dfa8c731cccc77d13625febe171f107f4feaecfeb9ab6dda8580913bbb97da",
+    "lib/models/customer_bitesaver_search.dart": "b9a0f919f93473e430453dfc28b9dfecebf5c9e391ad0d7c459eeda5235df5b1"
+  },
+  "reviewStatus": "INITIAL INSPECTION; implementation in progress, no final verdict",
+  "scope": [
+    "Global75 candidate bound,100 cumulative work bound and byte/expiry retention bounds",
+    "Exact per-parent history subset and source/occurrence/identity validation",
+    "Ordered prefix commit and no partial-page success or unresolved cursor advance",
+    "Replay, lost responses, expired reissue, immutable evaluation instant and guest revision",
+    "Original serial path and default-off option; public DTO/token compatibility and native redemption authority",
+    "Equivalent actual local rendered performance evidence and no hosted claims"
+  ],
+  "governingSourcesRead": [
+    "AGENTS.md",
+    "Current user request945d7d2d-ae46-4189-a458-2f3ee121828c",
+    "https://docs.google.com/document/d/1cIYOKKMP_l907zQApzgAetv6fCS7pfBG5kSgNuaVTwk",
+    "https://docs.google.com/document/d/1vTTytTyj5r1cjhav-mkqi_QYOq_LD9MzgCD_8sr5DAQ",
+    "BS-BITESTAR-SEARCH-PRESPEND-DECISIONS-001-20261017/decision-note.txt",
+    "tool/postgis_staging/READINESS-FINISH-002.md",
+    "tool/postgis_staging/readiness-manifest.v4.json",
+    "tool/safety_release_prep/README.md",
+    "tool/safety_release_prep/combined-source.json"
+  ],
+  "authorizationBoundary": "Owner explicitly approved bounded earlier subset disclosure in trusted same-session backend; no full history inventory, new public fields, cross-user cache, tracking or retention extension. Reviewer performs no source/Git/cloud edits.",
+  "materialFindings": [],
+  "note": "Initial protocol observations were sent to root; no incomplete work-in-progress state has been labeled a defect."
+}

@@ -1,0 +1,50 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003",
+  "reviewer": "Track C staging_recovery",
+  "reviewedAt": "2026-10-17T22:01:16.741251+00:00",
+  "status": "Design recommendation and WIP source review; not final qualification",
+  "eligibilityDesign": {
+    "reasonForTwoStages": "The original pre-create signed configuration cannot know a future Cloud SQL createTime; never invent it or change the original config/start to retrofit it.",
+    "preflightEvidence": {
+      "protocol": "bitestar.sql-exclusive-cleanup-preflight.v1",
+      "reviewerId": "exact independently accountable reviewer identity",
+      "reviewedAtMs": "nonfuture timestamp",
+      "validUntilMs": "explicit bounded expiry, no later than original cleanup horizon",
+      "projectId": "exact isolated project",
+      "projectNumber": "exact project number",
+      "runId": "exact run",
+      "candidateDigest": "exact candidate",
+      "firstBillableAtMs": "original signed start",
+      "deadlineMs": "original non-resetting resource deadline",
+      "sqlName": "exact permanent single-use planned name",
+      "provisioningPrincipals": "exact exclusive create/replace identities",
+      "cleanupPrincipals": "exact controller/watchdog update/delete identities",
+      "effectivePermissionsEvidenceSha256": "reviewed direct and inherited permissions/other automation evidence",
+      "singleUseRegistryEvidenceSha256": "reviewed never-reuse name registry evidence"
+    },
+    "approvalBinding": "Full signed config binds SHA256 of that complete independent report and fixed permitted identities/name. Report is source-prepared now; no genuine live proof manufactured. Avoid self-referential configDigest inside its own bound report.",
+    "ledgerBindingAfterCreation": {
+      "eligibilityEvidenceDigest": "same approved preflight report hash",
+      "resourceReceipt": "exact observed kind/id/uid/createTime",
+      "createIntentDigest": "exact one sent create intent",
+      "firstBillableAtMs": "same original start",
+      "deadlineMs": "same original deadline",
+      "boundAtMs": "observation time"
+    },
+    "deleteChecks": [
+      "Validate exact signed report digest and all project/run/name/candidate/clock fields",
+      "Reject missing/expired/future/revoked/mismatched proof; retain supervised fallback",
+      "Compare durable binding to exact current ownership receipt and fresh provider GET incarnation",
+      "Any lifecycle-permission/intervention/name-registry change invalidates eligibility; absence of such changes is a future supervised verification obligation, not a live IAM claim",
+      "A valid report/config cannot add an atomic SQL DELETE precondition that the API lacks; underlying exclusive control and permanent never-reuse policy remain necessary",
+      "If independent review must cover actual post-create incarnation rather than preflight conditions plus observed ledger binding, use an explicitly separate signed cleanup attestation; never mutate original config/clock"
+    ]
+  },
+  "wipFindings": [
+    "Cancellation queue now precedes run LRO polling; correct direction. Direct delete_owned must enforce the same sent-run/completed-execution rule, including empty listings after lost run reply.",
+    "Stop confirmation needs durable invalidation before a new stop attempt on the same incarnation; an old confirmed operation cannot prove a later lost stop completed.",
+    "Completed execution evidence must match the tracked run sentAt/known execution, not merely an unrelated older terminal row.",
+    "After matching execution completion, a cancelled/error original run LRO must not prevent cleanup indefinitely; retain its failed outcome without requiring successful workload execution."
+  ],
+  "changesByReviewer": []
+}

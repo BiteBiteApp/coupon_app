@@ -1,0 +1,37 @@
+test_active_load_limit (test_guard.Safety) ... ok
+test_changed_candidate (test_guard.Safety) ... ok
+test_changed_config (test_guard.Safety) ... ok
+test_checkpoint_resume (test_guard.Safety) ... ok
+test_duplicate_launch (test_guard.Safety) ... ok
+test_duplicate_nested_workflow_names (test_guard.Safety) ... ok
+test_duplicate_request (test_guard.Safety) ... ok
+test_expired_approval (test_guard.Safety) ... ok
+test_expired_run (test_guard.Safety) ... ok
+test_interrupted (test_guard.Safety) ... ok
+test_limit_every_counter (test_guard.Safety) ... ok
+test_material_next_spend_at_280 (test_guard.Safety) ... ok
+test_missing_approval (test_guard.Safety) ... ok
+test_missing_local_work (test_guard.Safety) ... ok
+test_missing_project (test_guard.Safety) ... ok
+test_missing_shutdown_test (test_guard.Safety) ... ok
+test_nonfinite_and_negative (test_guard.Safety) ... ok
+test_phase_allowance (test_guard.Safety) ... ok
+test_previous_gate (test_guard.Safety) ... ok
+test_production (test_guard.Safety) ... ok
+test_renderer_targets_and_no_dynamic_arguments (test_guard.Safety) ... ok
+test_reset_deadline (test_guard.Safety) ... ok
+test_stale_accounting (test_guard.Safety) ... ok
+test_strict_heartbeat (test_guard.Safety) ... ok
+test_supervised_bootstrap_transition (test_guard.Safety) ... ok
+test_teardown_ownership (test_guard.Safety) ... ok
+test_teardown_unlisted (test_guard.Safety) ... ok
+test_unapproved_gate (test_guard.Safety) ... ok
+test_valid_reservation (test_guard.Safety) ... ok
+test_watchdog_without_owner (test_guard.Safety) ... ok
+test_wrong_approval_project (test_guard.Safety) ... ok
+test_wrong_project (test_guard.Safety) ... ok
+
+----------------------------------------------------------------------
+Ran 32 tests in 0.005s
+
+OK

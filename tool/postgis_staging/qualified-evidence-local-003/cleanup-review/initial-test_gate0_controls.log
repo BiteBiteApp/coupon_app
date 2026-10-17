@@ -1,0 +1,22 @@
+test_atomic_transition_failure_rolls_back (test_gate0_controls.Controls) ... ok
+test_bounded_unreconciled_metadata (test_gate0_controls.Controls) ... ok
+test_concurrent_duplicate_reservations_have_one_winner (test_gate0_controls.Controls) ... ok
+test_early_100_checkpoint_cannot_be_crossed (test_gate0_controls.Controls) ... ok
+test_early_checkpoint_includes_indirect_forecast_at_boundary (test_gate0_controls.Controls) ... ok
+test_exact_replay_never_runs_twice (test_gate0_controls.Controls) ... ok
+test_future_heartbeat_pauses_independent_watchdog (test_gate0_controls.Controls) ... ok
+test_guard_explicit_manifest_ignores_stale_default_and_newer_names (test_gate0_controls.Controls) ... ok
+test_guard_no_manifest_keeps_original_default (test_gate0_controls.Controls) ... ok
+test_guard_selected_tampered_manifest_cannot_fall_back (test_gate0_controls.Controls) ... ok
+test_guard_selected_valid_manifest_never_enables_execute (test_gate0_controls.Controls) ... ok
+test_lifetime_and_connections_and_missing_alert_stop_launch (test_gate0_controls.Controls) ... ok
+test_receipt_cannot_substitute_other_resource_incarnation (test_gate0_controls.Controls) ... ok
+test_restart_retains_original_clock_and_cost (test_gate0_controls.Controls) ... ok
+test_source_freeze_detects_post_qualification_edits (test_gate0_controls.Controls) ... ok
+test_source_freeze_rejects_credentials_and_escape (test_gate0_controls.Controls) ... ok
+test_stale_generation_and_mutated_deadline_rejected (test_gate0_controls.Controls) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.167s
+
+OK

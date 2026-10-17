@@ -1,0 +1,227 @@
+Resolving dependencies...
+Downloading packages...
+  _flutterfire_internals 1.3.72 (1.3.77 available)
+  app_links 7.2.1 (7.2.2 available)
+  app_links_linux 1.0.3 (1.0.4 available)
+  app_links_web 1.0.4 (1.0.5 available)
+  archive 4.0.9 (4.5.2 available)
+  async 2.13.0 (2.13.1 available)
+  audioplayers 6.7.1 (6.8.1 available)
+  audioplayers_android 5.2.1 (5.3.0 available)
+  audioplayers_darwin 6.4.0 (6.5.0 available)
+  audioplayers_linux 4.2.1 (4.3.0 available)
+  audioplayers_platform_interface 7.1.1 (7.2.0 available)
+  audioplayers_web 5.2.1 (5.3.0 available)
+  audioplayers_windows 4.3.1 (4.4.1 available)
+  cli_util 0.4.2 (0.6.0 available)
+  clock 1.1.2 (1.1.3 available)
+  cloud_firestore 6.5.0 (6.10.0 available)
+  cloud_firestore_platform_interface 8.0.2 (8.0.7 available)
+  cloud_firestore_web 5.5.0 (5.7.3 available)
+  cloud_functions 6.3.2 (6.5.0 available)
+  cloud_functions_platform_interface 6.0.2 (6.0.7 available)
+  cloud_functions_web 5.1.8 (5.1.13 available)
+  code_assets 1.2.1 (2.1.0 available)
+  cross_file 0.3.5+2 (0.4.0 available)
+  cupertino_icons 1.0.8 (2.0.0 available)
+  dbus 0.7.15 (0.8.0 available)
+  file_selector_linux 0.9.4 (0.9.4+1 available)
+  file_selector_macos 0.9.5 (0.9.5+1 available)
+  file_selector_windows 0.9.3+5 (0.9.3+6 available)
+  firebase_auth 6.5.2 (6.7.0 available)
+  firebase_auth_platform_interface 9.0.2 (9.1.0 available)
+  firebase_auth_web 6.2.2 (6.3.0 available)
+  firebase_core 4.10.0 (4.15.0 available)
+  firebase_core_platform_interface 7.0.1 (8.1.1 available)
+  firebase_core_web 3.8.0 (3.12.0 available)
+  firebase_storage 13.4.2 (13.6.0 available)
+  firebase_storage_platform_interface 6.0.2 (6.0.7 available)
+  firebase_storage_web 3.11.8 (3.11.13 available)
+  flutter_launcher_icons 0.13.1 (0.14.4 available)
+  flutter_plugin_android_lifecycle 2.0.34 (2.0.35 available)
+  geocoding 4.0.0 (5.0.0 available)
+  geocoding_android 4.0.1 (5.1.0 available)
+  geocoding_platform_interface 3.2.0 (5.0.0 available)
+  geolocator 14.0.2 (14.1.1 available)
+  geolocator_android 5.0.2 (5.1.1+1 available)
+  geolocator_apple 2.3.13 (2.3.15 available)
+  geolocator_linux 0.2.4 (0.2.6 available)
+  geolocator_platform_interface 4.2.6 (4.4.0 available)
+  geolocator_web 4.1.3 (4.1.4 available)
+  google_sign_in_android 7.2.10 (7.2.18 available)
+  google_sign_in_ios 6.3.0 (6.3.7 available)
+  gsettings 0.2.8 (0.2.9 available)
+  gtk 2.1.0 (2.2.0 available)
+  hooks 2.0.2 (2.2.0 available)
+  image 4.9.2 (4.12.0 available)
+  image_picker 1.2.2 (1.2.4 available)
+  image_picker_android 0.8.13+17 (0.8.13+25 available)
+  image_picker_ios 0.8.13+6 (0.8.13+12 available)
+  image_picker_platform_interface 2.11.1 (2.11.2 available)
+  jni 1.0.0 (1.1.0 available)
+  jni_flutter 1.0.1 (1.0.4+1 available)
+  json_annotation 4.11.0 (4.12.0 available)
+  matcher 0.12.19 (0.12.20 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.0 (1.19.0 available)
+  mime 2.0.0 (2.1.0 available)
+  objective_c 9.4.1 (9.6.2 available)
+  package_config 2.2.0 (3.0.0 available)
+  package_info_plus 9.0.0 (10.2.2 available)
+  package_info_plus_platform_interface 3.2.1 (4.1.0 available)
+  path_provider 2.1.5 (2.1.6 available)
+  path_provider_linux 2.2.1 (2.2.2 available)
+  path_provider_platform_interface 2.1.2 (2.1.3 available)
+  pdf 3.13.0 (3.13.1 available)
+  petitparser 7.0.2 (7.1.0 available)
+  platform 3.1.6 (3.2.0 available)
+  posix 6.5.0 (6.5.2 available)
+  pub_semver 2.2.0 (2.2.1 available)
+! qr 4.0.0 (overridden)
+  record_use 0.6.0 (1.1.1 available)
+  shared_preferences 2.5.5 (2.5.6 available)
+  shared_preferences_android 2.4.23 (2.5.0 available)
+  shared_preferences_foundation 2.5.6 (2.5.7 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  synchronized 3.4.1 (3.5.0 available)
+  test_api 0.7.11 (0.7.15 available)
+  url_launcher 6.3.2 (6.3.3 available)
+  url_launcher_android 6.3.28 (6.3.33 available)
+  url_launcher_ios 6.4.1 (6.4.2 available)
+  url_launcher_linux 3.2.2 (3.2.3 available)
+  url_launcher_macos 3.2.5 (3.2.6 available)
+  url_launcher_web 2.4.2 (2.4.3 available)
+  url_launcher_windows 3.1.5 (3.1.6 available)
+  uuid 4.5.3 (4.6.0 available)
+  vector_math 2.2.0 (2.4.3 available)
+  vm_service 15.0.2 (15.3.0 available)
+  win32 5.15.0 (6.4.0 available)
+  xml 7.0.1 (7.1.0 available)
+  yaml 3.1.3 (3.1.4 available)
+Got dependencies!
+97 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart
+00:00 +0: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: (setUpAll)
+00:00 +0: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded signed-out explicit use supplies genuine discovery authority
+00:00 +1: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded anonymous-a explicit use supplies genuine discovery authority
+00:00 +2: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded signed-a explicit use supplies genuine discovery authority
+00:00 +3: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded reading and favoriting do not begin device proof or use
+00:00 +4: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded ambiguous retry freezes request coordinates and exact proof
+00:00 +5: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded repeated taps share the same operation and retain completed timer through cancellation
+00:00 +6: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded explicit use cannot reuse an active legacy presentation as device authority
+00:00 +7: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded remote-account timer denial creates no local timer presentation
+00:00 +8: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded cooldown failure never falls back to old writers
+00:00 +9: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded provider failure never falls back to old writers
+00:00 +10: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded network failure never falls back to old writers
+00:00 +11: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded challenge failure never falls back to old writers
+00:00 +12: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded server failure never falls back to old writers
+00:00 +13: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded guest-to-signed during capability retires every stale completion
+00:00 +14: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded guest-to-signed during admission retires every stale completion
+00:00 +15: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded guest-to-signed during challenge retires every stale completion
+00:00 +16: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded guest-to-signed during proof retires every stale completion
+00:00 +17: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded guest-to-signed during use retires every stale completion
+00:00 +18: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded account-a-to-b during capability retires every stale completion
+00:00 +19: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded account-a-to-b during admission retires every stale completion
+00:00 +20: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded account-a-to-b during challenge retires every stale completion
+00:00 +21: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded account-a-to-b during proof retires every stale completion
+00:00 +22: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded account-a-to-b during use retires every stale completion
+00:00 +23: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded sign-out during capability retires every stale completion
+00:00 +24: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded sign-out during admission retires every stale completion
+00:00 +25: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded sign-out during challenge retires every stale completion
+00:00 +26: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded sign-out during proof retires every stale completion
+00:00 +27: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded sign-out during use retires every stale completion
+00:00 +28: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded live auth change during proof fences work before auth listener delivery
+00:00 +29: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded live auth change during use fences work before auth listener delivery
+00:00 +30: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded owner invalidation while proof is pending prevents submission
+00:00 +31: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded explicit cancellation while proof is pending prevents submission
+00:00 +32: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded use completion survives read-lease expiry without new authority
+00:00 +33: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded exact retry survives read-lease expiry without new authority
+00:00 +34: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded cancellation removes exact-retry eligibility after lease expiry
+00:00 +35: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded daily special rejects use before any device work
+00:00 +36: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: signed page point-reads retained guest evidence before availability
+00:00 +37: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: signed active-timer overlay expires into Fresh Search
+00:00 +38: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: guest active-timer evidence expires into Fresh Search
+00:00 +39: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: guest restaurant non-progress rejects its pending timer deadline
+00:00 +40: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: expired unaccepted timer evidence fails only its pending page
+00:00 +41: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: guest additional-offer non-progress rejects its timer deadline
+00:00 +42: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: guest ownership rejection cannot install a challenged timer
+00:00 +43: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: accepted repeated guest rounds install their earliest timer
+00:00 +44: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: stale guest page completion cannot cross auth with its timer
+00:00 +45: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: accepted signed and guest page contexts expire without coupon overlays
+00:00 +46: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: synchronous accepted-page expiry cannot repopulate guest or signed state
+00:00 +47: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: server-canonical IANA aliases remain session-bound
+00:00 +48: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: an expired signed evaluation requires a fresh search
+00:00 +49: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: signed validation cannot cross a local revision change
+00:00 +50: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: preparing polls are paced/non-overlapping and READY updates binding before page
+00:00 +51: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: bounded preparing polls stop and surface an error
+00:00 +52: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: transient status failure replays the exact request and recovers
+00:00 +53: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: paced gate retry clears a recovered preparing error
+00:00 +54: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: resource-exhausted status retries are bounded and explicit retry resets the budget
+00:00 +55: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: failed and expired statuses remain terminal until explicit action
+00:00 +56: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: READY deadline reconciles authoritative expiry and disables paging
+00:00 +57: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: READY reconciliation preserves pages when the server slid expiry
+00:00 +58: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: definitive page precondition reconciles to terminal expiry
+00:00 +59: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: page reconciliation gate retries the exact status request at short cadence
+00:00 +60: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: expired append cursor requires Fresh Search without exact replay
+00:00 +61: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: offer append failure preserves restaurant and prior offer results
+00:00 +62: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: offer precondition preserves restaurants and restarts only its pager
+00:00 +63: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: later restaurant page rejects cross-page offer ownership atomically
+00:00 +64: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: rejected signed ownership cannot replace a retained usage overlay
+00:00 +65: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: concurrent offer pagers reject one cross-restaurant offer owner
+00:00 +66: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: pause cancels READY deadline and resume status-checks before paging
+00:00 +67: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: new criteria and auth realms suppress older awaited success and error
+00:00 +68: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: stale page errors cannot invalidate a newer search
+00:00 +69: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: restaurant and offer pagers retain order beyond 120 and separate previews
+00:00 +70: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: rejected non-progress cannot authorize IDs or daily-special saves
+00:00 +71: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: rejected non-progress cannot poison ownership or signed overlays
+00:00 +72: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: signed and guest daily specials cannot enter redemption
+00:00 +73: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: guest continuation transport failure replays the exact pending answer
+00:00 +74: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: wrong-operation continuation stays pending for exact pager retry
+00:00 +75: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: twenty-five guest challenges complete across paced yields
+00:00 +76: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: fast guest burst keeps its minimum window with a fixed wall clock
+00:00 +77: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: slow successful guest work keeps a yield without extra retry sleep
+00:00 +78: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: account switch during successful guest yield prevents continuation
+00:00 +79: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: server original-operation retry is paced and gets a new transport ID
+00:00 +80: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: work-budget restart preserves accepted guest policy progress
+00:00 +81: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: work-budget page restart retains its pending timer deadline
+00:00 +82: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: same guest realm can retain a compatible session; realm changes clear it
+00:00 +83: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: favorite read and write completions cannot cross auth realms
+00:00 +84: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: validation and signed start replay exact immutable transport requests
+00:00 +85: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: same validation intent deduplicates and older success cannot replace latest
+00:00 +86: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: pause/resume preserves uncertain signed start recovery
+00:00 +87: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: same signed realm preserves an uncertain exact start
+00:00 +88: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: older validation error cannot poison a newer decision
+00:00 +89: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: superseded signed local validation cannot install its earlier expiry
+00:00 +90: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: ABA validation cleanup cannot erase the newest exact retry
+00:00 +91: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: in-flight signed start deduplicates and rejects superseding validation
+00:00 +92: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: new signed start rechecks local evidence after validation
+00:00 +93: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: signed unlimited receipts expose nullable timer anchors
+00:00 +94: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: guest validation rejects non-target challenges before targeted reads
+00:00 +95: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: guest validation starts durable local timer and never calls signed start
+00:00 +96: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: guest start blocks superseding validation and recovers after cleanup uncertainty
+00:00 +97: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: signed-out to anonymous preserves uncertain guest start recovery
+00:00 +98: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: guest continuation validation rejects mismatched result identity
+00:00 +99: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: accepted guest validation installs its challenged timer deadline
+00:00 +100: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: guest allowed-unlimited completes without a local usage write
+00:00 +101: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: guest revision change invalidates unlimited and timer authorizations
+00:00 +102: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: queued guest revision race adopts durable revision and requires fresh search
+00:00 +103: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: guest unlimited rechecks its deadline after revision read
+00:00 +104: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: guest legacy usage labels remain timer-only, not unlimited
+00:00 +105: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: guest denied direct completion remains a denial without policy
+00:00 +106: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitesaver_search_coordinator_test.dart: (tearDownAll)
+00:01 +106: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitescore_search_service_test.dart: bounded customer mode is off by default
+00:01 +107: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitescore_search_service_test.dart: DTO identity is exact and private source fields never enter models
+00:01 +108: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitescore_search_service_test.dart: bounded preparation then append retains same-name canonical dishes
+00:01 +109: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitescore_search_service_test.dart: criteria changes discard old first-page responses
+00:01 +110: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitescore_search_service_test.dart: stale append cannot join a newer query
+00:01 +111: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitescore_search_service_test.dart: actor replacement fences an in-flight response
+00:01 +112: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitescore_search_service_test.dart: rejects cross-session and oversized pages without accepting rows
+00:01 +113: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_bitescore_search_service_test.dart: transport failure is surfaced without invoking a raw-read fallback
+00:01 +114: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_search_candidate_runtime_test.dart: candidate is off by default and enables existing consumers explicitly
+00:01 +115: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_search_candidate_runtime_test.dart: candidate routing preserves profile, menu, saved and redemption calls
+00:01 +116: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_search_candidate_runtime_test.dart: BiteScore and Finder controller consume selected native-shaped results (false)
+00:01 +117: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_search_candidate_runtime_test.dart: BiteSaver coordinator delivers a useful page through selected service (false)
+00:01 +118: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_search_candidate_runtime_test.dart: BiteScore and Finder controller consume selected native-shaped results (true)
+00:01 +119: /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/test/services/customer_search_candidate_runtime_test.dart: BiteSaver coordinator delivers a useful page through selected service (true)
+00:01 +120: All tests passed!

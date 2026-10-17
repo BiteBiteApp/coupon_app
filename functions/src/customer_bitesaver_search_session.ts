@@ -177,6 +177,8 @@ export type CustomerBiteSaverSessionContext = Readonly<{
   now?: () => number;
   randomSource?: (size: number) => Uint8Array;
   searchBackend?: "postgis";
+  /** Local, default-off experiment. Never accepted from a callable request. */
+  guestRestaurantWindow?: boolean;
 }>;
 
 function requireCustomerBiteSaverIdentityKey(
@@ -9999,6 +10001,8 @@ type CustomerBiteSaverGuestStoredRestaurant = Readonly<{
 
 type CustomerBiteSaverGuestRestaurantProgress = Readonly<{
   kind: "restaurantPage";
+  windowVersion?: 1;
+  pendingRestaurants?: readonly CustomerBiteSaverGuestCurrentRestaurant[];
   outerBoundary: RestaurantResultSortTuple | null;
   readyRestaurants: readonly CustomerBiteSaverGuestStoredRestaurant[];
   currentRestaurant: Readonly<{
@@ -10014,6 +10018,15 @@ type CustomerBiteSaverGuestRestaurantProgress = Readonly<{
     countKnown: boolean;
   }> | null;
   resultSourceExhausted: boolean;
+}>;
+
+type CustomerBiteSaverGuestCurrentRestaurant = NonNullable<
+  CustomerBiteSaverGuestRestaurantProgress["currentRestaurant"]>;
+type CustomerBiteSaverGuestRestaurantSlice = Readonly<{
+  restaurantId: string;
+  candidateCount: number;
+  nextOfferBoundary: readonly [number, string, string];
+  sourceExhausted: boolean;
 }>;
 
 type CustomerBiteSaverGuestOfferProgress = Readonly<{
@@ -10068,7 +10081,8 @@ type CustomerBiteSaverGuestOriginalRequest =
     }>;
 
 type CustomerBiteSaverGuestCheckBatch = Readonly<{
-  kind: "restaurantLive" | "offerScan" | "redemptionTarget";
+  kind: "restaurantLive" | "restaurantWindow" | "offerScan" | "redemptionTarget";
+  restaurantSlices?: readonly CustomerBiteSaverGuestRestaurantSlice[];
   sequence: number;
   token: string;
   candidateDigest: string;
@@ -10755,7 +10769,9 @@ function parseGuestProgress(value: {
   context: CustomerBiteSaverSessionContext;
 }): CustomerBiteSaverGuestProgress {
   if (value.operation === "restaurantPage") {
+    const window = isPlainRecord(value.raw) && value.raw.windowVersion !== undefined;
     if (!hasExactRecordKeys(value.raw, [
+      ...(window ? ["windowVersion", "pendingRestaurants"] : []),
       "currentRestaurant",
       "kind",
       "outerBoundary",
@@ -10765,6 +10781,13 @@ function parseGuestProgress(value: {
       typeof value.raw.resultSourceExhausted !== "boolean" ||
       !Array.isArray(value.raw.readyRestaurants) ||
       value.raw.readyRestaurants.length > customerBiteSaverPageSize + 1) {
+      return invalidGuestCheckDocumentState();
+    }
+    if (window && (value.raw.windowVersion !== 1 ||
+        value.context.guestRestaurantWindow !== true ||
+        value.context.searchBackend !== "postgis" ||
+        !Array.isArray(value.raw.pendingRestaurants) ||
+        value.raw.pendingRestaurants.length > customerBiteSaverPageSize)) {
       return invalidGuestCheckDocumentState();
     }
     const outerBoundary = value.raw.outerBoundary === null
@@ -10874,8 +10897,30 @@ function parseGuestProgress(value: {
         countKnown: raw.countKnown,
       });
     }
+    const pendingRestaurants = window
+      ? (value.raw.pendingRestaurants as unknown[]).map(raw => {
+        const parsed = parseGuestProgress({...value, raw: {
+          kind: "restaurantPage", currentRestaurant: raw, outerBoundary: null,
+          readyRestaurants: [], resultSourceExhausted: false,
+        }});
+        if (parsed.kind !== "restaurantPage" || parsed.currentRestaurant === null) {
+          return invalidGuestCheckDocumentState();
+        }
+        return parsed.currentRestaurant;
+      }) : [];
+    const ordered = [...readyRestaurants,
+      ...(currentRestaurant === null ? [] : [currentRestaurant]), ...pendingRestaurants];
+    if (window && (ordered.length > customerBiteSaverPageSize + 1 ||
+        new Set(ordered.map(row => row.restaurantId)).size !== ordered.length ||
+        ordered.some((row, i) => i > 0 && compareGuestRestaurantSortTuples(
+          ordered[i - 1].sortTuple, row.sortTuple) >= 0) ||
+        (value.raw.resultSourceExhausted && pendingRestaurants.length > 0))) {
+      return invalidGuestCheckDocumentState();
+    }
     return Object.freeze({
       kind: value.operation,
+      ...(window ? {windowVersion: 1 as const,
+        pendingRestaurants: Object.freeze(pendingRestaurants)} : {}),
       outerBoundary: outerBoundary as RestaurantResultSortTuple | null,
       readyRestaurants: Object.freeze(readyRestaurants),
       currentRestaurant,
@@ -11020,6 +11065,57 @@ function parseGuestProgress(value: {
   });
 }
 
+function guestWindowRestaurants(progress: CustomerBiteSaverGuestRestaurantProgress):
+readonly CustomerBiteSaverGuestCurrentRestaurant[] {
+  return [...(progress.currentRestaurant === null ? [] : [progress.currentRestaurant]),
+    ...(progress.pendingRestaurants ?? [])];
+}
+
+function parseGuestRestaurantWindowBatch(value: {
+  rawCandidates: unknown; rawSlices: unknown;
+  progress: CustomerBiteSaverGuestRestaurantProgress;
+  context: CustomerBiteSaverSessionContext; evaluationAtMs: number;
+}): Readonly<{candidates: readonly CustomerBiteSaverGuestStoredOffer[];
+  slices: readonly CustomerBiteSaverGuestRestaurantSlice[]}> {
+  if (!Array.isArray(value.rawCandidates) || value.rawCandidates.length === 0 ||
+      value.rawCandidates.length > customerBiteSaverGuestCheckMaximumCandidateIds ||
+      !Array.isArray(value.rawSlices) || value.rawSlices.length === 0 ||
+      value.rawSlices.length > customerBiteSaverPageSize + 1) {
+    return invalidGuestCheckDocumentState();
+  }
+  const restaurants = guestWindowRestaurants(value.progress);
+  const candidates: CustomerBiteSaverGuestStoredOffer[] = [];
+  let lastParent = -1;
+  const slices = value.rawSlices.map((raw, index) => {
+    if (!hasExactRecordKeys(raw, ["candidateCount", "nextOfferBoundary",
+      "restaurantId", "sourceExhausted"])) return invalidGuestCheckDocumentState();
+    const parentIndex = restaurants.findIndex(row => row.restaurantId === raw.restaurantId);
+    const boundary = parseLiveOfferSortTuple(raw.nextOfferBoundary);
+    if (parentIndex <= lastParent || (index === 0 && parentIndex !== 0) ||
+        !Number.isSafeInteger(raw.candidateCount) || (raw.candidateCount as number) < 1 ||
+        (raw.candidateCount as number) > customerBiteSaverGuestCheckMaximumCandidateIds ||
+        boundary == null || typeof raw.sourceExhausted !== "boolean") {
+      return invalidGuestCheckDocumentState();
+    }
+    const count = raw.candidateCount as number;
+    const group = (value.rawCandidates as unknown[]).slice(candidates.length, candidates.length + count);
+    if (group.length !== count) return invalidGuestCheckDocumentState();
+    candidates.push(...parseGuestStoredOfferList({raw: group,
+      authoritativeAccountId: restaurants[parentIndex].authoritativeAccountId,
+      context: value.context, evaluationAtMs: value.evaluationAtMs,
+      maximumLength: customerBiteSaverGuestCheckMaximumCandidateIds, requireCheckable: true}));
+    lastParent = parentIndex;
+    return Object.freeze({restaurantId: restaurants[parentIndex].restaurantId,
+      candidateCount: count, nextOfferBoundary: boundary,
+      sourceExhausted: raw.sourceExhausted});
+  });
+  if (candidates.length !== value.rawCandidates.length ||
+      new Set(candidates.map(row => row.offerId)).size !== candidates.length) {
+    return invalidGuestCheckDocumentState();
+  }
+  return Object.freeze({candidates: Object.freeze(candidates), slices: Object.freeze(slices)});
+}
+
 function parseGuestCheckBatch(value: {
   raw: unknown;
   document: Omit<CustomerBiteSaverGuestCheckDocument,
@@ -11030,7 +11126,10 @@ function parseGuestCheckBatch(value: {
   if (value.raw === null) {
     return null;
   }
+  const window = value.document.progress.kind === "restaurantPage" &&
+    value.document.progress.windowVersion === 1;
   if (!hasExactRecordKeys(value.raw, [
+    ...(window ? ["restaurantSlices"] : []),
     "availabilityGeneration",
     "candidateDigest",
     "candidates",
@@ -11046,7 +11145,7 @@ function parseGuestCheckBatch(value: {
     return invalidGuestCheckDocumentState();
   }
   const expectedKind = value.document.operation === "restaurantPage"
-    ? "restaurantLive"
+    ? (window ? "restaurantWindow" : "restaurantLive")
     : value.document.operation === "offerPage"
       ? "offerScan"
       : "redemptionTarget";
@@ -11082,11 +11181,17 @@ function parseGuestCheckBatch(value: {
     nextOfferBoundary === undefined ||
     (expectedKind === "redemptionTarget" &&
       (nextOfferBoundary !== null || value.raw.sourceExhausted !== true)) ||
-    (expectedKind !== "redemptionTarget" && nextOfferBoundary === null)
+    (expectedKind !== "redemptionTarget" && !window && nextOfferBoundary === null) ||
+    (window && (nextOfferBoundary !== null || value.raw.sourceExhausted !== false))
   ) {
     return invalidGuestCheckDocumentState();
   }
-  const candidates = parseGuestStoredOfferList({
+  const parsedWindow = window ? parseGuestRestaurantWindowBatch({
+    rawCandidates: value.raw.candidates, rawSlices: value.raw.restaurantSlices,
+    progress: value.document.progress as CustomerBiteSaverGuestRestaurantProgress,
+    context: value.context, evaluationAtMs: value.document.evaluationAt.getTime(),
+  }) : null;
+  const candidates = parsedWindow?.candidates ?? parseGuestStoredOfferList({
     raw: value.raw.candidates,
     authoritativeAccountId,
     context: value.context,
@@ -11117,6 +11222,7 @@ function parseGuestCheckBatch(value: {
   }
   return Object.freeze({
     kind: expectedKind,
+    ...(parsedWindow === null ? {} : {restaurantSlices: parsedWindow.slices}),
     sequence: value.raw.sequence as number,
     token: value.raw.token as string,
     candidateDigest: value.raw.candidateDigest as string,
@@ -11235,6 +11341,7 @@ function guestProgressStoredOffers(
       ...restaurant.metadataWitnesses,
     ]),
     ...(progress.currentRestaurant?.retainedOffers ?? []),
+    ...(progress.pendingRestaurants ?? []).flatMap(row => row.retainedOffers),
   ]);
 }
 
@@ -11444,6 +11551,7 @@ function parseGuestCheckDocument(
   const completedProgressIsTerminal = document.state !== "completed" ||
     (document.progress.kind === "restaurantPage"
       ? document.progress.currentRestaurant === null &&
+        (document.progress.pendingRestaurants?.length ?? 0) === 0 &&
         (document.progress.resultSourceExhausted ||
           document.progress.readyRestaurants.length >=
             customerBiteSaverPageSize + 1)
@@ -11732,6 +11840,7 @@ function createGuestCheckBatch(value: {
   candidates: readonly CurrentOffer[];
   nextOfferBoundary: readonly [number, string, string] | null;
   sourceExhausted: boolean;
+  restaurantSlices?: readonly CustomerBiteSaverGuestRestaurantSlice[];
   nowMs: number;
 }): CustomerBiteSaverGuestCheckDocument {
   const checkable = value.candidates.filter((candidate) =>
@@ -11812,6 +11921,8 @@ function createGuestCheckBatch(value: {
     state: "awaitingAnswer",
     activeBatch: Object.freeze({
       kind: value.kind,
+      ...(value.restaurantSlices === undefined ? {} :
+        {restaurantSlices: value.restaurantSlices}),
       sequence: boundedDocument.batchSequence,
       token,
       candidateDigest,
@@ -12376,6 +12487,31 @@ async function applyGuestAcceptedAnswer(value: {
       ]).slice(0, customerBiteSaverGuestReadyOfferLimit)),
       sourceExhausted: batch.sourceExhausted,
     });
+  } else if (progress.kind === "restaurantPage" && batch.kind === "restaurantWindow") {
+    const current = await currentOffersForExpiredGuestBatch({...value,
+      evaluationAt: document.evaluationAt});
+    const byId = new Map(current.map(offer => [offer.publicOfferId, offer]));
+    let offset = 0;
+    const updated = new Map<string, CustomerBiteSaverGuestCurrentRestaurant>();
+    for (const slice of batch.restaurantSlices ?? []) {
+      const row = guestWindowRestaurants(progress).find(parent =>
+        parent.restaurantId === slice.restaurantId);
+      if (row === undefined) throw new CustomerBiteSaverContractError("failed-precondition");
+      const accepted = batch.candidates.slice(offset, offset + slice.candidateCount)
+        .map(stored => byId.get(stored.offerId))
+        .filter((offer): offer is CurrentOffer => offer !== undefined &&
+          offer.decision.visible && !unavailable.has(offer.publicOfferId));
+      offset += slice.candidateCount;
+      updated.set(row.restaurantId, Object.freeze({...row,
+        liveBoundary: slice.nextOfferBoundary,
+        retainedOffers: retainGuestPreviewOffers([...row.retainedOffers,
+          ...accepted.map(guestStoredOffer)]),
+        visibleOfferCount: row.visibleOfferCount + accepted.length,
+        countKnown: slice.sourceExhausted}));
+    }
+    const rows = guestWindowRestaurants(progress).map(row => updated.get(row.restaurantId) ?? row);
+    progress = Object.freeze({...progress, currentRestaurant: rows[0] ?? null,
+      pendingRestaurants: Object.freeze(rows.slice(1))});
   } else if (progress.kind === "restaurantPage") {
     const currentRestaurant = progress.currentRestaurant;
     if (currentRestaurant === null) {
@@ -12504,6 +12640,35 @@ async function currentOffersForExpiredGuestBatch(value: {
   if (batch === null || progress.kind === "redemptionStart") {
     throw new CustomerBiteSaverContractError("failed-precondition");
   }
+  if (progress.kind === "restaurantPage" && batch.kind === "restaurantWindow") {
+    const rows = guestWindowRestaurants(progress);
+    let offset = 0;
+    const groups = (batch.restaurantSlices ?? []).map(slice => {
+      const row = rows.find(parent => parent.restaurantId === slice.restaurantId);
+      if (row === undefined) throw new CustomerBiteSaverContractError("failed-precondition");
+      const offers = batch.candidates.slice(offset, offset + slice.candidateCount);
+      offset += slice.candidateCount;
+      return {row, offers};
+    });
+    // One bounded parent/result read, followed by each parent's existing
+    // coherent coupon authority evaluation. No answers are shared across callers.
+    const sources = await value.context.database.getDocuments(groups.flatMap(({row}) => [
+      path(privateCustomerBiteSaverResultCollection, row.resultId),
+      `restaurant_accounts/${row.authoritativeAccountId}`]));
+    const current = await Promise.all(groups.map(async ({row, offers}, i) => {
+      const {parent} = await currentParentForGuestProgress({
+        context: value.context, session: value.session, resultId: row.resultId,
+        evaluationAt: value.evaluationAt, expectedRestaurantId: row.restaurantId,
+        expectedAccountId: row.authoritativeAccountId,
+        expectedCatalogFingerprint: row.parentCatalogFingerprint,
+        expectedProjectionFingerprint: row.parentProjectionFingerprint,
+        expectedSortTuple: row.sortTuple,
+        currentSources: {result: sources[i * 2], parent: sources[i * 2 + 1]}});
+      return evaluateGuestStoredOffers({offers, parent, session: value.session,
+        context: value.context, evaluationAt: value.evaluationAt});
+    }));
+    return Object.freeze(current.flat());
+  }
   if (progress.kind === "offerPage") {
     const {parent} = await currentParentForGuestProgress({
       context: value.context,
@@ -12628,6 +12793,8 @@ async function refreshGuestPageCheckpointForRequest(value: {
       session: value.session,
       context: value.context,
       kind: priorBatch.kind,
+      ...(priorBatch.restaurantSlices === undefined ? {} :
+        {restaurantSlices: priorBatch.restaurantSlices}),
       candidates: currentOffers,
       nextOfferBoundary: priorBatch.nextOfferBoundary,
       sourceExhausted: priorBatch.sourceExhausted,
@@ -12988,6 +13155,8 @@ async function resolveGuestCurrentRestaurant(value: {
   session: CustomerBiteSaverSessionDocument;
   context: CustomerBiteSaverSessionContext;
   workRemaining: number;
+  maximumCandidates?: number;
+  retainResolved?: boolean;
 }): Promise<Readonly<{
   document: CustomerBiteSaverGuestCheckDocument;
   workUsed: number;
@@ -13069,7 +13238,7 @@ async function resolveGuestCurrentRestaurant(value: {
             checkable.length >= 3 &&
           (retained.some((candidate) => candidate.offerType === "coupon") ||
             checkable.some((candidate) => candidate.offerType === "coupon"))) ||
-        checkable.length >= customerBiteSaverGuestCheckMaximumCandidateIds ||
+        checkable.length >= (value.maximumCandidates ?? customerBiteSaverGuestCheckMaximumCandidateIds) ||
         workUsed >= value.workRemaining
       ) {
         break;
@@ -13110,7 +13279,7 @@ async function resolveGuestCurrentRestaurant(value: {
     progress = Object.freeze({...progress, currentRestaurant});
     document = Object.freeze({...document, progress});
   }
-  if (guestRestaurantEligibilityResolved(currentRestaurant)) {
+  if (!value.retainResolved && guestRestaurantEligibilityResolved(currentRestaurant)) {
     const stored = guestRestaurantFromProgress({current: currentRestaurant});
     const readyRestaurants = stored === null
       ? progress.readyRestaurants
@@ -13328,6 +13497,103 @@ async function finalizeGuestRestaurantPage(value: {
   });
 }
 
+/** Collect only the next check from still-needed ordered parents. This is one
+ * challenge, not parallel continuations. Progress commits in the ordinary loop. */
+async function expandGuestRestaurantChallenge(value: {
+  document: CustomerBiteSaverGuestCheckDocument;
+  session: CustomerBiteSaverSessionDocument;
+  context: CustomerBiteSaverSessionContext;
+  workRemaining: number;
+}): Promise<CustomerBiteSaverGuestCheckDocument> {
+  let document = value.document;
+  const progress = document.progress;
+  const first = document.activeBatch;
+  if (progress.kind !== "restaurantPage" || progress.windowVersion !== 1 ||
+      progress.currentRestaurant === null || first?.kind !== "restaurantLive" ||
+      first.nextOfferBoundary === null) throw new CustomerBiteSaverContractError("failed-precondition");
+  const rows = [...guestWindowRestaurants(progress)];
+  const candidates = [...first.candidates];
+  const slices: CustomerBiteSaverGuestRestaurantSlice[] = [{
+    restaurantId: progress.currentRestaurant.restaurantId,
+    candidateCount: first.candidates.length, nextOfferBoundary: first.nextOfferBoundary,
+    sourceExhausted: first.sourceExhausted}];
+  let work = 0;
+  let boundary = rows[0].sortTuple;
+  let index = 1;
+  while (work < value.workRemaining &&
+      candidates.length < customerBiteSaverGuestCheckMaximumCandidateIds &&
+      index < customerBiteSaverPageSize + 1 - progress.readyRestaurants.length) {
+    let row = rows[index];
+    if (row === undefined) {
+      const results = await value.context.database.queryDocuments(
+        customerBiteSaverOrderedResultQuery({session: value.session,
+          startAfter: boundary, limit: 1}));
+      work += 1;
+      if (results.length === 0) break;
+      boundary = resultSortTupleFromStored(results[0]);
+      const result = parseResultDocument(results[0], value.session,
+        value.context.discoveryKey, requireCustomerBiteSaverIdentityKey(value.context));
+      if (result === null) continue;
+      const parent = currentParentFromRaw({result,
+        rawDocument: await value.context.database.getDocument(
+          `restaurant_accounts/${result.authoritativeAccountId}`),
+        session: value.session, identityKeyV1: requireCustomerBiteSaverIdentityKey(value.context),
+        now: document.evaluationAt});
+      if (parent === null) continue;
+      row = Object.freeze({resultId: result.id, restaurantId: result.publicRestaurantId,
+        sortTuple: boundary, authoritativeAccountId: result.authoritativeAccountId,
+        parentCatalogFingerprint: parent.offerCatalogFingerprint,
+        parentProjectionFingerprint: parent.projection.sourceFingerprint as string,
+        liveBoundary: null, retainedOffers: Object.freeze([]), visibleOfferCount: 0, countKnown: false});
+      rows.push(row);
+    } else {
+      boundary = row.sortTuple;
+    }
+    if (guestRestaurantEligibilityResolved(row)) { index += 1; continue; }
+    const temporary = Object.freeze({...document, state: "retryRequired" as const,
+      activeBatch: null, acceptedAnswer: null, retryReason: "workBudget" as const,
+      restartFrom: "originalOperation" as const,
+      progress: Object.freeze({...progress, currentRestaurant: row,
+        readyRestaurants: Object.freeze([]), pendingRestaurants: Object.freeze([])})});
+    const resolved = await resolveGuestCurrentRestaurant({document: temporary,
+      session: value.session, context: value.context, workRemaining: value.workRemaining - work,
+      maximumCandidates: customerBiteSaverGuestCheckMaximumCandidateIds - candidates.length,
+      retainResolved: true});
+    work += resolved.workUsed;
+    const resolvedProgress = resolved.document.progress as CustomerBiteSaverGuestRestaurantProgress;
+    rows[index] = resolvedProgress.currentRestaurant!;
+    document = Object.freeze({...document,
+      logicalExpiresAt: new Date(Math.min(document.logicalExpiresAt.getTime(),
+        resolved.document.logicalExpiresAt.getTime()))});
+    const batch = resolved.document.activeBatch;
+    if (resolved.paused && batch !== null && batch.nextOfferBoundary !== null) {
+      candidates.push(...batch.candidates);
+      slices.push(Object.freeze({restaurantId: row.restaurantId,
+        candidateCount: batch.candidates.length, nextOfferBoundary: batch.nextOfferBoundary,
+        sourceExhausted: batch.sourceExhausted}));
+    } else if (!guestRestaurantEligibilityResolved(rows[index])) {
+      break;
+    }
+    index += 1;
+  }
+  const pendingProgress = Object.freeze({...progress,
+    currentRestaurant: rows[0], pendingRestaurants: Object.freeze(rows.slice(1))});
+  const pending = Object.freeze({...document, progress: pendingProgress,
+    activeBatch: Object.freeze({...first, kind: "restaurantWindow" as const,
+      candidates: Object.freeze(candidates), restaurantSlices: Object.freeze(slices),
+      nextOfferBoundary: null, sourceExhausted: false})});
+  const current = await currentOffersForExpiredGuestBatch({document: pending,
+    session: value.session, context: value.context, evaluationAt: pending.evaluationAt});
+  if (current.some(offer => !offer.decision.visible)) {
+    throw new CustomerBiteSaverContractError("failed-precondition", "The BiteSaver guest operation source changed.");
+  }
+  return createGuestCheckBatch({document: capGuestDocumentToStoredOfferBoundaries(
+      pending, guestProgressStoredOffers(pendingProgress)),
+    session: value.session, context: value.context, kind: "restaurantWindow",
+    candidates: current, restaurantSlices: Object.freeze(slices),
+    nextOfferBoundary: null, sourceExhausted: false, nowMs: contextNow(value.context)});
+}
+
 async function processGuestRestaurantPage(value: {
   document: CustomerBiteSaverGuestCheckDocument;
   session: CustomerBiteSaverSessionDocument;
@@ -13361,6 +13627,11 @@ async function processGuestRestaurantPage(value: {
       work += resolved.workUsed;
       progress = document.progress as CustomerBiteSaverGuestRestaurantProgress;
       if (resolved.paused) {
+        if (progress.windowVersion === 1 && document.state === "awaitingAnswer") {
+          document = await expandGuestRestaurantChallenge({document,
+            session: value.session, context: value.context,
+            workRemaining: customerBiteSaverPageConsumeLimit - work});
+        }
         return Object.freeze({
           document,
           response: document.state === "awaitingAnswer"
@@ -13371,6 +13642,13 @@ async function processGuestRestaurantPage(value: {
       if (progress.currentRestaurant !== null) {
         break;
       }
+      continue;
+    }
+    if ((progress.pendingRestaurants?.length ?? 0) > 0) {
+      progress = Object.freeze({...progress,
+        currentRestaurant: progress.pendingRestaurants![0],
+        pendingRestaurants: Object.freeze(progress.pendingRestaurants!.slice(1))});
+      document = Object.freeze({...document, progress});
       continue;
     }
     const resultDocuments = await value.context.database.queryDocuments(
@@ -14206,6 +14484,8 @@ async function startGuestRestaurantPage(value: {
       }
       const progress: CustomerBiteSaverGuestRestaurantProgress = Object.freeze({
         kind: "restaurantPage",
+        ...(value.context.guestRestaurantWindow === true && value.context.searchBackend === "postgis"
+          ? {windowVersion: 1 as const, pendingRestaurants: Object.freeze([])} : {}),
         outerBoundary,
         readyRestaurants: Object.freeze([]),
         currentRestaurant: null,

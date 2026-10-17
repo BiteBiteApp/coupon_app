@@ -1,0 +1,363 @@
+{
+  "serial": {
+    "flows": {
+      "bitesaver-guest": {
+        "samples": 20,
+        "firstObservationMs": 2593.549,
+        "warmSamples": 19,
+        "warmMedianMs": 1964.815,
+        "warmMinimumMs": 1881.72,
+        "warmMaximumMs": 2080.674,
+        "warmP95NearestRankMs": 2080.674,
+        "warmAtOrBelow2000Ms": 14,
+        "successes": 20,
+        "errors": 0,
+        "httpCallsPerSample": [
+          28
+        ],
+        "usefulCardsPerSample": [
+          25
+        ],
+        "orderedMembershipDigests": [
+          "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+        ],
+        "continuationCallsPerSample": [
+          26
+        ],
+        "challengeRoundsPerSample": [
+          26
+        ],
+        "maximumChallengeCandidates": 1
+      },
+      "bitesaver-signed": {
+        "samples": 20,
+        "firstObservationMs": 247.123,
+        "warmSamples": 19,
+        "warmMedianMs": 233.326,
+        "warmMinimumMs": 227.943,
+        "warmMaximumMs": 253.102,
+        "warmP95NearestRankMs": 253.102,
+        "warmAtOrBelow2000Ms": 19,
+        "successes": 20,
+        "errors": 0,
+        "httpCallsPerSample": [
+          3
+        ],
+        "usefulCardsPerSample": [
+          25
+        ],
+        "orderedMembershipDigests": [
+          "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+        ],
+        "continuationCallsPerSample": [
+          0
+        ],
+        "challengeRoundsPerSample": [
+          0
+        ],
+        "maximumChallengeCandidates": 0
+      },
+      "bitescore-dish-home": {
+        "samples": 3,
+        "firstObservationMs": 139.016,
+        "warmSamples": 2,
+        "warmMedianMs": 114.58949999999999,
+        "warmMinimumMs": 113.606,
+        "warmMaximumMs": 115.573,
+        "warmP95NearestRankMs": 115.573,
+        "warmAtOrBelow2000Ms": 2,
+        "successes": 3,
+        "errors": 0,
+        "httpCallsPerSample": [
+          2
+        ],
+        "usefulCardsPerSample": [
+          null
+        ],
+        "orderedMembershipDigests": [
+          null
+        ],
+        "continuationCallsPerSample": [
+          0
+        ],
+        "challengeRoundsPerSample": [
+          0
+        ],
+        "maximumChallengeCandidates": 0
+      },
+      "create-rate-finder": {
+        "samples": 3,
+        "firstObservationMs": 445.185,
+        "warmSamples": 2,
+        "warmMedianMs": 409.54499999999996,
+        "warmMinimumMs": 399.049,
+        "warmMaximumMs": 420.041,
+        "warmP95NearestRankMs": 420.041,
+        "warmAtOrBelow2000Ms": 2,
+        "successes": 3,
+        "errors": 0,
+        "httpCallsPerSample": [
+          2
+        ],
+        "usefulCardsPerSample": [
+          null
+        ],
+        "orderedMembershipDigests": [
+          null
+        ],
+        "continuationCallsPerSample": [
+          0
+        ],
+        "challengeRoundsPerSample": [
+          0
+        ],
+        "maximumChallengeCandidates": 0
+      }
+    },
+    "authority": {
+      "guestGroups": 20,
+      "requestsPerGroup": {
+        "minimum": 28,
+        "maximum": 28
+      },
+      "requestedDocumentsPerGroup": {
+        "minimum": 754,
+        "maximum": 754
+      },
+      "operationCallsPerGroup": {
+        "firestore.commitWrites": {
+          "minimum": 55,
+          "maximum": 55
+        },
+        "firestore.getDocument": {
+          "minimum": 108,
+          "maximum": 108
+        },
+        "firestore.getDocuments": {
+          "minimum": 106,
+          "maximum": 106
+        },
+        "firestore.queryDocuments": {
+          "minimum": 26,
+          "maximum": 26
+        },
+        "firestore.transaction": {
+          "minimum": 138,
+          "maximum": 138
+        },
+        "firestore.transactionRead.getDocument": {
+          "minimum": 88,
+          "maximum": 88
+        },
+        "firestore.transactionRead.getDocuments": {
+          "minimum": 138,
+          "maximum": 138
+        },
+        "membership.pinRevision": {
+          "minimum": 1,
+          "maximum": 1
+        },
+        "membership.queryResults": {
+          "minimum": 26,
+          "maximum": 26
+        },
+        "sql.membershipQuery": {
+          "minimum": 191,
+          "maximum": 191
+        }
+      },
+      "operationFailures": 0,
+      "interpretation": "Instrumented adapter calls and explicitly requested document counts, not billing reads. Query-returned document totals are not included in requestedDocuments. Nested/parallel duration sums overlap and are not additive wall-clock components. Per-endpoint unique document counts are not global distinct-document counts."
+    }
+  },
+  "window": {
+    "flows": {
+      "bitesaver-guest": {
+        "samples": 20,
+        "firstObservationMs": 1299.103,
+        "warmSamples": 19,
+        "warmMedianMs": 754.386,
+        "warmMinimumMs": 715.762,
+        "warmMaximumMs": 964.324,
+        "warmP95NearestRankMs": 964.324,
+        "warmAtOrBelow2000Ms": 19,
+        "successes": 20,
+        "errors": 0,
+        "httpCallsPerSample": [
+          3
+        ],
+        "usefulCardsPerSample": [
+          25
+        ],
+        "orderedMembershipDigests": [
+          "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+        ],
+        "continuationCallsPerSample": [
+          1
+        ],
+        "challengeRoundsPerSample": [
+          1
+        ],
+        "maximumChallengeCandidates": 26
+      },
+      "bitesaver-signed": {
+        "samples": 20,
+        "firstObservationMs": 249.348,
+        "warmSamples": 19,
+        "warmMedianMs": 259.38,
+        "warmMinimumMs": 237.615,
+        "warmMaximumMs": 273.134,
+        "warmP95NearestRankMs": 273.134,
+        "warmAtOrBelow2000Ms": 19,
+        "successes": 20,
+        "errors": 0,
+        "httpCallsPerSample": [
+          3
+        ],
+        "usefulCardsPerSample": [
+          25
+        ],
+        "orderedMembershipDigests": [
+          "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+        ],
+        "continuationCallsPerSample": [
+          0
+        ],
+        "challengeRoundsPerSample": [
+          0
+        ],
+        "maximumChallengeCandidates": 0
+      },
+      "bitescore-dish-home": {
+        "samples": 3,
+        "firstObservationMs": 144.481,
+        "warmSamples": 2,
+        "warmMedianMs": 123.938,
+        "warmMinimumMs": 119.185,
+        "warmMaximumMs": 128.691,
+        "warmP95NearestRankMs": 128.691,
+        "warmAtOrBelow2000Ms": 2,
+        "successes": 3,
+        "errors": 0,
+        "httpCallsPerSample": [
+          2
+        ],
+        "usefulCardsPerSample": [
+          null
+        ],
+        "orderedMembershipDigests": [
+          null
+        ],
+        "continuationCallsPerSample": [
+          0
+        ],
+        "challengeRoundsPerSample": [
+          0
+        ],
+        "maximumChallengeCandidates": 0
+      },
+      "create-rate-finder": {
+        "samples": 3,
+        "firstObservationMs": 422.048,
+        "warmSamples": 2,
+        "warmMedianMs": 389.7505,
+        "warmMinimumMs": 366.218,
+        "warmMaximumMs": 413.283,
+        "warmP95NearestRankMs": 413.283,
+        "warmAtOrBelow2000Ms": 2,
+        "successes": 3,
+        "errors": 0,
+        "httpCallsPerSample": [
+          2
+        ],
+        "usefulCardsPerSample": [
+          null
+        ],
+        "orderedMembershipDigests": [
+          null
+        ],
+        "continuationCallsPerSample": [
+          0
+        ],
+        "challengeRoundsPerSample": [
+          0
+        ],
+        "maximumChallengeCandidates": 0
+      }
+    },
+    "authority": {
+      "guestGroups": 20,
+      "requestsPerGroup": {
+        "minimum": 3,
+        "maximum": 3
+      },
+      "requestedDocumentsPerGroup": {
+        "minimum": 658,
+        "maximum": 658
+      },
+      "operationCallsPerGroup": {
+        "firestore.commitWrites": {
+          "minimum": 30,
+          "maximum": 30
+        },
+        "firestore.getDocument": {
+          "minimum": 33,
+          "maximum": 33
+        },
+        "firestore.getDocuments": {
+          "minimum": 82,
+          "maximum": 82
+        },
+        "firestore.queryDocuments": {
+          "minimum": 26,
+          "maximum": 26
+        },
+        "firestore.transaction": {
+          "minimum": 89,
+          "maximum": 89
+        },
+        "firestore.transactionRead.getDocument": {
+          "minimum": 13,
+          "maximum": 13
+        },
+        "firestore.transactionRead.getDocuments": {
+          "minimum": 165,
+          "maximum": 165
+        },
+        "membership.pinRevision": {
+          "minimum": 1,
+          "maximum": 1
+        },
+        "membership.queryResults": {
+          "minimum": 26,
+          "maximum": 26
+        },
+        "sql.membershipQuery": {
+          "minimum": 191,
+          "maximum": 191
+        }
+      },
+      "operationFailures": 0,
+      "interpretation": "Instrumented adapter calls and explicitly requested document counts, not billing reads. Query-returned document totals are not included in requestedDocuments. Nested/parallel duration sums overlap and are not additive wall-clock components. Per-endpoint unique document counts are not global distinct-document counts."
+    }
+  },
+  "fixtureEquivalence": {
+    "equalFieldsExceptHostPid": true,
+    "syntheticOnly": true,
+    "sourceAndProjectionCounts": 185,
+    "fixtureFingerprint": "c0d2864f294a274ff3570dc9a8128d19f920ec7e86b1884a62735e43da87eb65",
+    "fixtureTemporalNow": "2026-10-17T21:00:00.000Z",
+    "sourceFenceAndPublishedRevisionEqual": true,
+    "serialHostPid": 69138,
+    "windowHostPid": 70578
+  },
+  "guestWarmMedianReductionPercent": 61.60524018800753,
+  "limitations": [
+    "Actual Flutter widget rendering through loopback HTTP, Auth/Firestore emulators and real local PostgreSQL/PostGIS; not a hosted or physical-device latency result.",
+    "Twenty independent equivalent empty-history guest actors per mode, one first observation and nineteen warm observations; no failures excluded.",
+    "Nearest-rank p95 of nineteen warm observations equals the maximum and is descriptive, not a hosted-tail-latency estimate.",
+    "Broad equivalent 185-projection fixture only for measured timing. Dense, sparse, filtered and recovery cases use separate in-memory diagnostics, not this latency result.",
+    "Signed page correctness and membership are preserved; observed signed warm median increases from 233.326 to 259.380 ms, so unchanged signed latency is not claimed. Score and Finder have only three observations per mode.",
+    "No production activation, hosted runtime qualification, cloud execution, deployment, cost or general two-second SLA claim."
+  ]
+}

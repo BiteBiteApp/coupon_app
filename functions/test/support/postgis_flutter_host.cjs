@@ -90,6 +90,7 @@ async function main() {
   const app = initializeApp({projectId}, "postgis-flutter-local-host");
   const database = getFirestore(app), auth = getAuth(app);
   const runtime = createLocalPostgisStagingRuntime({database, auth, projectId, allowedProjectIds: [projectId],
+    guestRestaurantWindow: process.env.BS_POSTGIS_GUEST_WINDOW === "1",
     epoch: "flutter-local-source-v1", sql: {host: "127.0.0.1", port: 55441, database: "bsgate0_flutter", user: "bsgate0"},
     discoveryKey: Buffer.alloc(32, 71), identityKeyV1: F.identityKeyV1, scoreCursorRootKey: Buffer.alloc(32, 73)});
   await runtime.initialize();

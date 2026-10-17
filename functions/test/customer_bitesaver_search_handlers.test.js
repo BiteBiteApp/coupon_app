@@ -13388,3 +13388,189 @@ test('cuisine-only worker matches survive public restaurant and offer-page reval
     }
   }
 });
+
+// Local opt-in experiment; the same fixture retains the serial baseline.
+async function restaurantWindowFixture({count = 35, offers = 1, enabled = true,
+  clock = () => nowMs, options = {}} = {}) {
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {identity: guestIdentity(), now: clock,
+    guestRestaurantWindow: enabled});
+  const api = createPostgisSearchHandlers({database, provider: {
+    async pinRevision() { return {revision: "17"}; },
+    async queryResults({query}) { return database.queryDocuments(query); },
+  }});
+  const started = await api.startCustomerBiteSaverSearchV2(startRequest({searchText: ""}), context);
+  const session = database.documents.get(`${privateCustomerBiteSaverSearchSessionCollection}/${started.sessionId}`);
+  const seeded = Array.from({length: count}, (_, i) => addReadyRestaurant(database, session, i,
+    {offerCount: offers, onlyCoupons: true, offerOverrides: {usageRule: "Once per customer"}, ...options}));
+  const request = pageRequest(started, {guestStateRevision: 4});
+  const page = (input = request) => api.getCustomerBiteSaverSearchPageV2(input, context);
+  const answer = input => api.continueCustomerBiteSaverGuestOfferCheckV2(input, context);
+  return {database, context, api, started, seeded, session, request, page, answer};
+}
+
+async function finishRestaurantWindow(fixture, initial, excluded = []) {
+  const history = new SimulatedLocalGuestHistory(excluded, 4);
+  let response = initial, calls = 0;
+  while (response.outcome !== "complete") {
+    assert.ok(++calls < 150, "bounded fixture must finish");
+    if (response.outcome === "guestCheckRequired") {
+      response = await fixture.answer(history.answer(fixture.started, response));
+    } else {
+      assert.equal(response.reason, "workBudget");
+      response = await fixture.page({...fixture.request, clientRequestId: `window-retry-${String(calls).padStart(12, "0")}`});
+    }
+  }
+  return {response, history, calls};
+}
+
+test("restaurant window combines 26 one-ID checks without changing page membership", async () => {
+  for (const enabled of [false, true]) {
+    const fixture = await restaurantWindowFixture({enabled});
+    const first = await fixture.page();
+    assert.equal(first.candidates.length, enabled ? 26 : 1);
+    const done = await finishRestaurantWindow(fixture, first);
+    assert.equal(done.response.result.restaurants.length, 25);
+    assert.deepEqual(done.response.result.restaurants.map(row => row.restaurantId),
+      fixture.seeded.slice(0, 25).map(row => row.publicRestaurantId));
+    assert.equal(done.response.result.hasMore, true);
+    assert.equal(done.history.checkedBatches.length, enabled ? 1 : 26);
+    const checkpoint = fixture.database.documents.get(`${privateCustomerBiteSaverGuestOfferCheckCollection}/${first.operationRef}`);
+    assert.equal(checkpoint.state, "completed");
+    assert.equal(checkpoint.progress.currentRestaurant, null);
+    assert.equal(checkpoint.progress.pendingRestaurants?.length ?? 0, 0);
+  }
+});
+
+test("restaurant window preserves exact filtered membership and never leaks full history", async () => {
+  const fixture = await restaurantWindowFixture({count: 55});
+  const excluded = fixture.seeded.slice(0, 28).map(row => opaqueOfferId(row, row.coupons[0]));
+  excluded.push(`bso_${Buffer.alloc(32, 101).toString("base64url")}`);
+  const first = await fixture.page();
+  const done = await finishRestaurantWindow(fixture, first, excluded);
+  assert.deepEqual(done.response.result.restaurants.map(row => row.restaurantId),
+    fixture.seeded.slice(28, 53).map(row => row.publicRestaurantId));
+  assert.equal(done.response.result.hasMore, true);
+  assert.ok(done.history.answers.flat().every(id => id !== excluded.at(-1)));
+  assert.ok(done.history.checkedBatches.every(batch => batch.length <= 75));
+});
+
+test("restaurant window global 75-ID boundary spans dense parents", async () => {
+  const fixture = await restaurantWindowFixture({count: 26, offers: 3});
+  const first = await fixture.page();
+  assert.equal(first.candidates.length, 75);
+  const done = await finishRestaurantWindow(fixture, first);
+  assert.equal(done.response.result.restaurants.length, 25);
+  assert.equal(done.response.result.hasMore, true);
+  assert.ok(done.history.checkedBatches.every(batch => batch.length <= 75));
+});
+
+test("restaurant window lost replies and replay never expand an unanswered challenge", async () => {
+  const fixture = await restaurantWindowFixture();
+  const first = await fixture.page();
+  assert.deepEqual(await fixture.page(), first);
+  const input = guestAnswerRequest(fixture.started, first, []);
+  const completed = await fixture.answer(input);
+  assert.equal(completed.outcome, "complete");
+  assert.deepEqual(await fixture.answer(input), completed);
+  await assert.rejects(fixture.answer({...input, unavailableOfferIds: [first.candidates[0].offerId]}),
+    error => assertContractError(error, "invalid-argument") || assertContractError(error, "failed-precondition"));
+  const row = fixture.database.documents.get(`${privateCustomerBiteSaverGuestOfferCheckCollection}/${first.operationRef}`);
+  assert.equal(row.batchSequence, 1);
+  assert.equal(row.acceptedAnswer, null);
+  assert.equal(row.activeBatch, null);
+});
+
+test("restaurant window keeps all-filtered and sparse pages continuing until actual exhaustion", async () => {
+  const fixture = await restaurantWindowFixture({count: 35});
+  const excluded = fixture.seeded.map(row => opaqueOfferId(row, row.coupons[0]));
+  const done = await finishRestaurantWindow(fixture, await fixture.page(), excluded);
+  assert.equal(done.response.result.restaurants.length, 0);
+  assert.equal(done.response.result.hasMore, false);
+  assert.equal(done.response.result.nextCursor, null);
+
+  const sparse = await restaurantWindowFixture({count: 0});
+  for (let i = 0; i < 150; ++i) addUnavailableResult(sparse.database, sparse.session, i);
+  const early = await sparse.page();
+  assert.equal(early.outcome, "retryRequired");
+  assert.equal(early.reason, "workBudget");
+  const empty = await finishRestaurantWindow(sparse, early);
+  assert.equal(empty.response.result.restaurants.length, 0);
+  assert.equal(empty.response.result.hasMore, false);
+});
+
+test("restaurant window rejects caller, revision, extra ID and disabled-mode continuation", async () => {
+  const fixture = await restaurantWindowFixture();
+  const first = await fixture.page();
+  const input = guestAnswerRequest(fixture.started, first, []);
+  for (const changed of [
+    {...input, capability: Buffer.alloc(32, 111).toString("base64url")},
+    {...input, guestStateRevision: input.guestStateRevision + 1},
+    {...input, unavailableOfferIds: [`bso_${Buffer.alloc(32, 112).toString("base64url")}`]},
+    {...input, entireBatchEvaluated: false},
+  ]) {
+    const before = databaseDocumentState(fixture.database);
+    await assert.rejects(fixture.answer(changed), error => error instanceof CustomerBiteSaverContractError);
+    assert.equal(databaseDocumentState(fixture.database), before);
+  }
+  for (const context of [{...fixture.context, identity: {authUid: "other-user", authIsAnonymous: false}},
+    {...fixture.context, guestRestaurantWindow: false}]) {
+    const before = databaseDocumentState(fixture.database);
+    await assert.rejects(fixture.api.continueCustomerBiteSaverGuestOfferCheckV2(input, context),
+      error => error instanceof CustomerBiteSaverContractError);
+    assert.equal(databaseDocumentState(fixture.database), before);
+  }
+  assert.equal((await fixture.answer(input)).outcome, "complete");
+});
+
+test("restaurant window rejects forged parent slices and a 76th ID before mutations", async () => {
+  const fixture = await restaurantWindowFixture({count: 26, offers: 3});
+  const first = await fixture.page();
+  const path = `${privateCustomerBiteSaverGuestOfferCheckCollection}/${first.operationRef}`;
+  const original = fixture.database.documents.get(path);
+  const baselineEntries = clonedDatabaseEntries(fixture.database);
+  const answer = guestAnswerRequest(fixture.started, first, []);
+  for (const mutate of [
+    row => row.progress.windowVersion = 2,
+    row => row.activeBatch.restaurantSlices[0].restaurantId = row.activeBatch.restaurantSlices[1].restaurantId,
+    row => row.activeBatch.restaurantSlices[0].candidateCount++,
+    row => row.activeBatch.restaurantSlices.reverse(),
+    row => row.activeBatch.candidates.push(row.activeBatch.candidates[0]),
+    row => row.progress.pendingRestaurants.reverse(),
+  ]) {
+    const malformed = structuredClone(original); mutate(malformed);
+    await assertMalformedGuestCheckRejected({baselineEntries,
+      context: {...fixture.context, searchBackend: "postgis"}, documentPath: path, malformed, answer});
+  }
+});
+
+test("restaurant window expired reissue preserves the exact parent slices and history set", async () => {
+  let clock = nowMs;
+  const fixture = await restaurantWindowFixture({clock: () => clock});
+  const first = await fixture.page();
+  const path = `${privateCustomerBiteSaverGuestOfferCheckCollection}/${first.operationRef}`;
+  const before = structuredClone(fixture.database.documents.get(path));
+  clock = first.logicalExpiresAtMillis;
+  const next = await fixture.page({...fixture.request, clientRequestId: "window-expiry-refresh-0001"});
+  assert.equal(next.outcome, "guestCheckRequired");
+  assert.deepEqual(next.candidates, first.candidates);
+  assert.equal(next.batchSequence, first.batchSequence + 1);
+  const after = fixture.database.documents.get(path);
+  assert.deepEqual(after.progress, before.progress);
+  assert.deepEqual(after.activeBatch.restaurantSlices, before.activeBatch.restaurantSlices);
+  assert.equal(after.absoluteExpiresAt.getTime(), before.absoluteExpiresAt.getTime());
+  await assert.rejects(fixture.answer(guestAnswerRequest(fixture.started, first, [])),
+    error => assertContractError(error, "failed-precondition"));
+  assert.equal((await fixture.answer(guestAnswerRequest(fixture.started, next, []))).outcome, "complete");
+});
+
+test("restaurant window detects a later parent's withdrawal before completing any page", async () => {
+  const fixture = await restaurantWindowFixture();
+  const first = await fixture.page();
+  const path = `restaurant_accounts/${fixture.seeded[20].accountId}`;
+  fixture.database.documents.delete(path);
+  const result = await fixture.answer(guestAnswerRequest(fixture.started, first, []));
+  assert.equal(result.outcome, "retryRequired");
+  assert.equal(result.reason, "sourceChanged");
+  assert.equal(result.result, undefined);
+});

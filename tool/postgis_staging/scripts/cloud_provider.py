@@ -264,7 +264,7 @@ class GoogleResources:
         # No caller-controlled overrides, environment, image or arguments.
         return self.transport.request('POST', self.url(resource) + ':run', {'etag': observed['etag']})
 
-    def cancel_job_executions(self, resource, receipt):
+    def cancel_job_executions(self, resource, receipt, before_cancel=None, sent_at=None):
         need(resource['kind'] == 'run.job', 'job cancellation only')
         need(self.owned(resource, receipt) is not None, 'owned job absent; reconcile executions')
         response = self.transport.request('GET', self.url(resource) + '/executions?pageSize=50')
@@ -272,18 +272,31 @@ class GoogleResources:
         need(isinstance(rows, list) and len(rows) <= 50 and not response.get('nextPageToken'),
              'execution listing exceeds bound; supervised reconciliation required')
         parent = self.url(resource).split('/v2/')[1]
-        operations = []
         for row in rows:
             name = row.get('name', '')
             need(name.startswith(parent + '/executions/') and
                  re.fullmatch(r'[a-z0-9-]+', name[len(parent + '/executions/'):]) and
                  row.get('job') == parent and row.get('labels') == self.labels() and
-                 isinstance(row.get('uid'), str) and row.get('uid') and row.get('etag'),
+                 isinstance(row.get('uid'), str) and row.get('uid') and row.get('etag') and
+                 isinstance(row.get('createTime'), str) and row.get('createTime'),
                  'execution identity mismatch')
-            if row.get('completionTime'): continue
+        operations = []
+        active = [row for row in rows if not row.get('completionTime')]
+        relevant = rows
+        if sent_at is not None:
+            from datetime import datetime
+            try:
+                relevant = [row for row in rows if
+                    datetime.fromisoformat(row['createTime'].replace('Z','+00:00')).timestamp() >= sent_at - 5]
+            except (ValueError, TypeError): raise Rejected('invalid execution creation time')
+            need(len(relevant) <= 1, 'unexpected duplicate execution; supervise')
+        if active and before_cancel is not None: before_cancel()
+        for row in active:
+            name = row['name']
             # Etag applies to this observed execution incarnation, never name only.
             operations.append(self.transport.request('POST', 'https://run.googleapis.com/v2/' + name + ':cancel', {'etag': row['etag']}))
-        return {'pending': bool(operations), 'operations': operations}
+        return {'pending': bool(operations), 'operations': operations,
+                'completedExecutionsObserved': bool(relevant) and all(row.get('completionTime') for row in relevant)}
 
     def job_execution(self, resource, receipt, sent_at):
         """Reconcile the sole approved run, never infer completion from run LRO."""
@@ -307,16 +320,55 @@ class GoogleResources:
             'uid':row['uid'],'name':row['name'],'createTime':row['createTime'],
             'failed':bool(row.get('failedCount',0) or row.get('cancelledCount',0))}
 
-    def delete(self, resource, receipt):
+    def sql_exclusivity_evidence(self, resource, now_ms):
+        """Validate signed-plan evidence, not a claim that local tests proved IAM.
+
+        The independent preflight must inspect effective permissions and the
+        permanent name registry. Any later ownership/intervention change revokes
+        the ledger eligibility; SQL still has no atomic incarnation condition.
+        """
+        policy = self.config['provider'].get('sqlExclusiveDeletion', {})
+        need(policy.get('approved') is True and policy.get('singleUseNames') is True and
+             policy.get('exclusiveControllerOwnership') is True and policy.get('ownerApprovalReference'),
+             'SQL delete requires separate exclusive single-use-name approval; stop and supervise')
+        proof = policy.get('evidence')
+        need(isinstance(proof, dict) and policy.get('evidenceDigest') == digest(proof),
+             'independent SQL ownership evidence missing or changed; supervise')
+        provider = self.config['provider']
+        principals = {key:provider.get(key) for key in ('controllerServiceAccount','watchdogServiceAccount')}
+        need(all(isinstance(value,str) and value for value in principals.values()) and
+             proof.get('principals') == principals, 'SQL ownership principals mismatch')
+        expected = {key:self.config[key] for key in ('projectId','projectNumber','runId','candidateDigest')}
+        expected.update(protocol='bitestar-sql-exclusive-preflight-v1', sqlName=resource['id'],
+            resourcePlanDigest=digest(provider['resources']), firstBillableAtMs=provider['firstBillableAtMs'],
+            deadlineMs=provider['firstBillableAtMs'] + self.config['lifetimeSeconds'] * 1000)
+        need(all(proof.get(key) == value for key,value in expected.items()), 'SQL ownership evidence target/clock mismatch')
+        need(isinstance(proof.get('reviewerId'),str) and proof['reviewerId'] and
+             proof['reviewerId'] not in principals.values(), 'independent SQL ownership reviewer required')
+        for key in ('effectiveLifecyclePermissionsEvidenceSha256','permanentSingleUseRegistryEvidenceSha256'):
+            need(isinstance(proof.get(key),str) and re.fullmatch(r'[0-9a-f]{64}',proof[key]),
+                 'missing independent SQL ownership evidence artifact')
+        reviewed, expires = proof.get('reviewedAtMs'), proof.get('validUntilMs')
+        need(type(now_ms) is int and type(reviewed) is int and type(expires) is int and
+             expected['firstBillableAtMs'] - 86400000 <= reviewed <= expected['firstBillableAtMs'] and
+             reviewed <= now_ms <= expires and expected['deadlineMs'] <= expires <= expected['deadlineMs'] + 7200000,
+             'stale SQL ownership evidence; supervise')
+        return policy['evidenceDigest']
+
+    def delete(self, resource, receipt, sql_eligibility=None, now_ms=None):
         observed = self.owned(resource, receipt)
         if observed is None:
             return None
         if resource['kind'] == 'sql.instance':
             # SQL Admin does not expose an atomic incarnation precondition.
-            policy = self.config['provider'].get('sqlExclusiveDeletion', {})
-            need(policy.get('approved') is True and policy.get('singleUseNames') is True and
-                 policy.get('exclusiveControllerOwnership') is True and policy.get('ownerApprovalReference'),
-                 'SQL delete requires separate exclusive single-use-name approval; stop and supervise')
+            evidence_digest = self.sql_exclusivity_evidence(resource, now_ms)
+            need(isinstance(sql_eligibility,dict) and sql_eligibility.get('revoked') is False and
+                 sql_eligibility.get('evidenceDigest') == evidence_digest and
+                 sql_eligibility.get('receipt') == receipt and
+                 sql_eligibility.get('resourceDigest') == digest(resource) and
+                 isinstance(sql_eligibility.get('createIntentDigest'),str) and
+                 re.fullmatch(r'[0-9a-f]{64}',sql_eligibility['createIntentDigest']),
+                 'SQL exact create-ledger eligibility absent/revoked/mismatched; supervise')
             return self.transport.request('DELETE', self.url(resource) + '?enableFinalBackup=false')
         etag = observed.get('etag')
         need(isinstance(etag, str) and etag, 'missing atomic deletion precondition')

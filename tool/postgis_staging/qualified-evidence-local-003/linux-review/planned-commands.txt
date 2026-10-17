@@ -1,0 +1,62 @@
+PLANNED COMMANDS ONLY — NOT EXECUTED BY THIS REVIEWER
+
+Run only after owner free-license eligibility/OS installation approval has been resolved by the integrating agent. These examples use task-scoped names and no cloud credentials. BS_BUILD_CONTEXT must be the selected reviewed context, excluding unrelated owner edits. BS_LOCAL_NET names an already-created task-only shared network namespace containing SQL55441 and emulators8088/9099; no image or local service is created by this note. Substitute actual frozen image IDs after build. Preserve every exit code, log and hash.
+
+Build the existing recipes:
+  cd "$BS_BUILD_CONTEXT"
+  docker build --platform=linux/amd64 --progress=plain -f tool/postgis_staging/linux/Dockerfile -t bitestar-prespend-search:local .
+  docker image inspect bitestar-prespend-search:local
+  # Rebuild/verify functions/lib/postgis_execution_approval.js from the same selected source first.
+  docker build --platform=linux/amd64 --progress=plain -f tool/postgis_staging/Controller.Dockerfile -t bitestar-prespend-controller:local .
+  docker image inspect bitestar-prespend-controller:local
+
+Record actual runtime without credentials/network:
+  docker version
+  docker info --format '{{.OSType}} {{.Architecture}} {{.KernelVersion}} {{.ServerVersion}}'
+  docker run --rm --platform=linux/amd64 --network=none "$BS_SEARCH_IMAGE"
+  docker run --rm --platform=linux/amd64 --network=none --entrypoint=node "$BS_SEARCH_IMAGE" --v8-options
+  docker run --rm --platform=linux/amd64 --network=none --entrypoint=node "$BS_SEARCH_IMAGE" -e 'const fs=require("node:fs"),c=require("node:crypto");console.log(JSON.stringify({node:process.version,v8:process.versions.v8,platform:process.platform,arch:process.arch,execPath:process.execPath,nodeSha256:c.createHash("sha256").update(fs.readFileSync(process.execPath)).digest("hex"),targetArch:process.config.variables.target_arch,useLibm:process.config.variables.v8_use_libm_trig_functions??null,sharedNode:process.config.variables.node_shared??null}));'
+  docker run --rm --platform=linux/amd64 --network=none --entrypoint=python3 "$BS_CONTROLLER_IMAGE" -c 'import platform,ssl,sqlite3; print(platform.python_version(), platform.machine(), ssl.OPENSSL_VERSION, sqlite3.sqlite_version)'
+
+These metadata commands have diagnostic flags. They are not serving guard acceptance tests. Retain actual Node ELF binary + relevant nm/objdump results using a task-owned analysis copy; record tool versions. Verify the compiled sin/cos/atan/atan2 route and IEEE assumptions before accepting the interval proof. Do not use a diagnostic flag as an unnoticed serving flag.
+
+The exact-rational audit needs only two retained proof files. Copy them into a new task report proof-input directory, preserving their hashes:
+  distance-bound-arithmetic-audit.py
+  evidence/math/node-v24.21.0-ieee754.cc
+Then run the script with Python in the actual controller image, read-only mounted at /proof:
+  docker run --rm --platform=linux/amd64 --network=none --mount type=bind,src="$BS_PROOF_INPUT",dst=/proof,readonly --entrypoint=python3 "$BS_CONTROLLER_IMAGE" /proof/distance-bound-arithmetic-audit.py
+This assertion output remains conditional on the independent actual-binary dispatch review.
+
+Prepare disposable local SQL databases bsgate0_linux, bsgate0_query, bsgate0_integration, bsgate0_flutter with role bsgate0 and the existing local-only access contract. Record the chosen immutable PostgreSQL/PostGIS image separately; this review has not selected or pulled one. For that real server record:
+  SELECT version(), current_setting('server_version_num'), current_setting('extra_float_digits');
+  SELECT postgis_full_version();
+  SELECT extname, extversion FROM pg_extension ORDER BY extname;
+Record serving-connection extra_float_digits=1 as well as server defaults. Capture relevant float8/NUMERIC bridge edge cases against the reviewed conversion source, schema SHA and explain plans with lowerBound:true.
+
+Before any tuple change, run the nonserving finite diagnostic:
+  docker run --rm --platform=linux/amd64 --network="container:$BS_LOCAL_NET" "$BS_SEARCH_IMAGE" node tool/postgis_staging/linux/numerical-diagnostics.cjs
+Expected318/1512 vectors and zero violations are necessary corroboration, not permission to open the guard.
+
+AFTER independent proof/SQL acceptance and the reviewed local-only tuple correction, rebuild the selected image and use its new immutable ID for actual guarded tests. Use -e KEY=VALUE only; do not inherit the shell environment or mount home/credentials. Evidence writes go to a newly created task-only /evidence bind.
+
+  docker run --rm --platform=linux/amd64 --network="container:$BS_LOCAL_NET" -e BS_POSTGIS_SQL_TEST=1 "$BS_SEARCH_IMAGE" node --test functions/test/postgis_query.test.js
+
+  docker run --rm --platform=linux/amd64 --network="container:$BS_LOCAL_NET" -e POSTGIS_SOURCE_EMULATOR_TEST=1 -e FIRESTORE_EMULATOR_HOST=127.0.0.1:8088 -e GCLOUD_PROJECT=demo-bs-postgis-linux "$BS_SEARCH_IMAGE" node --test functions/test/postgis_source_emulator.test.js
+
+  docker run --rm --platform=linux/amd64 --network="container:$BS_LOCAL_NET" -e BS_POSTGIS_SQL_TEST=1 -e POSTGIS_SOURCE_EMULATOR_TEST=1 -e FIRESTORE_EMULATOR_HOST=127.0.0.1:8088 -e GCLOUD_PROJECT=demo-bs-postgis-linux -e BS_POSTGIS_REPORT_DIR=/evidence --mount type=bind,src="$BS_LINUX_EVIDENCE",dst=/evidence "$BS_SEARCH_IMAGE" node --test functions/test/postgis_snapshot_integration.test.js functions/test/postgis_cleanup.test.js
+
+  docker run --rm --platform=linux/amd64 --network="container:$BS_LOCAL_NET" -e BS_POSTGIS_RUNTIME_TEST=1 "$BS_SEARCH_IMAGE" node --test functions/test/postgis_staging_runtime.test.js
+
+  docker run --rm --platform=linux/amd64 --network="container:$BS_LOCAL_NET" -e BS_POSTGIS_INTEGRATION_TEST=1 -e FIRESTORE_EMULATOR_HOST=127.0.0.1:8088 -e FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 -e GCLOUD_PROJECT=demo-bs-postgis-integration "$BS_SEARCH_IMAGE" node --test functions/test/postgis_integration.test.js
+
+Run tests serially where they reset the same fixture database. Inspect TAP counts/skips; an opt-in test skipped because its gate/environment is absent is not a PASS. Preserve the raw failures and requalification after any correction.
+
+For real rendered consumer qualification, run functions/test/support/postgis_flutter_host.cjs inside the qualified image with only BS_POSTGIS_FLUTTER_HOST=1, loopback8088/9099 and GCLOUD_PROJECT=demo-bs-postgis-flutter plus fixed synthetic fixture time and task-only metric output. Publish HTTP8188 only on Mac127.0.0.1 via a reviewed task-owned loopback bridge; the app itself must retain its loopback bind. Then on the Mac:
+  flutter test test/services/postgis_flutter_integration_test.dart --dart-define=BS_POSTGIS_HTTP_URL=http://127.0.0.1:8188 --dart-define=BS_POSTGIS_UI_EVIDENCE="$BS_LINUX_EVIDENCE/flutter.json" --dart-define=BS_POSTGIS_UI_SAMPLES=10
+Record host Flutter versus emulated Linux backend explicitly. Use final experiment/baseline commands supplied by the guest implementation owner if that test interface changes.
+
+Connection-recovery drill is a separate bounded integration check: snapshot publication/revision/source-head count/hash/pins, hold a real old connection, fast-restart ONLY the new task SQL process, verify old connection failure, bounded pool reconnect, then exact same persisted state and useful native page. Reuse the prior drill logic with the new local process/container identity. Do not restart unrelated containers or the historical55439 cluster. Record restart command/PIDs/container IDs, deadlines and final state; do not infer recovery from a fresh connection alone.
+
+Controller test code/config is not in its runtime image. Mount/copy only reviewed synthetic test inputs into a task-owned fixture and ensure imported runtime modules remain the frozen image bytes. Run current test_cloud_controller.py and affected guard/cleanup suites with --network=none, including actual Node verifier CLI. Record exact test-input hashes and module paths. No live approval/config, metadata identity or provider endpoint is allowed.
+
+Required evidence artifacts: selected-source manifest; both Dockerfiles/build logs; resolved base manifests; final image inspections and image IDs; executed Node/Python/runtime hashes; engine/emulation metadata; V8 source/build/flag/dispatch/disassembly mapping; exact-rational output; actual SQL/extension/conversion/session settings;318/1512 diagnostic JSON; matching/order TAP and oracle comparisons; source/snapshot/cleanup evidence; timeout/restart receipt; negative guard tests; final tuple diff/review; real HTTP + Flutter traces; final no-cloud/default-off and task-service teardown receipt. Preserve original v3/v4 and previous source/report artifacts unchanged.

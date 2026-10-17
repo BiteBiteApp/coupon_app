@@ -1,0 +1,136 @@
+{
+  "scope": "in-memory native handler diagnostics; no performance/SQL/cloud claim",
+  "observations": [
+    {
+      "case": "sparse mixed exclusions",
+      "serialChallenges": 70,
+      "windowChallenges": 5,
+      "maximumWindowIds": 26,
+      "cards": 55
+    },
+    {
+      "case": "dense unresolved first parent",
+      "metadataDifferences": [
+        {
+          "page": 0,
+          "row": 21,
+          "serial": {
+            "count": 3,
+            "state": "current"
+          },
+          "window": {
+            "count": null,
+            "state": "unknown"
+          }
+        }
+      ],
+      "classification": "ACCEPT AND CLOSE",
+      "reason": "100-item scan budget can change exhaustion proof; membership/order/hasMore and truthful unknown/current DTO invariants hold. Parent acknowledged existing supported unknown count."
+    },
+    {
+      "case": "dense unresolved first parent",
+      "serialChallenges": 54,
+      "windowChallenges": 16,
+      "maximumWindowIds": 75,
+      "cards": 35
+    },
+    {
+      "case": "empty visible page after all history exclusions",
+      "serialChallenges": 56,
+      "windowChallenges": 4,
+      "maximumWindowIds": 75,
+      "cards": 0
+    },
+    {
+      "case": "75 global",
+      "sizes": [
+        75,
+        3
+      ]
+    },
+    {
+      "case": "matrix 1",
+      "serialChallenges": 46,
+      "windowChallenges": 6,
+      "maximumWindowIds": 69,
+      "cards": 26
+    },
+    {
+      "case": "matrix 2",
+      "serialChallenges": 54,
+      "windowChallenges": 9,
+      "maximumWindowIds": 70,
+      "cards": 29
+    },
+    {
+      "case": "matrix 3",
+      "serialChallenges": 54,
+      "windowChallenges": 8,
+      "maximumWindowIds": 66,
+      "cards": 30
+    },
+    {
+      "case": "matrix 4",
+      "serialChallenges": 62,
+      "windowChallenges": 6,
+      "maximumWindowIds": 70,
+      "cards": 34
+    },
+    {
+      "case": "matrix 5",
+      "serialChallenges": 62,
+      "windowChallenges": 7,
+      "maximumWindowIds": 68,
+      "cards": 35
+    },
+    {
+      "case": "matrix 6",
+      "serialChallenges": 71,
+      "windowChallenges": 9,
+      "maximumWindowIds": 68,
+      "cards": 38
+    },
+    {
+      "case": "matrix 7",
+      "serialChallenges": 74,
+      "windowChallenges": 9,
+      "maximumWindowIds": 69,
+      "cards": 41
+    },
+    {
+      "case": "matrix 8",
+      "serialChallenges": 78,
+      "windowChallenges": 9,
+      "maximumWindowIds": 67,
+      "cards": 43
+    },
+    {
+      "case": "matrix 9",
+      "serialChallenges": 81,
+      "windowChallenges": 9,
+      "maximumWindowIds": 67,
+      "cards": 45
+    },
+    {
+      "case": "matrix 10",
+      "serialChallenges": 88,
+      "windowChallenges": 9,
+      "maximumWindowIds": 70,
+      "cards": 49
+    },
+    {
+      "case": "matrix 11",
+      "serialChallenges": 90,
+      "windowChallenges": 10,
+      "maximumWindowIds": 69,
+      "cards": 51
+    },
+    {
+      "case": "matrix 12",
+      "serialChallenges": 98,
+      "windowChallenges": 13,
+      "maximumWindowIds": 70,
+      "cards": 53
+    }
+  ]
+}

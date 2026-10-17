@@ -1,0 +1,92 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003",
+  "reviewer": "Track C staging_recovery",
+  "role": "Explicit independent cleanup/security reviewer; no implementation delegation",
+  "reviewedAt": "2026-10-17T21:46:23.989020+00:00",
+  "expectedStartingHead": "4a3241d722d347067db8a6960763e9e90c2dc665",
+  "actualStartingHead": "4a3241d722d347067db8a6960763e9e90c2dc665",
+  "scope": "Part C future cleanup and $100 spend-stop source, approval and deterministic transports only",
+  "changeBoundary": "External review evidence only; no source, owner file, Git or cloud changes",
+  "verdict": "FIX NOW / DIRECTLY REQUIRED: three narrow cleanup safety gaps; final-byte re-review required",
+  "tests": [
+    {
+      "pattern": "test_cloud_controller.py",
+      "pass": 29,
+      "fail": 0,
+      "log": "initial-controller-tests.log"
+    },
+    {
+      "pattern": "test_guard.py",
+      "pass": 32,
+      "fail": 0,
+      "log": "initial-test_guard.log"
+    },
+    {
+      "pattern": "test_gate0_controls.py",
+      "pass": 17,
+      "fail": 0,
+      "log": "initial-test_gate0_controls.log"
+    }
+  ],
+  "reproductions": {
+    "file": "initial-reproductions.json",
+    "sha256": "eb8714166d4d0f8a11370e64604076ad54f6876d9a71a19f4f306d020443591d",
+    "transport": "In-memory deterministic Transport; no provider HTTP or credentials"
+  },
+  "findings": [
+    {
+      "id": "C1",
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "severity": "high",
+      "where": "cloud_controller.py::_cleanup_resource_tick pending queue before run.job cancellation",
+      "consequence": "At the owner checkpoint, a running workload can continue its paid execution while the watchdog polls the original job-run LRO instead of cancelling it. A local paused ledger does not stop the expensive operation.",
+      "likelihood": "Normal accepted run.job operation may be pending when the forecast reaches100 or heartbeat fails.",
+      "evidence": "Synthetic forecast100/fresh heartbeat/pending run LRO produced only operation GET+alert and provider-operation-pending, no cancel POST.",
+      "smallestRequiredCorrection": "Prioritize exact owned active job cancellation over waiting for original job-run completion. Persist cancellation and reconcile asynchronously; keep original operation evidence without letting it gate the stop request. Test100 checkpoint with running LRO, lost run reply, cancellation pending/failure and replacement execution."
+    },
+    {
+      "id": "C2",
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "severity": "medium",
+      "where": "cloud_controller.py::_cleanup_resource_tick SQL activationPolicy NEVER early return",
+      "consequence": "After a lost SQL stop response, configured activation policy is labeled stopped without any completion evidence. Owner handoff could misstate whether compute costs have stopped.",
+      "likelihood": "Directly reachable response-loss path already supported by provider transport.",
+      "evidence": "First stop PATCH raised unknown outcome; next tick saw NEVER and returned sql-stopped-storage-charges-remain without operation poll/completion.",
+      "smallestRequiredCorrection": "Persist stop intent and separate stop-requested/configured from confirmed completion. Reconcile known or lost operations boundedly; unknown remains unresolved and alerts. Never turn activation configuration alone into verified compute-stop evidence. Test lost stop reply, pending stop, denied poll and actual completed stop; retain storage liability."
+    },
+    {
+      "id": "C3",
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "severity": "high",
+      "where": "cloud_provider.py::GoogleResources.delete sqlExclusiveDeletion eligibility",
+      "consequence": "An owner policy declaration alone enables SQL DELETE despite the task requiring independently established exclusivity and single-use names. SQL has no atomic incarnation precondition, so these proof conditions matter.",
+      "likelihood": "Current deterministic positive test supplies only four booleans/reference; no independent eligibility record.",
+      "evidence": "Direct adapter call with signed-policy-shaped flags and exact resource receipt sent DELETE with zero separate proof.",
+      "smallestRequiredCorrection": "Require explicit independently reviewed eligibility evidence tied to the exact approved project/run/resource plan and immutable original clock, with applicable freshness/revocation and single-use name conditions. Existing exact incarnation and policy checks remain. Without proven conditions, stop and require supervised deletion. Local tests certify refusal/binding logic only; effective real IAM and exclusive window remain future supervised gate evidence."
+    }
+  ],
+  "acceptedExistingControls": [
+    "Production and wrong-project rejection before I/O; exact configuration/approval and Gate5 cleanup horizon",
+    "Durable original start/deadline and lost create/run reply non-replay",
+    "Exact resource incarnation receipts, etag mutations where provider supports them, SQL settingsVersion stop",
+    "403/timeout and accepted deletion not treated as absence; actual exact404 required",
+    "Retained storage/backups/evidence/control costs explicitly unreconciled after absence; conservative liabilities not refunded",
+    "Unresolved cleanup or alert publication failure produces nonzero watchdog result; delivered alerts and independent scheduler/watchdog behavior remain unverified",
+    "Finite retry/poll limits produce supervised fallback rather than unbounded mutation"
+  ],
+  "requiredQualificationDistinctions": [
+    "A stopped SQL instance can retain storage charges; absent SQL does not establish zero retained charges",
+    "Supervised fallback is not automatic overnight safety; do not claim unattended readiness",
+    "Local deterministic transports do not prove effective cloud ownership, provider operations, delivered alerts or real spend stop"
+  ],
+  "sourceSha256AtReviewedStartingHead": {
+    "tool/postgis_staging/scripts/cloud_controller.py": "65a940a9509ed4d99fd0f33e6bc3b2b75f8286c1baf7b516d49dfcd5780f036d",
+    "tool/postgis_staging/scripts/cloud_provider.py": "8f6cbb4cd5f6dcff35a253d63f8f882bf5ac1aa847b8810704876c45c962ef93",
+    "tool/postgis_staging/scripts/provider_entrypoint.py": "2bc722a16cc10896c008fbd4290420aa3bc942932a0432d5a23d8e90a3025432",
+    "tool/postgis_staging/scripts/guard.py": "35727623fdb0caeec1666e672cd684785a60288d2837f0cf898d6e11dd32eb6d",
+    "tool/postgis_staging/scripts/test_cloud_controller.py": "702f2af9383f3bcb16ffe09e039b7e9f417c2b013d2c704815464af58287b592",
+    "tool/postgis_staging/scripts/test_guard.py": "fd036f016676ed5d4bd2b2c52768db5619a0a7c1d75684a115794e55db444e24",
+    "tool/postgis_staging/PROVIDER-GATE1.md": "1b6abaa8de202b0cbe5363de65caf4eed2a230d8ab4639ddd19e130f5d5e663e"
+  },
+  "remainingAction": "Parent implements narrow fixes; reviewer awaits final changed bytes and focused tests for independent re-review"
+}

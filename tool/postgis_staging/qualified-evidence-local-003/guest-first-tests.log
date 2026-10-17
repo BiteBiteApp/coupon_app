@@ -1,0 +1,11 @@
+✔ restaurant window combines 26 one-ID checks without changing page membership (333.218291ms)
+✔ restaurant window preserves exact filtered membership and never leaks full history (152.249208ms)
+✔ restaurant window global 75-ID boundary spans dense parents (124.359917ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 935.560542

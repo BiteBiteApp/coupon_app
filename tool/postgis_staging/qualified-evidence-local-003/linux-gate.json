@@ -1,0 +1,22 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003",
+  "status": "BLOCKED_PENDING_OWNER_FREE_LICENSE_ELIGIBILITY_CONFIRMATION",
+  "dockerDesktopInstalled": false,
+  "dockerCliPresent": false,
+  "questionAsked": true,
+  "answerReceived": false,
+  "installed": false,
+  "downloaded": false,
+  "imageBuilt": false,
+  "imageRun": false,
+  "linuxNumericalPairs318Executed": false,
+  "linuxRadiusVectors1512Executed": false,
+  "runtimeGuardChanged": false,
+  "nativeHostedEvidence": false,
+  "qualification": "No Linux image or runtime tuple is qualified by this run. No local engine or substitute was installed. Required owner confirmation remains pending. No current cloud gate GO.",
+  "officialSources": [
+    "https://docs.docker.com/desktop/setup/install/mac-install/",
+    "https://www.docker.com/pricing/"
+  ],
+  "futureCondition": "Confirm fewer than250 employees AND annual revenue less than USD10million, nongovernment; then verified official Apple-silicon distribution and explicit emulated linux/amd64 execution. Finite numerical passes do not establish universal bound compatibility or native hosted CPU equivalence."
+}

@@ -1,0 +1,77 @@
+✔ actual Admin remove-review query/delete order removes votes and legacy reports, preserving independent cases (895.720208ms)
+[2026-10-17T22:03:15.739Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b504 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2027:24 for 'delete' @ L2027, false for 'delete' @ L2229, false for 'delete' @ L2027, false for 'delete' @ L2229
+[2026-10-17T22:03:15.749Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b505 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2027:24 for 'delete' @ L2027, false for 'delete' @ L2229, false for 'delete' @ L2027, false for 'delete' @ L2229
+[2026-10-17T22:03:15.758Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b506 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2027:24 for 'delete' @ L2027, false for 'delete' @ L2229, false for 'delete' @ L2027, false for 'delete' @ L2229
+[2026-10-17T22:03:15.767Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b507 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L2027, false for 'delete' @ L2229
+✔ a stranger, author or business owner cannot impersonate Admin to delete another user vote (54.826792ms)
+[2026-10-17T22:03:15.814Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b50a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2027:24 for 'delete' @ L2027, false for 'delete' @ L2229, false for 'delete' @ L2027, false for 'delete' @ L2229
+✔ Admin vote cleanup preserves deletion fence for admin (46.808208ms)
+[2026-10-17T22:03:15.844Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b50d error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2027:24 for 'delete' @ L2027, false for 'delete' @ L2229, false for 'delete' @ L2027, false for 'delete' @ L2229
+✔ Admin vote cleanup preserves deletion fence for voter (29.683125ms)
+[2026-10-17T22:03:15.875Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b510 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2027:24 for 'delete' @ L2027, false for 'delete' @ L2229, false for 'delete' @ L2027, false for 'delete' @ L2229
+✔ Admin vote cleanup preserves dish operation lock (30.94825ms)
+[2026-10-17T22:03:15.908Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b513 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2027:24 for 'delete' @ L2027, false for 'delete' @ L2229, false for 'delete' @ L2027, false for 'delete' @ L2229
+✔ Admin vote cleanup preserves restaurant operation lock (32.77675ms)
+[2026-10-17T22:03:15.932Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b515 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2021:24 for 'update' @ L2021, false for 'update' @ L2229, false for 'update' @ L2021, false for 'update' @ L2229
+[2026-10-17T22:03:15.936Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b516 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L2018, false for 'create' @ L2229, false for 'update' @ L2021, false for 'update' @ L2229
+✔ Admin permission is deletion-only and cannot overwrite or forge another user vote (28.170667ms)
+✔ source own-vote withdrawal remains available (22.740334ms)
+✔ actual owner empty shared-menu initialization and subsequent touch work before photo submission (45.538625ms)
+[2026-10-17T22:03:16.026Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b51e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2135:24 for 'create' @ L2135, false for 'create' @ L2167, false for 'create' @ L2229, evaluation error at L2142:24 for 'update' @ L2142, false for 'update' @ L2167, false for 'update' @ L2229, evaluation error at L1802:24 for 'create' @ L1802, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1810, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L2135, false for 'create' @ L2167, false for 'create' @ L2229
+[2026-10-17T22:03:16.046Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b520 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2135:24 for 'create' @ L2135, false for 'create' @ L2167, false for 'create' @ L2229, evaluation error at L2142:24 for 'update' @ L2142, false for 'update' @ L2167, false for 'update' @ L2229, evaluation error at L1802:24 for 'create' @ L1802, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1810, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, Null value error. for 'create' @ L2135, false for 'create' @ L2167, false for 'create' @ L2229
+✔ empty menu initialization cannot be used by stranger or to publish unchecked extra content (42.010666ms)
+[2026-10-17T22:03:16.077Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b523 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2135:24 for 'create' @ L2135, false for 'create' @ L2167, false for 'create' @ L2229, evaluation error at L2142:24 for 'update' @ L2142, false for 'update' @ L2167, false for 'update' @ L2229, evaluation error at L1802:24 for 'create' @ L1802, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1810, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L2135, false for 'create' @ L2167, false for 'create' @ L2229
+[2026-10-17T22:03:16.124Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b526 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2135:24 for 'create' @ L2135, false for 'create' @ L2167, false for 'create' @ L2229, evaluation error at L2142:24 for 'update' @ L2142, false for 'update' @ L2167, false for 'update' @ L2229, evaluation error at L1802:24 for 'create' @ L1802, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1810, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L2135, false for 'create' @ L2167, false for 'create' @ L2229, false for 'update' @ L1810, false for 'update' @ L2229
+✔ owner menu initialization remains fenced by deletion and restaurant operation lock (77.546792ms)
+[2026-10-17T22:03:16.158Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b529 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1592:24 for 'create' @ L1592, false for 'create' @ L2229, false for 'update' @ L1593, false for 'update' @ L2229, Null value error. for 'create' @ L1592, false for 'create' @ L2229
+[2026-10-17T22:03:16.172Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b52b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L1593, false for 'update' @ L2229
+✔ owner pending name request needs contributor Terms and cannot approve itself (48.247666ms)
+[2026-10-17T22:03:16.221Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b530 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1611, false for 'create' @ L1759, false for 'create' @ L2229, evaluation error at L1612:24 for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229, false for 'create' @ L1611, false for 'create' @ L1759, false for 'create' @ L2229
+[2026-10-17T22:03:16.228Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b532 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1485, false for 'create' @ L2229, false for 'update' @ L1485, false for 'update' @ L2229
+[2026-10-17T22:03:16.232Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b533 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1487, false for 'create' @ L2229, false for 'update' @ L1487, false for 'update' @ L2229
+[2026-10-17T22:03:16.236Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b534 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L2229, false for 'update' @ L2229
+[2026-10-17T22:03:16.243Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b535 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1611, false for 'create' @ L1759, false for 'create' @ L2229, false for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229
+[2026-10-17T22:03:16.249Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b537 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1485, false for 'create' @ L2229, false for 'update' @ L1485, false for 'update' @ L2229
+[2026-10-17T22:03:16.254Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b538 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1487, false for 'create' @ L2229, false for 'update' @ L1487, false for 'update' @ L2229
+[2026-10-17T22:03:16.259Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b539 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L2229, false for 'update' @ L2229
+[2026-10-17T22:03:16.267Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b53a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1611, false for 'create' @ L1759, false for 'create' @ L2229, evaluation error at L1612:24 for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229, false for 'create' @ L1611, false for 'create' @ L1759, false for 'create' @ L2229
+[2026-10-17T22:03:16.273Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b53c error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1485, false for 'create' @ L2229, false for 'update' @ L1485, false for 'update' @ L2229
+[2026-10-17T22:03:16.278Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b53d error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1487, false for 'create' @ L2229, false for 'update' @ L1487, false for 'update' @ L2229
+[2026-10-17T22:03:16.282Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x22f3b53e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L2229, false for 'update' @ L2229
+✔ private safety records and acceptance cannot be forged by client Admin or any customer (109.493ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1619.92275

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
+
 import 'package:coupon_app/screens/bitescore_create_rate_screen.dart';
 import 'package:coupon_app/screens/bitescore_home_screen.dart';
 import 'package:coupon_app/screens/customer_bitesaver_browse_screen.dart';
@@ -222,6 +224,7 @@ void main() {
     int run, {
     String status = 'success',
     int? usefulCards,
+    String? orderedMembershipDigest,
   }) {
     watch.stop();
     observations.add({
@@ -233,6 +236,7 @@ void main() {
       'phase': run == 0 ? 'first-observation' : 'warm-observation',
       'status': status,
       'usefulCards': usefulCards,
+      'orderedMembershipDigest': orderedMembershipDigest,
       'calls': List<Map<String, Object?>>.from(callTimings),
       'clientDelays': List<Map<String, Object?>>.from(delayTimings),
     });
@@ -322,6 +326,22 @@ void main() {
               run,
               status: status,
               usefulCards: coordinator.restaurants.length,
+              orderedMembershipDigest: sha256
+                  .convert(
+                    utf8.encode(
+                      jsonEncode([
+                        for (final restaurant in coordinator.restaurants)
+                          [
+                            restaurant.restaurantId.value,
+                            [
+                              for (final offer in restaurant.offers)
+                                offer.offerId.value,
+                            ],
+                          ],
+                      ]),
+                    ),
+                  )
+                  .toString(),
             );
             await tester.pumpWidget(const SizedBox());
             await tester.pump();

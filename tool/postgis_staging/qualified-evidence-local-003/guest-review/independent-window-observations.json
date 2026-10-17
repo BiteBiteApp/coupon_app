@@ -1,0 +1,19 @@
+{
+  "scope": "in-memory native handler diagnostics; no performance/SQL/cloud claim",
+  "observations": [
+    {
+      "case": "empty visible page after all history exclusions",
+      "serialChallenges": 56,
+      "windowChallenges": 4,
+      "maximumWindowIds": 75,
+      "cards": 0
+    },
+    {
+      "case": "75 global",
+      "sizes": [
+        75,
+        3
+      ]
+    }
+  ]
+}

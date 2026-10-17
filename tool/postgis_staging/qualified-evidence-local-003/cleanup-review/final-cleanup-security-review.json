@@ -1,0 +1,94 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003",
+  "reviewer": "Track C staging_recovery",
+  "role": "Explicit independent cleanup/security reviewer; no implementation edits",
+  "completedAt": "2026-10-17T22:05:37.609960+00:00",
+  "verdict": "PASS for final reviewed cleanup source and deterministic local contracts; no actual cloud/provider or unattended qualification",
+  "scope": "Part C SQL conditional deletion eligibility, $100 expense-pause actions, job cancellation, SQL stop completion, asynchronous absence and continuing-charge reporting",
+  "sourceSha256": {
+    "tool/postgis_staging/scripts/cloud_controller.py": "d8ed5eade98216424d07396037381f26f0377fdb3e6c2c4c29f9baede5c2a9af",
+    "tool/postgis_staging/scripts/cloud_provider.py": "b6a465032526a5b3c6e17d4797a1f082d268fbb9fca7ca371f0fba8274830fd8",
+    "tool/postgis_staging/scripts/provider_entrypoint.py": "ff8af3fb4901eded6c6a0a971c4c114f8bb2ed6f257f71f6ac96c9bd544fbe91",
+    "tool/postgis_staging/config/provider.example.json": "15d9ffe2dc6ce57aded62748736bd842d843e8441587044066fe5f127ab4fe15",
+    "tool/postgis_staging/scripts/test_cloud_controller.py": "2a68eb4d5edc5e6b959ed4e69856128c2d360c8502bfd8cf8049061b7a8775ae"
+  },
+  "resolvedFindings": [
+    {
+      "id": "C1",
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "resolution": "Independent watchdog persists bounded cancellation before polling an original running job LRO. It requires terminal matching sentAt execution evidence before deletion. Lost cancellation, absent executions and403 remain unresolved. Successful workload outcome is not required for cleanup; obsolete run LRO retained separately after terminal execution."
+    },
+    {
+      "id": "C2",
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "resolution": "Only successful completion of the specific SQL stop operation plus refreshed activationPolicy NEVER yields stop-confirmed. Lost stop replies remain configured/completion-unconfirmed and fail watchdog status. Old confirmation is durably cleared before any new stop attempt on the same incarnation."
+    },
+    {
+      "id": "C3",
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "resolution": "Signed full config binds a complete independent preflight report digest, exact isolated project/number/run/candidate/resource-plan/name, controller/watchdog principals and original clock. Preflight has bounded validity, named independent reviewer and permissions/name-registry evidence digests. First observed sent create binds that approved proof to exact actual incarnation and intent in ledger. Delete checks current proof/expiry/revocation/resource/receipt/intent; missing, mismatched or stale conditions require supervised fallback."
+    }
+  ],
+  "wipRegressionsClosed": [
+    "Direct job delete refuses empty or older completed listings after a sent attempt",
+    "Specific sentAt matching and terminal completion permit cleanup despite cancelled original run outcome",
+    "Prior SQL stop confirmation cannot prove a later lost stop completed"
+  ],
+  "independentVerification": {
+    "fullPythonDiscovery": {
+      "pass": 89,
+      "fail": 0,
+      "skip": 0,
+      "log": "final-independent-controller-guard-pricing.log",
+      "sha256": "e2f4c19a070d2d77084ed94a6007ac31a61b3212d4fe5b537e217c4aef6d29f9",
+      "environment": "PYTHONDONTWRITEBYTECODE=1; retained Node24 on PATH for offline verifier; deterministic transports only"
+    },
+    "additionalReviewerDiagnostics": {
+      "pass": 13,
+      "fail": 0,
+      "file": "final-independent-diagnostics.json",
+      "sha256": "e1497fd042f63e98d309ae41f40750a07ff78a7fb22f10d440187cc50e2fddea",
+      "coverage": [
+        "Altered preflight digest, controller principal and resource-plan binding",
+        "Disabled policy, evidence expiry and future review time refusal",
+        "Missing actual ledger binding, revoked binding and different actual incarnation refuse before DELETE",
+        "Unresolved execution and configured-only SQL stop produce nonzero watchdog status",
+        "Failed SQL stop operation never confirms or refunds",
+        "403 stop polling followed by actual completed stop preserves immutable deadline and cost liability"
+      ]
+    },
+    "sourceStableDuringVerification": true
+  },
+  "confirmedPreservedControls": [
+    "No production or non-singleton project execution",
+    "Verified signed execution and Gate5 cleanup authorities before provider initialization",
+    "Original first-billable start/deadline immutable across restart and cleanup",
+    "Durable single-attempt create/run intents; unknown replies not retried/refunded",
+    "Exact ownership/creation receipts and fresh provider identity checks",
+    "Cloud SQL DELETE still explicitly has no atomic incarnation precondition",
+    "SQL settingsVersion stop and Run etag cancellation/delete",
+    "Paused admission before cleanup; bounded cancellation/poll/delete attempts",
+    "403/timeout/missing response never means absent; actual owned GET404 required",
+    "Stopped SQL retains storage liability; deletion/absence leaves retained charges unreconciled",
+    "Failures and unconfirmed outcomes remain nonzero/alertable; publisher acceptance does not prove delivery"
+  ],
+  "limitations": [
+    "Evidence schema validates operator-supplied independently reviewed reports; local tests do not establish actual effective IAM exclusivity, permanent name registry, or continued ownership after the review. Real Gate1 must verify those facts; later intervention revokes eligibility.",
+    "Conditional automatic SQL deletion cannot add an API incarnation precondition. Its safety depends on established exclusive lifecycle authority and names never reused; otherwise supervised deletion remains required.",
+    "Supervised fallback is not safe unattended overnight operation. Do not claim automatic72h readiness while human deletion or uncertain stop completion remains necessary.",
+    "No true bill cap or immediate zero-cost claim: asynchronous stopping, polling delays, continuing storage/backups/artifacts/evidence/control charges remain. The100 checkpoint is separate approval admission/stop control, not a guaranteed dollar cutoff.",
+    "Real watchdog independence, delivery/silence detection, provider cancellation/stop/absence and retained-billing reconciliation remain unverified until separately authorized supervised cloud safety testing."
+  ],
+  "remainingMaterialSourceFindings": [],
+  "priorEvidenceRetained": [
+    "initial-review.json",
+    "initial-reproductions.json",
+    "wip-design-review.json"
+  ],
+  "changesByReviewer": [
+    "Only external review evidence under this cleanup-review directory"
+  ],
+  "repoEditsByReviewer": false,
+  "cloudCallsOrCredentials": false,
+  "gitMutationsByReviewer": false
+}

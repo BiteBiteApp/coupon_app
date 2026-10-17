@@ -1,0 +1,490 @@
+✖ marker is client-private; existence blocks actor and Admin target writes but preserves reads and B (0.181334ms)
+✖ active B cannot create or retarget feedback onto absent/deleting A review; orphan own-delete remains (0.023917ms)
+✖ anonymous actor fence covers direct writes and Admin cannot recreate nested favorites (0.019208ms)
+✖ screening cutover denies every client upload and preserves historical reads across deletion fences (0.016583ms)
+✖ catalog bio authorship follows the real editor and cannot be reassigned without changing text (0.028791ms)
+✖ photo reports are private and all client creation/evidence/status mutations are denied including Admin (0.1735ms)
+✖ removed photo cannot be replaced, resurrected, or voted on through legacy client paths (0.025959ms)
+✖ unmoderated legacy photo update and uploader deletion remain valid; moderation injection is denied (0.02175ms)
+✖ owner cannot restore a removed primary image through dish fields after trusted cutover (0.018417ms)
+[2026-10-17T22:00:45.523Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434834 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1603, false for 'create' @ L1759, false for 'create' @ L2229, false for 'update' @ L1603, false for 'update' @ L1759, false for 'update' @ L2229
+[2026-10-17T22:00:45.527Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434835 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1603, false for 'delete' @ L1759, false for 'delete' @ L2229
+[2026-10-17T22:00:45.532Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434836 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1603, false for 'create' @ L1759, false for 'create' @ L2229, false for 'update' @ L1603, false for 'update' @ L1759, false for 'update' @ L2229
+[2026-10-17T22:00:45.547Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434838 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1603, false for 'create' @ L1759, false for 'create' @ L2229, false for 'update' @ L1603, false for 'update' @ L1759, false for 'update' @ L2229
+[2026-10-17T22:00:45.551Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434839 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1603, false for 'delete' @ L1759, false for 'delete' @ L2229
+[2026-10-17T22:00:45.555Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643483a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1603, false for 'create' @ L1759, false for 'create' @ L2229, false for 'update' @ L1603, false for 'update' @ L1759, false for 'update' @ L2229
+[2026-10-17T22:00:45.570Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643483c error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1603, false for 'create' @ L1759, false for 'create' @ L2229, false for 'update' @ L1603, false for 'update' @ L1759, false for 'update' @ L2229
+[2026-10-17T22:00:45.572Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643483d error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1603, false for 'delete' @ L1759, false for 'delete' @ L2229
+[2026-10-17T22:00:45.574Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643483e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1603, false for 'create' @ L1759, false for 'create' @ L2229, false for 'update' @ L1603, false for 'update' @ L1759, false for 'update' @ L2229
+[2026-10-17T22:00:45.589Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434840 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1603, false for 'create' @ L1759, false for 'create' @ L2229, false for 'update' @ L1603, false for 'update' @ L1759, false for 'update' @ L2229
+[2026-10-17T22:00:45.592Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434841 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1603, false for 'delete' @ L1759, false for 'delete' @ L2229
+[2026-10-17T22:00:45.596Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434842 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1603, false for 'create' @ L1759, false for 'create' @ L2229, false for 'update' @ L1603, false for 'update' @ L1759, false for 'update' @ L2229
+✔ private restriction state is unreadable and unforgeable by customers, strangers, guests and client Admins (1172.248875ms)
+[2026-10-17T22:00:45.649Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434845 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1953:24 for 'create' @ L1953, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L1953, false for 'create' @ L2229
+[2026-10-17T22:00:45.662Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434846 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1958, false for 'update' @ L2229
+[2026-10-17T22:00:45.668Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434847 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1953, false for 'create' @ L2229, false for 'update' @ L1958, false for 'update' @ L2229
+[2026-10-17T22:00:45.676Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434848 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1979:24 for 'create' @ L1979, false for 'create' @ L2229, evaluation error at L1982:24 for 'update' @ L1982, false for 'update' @ L2229, false for 'create' @ L1979, false for 'create' @ L2229
+[2026-10-17T22:00:45.684Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434849 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1882, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1882, false for 'update' @ L2229
+[2026-10-17T22:00:45.694Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643484a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1873:24 for 'create' @ L1873, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1882, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L1873, false for 'create' @ L2229
+[2026-10-17T22:00:45.703Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643484b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1802:24 for 'create' @ L1802, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1810, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L1802, false for 'create' @ L2229
+[2026-10-17T22:00:45.710Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643484c error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'create' @ L2096, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'create' @ L2229, false for 'update' @ L2100, false for 'update' @ L2229, false for 'create' @ L2096, false for 'create' @ L2229
+[2026-10-17T22:00:45.714Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643484d error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2018:24 for 'create' @ L2018, false for 'create' @ L2229, evaluation error at L2021:24 for 'update' @ L2021, false for 'update' @ L2229, false for 'create' @ L2018, false for 'create' @ L2229
+[2026-10-17T22:00:45.719Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643484e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2004:24 for 'create' @ L2004, false for 'create' @ L2229, evaluation error at L2005:24 for 'update' @ L2005, false for 'update' @ L2229, false for 'create' @ L2004, false for 'create' @ L2229
+✔ 7d blocks direct new reviews, edits, photos, categories, catalog creates, suggestions and public votes (122.293708ms)
+[2026-10-17T22:00:45.751Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434851 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1953:24 for 'create' @ L1953, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L1953, false for 'create' @ L2229
+[2026-10-17T22:00:45.756Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434852 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1958, false for 'update' @ L2229
+[2026-10-17T22:00:45.761Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434853 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1953, false for 'create' @ L2229, false for 'update' @ L1958, false for 'update' @ L2229
+[2026-10-17T22:00:45.767Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434854 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1979:24 for 'create' @ L1979, false for 'create' @ L2229, evaluation error at L1982:24 for 'update' @ L1982, false for 'update' @ L2229, false for 'create' @ L1979, false for 'create' @ L2229
+[2026-10-17T22:00:45.774Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434855 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1882, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1882, false for 'update' @ L2229
+[2026-10-17T22:00:45.780Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434856 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1873:24 for 'create' @ L1873, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1882, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L1873, false for 'create' @ L2229
+[2026-10-17T22:00:45.787Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434857 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1802:24 for 'create' @ L1802, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1810, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L1802, false for 'create' @ L2229
+[2026-10-17T22:00:45.793Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434858 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'create' @ L2096, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'create' @ L2229, false for 'update' @ L2100, false for 'update' @ L2229, false for 'create' @ L2096, false for 'create' @ L2229
+[2026-10-17T22:00:45.798Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434859 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2018:24 for 'create' @ L2018, false for 'create' @ L2229, evaluation error at L2021:24 for 'update' @ L2021, false for 'update' @ L2229, false for 'create' @ L2018, false for 'create' @ L2229
+[2026-10-17T22:00:45.803Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643485a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2004:24 for 'create' @ L2004, false for 'create' @ L2229, evaluation error at L2005:24 for 'update' @ L2005, false for 'update' @ L2229, false for 'create' @ L2004, false for 'create' @ L2229
+✔ 14d blocks direct new reviews, edits, photos, categories, catalog creates, suggestions and public votes (83.627167ms)
+[2026-10-17T22:00:45.831Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643485d error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1953:24 for 'create' @ L1953, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L1953, false for 'create' @ L2229
+[2026-10-17T22:00:45.836Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643485e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1958, false for 'update' @ L2229
+[2026-10-17T22:00:45.838Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643485f error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1953, false for 'create' @ L2229, false for 'update' @ L1958, false for 'update' @ L2229
+[2026-10-17T22:00:45.843Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434860 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1979:24 for 'create' @ L1979, false for 'create' @ L2229, evaluation error at L1982:24 for 'update' @ L1982, false for 'update' @ L2229, false for 'create' @ L1979, false for 'create' @ L2229
+[2026-10-17T22:00:45.848Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434861 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1882, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1882, false for 'update' @ L2229
+[2026-10-17T22:00:45.854Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434862 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1873:24 for 'create' @ L1873, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1882, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L1873, false for 'create' @ L2229
+[2026-10-17T22:00:45.860Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434863 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1802:24 for 'create' @ L1802, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1810, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L1802, false for 'create' @ L2229
+[2026-10-17T22:00:45.865Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434864 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'create' @ L2096, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'create' @ L2229, false for 'update' @ L2100, false for 'update' @ L2229, false for 'create' @ L2096, false for 'create' @ L2229
+[2026-10-17T22:00:45.870Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434865 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2018:24 for 'create' @ L2018, false for 'create' @ L2229, evaluation error at L2021:24 for 'update' @ L2021, false for 'update' @ L2229, false for 'create' @ L2018, false for 'create' @ L2229
+[2026-10-17T22:00:45.874Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434866 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2004:24 for 'create' @ L2004, false for 'create' @ L2229, evaluation error at L2005:24 for 'update' @ L2005, false for 'update' @ L2229, false for 'create' @ L2004, false for 'create' @ L2229
+✔ indefinite blocks direct new reviews, edits, photos, categories, catalog creates, suggestions and public votes (71.273417ms)
+[2026-10-17T22:00:45.902Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434869 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1953:24 for 'create' @ L1953, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, Property schemaVersion is undefined on object. for 'create' @ L1953, false for 'create' @ L2229
+[2026-10-17T22:00:45.907Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643486a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, Property schemaVersion is undefined on object. for 'update' @ L1958, false for 'update' @ L2229
+[2026-10-17T22:00:45.911Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643486b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1953, false for 'create' @ L2229, false for 'update' @ L1958, false for 'update' @ L2229
+[2026-10-17T22:00:45.917Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643486c error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1979:24 for 'create' @ L1979, false for 'create' @ L2229, evaluation error at L1982:24 for 'update' @ L1982, false for 'update' @ L2229, Property schemaVersion is undefined on object. for 'create' @ L1979, false for 'create' @ L2229
+[2026-10-17T22:00:45.921Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643486d error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1882, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, Property schemaVersion is undefined on object. for 'update' @ L1882, false for 'update' @ L2229
+[2026-10-17T22:00:45.927Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643486e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1873:24 for 'create' @ L1873, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1882, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, Property schemaVersion is undefined on object. for 'create' @ L1873, false for 'create' @ L2229
+[2026-10-17T22:00:45.933Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643486f error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1802:24 for 'create' @ L1802, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1810, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, Property schemaVersion is undefined on object. for 'create' @ L1802, false for 'create' @ L2229
+[2026-10-17T22:00:45.939Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434870 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'create' @ L2096, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'create' @ L2229, false for 'update' @ L2100, false for 'update' @ L2229, Property schemaVersion is undefined on object. for 'create' @ L2096, false for 'create' @ L2229
+[2026-10-17T22:00:45.944Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434871 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2018:24 for 'create' @ L2018, false for 'create' @ L2229, evaluation error at L2021:24 for 'update' @ L2021, false for 'update' @ L2229, Property schemaVersion is undefined on object. for 'create' @ L2018, false for 'create' @ L2229
+[2026-10-17T22:00:45.949Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x86434872 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2004:24 for 'create' @ L2004, false for 'create' @ L2229, evaluation error at L2005:24 for 'update' @ L2005, false for 'update' @ L2229, Property schemaVersion is undefined on object. for 'create' @ L2004, false for 'create' @ L2229
+✔ malformed blocks direct new reviews, edits, photos, categories, catalog creates, suggestions and public votes (75.170458ms)
+✔ absent, automatically expired and released state permit legacy publication, including mild profanity (81.85325ms)
+[2026-10-17T22:00:46.056Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643487b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1882, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1882, false for 'update' @ L2229
+[2026-10-17T22:00:46.061Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x8643487c error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1882, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1882, false for 'update' @ L2229
+✔ restricted legacy actor cannot bypass photo publication through arbitrary dish primary URL; own withdrawal and existing photo selection survive (41.73225ms)
+✔ own content deletion, private abuse reporting, favorites and owner menu/dish functions survive restriction (75.472458ms)
+[2026-10-17T22:00:46.739Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74bc error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1485, false for 'create' @ L2229, false for 'update' @ L1485, false for 'update' @ L2229
+[2026-10-17T22:00:46.741Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74bd error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1485, false for 'delete' @ L2229
+[2026-10-17T22:00:46.746Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74be error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1486, false for 'create' @ L2229, false for 'update' @ L1486, false for 'update' @ L2229
+[2026-10-17T22:00:46.749Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74bf error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1486, false for 'delete' @ L2229
+[2026-10-17T22:00:46.754Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74c0 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1487, false for 'create' @ L2229, false for 'update' @ L1487, false for 'update' @ L2229
+[2026-10-17T22:00:46.756Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74c1 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1487, false for 'delete' @ L2229
+[2026-10-17T22:00:46.770Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74c3 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1485, false for 'create' @ L2229, false for 'update' @ L1485, false for 'update' @ L2229
+[2026-10-17T22:00:46.773Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74c4 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1485, false for 'delete' @ L2229
+[2026-10-17T22:00:46.776Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74c5 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1486, false for 'create' @ L2229, false for 'update' @ L1486, false for 'update' @ L2229
+[2026-10-17T22:00:46.779Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74c6 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1486, false for 'delete' @ L2229
+[2026-10-17T22:00:46.784Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74c7 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1487, false for 'create' @ L2229, false for 'update' @ L1487, false for 'update' @ L2229
+[2026-10-17T22:00:46.786Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74c8 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1487, false for 'delete' @ L2229
+[2026-10-17T22:00:46.798Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74ca error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1485, false for 'create' @ L2229, false for 'update' @ L1485, false for 'update' @ L2229
+[2026-10-17T22:00:46.801Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74cb error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1485, false for 'delete' @ L2229
+[2026-10-17T22:00:46.804Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74cc error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1486, false for 'create' @ L2229, false for 'update' @ L1486, false for 'update' @ L2229
+[2026-10-17T22:00:46.806Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74cd error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1486, false for 'delete' @ L2229
+[2026-10-17T22:00:46.810Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74ce error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1487, false for 'create' @ L2229, false for 'update' @ L1487, false for 'update' @ L2229
+[2026-10-17T22:00:46.813Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74cf error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1487, false for 'delete' @ L2229
+[2026-10-17T22:00:46.822Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74d1 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1485, false for 'create' @ L2229, false for 'update' @ L1485, false for 'update' @ L2229
+[2026-10-17T22:00:46.825Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74d2 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1485, false for 'delete' @ L2229
+[2026-10-17T22:00:46.829Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74d3 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1486, false for 'create' @ L2229, false for 'update' @ L1486, false for 'update' @ L2229
+[2026-10-17T22:00:46.831Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74d4 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1486, false for 'delete' @ L2229
+[2026-10-17T22:00:46.835Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74d5 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1487, false for 'create' @ L2229, false for 'update' @ L1487, false for 'update' @ L2229
+[2026-10-17T22:00:46.837Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74d6 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1487, false for 'delete' @ L2229
+[2026-10-17T22:00:46.849Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74d8 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1485, false for 'create' @ L2229, false for 'update' @ L1485, false for 'update' @ L2229
+[2026-10-17T22:00:46.852Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74d9 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1485, false for 'delete' @ L2229
+[2026-10-17T22:00:46.856Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74da error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1486, false for 'create' @ L2229, false for 'update' @ L1486, false for 'update' @ L2229
+[2026-10-17T22:00:46.857Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74db error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1486, false for 'delete' @ L2229
+[2026-10-17T22:00:46.861Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74dc error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1487, false for 'create' @ L2229, false for 'update' @ L1487, false for 'update' @ L2229
+[2026-10-17T22:00:46.863Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74dd error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L1487, false for 'delete' @ L2229
+✔ private proposed words and admission state are denied to author, other, business owner, Admin and guest (627.377916ms)
+[2026-10-17T22:00:46.885Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74df error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1953:24 for 'create' @ L1953, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L1953, false for 'create' @ L2229
+[2026-10-17T22:00:46.889Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74e0 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1958, false for 'update' @ L2229
+[2026-10-17T22:00:46.892Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74e1 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1958, false for 'update' @ L2229
+[2026-10-17T22:00:46.902Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74e2 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1953, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L1953, false for 'create' @ L2229
+[2026-10-17T22:00:46.906Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74e3 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1958, false for 'update' @ L2229
+[2026-10-17T22:00:46.910Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74e4 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1958, false for 'update' @ L2229
+✔ required screening denies direct new text and unchecked edits including client Admin (65.134166ms)
+[2026-10-17T22:00:46.954Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74e9 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1958, false for 'update' @ L2229
+[2026-10-17T22:00:46.963Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74ea error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1953:24 for 'create' @ L1953, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L1953, false for 'create' @ L2229
+[2026-10-17T22:00:46.979Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74ec error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1958, false for 'update' @ L2229
+[2026-10-17T22:00:46.988Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74ed error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1953:24 for 'create' @ L1953, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L1953, false for 'create' @ L2229
+[2026-10-17T22:00:47.004Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74ef error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1958, false for 'update' @ L2229
+[2026-10-17T22:00:47.013Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74f0 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1953:24 for 'create' @ L1953, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L1953, false for 'create' @ L2229
+✔ provider pause and absent/malformed required field never reopen legacy writes (84.391625ms)
+[2026-10-17T22:00:47.041Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74f3 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1958, false for 'update' @ L2229
+✔ legitimate author withdrawal and Admin moderation survive; forged identity does not (35.185083ms)
+[2026-10-17T22:00:47.078Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x4d5f74f7 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L1953, false for 'create' @ L2229, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1958, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'create' @ L1953, false for 'create' @ L2229
+✔ disabled foundation preserves historical direct saves but never accepts forged trusted text markers (29.703708ms)
+✖ legacy create/edit/read/dismiss/delete remain compatible; authoritative reviewer fields cannot be forged (0.156459ms)
+✖ reviewer evidence immutable; only Admin resolution works, independent of supporting review (0.033667ms)
+✖ blocks/preferences are owner-readable, all direct writes denied, admission/receipts remain server-only (0.022209ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 13
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3079.695875
+
+✖ failing tests:
+
+test at firestore_rules_tests/test/account_deletion_rules.test.js:18:1
+✖ marker is client-private; existence blocks actor and Admin target writes but preserves reads and B (0.181334ms)
+  Error: Deletion Rules tests require exact guarded local emulator ports
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/account_deletion_rules.test.js:13:129)
+      at TestHook.runInAsyncScope (node:async_hooks:227:14)
+      at TestHook.run (node:internal/test_runner/test:1402:25)
+      at TestHook.run (node:internal/test_runner/test:1757:18)
+      at TestHook.run (node:internal/util:581:20)
+      at Test.createHook (node:internal/test_runner/test:1117:33)
+      at test.before (node:internal/test_runner/harness:426:12)
+      at Object.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/account_deletion_rules.test.js:12:6)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10)
+
+test at firestore_rules_tests/test/account_deletion_rules.test.js:31:1
+✖ active B cannot create or retarget feedback onto absent/deleting A review; orphan own-delete remains (0.023917ms)
+  Error: Deletion Rules tests require exact guarded local emulator ports
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/account_deletion_rules.test.js:13:129)
+      at TestHook.runInAsyncScope (node:async_hooks:227:14)
+      at TestHook.run (node:internal/test_runner/test:1402:25)
+      at TestHook.run (node:internal/test_runner/test:1757:18)
+      at TestHook.run (node:internal/util:581:20)
+      at Test.createHook (node:internal/test_runner/test:1117:33)
+      at test.before (node:internal/test_runner/harness:426:12)
+      at Object.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/account_deletion_rules.test.js:12:6)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10)
+
+test at firestore_rules_tests/test/account_deletion_rules.test.js:43:1
+✖ anonymous actor fence covers direct writes and Admin cannot recreate nested favorites (0.019208ms)
+  Error: Deletion Rules tests require exact guarded local emulator ports
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/account_deletion_rules.test.js:13:129)
+      at TestHook.runInAsyncScope (node:async_hooks:227:14)
+      at TestHook.run (node:internal/test_runner/test:1402:25)
+      at TestHook.run (node:internal/test_runner/test:1757:18)
+      at TestHook.run (node:internal/util:581:20)
+      at Test.createHook (node:internal/test_runner/test:1117:33)
+      at test.before (node:internal/test_runner/harness:426:12)
+      at Object.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/account_deletion_rules.test.js:12:6)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10)
+
+test at firestore_rules_tests/test/account_deletion_rules.test.js:55:1
+✖ screening cutover denies every client upload and preserves historical reads across deletion fences (0.016583ms)
+  Error: Deletion Rules tests require exact guarded local emulator ports
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/account_deletion_rules.test.js:13:129)
+      at TestHook.runInAsyncScope (node:async_hooks:227:14)
+      at TestHook.run (node:internal/test_runner/test:1402:25)
+      at TestHook.run (node:internal/test_runner/test:1757:18)
+      at TestHook.run (node:internal/util:581:20)
+      at Test.createHook (node:internal/test_runner/test:1117:33)
+      at test.before (node:internal/test_runner/harness:426:12)
+      at Object.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/account_deletion_rules.test.js:12:6)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10)
+
+test at firestore_rules_tests/test/account_deletion_rules.test.js:78:1
+✖ catalog bio authorship follows the real editor and cannot be reassigned without changing text (0.028791ms)
+  Error: Deletion Rules tests require exact guarded local emulator ports
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/account_deletion_rules.test.js:13:129)
+      at TestHook.runInAsyncScope (node:async_hooks:227:14)
+      at TestHook.run (node:internal/test_runner/test:1402:25)
+      at TestHook.run (node:internal/test_runner/test:1757:18)
+      at TestHook.run (node:internal/util:581:20)
+      at Test.createHook (node:internal/test_runner/test:1117:33)
+      at test.before (node:internal/test_runner/harness:426:12)
+      at Object.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/account_deletion_rules.test.js:12:6)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10)
+
+test at firestore_rules_tests/test/photo_report_rules.test.js:13:1
+✖ photo reports are private and all client creation/evidence/status mutations are denied including Admin (0.1735ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '127.0.0.1:8088'
+  - '127.0.0.1:8792'
+                ^
+  
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/photo_report_rules.test.js:10:30)
+      at TestHook.runInAsyncScope (node:async_hooks:227:14)
+      at TestHook.run (node:internal/test_runner/test:1402:25)
+      at TestHook.run (node:internal/test_runner/test:1757:18)
+      at TestHook.run (node:internal/util:581:20)
+      at Test.createHook (node:internal/test_runner/test:1117:33)
+      at test.before (node:internal/test_runner/harness:426:12)
+      at Object.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/photo_report_rules.test.js:10:6)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '127.0.0.1:8088',
+    expected: '127.0.0.1:8792',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at firestore_rules_tests/test/photo_report_rules.test.js:25:1
+✖ removed photo cannot be replaced, resurrected, or voted on through legacy client paths (0.025959ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '127.0.0.1:8088'
+  - '127.0.0.1:8792'
+                ^
+  
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/photo_report_rules.test.js:10:30)
+      at TestHook.runInAsyncScope (node:async_hooks:227:14)
+      at TestHook.run (node:internal/test_runner/test:1402:25)
+      at TestHook.run (node:internal/test_runner/test:1757:18)
+      at TestHook.run (node:internal/util:581:20)
+      at Test.createHook (node:internal/test_runner/test:1117:33)
+      at test.before (node:internal/test_runner/harness:426:12)
+      at Object.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/photo_report_rules.test.js:10:6)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '127.0.0.1:8088',
+    expected: '127.0.0.1:8792',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at firestore_rules_tests/test/photo_report_rules.test.js:37:1
+✖ unmoderated legacy photo update and uploader deletion remain valid; moderation injection is denied (0.02175ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '127.0.0.1:8088'
+  - '127.0.0.1:8792'
+                ^
+  
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/photo_report_rules.test.js:10:30)
+      at TestHook.runInAsyncScope (node:async_hooks:227:14)
+      at TestHook.run (node:internal/test_runner/test:1402:25)
+      at TestHook.run (node:internal/test_runner/test:1757:18)
+      at TestHook.run (node:internal/util:581:20)
+      at Test.createHook (node:internal/test_runner/test:1117:33)
+      at test.before (node:internal/test_runner/harness:426:12)
+      at Object.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/photo_report_rules.test.js:10:6)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '127.0.0.1:8088',
+    expected: '127.0.0.1:8792',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at firestore_rules_tests/test/photo_report_rules.test.js:45:1
+✖ owner cannot restore a removed primary image through dish fields after trusted cutover (0.018417ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '127.0.0.1:8088'
+  - '127.0.0.1:8792'
+                ^
+  
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/photo_report_rules.test.js:10:30)
+      at TestHook.runInAsyncScope (node:async_hooks:227:14)
+      at TestHook.run (node:internal/test_runner/test:1402:25)
+      at TestHook.run (node:internal/test_runner/test:1757:18)
+      at TestHook.run (node:internal/util:581:20)
+      at Test.createHook (node:internal/test_runner/test:1117:33)
+      at test.before (node:internal/test_runner/harness:426:12)
+      at Object.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/photo_report_rules.test.js:10:6)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '127.0.0.1:8088',
+    expected: '127.0.0.1:8792',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at firestore_rules_tests/test/reviewer_safety_rules.test.js:19:1
+✖ legacy create/edit/read/dismiss/delete remain compatible; authoritative reviewer fields cannot be forged (0.156459ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '127.0.0.1:8088'
+  - '127.0.0.1:8792'
+                ^
+  
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/reviewer_safety_rules.test.js:14:10)
+      at TestHook.runInAsyncScope (node:async_hooks:227:14)
+      at TestHook.run (node:internal/test_runner/test:1402:25)
+      at TestHook.run (node:internal/test_runner/test:1757:18)
+      at TestHook.run (node:internal/util:581:20)
+      at Test.createHook (node:internal/test_runner/test:1117:33)
+      at test.before (node:internal/test_runner/harness:426:12)
+      at Object.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/reviewer_safety_rules.test.js:13:6)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '127.0.0.1:8088',
+    expected: '127.0.0.1:8792',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at firestore_rules_tests/test/reviewer_safety_rules.test.js:31:1
+✖ reviewer evidence immutable; only Admin resolution works, independent of supporting review (0.033667ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '127.0.0.1:8088'
+  - '127.0.0.1:8792'
+                ^
+  
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/reviewer_safety_rules.test.js:14:10)
+      at TestHook.runInAsyncScope (node:async_hooks:227:14)
+      at TestHook.run (node:internal/test_runner/test:1402:25)
+      at TestHook.run (node:internal/test_runner/test:1757:18)
+      at TestHook.run (node:internal/util:581:20)
+      at Test.createHook (node:internal/test_runner/test:1117:33)
+      at test.before (node:internal/test_runner/harness:426:12)
+      at Object.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/reviewer_safety_rules.test.js:13:6)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '127.0.0.1:8088',
+    expected: '127.0.0.1:8792',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at firestore_rules_tests/test/reviewer_safety_rules.test.js:46:1
+✖ blocks/preferences are owner-readable, all direct writes denied, admission/receipts remain server-only (0.022209ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '127.0.0.1:8088'
+  - '127.0.0.1:8792'
+                ^
+  
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/reviewer_safety_rules.test.js:14:10)
+      at TestHook.runInAsyncScope (node:async_hooks:227:14)
+      at TestHook.run (node:internal/test_runner/test:1402:25)
+      at TestHook.run (node:internal/test_runner/test:1757:18)
+      at TestHook.run (node:internal/util:581:20)
+      at Test.createHook (node:internal/test_runner/test:1117:33)
+      at test.before (node:internal/test_runner/harness:426:12)
+      at Object.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/selected-source/firestore_rules_tests/test/reviewer_safety_rules.test.js:13:6)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '127.0.0.1:8088',
+    expected: '127.0.0.1:8792',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

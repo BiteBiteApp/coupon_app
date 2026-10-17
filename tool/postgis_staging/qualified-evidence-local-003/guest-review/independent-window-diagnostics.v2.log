@@ -1,0 +1,46 @@
+✔ review differential sparse mixed exclusions (701.4305ms)
+✔ review differential dense unresolved first parent (809.758875ms)
+✔ review differential empty visible page after all history exclusions (438.953708ms)
+✔ review 75 IDs global across parents; 76th parent-group resumes without omission (113.35ms)
+✔ review expired reissue preserves exact candidate and parent slices (52.975ms)
+✔ review lost accepted answer recovers exactly once after token expiry (90.190375ms)
+✔ review withdrawn pending parent produces restart and no partial positive result (53.459667ms)
+✔ review option-off context refuses pending window without completing it (13.044417ms)
+✔ review deterministic differential matrix 1 (547.081791ms)
+✔ review deterministic differential matrix 2 (636.285958ms)
+✔ review deterministic differential matrix 3 (601.384917ms)
+✔ review deterministic differential matrix 4 (693.56725ms)
+✔ review deterministic differential matrix 5 (784.163958ms)
+✔ review deterministic differential matrix 6 (853.895667ms)
+✔ review deterministic differential matrix 7 (820.495209ms)
+✔ review deterministic differential matrix 8 (866.136541ms)
+✔ review deterministic differential matrix 9 (945.756167ms)
+✔ review deterministic differential matrix 10 (1133.689042ms)
+✔ review deterministic differential matrix 11 (1184.493417ms)
+✔ review deterministic differential matrix 12 (1266.088375ms)
+✖ review later-parent once-per-day candidate caps the entire challenge at local reset (49.130917ms)
+✔ review later-parent coupon occurrence replacement invalidates the old challenge (60.043208ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 21
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12936.122125
+
+✖ failing tests:
+
+test at ../../.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.v2.cjs:71:1
+✖ review later-parent once-per-day candidate caps the entire challenge at local reset (49.130917ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.v2.cjs:79:2)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

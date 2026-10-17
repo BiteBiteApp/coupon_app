@@ -1,0 +1,71 @@
+✖ review differential sparse mixed exclusions (78.149792ms)
+✖ review differential dense unresolved first parent (783.056625ms)
+✔ review differential empty visible page after all history exclusions (421.352792ms)
+✔ review 75 IDs global across parents; 76th parent-group resumes without omission (111.71425ms)
+✔ review expired reissue preserves exact candidate and parent slices (54.096875ms)
+✔ review lost accepted answer recovers exactly once after token expiry (89.967667ms)
+✔ review withdrawn pending parent produces restart and no partial positive result (52.010625ms)
+✔ review option-off context refuses pending window without completing it (12.450416ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 6
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1856.037333
+
+✖ failing tests:
+
+test at ../../.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.cjs:36:3
+✖ review differential sparse mixed exclusions (78.149792ms)
+  CustomerBiteSaverContractError: The BiteSaver result state is invalid.
+      at invalidPrivateResultState (/Users/colesmart/dev/coupon_app/functions/lib/customer_bitesaver_search_session.js:1454:11)
+      at parseResultDocument (/Users/colesmart/dev/coupon_app/functions/lib/customer_bitesaver_search_session.js:1527:16)
+      at processGuestRestaurantPage (/Users/colesmart/dev/coupon_app/functions/lib/customer_bitesaver_search_session.js:9467:24)
+      at async processAndPersistGuestOperation (/Users/colesmart/dev/coupon_app/functions/lib/customer_bitesaver_search_session.js:9858:15)
+      at async withCustomerBiteSaverRequestGate (/Users/colesmart/dev/coupon_app/functions/lib/customer_bitesaver_search_session.js:1827:16)
+      at async allPages (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.cjs:31:161)
+      at async TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.cjs:36:59)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    code: 'failed-precondition'
+  }
+
+test at ../../.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.cjs:36:3
+✖ review differential dense unresolved first parent (783.056625ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  ... Skipped lines
+  
+    [
+      {
+        cursor: true,
+        hasMore: true,
+        rows: [
+  ...
+            id: 'bsr_5EamW14oPqzkPdKownabgKDVh9qv6lobRzF_y2j8WXw',
+  +         offerCountState: 'unknown',
+  -         offerCountState: 'current',
+            offers: [
+              'bso_pO0bBnlHUdwfC0ca1HwLNOtm5QOsFeKb7deCAhbejgY',
+              'bso_kacwkuhPhpUWFjNK8Fq2f1xmm0-yDHh6W-MdNLvkaVA'
+            ],
+  +         usableOfferCount: null
+  -         usableOfferCount: 3
+          },
+          {
+            hasMoreOffers: true,
+            id: 'bsr_BdMch6DE1cR3hYSCIFf6fHRCSCaEttEYHB4_NXW7tp8',
+            offerCountState: 'current',
+  
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.cjs:36:127)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [Array],
+    expected: [Array],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

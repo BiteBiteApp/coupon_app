@@ -1,0 +1,41 @@
+{
+  "timeUtc": "2026-10-17T22:04:09.038546+00:00",
+  "signaledPid": 71046,
+  "signal": "SIGTERM",
+  "ownedFile": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/safety-review/loopback-relay.cjs",
+  "relayFrom": "127.0.0.1:8792",
+  "relayTo": "127.0.0.1:8088",
+  "preservedServices": [
+    8088,
+    9099,
+    55441
+  ],
+  "verification": {
+    "relayPid": {
+      "command": [
+        "ps",
+        "-p",
+        "71046",
+        "-o",
+        "pid=,command="
+      ],
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    "listeners": {
+      "command": [
+        "lsof",
+        "-nP",
+        "-iTCP:8792",
+        "-iTCP:8088",
+        "-iTCP:9099",
+        "-iTCP:55441",
+        "-sTCP:LISTEN"
+      ],
+      "exitCode": 1,
+      "stdout": "COMMAND    PID      USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME\nnode     69021 colesmart   16u  IPv4 0x342bce6de033103a      0t0  TCP 127.0.0.1:9099 (LISTEN)\npostgres 69041 colesmart    5u  IPv4 0x2d44e4a589c0c8d8      0t0  TCP 127.0.0.1:55441 (LISTEN)\njava     69129 colesmart  168u  IPv6 0xfd920d3efa8cf076      0t0  TCP 127.0.0.1:8088 (LISTEN)\n",
+      "stderr": ""
+    }
+  }
+}

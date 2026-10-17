@@ -41,6 +41,8 @@ type LocalConfiguration = Readonly<{
   discoveryKey: Uint8Array;
   identityKeyV1: CustomerBiteSaverIdentityKeyV1;
   scoreCursorRootKey: Uint8Array;
+  /** Explicit local-only experiment; omitted is the reproducible serial path. */
+  guestRestaurantWindow?: boolean;
 }>;
 
 function requireLocalConfiguration(options: LocalConfiguration): void {
@@ -85,7 +87,8 @@ export function createLocalPostgisStagingRuntime(options: LocalConfiguration) {
     try {
       if (name.includes("BiteSaver")) {
         const context = {database: authority, discoveryKey: options.discoveryKey,
-          identityKeyV1: options.identityKeyV1, identity: customerBiteSaverCallableIdentity(request)};
+          identityKeyV1: options.identityKeyV1, identity: customerBiteSaverCallableIdentity(request),
+          guestRestaurantWindow: options.guestRestaurantWindow === true};
         if (name === "getCustomerBiteSaverFavoriteStates") return await getCustomerBiteSaverFavoriteStatesHandler(request.data, context);
         if (name === "getCustomerBiteSaverMenuPage") return await getCustomerBiteSaverMenuPageHandler(request.data, context);
         if (name === "validateCustomerBiteSaverOfferRedemptionStart") return await validateCustomerBiteSaverOfferRedemptionStartHandler(request.data, context);

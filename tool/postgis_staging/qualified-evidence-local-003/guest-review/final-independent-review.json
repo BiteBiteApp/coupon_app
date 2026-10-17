@@ -1,0 +1,700 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003",
+  "reviewer": "/root/query_client",
+  "role": "Independent security/privacy/performance reviewer; no repository edits, Git mutations or cloud actions",
+  "completedAt": "2026-10-17T22:04:44.701909+00:00",
+  "expectedStartingHead": "4a3241d722d347067db8a6960763e9e90c2dc665",
+  "observedFinalHead": "4a3241d722d347067db8a6960763e9e90c2dc665",
+  "verdict": "PASS \u2014 scoped default-off local guest restaurant-window experiment; no unresolved material finding. This does not qualify hosted execution or authorize spend/activation.",
+  "sourceFreezeConfirmation": "Parent confirmed guest source and closed performance evidence final before this receipt. Later edits require requalification of affected evidence.",
+  "sources": [
+    {
+      "path": "/Users/colesmart/dev/coupon_app/functions/src/customer_bitesaver_search_session.ts",
+      "sha256": "eed290895555fd171365179d729b070f211c94a79404be5e766e1df50866018e",
+      "bytes": 553727,
+      "relativePath": "functions/src/customer_bitesaver_search_session.ts",
+      "unchangedFromStartingHead": false,
+      "selectedSourceCopyMatches": true
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/functions/src/postgis_staging_runtime.ts",
+      "sha256": "05762b562defa673fb9d0e7d2b7e7b371db312079c75a6143c826a3034694925",
+      "bytes": 15420,
+      "relativePath": "functions/src/postgis_staging_runtime.ts",
+      "unchangedFromStartingHead": false,
+      "selectedSourceCopyMatches": true
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/functions/test/customer_bitesaver_search_handlers.test.js",
+      "sha256": "1e3afcc4e6979b3e601f8250adfa22e4f93e6dd9c2832c52863e4350c552f042",
+      "bytes": 498188,
+      "relativePath": "functions/test/customer_bitesaver_search_handlers.test.js",
+      "unchangedFromStartingHead": false,
+      "selectedSourceCopyMatches": true
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/functions/test/support/postgis_flutter_host.cjs",
+      "sha256": "58298dcb9f2e8bf8818556491f58fd8b4ceb1bdf4890330d7d4e15039fd87827",
+      "bytes": 9235,
+      "relativePath": "functions/test/support/postgis_flutter_host.cjs",
+      "unchangedFromStartingHead": false,
+      "selectedSourceCopyMatches": true
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/test/services/postgis_flutter_integration_test.dart",
+      "sha256": "994cb9d13d661f55e0e39b4d4cc268b88e23196e1d22b3a8dd94df8bf98d940f",
+      "bytes": 15334,
+      "relativePath": "test/services/postgis_flutter_integration_test.dart",
+      "unchangedFromStartingHead": false,
+      "selectedSourceCopyMatches": true
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/functions/lib/customer_bitesaver_search_session.js",
+      "sha256": "6a5f9920ff1fa731b76472001687d8adb9c744cb14b746e4752ccf48ae274be6",
+      "bytes": 558645,
+      "relativePath": "functions/lib/customer_bitesaver_search_session.js"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/functions/lib/postgis_staging_runtime.js",
+      "sha256": "00191ca1be125798a2c7507c79bdd997bf4e2de7921d5a8caf339b9e428c75c6",
+      "bytes": 18244,
+      "relativePath": "functions/lib/postgis_staging_runtime.js"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/functions/src/customer_bitesaver_guest_offer_checks.ts",
+      "sha256": "4892ffa7db34c4999d02290b8a8ebaf3100031db1b374732ff35d481c84fb34a",
+      "bytes": 24668,
+      "relativePath": "functions/src/customer_bitesaver_guest_offer_checks.ts",
+      "unchangedFromStartingHead": true,
+      "selectedSourceCopyMatches": true
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/functions/src/customer_bitesaver_search_contract.ts",
+      "sha256": "7757d797f2c3de386c80a9052d3331f50ba79bb6f831344d309296f83c1b0331",
+      "bytes": 21857,
+      "relativePath": "functions/src/customer_bitesaver_search_contract.ts",
+      "unchangedFromStartingHead": true,
+      "selectedSourceCopyMatches": true
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/functions/src/postgis_handlers.ts",
+      "sha256": "94eb93a362b84132d886c60827a6c797b57884d1f4830bf9343fdf70a5a37021",
+      "bytes": 10757,
+      "relativePath": "functions/src/postgis_handlers.ts",
+      "unchangedFromStartingHead": true,
+      "selectedSourceCopyMatches": true
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/functions/src/postgis_hosted_runtime.ts",
+      "sha256": "161c6b0ba7bd78cf5df18c0560cd7295870849274b140250a6bd8e00c7b728d3",
+      "bytes": 11693,
+      "relativePath": "functions/src/postgis_hosted_runtime.ts",
+      "unchangedFromStartingHead": true,
+      "selectedSourceCopyMatches": true
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/functions/src/index.ts",
+      "sha256": "d224af2552479b6c9a65e094e05583f1feaf5cb521807dfcc8d357234bad3012",
+      "bytes": 197880,
+      "relativePath": "functions/src/index.ts",
+      "unchangedFromStartingHead": true,
+      "selectedSourceCopyMatches": true
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/lib/services/customer_bitesaver_search_coordinator.dart",
+      "sha256": "ac84b6a852ee7b8a7b303ca87ca0094ddf14eee220b3a92fdf4f9614830ebae6",
+      "bytes": 149473,
+      "relativePath": "lib/services/customer_bitesaver_search_coordinator.dart",
+      "unchangedFromStartingHead": true,
+      "selectedSourceCopyMatches": true
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/lib/services/customer_bitesaver_guest_usage_store.dart",
+      "sha256": "79dfa8c731cccc77d13625febe171f107f4feaecfeb9ab6dda8580913bbb97da",
+      "bytes": 43535,
+      "relativePath": "lib/services/customer_bitesaver_guest_usage_store.dart",
+      "unchangedFromStartingHead": true,
+      "selectedSourceCopyMatches": true
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/lib/models/customer_bitesaver_search.dart",
+      "sha256": "b9a0f919f93473e430453dfc28b9dfecebf5c9e391ad0d7c459eeda5235df5b1",
+      "bytes": 90474,
+      "relativePath": "lib/models/customer_bitesaver_search.dart",
+      "unchangedFromStartingHead": true,
+      "selectedSourceCopyMatches": true
+    }
+  ],
+  "runtime": {
+    "path": "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node",
+    "sha256": "e4b5a3af0e05c75de2eae013904145f40fe7fc2a6e6f17510128bf45cca4e79b",
+    "bytes": 122129232,
+    "node": "v24.21.0",
+    "v8": "13.6.233.17-node.53",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "runner": "--test --test-isolation=none"
+  },
+  "tests": [
+    {
+      "kind": "independently executed full native handler suite",
+      "passed": 304,
+      "failed": 0,
+      "command": "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node --test --test-isolation=none functions/test/customer_bitesaver_search_handlers.test.js",
+      "log": "full-native-handlers.initial.log"
+    },
+    {
+      "kind": "independently authored report-only actual-handler diagnostics over native in-memory authority and injected membership, not actual SQL or HTTP",
+      "passed": 22,
+      "failed": 0,
+      "command": "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node --test --test-isolation=none /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.v3.cjs",
+      "log": "independent-window-diagnostics.v3.log",
+      "coverage": [
+        "15 serial/window differential fixtures with exact eligible restaurant/offer/order/page-boundary comparison and truthful count DTO invariants",
+        "Global 75-ID boundary with remaining parent resumed without omission",
+        "Expired challenge exact candidate/slice reissue with unchanged evaluation instant",
+        "Lost reply after accepted-answer transaction commit; recovery after token expiry and exact once-only replay",
+        "Later pending parent withdrawal and same-ID occurrence replacement fail closed",
+        "Option-off continuation rejection without false success",
+        "Later-parent once-per-day policy caps the whole window at local 00:01; expired answer and old snapshot fail closed; new guest revision re-evaluates correctly"
+      ]
+    },
+    {
+      "kind": "additional report-only diagnostics",
+      "passed": 2,
+      "failed": 0,
+      "command": "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node --test --test-isolation=none --test-name-pattern='review maximum|review concurrent' /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.supplement.cjs",
+      "log": "independent-window-diagnostics.supplement.log",
+      "coverage": [
+        "Maximum valid account/source IDs complete 25 cards with 444772-byte private checkpoint and 6573-byte token, within unchanged 768-KiB and 32-KiB bounds",
+        "Concurrent conflicting window answers commit exactly one winner; loser cannot mutate and winner replays exactly"
+      ]
+    },
+    {
+      "kind": "independently inspected parent-run real local integration evidence",
+      "directlyExecutedByReviewer": false,
+      "serialFlutterTestsPassed": 4,
+      "windowFlutterTestsPassed": 4,
+      "serialObservedFlows": 46,
+      "windowObservedFlows": 46,
+      "failedSamples": 0,
+      "evidence": "performance-review.json; serial/window render logs and JSON; serial/window authority JSONL; matching selected-source hashes"
+    }
+  ],
+  "invariantsReviewed": [
+    "Context-only explicit guestRestaurantWindow=true and searchBackend=postgis opt-in; omitted/false retains serial path. No request-controlled selector, production index export or hosted runtime activation.",
+    "Private windowVersion=1, strict bounded parent/slice parser, unique ordered parents, per-parent offer identity checks, whole-checkpoint HMAC, unchanged opaque public token and DTO fields.",
+    "At most 75 candidate IDs globally and at most 26-minus-ready parents; existing cumulative 100-item consumption cap retained. Expansion handles only next pending check per still-needed parent.",
+    "Accepted history remains exact unavailable-ID intersection within the current challenge; no full local history inventory, cross-user cache or alternate source of positive authorization.",
+    "Resolved pending rows remain private until ordered prefix drains; outerBoundary advances only when the head resolves; no cursor skips an unresolved parent and no partial/empty continuing page is reported as complete.",
+    "Each grouped answer rechecks its current native parent/result and coherent offer authority; source-created occurrence, parent fingerprints, caller/realm/revision/session and replay fences preserved.",
+    "Pending retained offers and active candidates feed expiry caps, including once-per-day local reset. Absolute retention and byte/token limits unchanged.",
+    "Existing exact answer commit/recovery, rate gates, cancellation/history revision/client pacing and Saved/Menu/redemption identity paths remain intact. Guest store/coordinator/models and production entrypoint hashes unchanged.",
+    "Timing evidence records ordered public membership as SHA-256 only; no history inventory, unavailable-ID list, tokens, request bodies, SQL text, raw actor identity or source document IDs added to logs."
+  ],
+  "findings": [
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "title": "Conservative count metadata may differ at the existing work boundary",
+      "consequence": "One dense differential page had row 21 usableOfferCount=null/offerCountState=unknown versus serial count=3/current. Both return the same two offers, restaurant order, hasMoreOffers and page cursor boundary. No eligible-result drift or false exact count.",
+      "likelihood": "Reachable when a shared 100-item window budget gives the last parent a queryLimit equal to returned rows; exhaustion cannot be proven although three visible offers already prove card eligibility.",
+      "proportionality": "The existing DTO explicitly supports unknown/null, no UI display caller of these count fields was found, and inventing exhaustion or increasing budgets would weaken the contract. Parent explicitly accepted the conservative metadata difference.",
+      "evidence": "independent-window-diagnostics.initial.log; independent-window-observations.v3.json; resolveGuestCurrentRestaurant sourceExhausted predicate and unchanged Dart parser."
+    }
+  ],
+  "retainedInitialDiagnosticFailures": [
+    {
+      "log": "independent-window-diagnostics.initial.log",
+      "result": "6/8",
+      "explanation": "Sparse test used invalid addReadyRestaurant(offerCount:0) fixture; replaced with a valid native result whose current authority parent is hidden. Dense test required identical optional count knowledge, exposing the accepted conservative metadata difference; later diagnostics retain exact eligibility/order/page boundaries plus truthful metadata checks."
+    },
+    {
+      "log": "independent-window-diagnostics.v2.log",
+      "result": "21/22",
+      "explanation": "Day-boundary reviewer assertion expected a thrown exception; existing valid behavior is retryRequired/checkExpired with no result. Final diagnostic asserts that actual fail-closed response, sourceChanged for the stale snapshot, and fresh-revision re-evaluation. No product source changed to satisfy these diagnostics."
+    }
+  ],
+  "privacyTradeoff": "Within owner authorization: a bounded per-search subset from later still-needed parents can reach the trusted backend earlier if interrupted. Candidate bound, exact subset answers, opaque public IDs, TTL and per-caller isolation remain; no full inventory or new analytics retention.",
+  "performanceSummary": {
+    "serial": {
+      "flows": {
+        "bitesaver-guest": {
+          "samples": 20,
+          "firstObservationMs": 2593.549,
+          "warmSamples": 19,
+          "warmMedianMs": 1964.815,
+          "warmMinimumMs": 1881.72,
+          "warmMaximumMs": 2080.674,
+          "warmP95NearestRankMs": 2080.674,
+          "warmAtOrBelow2000Ms": 14,
+          "successes": 20,
+          "errors": 0,
+          "httpCallsPerSample": [
+            28
+          ],
+          "usefulCardsPerSample": [
+            25
+          ],
+          "orderedMembershipDigests": [
+            "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+          ],
+          "continuationCallsPerSample": [
+            26
+          ],
+          "challengeRoundsPerSample": [
+            26
+          ],
+          "maximumChallengeCandidates": 1
+        },
+        "bitesaver-signed": {
+          "samples": 20,
+          "firstObservationMs": 247.123,
+          "warmSamples": 19,
+          "warmMedianMs": 233.326,
+          "warmMinimumMs": 227.943,
+          "warmMaximumMs": 253.102,
+          "warmP95NearestRankMs": 253.102,
+          "warmAtOrBelow2000Ms": 19,
+          "successes": 20,
+          "errors": 0,
+          "httpCallsPerSample": [
+            3
+          ],
+          "usefulCardsPerSample": [
+            25
+          ],
+          "orderedMembershipDigests": [
+            "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+          ],
+          "continuationCallsPerSample": [
+            0
+          ],
+          "challengeRoundsPerSample": [
+            0
+          ],
+          "maximumChallengeCandidates": 0
+        },
+        "bitescore-dish-home": {
+          "samples": 3,
+          "firstObservationMs": 139.016,
+          "warmSamples": 2,
+          "warmMedianMs": 114.58949999999999,
+          "warmMinimumMs": 113.606,
+          "warmMaximumMs": 115.573,
+          "warmP95NearestRankMs": 115.573,
+          "warmAtOrBelow2000Ms": 2,
+          "successes": 3,
+          "errors": 0,
+          "httpCallsPerSample": [
+            2
+          ],
+          "usefulCardsPerSample": [
+            null
+          ],
+          "orderedMembershipDigests": [
+            null
+          ],
+          "continuationCallsPerSample": [
+            0
+          ],
+          "challengeRoundsPerSample": [
+            0
+          ],
+          "maximumChallengeCandidates": 0
+        },
+        "create-rate-finder": {
+          "samples": 3,
+          "firstObservationMs": 445.185,
+          "warmSamples": 2,
+          "warmMedianMs": 409.54499999999996,
+          "warmMinimumMs": 399.049,
+          "warmMaximumMs": 420.041,
+          "warmP95NearestRankMs": 420.041,
+          "warmAtOrBelow2000Ms": 2,
+          "successes": 3,
+          "errors": 0,
+          "httpCallsPerSample": [
+            2
+          ],
+          "usefulCardsPerSample": [
+            null
+          ],
+          "orderedMembershipDigests": [
+            null
+          ],
+          "continuationCallsPerSample": [
+            0
+          ],
+          "challengeRoundsPerSample": [
+            0
+          ],
+          "maximumChallengeCandidates": 0
+        }
+      },
+      "authority": {
+        "guestGroups": 20,
+        "requestsPerGroup": {
+          "minimum": 28,
+          "maximum": 28
+        },
+        "requestedDocumentsPerGroup": {
+          "minimum": 754,
+          "maximum": 754
+        },
+        "operationCallsPerGroup": {
+          "firestore.commitWrites": {
+            "minimum": 55,
+            "maximum": 55
+          },
+          "firestore.getDocument": {
+            "minimum": 108,
+            "maximum": 108
+          },
+          "firestore.getDocuments": {
+            "minimum": 106,
+            "maximum": 106
+          },
+          "firestore.queryDocuments": {
+            "minimum": 26,
+            "maximum": 26
+          },
+          "firestore.transaction": {
+            "minimum": 138,
+            "maximum": 138
+          },
+          "firestore.transactionRead.getDocument": {
+            "minimum": 88,
+            "maximum": 88
+          },
+          "firestore.transactionRead.getDocuments": {
+            "minimum": 138,
+            "maximum": 138
+          },
+          "membership.pinRevision": {
+            "minimum": 1,
+            "maximum": 1
+          },
+          "membership.queryResults": {
+            "minimum": 26,
+            "maximum": 26
+          },
+          "sql.membershipQuery": {
+            "minimum": 191,
+            "maximum": 191
+          }
+        },
+        "operationFailures": 0,
+        "interpretation": "Instrumented adapter calls and explicitly requested document counts, not billing reads. Query-returned document totals are not included in requestedDocuments. Nested/parallel duration sums overlap and are not additive wall-clock components. Per-endpoint unique document counts are not global distinct-document counts."
+      }
+    },
+    "window": {
+      "flows": {
+        "bitesaver-guest": {
+          "samples": 20,
+          "firstObservationMs": 1299.103,
+          "warmSamples": 19,
+          "warmMedianMs": 754.386,
+          "warmMinimumMs": 715.762,
+          "warmMaximumMs": 964.324,
+          "warmP95NearestRankMs": 964.324,
+          "warmAtOrBelow2000Ms": 19,
+          "successes": 20,
+          "errors": 0,
+          "httpCallsPerSample": [
+            3
+          ],
+          "usefulCardsPerSample": [
+            25
+          ],
+          "orderedMembershipDigests": [
+            "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+          ],
+          "continuationCallsPerSample": [
+            1
+          ],
+          "challengeRoundsPerSample": [
+            1
+          ],
+          "maximumChallengeCandidates": 26
+        },
+        "bitesaver-signed": {
+          "samples": 20,
+          "firstObservationMs": 249.348,
+          "warmSamples": 19,
+          "warmMedianMs": 259.38,
+          "warmMinimumMs": 237.615,
+          "warmMaximumMs": 273.134,
+          "warmP95NearestRankMs": 273.134,
+          "warmAtOrBelow2000Ms": 19,
+          "successes": 20,
+          "errors": 0,
+          "httpCallsPerSample": [
+            3
+          ],
+          "usefulCardsPerSample": [
+            25
+          ],
+          "orderedMembershipDigests": [
+            "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+          ],
+          "continuationCallsPerSample": [
+            0
+          ],
+          "challengeRoundsPerSample": [
+            0
+          ],
+          "maximumChallengeCandidates": 0
+        },
+        "bitescore-dish-home": {
+          "samples": 3,
+          "firstObservationMs": 144.481,
+          "warmSamples": 2,
+          "warmMedianMs": 123.938,
+          "warmMinimumMs": 119.185,
+          "warmMaximumMs": 128.691,
+          "warmP95NearestRankMs": 128.691,
+          "warmAtOrBelow2000Ms": 2,
+          "successes": 3,
+          "errors": 0,
+          "httpCallsPerSample": [
+            2
+          ],
+          "usefulCardsPerSample": [
+            null
+          ],
+          "orderedMembershipDigests": [
+            null
+          ],
+          "continuationCallsPerSample": [
+            0
+          ],
+          "challengeRoundsPerSample": [
+            0
+          ],
+          "maximumChallengeCandidates": 0
+        },
+        "create-rate-finder": {
+          "samples": 3,
+          "firstObservationMs": 422.048,
+          "warmSamples": 2,
+          "warmMedianMs": 389.7505,
+          "warmMinimumMs": 366.218,
+          "warmMaximumMs": 413.283,
+          "warmP95NearestRankMs": 413.283,
+          "warmAtOrBelow2000Ms": 2,
+          "successes": 3,
+          "errors": 0,
+          "httpCallsPerSample": [
+            2
+          ],
+          "usefulCardsPerSample": [
+            null
+          ],
+          "orderedMembershipDigests": [
+            null
+          ],
+          "continuationCallsPerSample": [
+            0
+          ],
+          "challengeRoundsPerSample": [
+            0
+          ],
+          "maximumChallengeCandidates": 0
+        }
+      },
+      "authority": {
+        "guestGroups": 20,
+        "requestsPerGroup": {
+          "minimum": 3,
+          "maximum": 3
+        },
+        "requestedDocumentsPerGroup": {
+          "minimum": 658,
+          "maximum": 658
+        },
+        "operationCallsPerGroup": {
+          "firestore.commitWrites": {
+            "minimum": 30,
+            "maximum": 30
+          },
+          "firestore.getDocument": {
+            "minimum": 33,
+            "maximum": 33
+          },
+          "firestore.getDocuments": {
+            "minimum": 82,
+            "maximum": 82
+          },
+          "firestore.queryDocuments": {
+            "minimum": 26,
+            "maximum": 26
+          },
+          "firestore.transaction": {
+            "minimum": 89,
+            "maximum": 89
+          },
+          "firestore.transactionRead.getDocument": {
+            "minimum": 13,
+            "maximum": 13
+          },
+          "firestore.transactionRead.getDocuments": {
+            "minimum": 165,
+            "maximum": 165
+          },
+          "membership.pinRevision": {
+            "minimum": 1,
+            "maximum": 1
+          },
+          "membership.queryResults": {
+            "minimum": 26,
+            "maximum": 26
+          },
+          "sql.membershipQuery": {
+            "minimum": 191,
+            "maximum": 191
+          }
+        },
+        "operationFailures": 0,
+        "interpretation": "Instrumented adapter calls and explicitly requested document counts, not billing reads. Query-returned document totals are not included in requestedDocuments. Nested/parallel duration sums overlap and are not additive wall-clock components. Per-endpoint unique document counts are not global distinct-document counts."
+      }
+    },
+    "fixtureEquivalence": {
+      "equalFieldsExceptHostPid": true,
+      "syntheticOnly": true,
+      "sourceAndProjectionCounts": 185,
+      "fixtureFingerprint": "c0d2864f294a274ff3570dc9a8128d19f920ec7e86b1884a62735e43da87eb65",
+      "fixtureTemporalNow": "2026-10-17T21:00:00.000Z",
+      "sourceFenceAndPublishedRevisionEqual": true,
+      "serialHostPid": 69138,
+      "windowHostPid": 70578
+    },
+    "guestWarmMedianReductionPercent": 61.60524018800753,
+    "limitations": [
+      "Actual Flutter widget rendering through loopback HTTP, Auth/Firestore emulators and real local PostgreSQL/PostGIS; not a hosted or physical-device latency result.",
+      "Twenty independent equivalent empty-history guest actors per mode, one first observation and nineteen warm observations; no failures excluded.",
+      "Nearest-rank p95 of nineteen warm observations equals the maximum and is descriptive, not a hosted-tail-latency estimate.",
+      "Broad equivalent 185-projection fixture only for measured timing. Dense, sparse, filtered and recovery cases use separate in-memory diagnostics, not this latency result.",
+      "Signed page correctness and membership are preserved; observed signed warm median increases from 233.326 to 259.380 ms, so unchanged signed latency is not claimed. Score and Finder have only three observations per mode.",
+      "No production activation, hosted runtime qualification, cloud execution, deployment, cost or general two-second SLA claim."
+    ]
+  },
+  "evidence": [
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/full-native-handlers.initial.log",
+      "sha256": "2ac2d89e1d2b1b1cc12999b06de1b10a81c95ef1e401b6498db8d7072bb96f63",
+      "bytes": 23783
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.cjs",
+      "sha256": "ba2e0cbf86ebcec0eb89572b53bbae37bf892b4c2fb0bbcab42fb80c2f6c8d31",
+      "bytes": 9827
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.initial.log",
+      "sha256": "dcbec8cd1345b08f1257a7206d51bab1099e99ce26b5db8cbda21274ef78079a",
+      "bytes": 3683
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-observations.json",
+      "sha256": "1b3e688a1c587b9ea87fc883c9ba64dd6ba47ac8d9cd8b9e4e26b909492eed23",
+      "bytes": 381
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.v2.cjs",
+      "sha256": "31a1aa6bc1409c0d6f1a46818ef6a1e6289fcf17c4b891f59e693c24e93bf4c7",
+      "bytes": 14208
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.v2.log",
+      "sha256": "0a054b344933832d5ab59e0d30c7064969bead823bf24790eb64b0610d94b28b",
+      "bytes": 2531
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-observations.v2.json",
+      "sha256": "390ebe5f5fd672e01bef58d43f60340bfdfbafdd302475ac72ff24f060d0d925",
+      "bytes": 3052
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.v3.cjs",
+      "sha256": "9812e4b2a732a6ae84f29d4b84879e621a9890787f5f906b77159d6fb025ae4b",
+      "bytes": 14573
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.v3.log",
+      "sha256": "ab879149cd8d645fff85b9cbd789e11ead2cededaa9c42ad20399983a59b358e",
+      "bytes": 1740
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-observations.v3.json",
+      "sha256": "ec40eadd3d62ef3fc2381a803fd8dfbadae23c16da3f77ba1fa3f205df5f1d60",
+      "bytes": 3187
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.supplement.cjs",
+      "sha256": "918a32133236926ccde4566fada4ce784d77ae5b6f411712697a9aa8aae2db42",
+      "bytes": 17280
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.supplement.log",
+      "sha256": "75d04b1487d3fbaf3508af83d09e5fe8f588d9b816072c0e61fd855c18f6d065",
+      "bytes": 292
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-observations.supplement.json",
+      "sha256": "0c3e6875f2372f3c27c6fb42213be2f1140474983db4f4bbe8f430dd1490866e",
+      "bytes": 264
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/performance-review.json",
+      "sha256": "0a81f15a4237815b5cb8dd32bf79a681f42bce65dae3a13f2fc8b029d2c9e969",
+      "bytes": 10601
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/serial-host.json",
+      "sha256": "935c51ecb82f6f6f5e5ecf5c6c878e6ce26957fc7e7448a0240151969d1b8964",
+      "bytes": 9803
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/window-host.json",
+      "sha256": "ced170963478f56708066eb498c68bacf2ac82215c6940a27880f6058bbe6cfc",
+      "bytes": 9803
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/serial-render.json",
+      "sha256": "f65d4d76f80d98f35110a986c4b4ee1c5bf470787a867ab770258d4583a80453",
+      "bytes": 155274
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/window-render.json",
+      "sha256": "03b8e762997334db8daa2150d9dfc2f5f2c91a9273f1078629dd9ad102a58e07",
+      "bytes": 44137
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/serial-render.log",
+      "sha256": "4f7b5c24a8fb9b913796692021008114145a56177790f994cba4bf1e4d657eaa",
+      "bytes": 4940
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/window-render.log",
+      "sha256": "1148834cb61fd6dd31161defead8b1a6c9ef1d8bc71cbe0509a2cfdcaf9ad705",
+      "bytes": 4940
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/serial-authority.jsonl",
+      "sha256": "2de42344201c2780e6811e8ac23dc55817c7808a1e446779b19f406b5f6641f4",
+      "bytes": 623120
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/window-authority.jsonl",
+      "sha256": "eefd10073d9e6c58321aa162ed63339cbed7c86503e5873d548f97c2f0fe3845",
+      "bytes": 104142
+    }
+  ],
+  "remainingExternalDecision": "Linux install/build remains outside this review and blocked on the parent-requested explicit free-license eligibility answer. Hosted owner inputs, deployment approval and paid execution are not resolved by local guest success.",
+  "scopeLimitations": [
+    "No broad production/security audit.",
+    "No claim that in-memory adversarial diagnostics establish real-network latency.",
+    "Existing serial protocol and public structures retained; no protocol/privacy redesign.",
+    "No conclusion on Linux numerical qualification, conditional cleanup, overall combined-release GO, or cloud readiness from this scoped review."
+  ]
+}

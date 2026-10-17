@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-10-17T22:09:16.033963+00:00",
+  "expectedHead": "4a3241d722d347067db8a6960763e9e90c2dc665",
+  "actualHead": "4a3241d722d347067db8a6960763e9e90c2dc665",
+  "sourceInventoryVerified": true,
+  "protectedHashesVerified": 221,
+  "selectedSourcePaths": 648,
+  "candidateDigest": "b3bdcfc764f8971248c3342d851557f1f361d0fa5334346808e24af904b1750f",
+  "intendedPaths": 75,
+  "scope": "10 backend/local-controller source/test/config edits plus new scoped evidence; no owner client changes",
+  "finalDiffReview": "Reviewed complete10-path source diff, added tests, protected behavior and each acceptance criterion. New source status remains local-only/default-disabled; Linux and all provider behavior explicitly blocked/unverified.",
+  "unresolvedRequiredGate": "Linux installation/qualification awaiting owner free-license eligibility confirmation; guard unchanged",
+  "gitDiffCheck": {
+    "sourceAndNewManifestNarrative": "passed",
+    "rawEvidenceLogs": "Original captured tool whitespace retained byte-for-byte; no source whitespace failures",
+    "rawLogWhitespaceFindings": 564
+  },
+  "independentReviewScopes": [
+    "guest security/privacy/performance",
+    "cleanup ownership/cancellation/lost-response security",
+    "affected safety Rules/completion/projection",
+    "Linux prerequisites/proof criteria only; no execution"
+  ]
+}

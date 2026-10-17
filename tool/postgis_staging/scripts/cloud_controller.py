@@ -249,8 +249,27 @@ class Controller:
         existing = state['receipts'].get(key)
         need(existing is None or existing == receipt, 'resource incarnation changed')
         state['receipts'][key] = receipt; state['intents'][key]['phase'] = 'observed'
+        if resource['kind'] == 'sql.instance' and key not in state.get('sqlDeletionEligibility', {}):
+            try:
+                evidence = self.resources.sql_exclusivity_evidence(resource, int(self.clock() * 1000))
+            except Rejected:
+                evidence = None  # Supervised cleanup remains possible; never infer proof.
+            if evidence is not None:
+                state.setdefault('sqlDeletionEligibility', {})[key] = {
+                    'evidenceDigest':evidence, 'receipt':receipt, 'resourceDigest':digest(resource),
+                    'createIntentDigest':digest(state['intents'][key]), 'revoked':False}
         self._cas(current, state)
         return {'state': 'observed', 'receipt': receipt}
+
+    def _delete_owned_resource(self, resource, receipt, state):
+        if resource['kind'] != 'sql.instance': return self.resources.delete(resource, receipt)
+        key = resource['kind'] + '/' + resource['id']
+        eligibility = state.get('sqlDeletionEligibility', {}).get(key)
+        need(isinstance(eligibility,dict) and key in state['intents'] and
+             eligibility.get('createIntentDigest') == digest(state['intents'][key]) and
+             state['intents'][key].get('phase') == 'observed',
+             'SQL exact create-ledger eligibility missing or changed; supervise')
+        return self.resources.delete(resource, receipt, eligibility, int(self.clock() * 1000))
 
     def run_job_once(self, resource, request):
         self.resources.spec(resource)
@@ -345,6 +364,53 @@ class Controller:
             if result['state'] != 'observed': return 'create-outcome-unresolved'
             current = self._read(cleanup=True); state = current['state']
             receipt = state['receipts'][key]
+        if (resource['kind'] == 'run.job' and
+            state.get('cleanupExecutionsQuiescent', {}).get(key) != receipt):
+            # A :run LRO may remain pending for the whole expensive execution.
+            # Cancellation has its own durable queue and must precede that poll.
+            pending_cancel = state.get('cleanupCancellationPending', {}).get(key, [])
+            if pending_cancel:
+                state = copy.deepcopy(state)
+                polls = state.setdefault('cleanupCancellationPolls', {}).get(key, 0)
+                need(polls < 120, 'cancellation polling bound; supervise')
+                state['cleanupCancellationPolls'][key] = polls + 1
+                self._cas(current, state)
+                if not self.resources.poll(resource, pending_cancel[0]):
+                    return 'execution-cancellation-pending'
+                current = self._read(cleanup=True); state = copy.deepcopy(current['state'])
+                state['cleanupCancellationPending'][key] = pending_cancel[1:]
+                self._cas(current, state)
+                return 'execution-cancellation-completed-recheck-required'
+            state = copy.deepcopy(state)
+            reads = state.setdefault('cleanupExecutionReads', {}).get(key, 0)
+            need(reads < 120, 'execution reconciliation bound; supervise')
+            state['cleanupExecutionReads'][key] = reads + 1
+            self._cas(current, state)
+            def reserve_cancel():
+                fresh = self._read(cleanup=True); changed = copy.deepcopy(fresh['state'])
+                attempts = changed.setdefault('cleanupCancellationAttempts', {}).get(key, 0)
+                need(attempts < 3, 'cancellation retry bound; supervise')
+                changed['cleanupCancellationAttempts'][key] = attempts + 1
+                self._cas(fresh, changed)  # Persist before a possibly lost response.
+            run = state.get('jobRuns', {}).get(key)
+            cancellation = self.resources.cancel_job_executions(resource, receipt, reserve_cancel,
+                sent_at=run['sentAt'] if run is not None else None)
+            current = self._read(cleanup=True); state = copy.deepcopy(current['state'])
+            state.setdefault('cleanupCancellationPending', {})[key] = cancellation['operations']
+            self._cas(current, state)
+            if cancellation['pending']: return 'execution-cancellation-pending'
+            if key in state.get('jobRuns', {}) and not cancellation['completedExecutionsObserved']:
+                return 'execution-outcome-unresolved'
+            current = self._read(cleanup=True); state = copy.deepcopy(current['state'])
+            state.setdefault('cleanupExecutionsQuiescent', {})[key] = receipt
+            # Cancellation may make the original :run LRO fail. Terminal exact
+            # execution evidence permits cleanup, without claiming work success.
+            if run is not None and key in state['operations']:
+                state.setdefault('cleanupAdoptedOperation', {})[key] = digest(state['operations'][key])
+                state.setdefault('cleanupTerminalRunObserved', {})[key] = {
+                    'operation':state['operations'][key], 'workloadSuccessProven':False}
+            self._cas(current, state)
+            current = self._read(cleanup=True); state = current['state']
         prior_operation = state['operations'].get(key)
         if prior_operation is not None and state.get('cleanupAdoptedOperation', {}).get(key) != digest(prior_operation):
             state = copy.deepcopy(state)
@@ -365,6 +431,8 @@ class Controller:
             if not done: return 'provider-operation-pending'
             current = self._read(cleanup=True); state = copy.deepcopy(current['state'])
             state['cleanupPending'][key] = pending[1:]
+            if state.get('cleanupSqlStopOperation', {}).get(key) == pending[0]:
+                state.setdefault('cleanupSqlStopConfirmed', {})[key] = receipt
             self._cas(current, state)
             return 'provider-operation-completed-recheck-required'
         current = self._read(cleanup=True); state = copy.deepcopy(current['state'])
@@ -379,28 +447,36 @@ class Controller:
             self._cas(current, state)
             return 'absence-verified-retained-charges-unreconciled'
         if resource['kind'] == 'firestore.database' and not teardown: return 'retained-while-paused'
-        if resource['kind'] == 'sql.instance' and observed.get('settings', {}).get('activationPolicy') == 'NEVER' and not teardown:
-            return 'sql-stopped-storage-charges-remain'
+        if resource['kind'] == 'sql.instance' and observed.get('settings', {}).get('activationPolicy') == 'NEVER':
+            if state.get('cleanupSqlStopConfirmed', {}).get(key) != receipt:
+                return 'sql-stop-configured-completion-unconfirmed'
+            if not teardown: return 'sql-stop-confirmed-storage-charges-remain'
         current = self._read(cleanup=True); state = copy.deepcopy(current['state'])
         attempts = state.setdefault('cleanupAttempts', {}).get(key, 0)
         need(attempts < 3, 'cleanup retry bound; supervised reconciliation required')
         state['cleanupAttempts'][key] = attempts + 1
         state.setdefault('cleanupLastAt', {})[key] = self.clock()
+        if resource['kind'] == 'sql.instance' and observed.get('settings', {}).get('activationPolicy') != 'NEVER':
+            state.setdefault('cleanupSqlStopConfirmed', {}).pop(key, None)
+            state.setdefault('cleanupSqlStopOperation', {}).pop(key, None)
         self._cas(current, state)  # Before any mutation, even if its reply is lost.
         operations = []
+        sql_stop = False
         if resource['kind'] == 'sql.instance':
             if observed.get('settings', {}).get('activationPolicy') == 'NEVER':
-                operation = self.resources.delete(resource, receipt)
-            else: operation = self.resources.stop_sql(resource, receipt)
+                operation = self._delete_owned_resource(resource, receipt, state)
+            else:
+                sql_stop = True
+                operation = self.resources.stop_sql(resource, receipt)
         elif resource['kind'] == 'run.job':
-            cancelled = self.resources.cancel_job_executions(resource, receipt)
-            operations = cancelled['operations']
-            operation = None if cancelled['pending'] else self.resources.delete(resource, receipt)
+            operation = self.resources.delete(resource, receipt)
         else:
             operation = self.resources.delete(resource, receipt)
         if operation is not None: operations.append(operation)
         current = self._read(cleanup=True); state = copy.deepcopy(current['state'])
         state.setdefault('cleanupPending', {})[key] = operations
+        if sql_stop and operation is not None:
+            state.setdefault('cleanupSqlStopOperation', {})[key] = operation
         self._cas(current, state)
         return 'mutation-requested-absence-unproven'
 
@@ -453,9 +529,12 @@ class Controller:
         state['cleanupAttempts'][key] = attempts + 1
         self._cas(current, state)
         if resource['kind'] == 'run.job':
-            cancellation = self.resources.cancel_job_executions(resource, receipt)
+            run = state.get('jobRuns', {}).get(key)
+            cancellation = self.resources.cancel_job_executions(resource, receipt,
+                sent_at=run['sentAt'] if run is not None else None)
             need(not cancellation['pending'], 'execution cancellation pending; job absence unproven')
-        operation = self.resources.delete(resource, receipt)
+            need(run is None or cancellation['completedExecutionsObserved'], 'execution outcome unresolved')
+        operation = self._delete_owned_resource(resource, receipt, state)
         fresh = self._read(cleanup=True); state = copy.deepcopy(fresh['state'])
         if operation is not None:
             state['operations'][key] = operation

@@ -1,0 +1,14 @@
+Independent safety regression review — BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003
+
+391/391 focused tests passed, with zero skips:
+-6 real Firestore transaction retry/nonretry completion cases for customer/owner/text screening; provider outcomes are deterministic doubles.
+-341 source-projection, native runtime-wiring, provider parser and index-contract tests.
+-20 existing root safety Rules cases.
+-13 exact root safety completion/compatibility Rules cases.
+-11 source-cutover/private-projection Rules cases, including one intentional frozen preceding-policy compatibility case.
+
+Initial Rules invocation retained13 passes and12 setup failures: several fixtures require8792, and account-deletion also requires Storage9298. Firestore-only reruns through a temporary127.0.0.1:8792→8088 relay passed. This was a test invocation correction, with no source or test edits. The relay was stopped;8088/9099/55441 still listen.
+
+Five account-deletion Rules tests and four connected safety integration tests were not successfully executed because Storage9298 is absent. No current pass is claimed for them or for historical broad safety suites. Root Rules, all three completion modules, and the retry fixture exactly match the retained safety-release hashes.
+
+Qualified retained macOS Node24.21.0 executed the parent-supplied selected-source compiled lib. This reviewer performed no build/install, repository/Git changes, cloud actions, live provider calls, or parent-service shutdown. Exact commands, logs, hashes and fixture boundaries are recorded in safety-regression-review.json. The result does not qualify Linux or hosted execution.

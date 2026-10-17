@@ -22,7 +22,8 @@ def summarize_result(action, result):
         summary['resources'] = [{'resource': item['resource'], 'state': item['state']}
                                 for item in result.get('resources', [])]
         summary['alert'] = result.get('alert', 'not-requested')
-        unresolved = any(item['state'] in ('unknown-or-refused', 'create-outcome-unresolved')
+        unresolved = any(item['state'] in ('unknown-or-refused', 'create-outcome-unresolved',
+                                         'execution-outcome-unresolved', 'sql-stop-configured-completion-unconfirmed')
                          for item in summary['resources']) or summary['alert'] == 'publish-failed-delivery-unproven'
         summary['status'] = 'unresolved' if unresolved else 'bounded-safety-step-finished'
         summary['removalComplete'] = False  # Separate all-resource + retained-charge reconciliation.
