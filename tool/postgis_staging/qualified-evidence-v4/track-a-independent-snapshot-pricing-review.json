@@ -1,0 +1,103 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-READINESS-FINISH-002",
+  "reviewer": "Track A /root/query_client",
+  "reviewType": "independent scoped source review of root-authored GCS snapshot/export/restore plus dated price arithmetic",
+  "completedAt": "2026-10-17T18:56:43.067261+00:00",
+  "verdict": "PASS for reviewed source contracts and local/offline evidence; no hosted qualification",
+  "sourceSha256": {
+    "functions/src/postgis_snapshot_gcs.ts": "71a7831549e3c45fa665acb05108783255cecdd7e3fab1dffd88444a1c823bd0",
+    "functions/src/postgis_snapshot.ts": "e9ecdbe047b53654c366a2bd3da15d29d82d86d97311f4ae03afcab34f85c482",
+    "functions/src/postgis_execution_approval.ts": "3efec64518f5a89799e0ed1aa283ded06aed66b021e4690bfe4a0fdd0ea4cb9f",
+    "functions/src/postgis_cloudsql.ts": "299c6645ef5beaddc682adae9197cc647b8309dbabdfc9455e72517cf50273fa",
+    "functions/src/postgis_source_recovery.ts": "6b2f29a9584a1db46d4b64ec1c61e3019bac9a33e68db94df51092f7d618f2d4",
+    "functions/src/postgis_source.ts": "db3fa2ffb832ce3d879b730a437bae4777502932838c9aebf2e16815c491e6a4",
+    "functions/src/postgis_store.ts": "3c7f49cc9d57acb4ad26d39448f9f2af26af5b6078dad5336269fcd9afa7469c",
+    "functions/src/postgis_semantics.ts": "1338d5b77d5d21db418221d1c0b9dd118b4b097bf8433feb8650e353731aaf7c",
+    "functions/test/postgis_snapshot_gcs.test.cjs": "011348391deae00ae0aea2c418535b89dec750b372e56fa197cd30d7583ac76c",
+    "functions/test/support/postgis_gcs_fixture.cjs": "b4179a083bcf1be740ff6c0f35902683a6b3e870797bdbc345790ea3ad509659",
+    "functions/test/postgis_snapshot_integration.test.js": "868f19c21d270d1d42fd0f5258cf3fb4a6cece7718fe5148d010de25e7cc09d5",
+    "tool/postgis_staging/DURABLE-SNAPSHOTS.md": "ba24a1019839f0886a854da98001c0a7d646a82853d343c9f2407b0a746ff4e1",
+    "tool/postgis_staging/pricing-2026-10-17.json": "3f1c8b5dc736564c9fb184233ca2b9a906aabcb3007393feba7f25aac8ce752a",
+    "tool/postgis_staging/scripts/price_worksheet_20261017.py": "d04e91bbd7c5277718fb2a974def8968e35198e2aae47d5084b2fee861d128b5",
+    "tool/postgis_staging/scripts/test_price_worksheet_20261017.py": "bdab12f6f98eb85fffb5a9cea9d8622c47dcb164b88a043834c356d2e061da5c"
+  },
+  "scope": [
+    "Approval/configuration/store/pool binding before provider or SQL operations",
+    "Create-if-absent uploads, exact generation/checksum reconciliation, missing/corrupt/conflicting data",
+    "Bounded rows/objects/snapshot storage and provider timeout/error boundary",
+    "Fresh restore target, restartable progress, exact source fence/count/XOR and complete publication gate",
+    "Pricing arithmetic, units, retention assumptions, cleanup reserve and explicit approval limits"
+  ],
+  "findings": [
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "title": "Hosted restore lacked exact approved snapshot-store binding",
+      "status": "RESOLVED",
+      "resolution": "Hosted export/restore require a genuinely constructed WeakMap-branded GCS store with matching signed config digest/snapshot ID, and a separately branded SQL pool for the correct target. Forged generic readers and wrong store/ID fail before SQL mutation."
+    },
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "title": "Malformed provider JSON exposed body fragments in SyntaxError",
+      "status": "RESOLVED",
+      "reproduction": "Synthetic review_private_canary_invalid_json escaped as review_pri in old compiled parser error.",
+      "resolution": "Provider/chunk JSON parse and transport failures use bounded generic errors. New canary test passes."
+    },
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "title": "Hosted streaming helper test covered only empty source",
+      "status": "RESOLVED",
+      "resolution": "Test now exports546 rows over bounded SQL pages, verifies digest and three provider objects; explicitly injected SQL/provider transport, not managed cloud evidence."
+    }
+  ],
+  "unresolvedMaterialFindings": [],
+  "verification": {
+    "typeScriptBuild": {
+      "pass": true,
+      "log": "track-a-snapshot-review-build-2.log"
+    },
+    "independentlyRunSnapshotTests": {
+      "pass": 15,
+      "fail": 0,
+      "log": "track-a-snapshot-review-qualified-tests.log"
+    },
+    "independentlyRunPricingTests": {
+      "pass": 3,
+      "fail": 0,
+      "log": "track-a-price-review-tests.log"
+    },
+    "reviewedRootRecoveryEvidence": {
+      "pass": 2,
+      "fail": 0,
+      "log": "snapshot-integration-final.log",
+      "description": "Real Firestore emulator and localPostGIS546rows each;8resumeable restore pages; originalSQL database deleted, journalpruned and latereditreplayed. GCSmode uses simulatedJSONAPI and removeslocalexportfiles before restore. Root will rerun after finalshareddependencyfreeze."
+    }
+  },
+  "pricingReview": {
+    "modeledUsd": "214.85",
+    "cleanupReserveUsd": "30.00",
+    "modeledPlusReserveUsd": "244.85",
+    "historicalPlusReserveUsd": "255.54",
+    "differenceUsd": "-10.69",
+    "independentLivePriceRecheck": false,
+    "scope": "Checked arithmetic and explicit assumptions against root-supplied dated official-rate table; not account-price verification or spend authorization.",
+    "assumptionsNotGuarantees": [
+      "400000 ingestion/control CPU seconds and network/storage/retention allowances unmeasured",
+      "No tax, discounts or free credits assumed",
+      "No secondSQLinstance/NAT/connectorVM/paidCI/remoteBuild/minimumRuninstances included",
+      "Reserve30 separately;100ownercheckpoint and300planningceiling unchanged"
+    ]
+  },
+  "limitations": [
+    "ActualGCSAPI/ADC/IAM/retention/managedSQL have not been contacted or qualified by this review.",
+    "Approval andCloudSQL dependencies were inspected at these exact hashes; laterchanges require affected recheck, not inheritedqualification.",
+    "No new cloud service, project write, deployment, paid timer or productionactivation occurred."
+  ],
+  "editsByReviewer": [],
+  "evidenceSha256": {
+    "track-a-snapshot-review-build-2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "track-a-snapshot-review-qualified-tests.log": "06fde791cd0f792e3b42065f8b215e4fb17fbf5b1fd1eee8155df59d3f5b92db",
+    "track-a-price-review-tests.log": "63d03f726457fac352b31ebe9260199cc38faf38e15d22a56e50c4e9db284892",
+    "track-a-price-review-output.json": "c1183423193680a49294a8ba206148c778cc7de42df4dee43b25285a3eab7617",
+    "snapshot-integration-final.log": "0d51f7f00368a19452d2cd267205292ff20d1189fbf850981d439047c40c311c"
+  }
+}

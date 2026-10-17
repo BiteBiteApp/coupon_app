@@ -3,7 +3,9 @@
 // Dedicated local integration fixture. It cannot provision or address a cloud
 // target. No production entrypoint, flags or credentials are loaded.
 const assert = require("node:assert/strict");
-const {writeFileSync} = require("node:fs");
+const {writeFileSync, appendFileSync} = require("node:fs");
+const {AsyncLocalStorage} = require("node:async_hooks");
+const {performance} = require("node:perf_hooks");
 const {initializeApp, deleteApp} = require("firebase-admin/app");
 const {getFirestore} = require("firebase-admin/firestore");
 const {getAuth} = require("firebase-admin/auth");
@@ -19,6 +21,71 @@ assert.equal(process.env.GOOGLE_APPLICATION_CREDENTIALS, undefined);
 assert(!process.env.GCLOUD_PROJECT || process.env.GCLOUD_PROJECT === projectId);
 assert(!process.env.GOOGLE_CLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT === projectId);
 
+// Opted-in observation only: wrappers execute the same real operations and never
+// retain request bodies, IDs, guest answers, SQL text, cursors or auth material.
+function observe(runtime) {
+  const destination = process.env.BS_POSTGIS_FLUTTER_TIMINGS;
+  if (!destination) return runtime;
+  const active = new AsyncLocalStorage();
+  let sequence = 0;
+  async function measure(kind, operation, paths = []) {
+    const observation = active.getStore();
+    if (!observation) return operation();
+    const metric = observation.operations[kind] ??= {calls: 0, milliseconds: 0, failures: 0};
+    metric.calls++;
+    for (const path of paths) {
+      observation.requestedDocuments++;
+      if (observation.documentPaths.has(path)) observation.repeatedDocumentReads++;
+      observation.documentPaths.add(path);
+    }
+    const start = performance.now();
+    try { return await operation(); }
+    catch (error) { metric.failures++; throw error; }
+    finally { metric.milliseconds += performance.now() - start; }
+  }
+  function reads(target, prefix) {
+    for (const name of ["getDocument", "getDocuments", "queryDocuments"]) {
+      const original = target[name].bind(target);
+      target[name] = (...args) => measure(`${prefix}.${name}`, () => original(...args),
+        name === "getDocument" ? [args[0]] : name === "getDocuments" ? args[0] : []);
+    }
+  }
+  reads(runtime.authority, "firestore");
+  const commit = runtime.authority.commitWrites.bind(runtime.authority);
+  runtime.authority.commitWrites = (...args) => measure("firestore.commitWrites", () => commit(...args));
+  const transaction = runtime.authority.runTransaction.bind(runtime.authority);
+  runtime.authority.runTransaction = operation => measure("firestore.transaction", () => transaction(tx => {
+    reads(tx, "firestore.transactionRead");
+    return operation(tx);
+  }));
+  for (const name of ["pinRevision", "queryResults"]) {
+    const original = runtime.provider[name].bind(runtime.provider);
+    runtime.provider[name] = (...args) => measure(`membership.${name}`, () => original(...args));
+  }
+  const withPinnedRevision = runtime.model.withPinnedRevision.bind(runtime.model);
+  runtime.model.withPinnedRevision = (revision, expiry, operation) => withPinnedRevision(revision, expiry, client =>
+    operation({query: (...args) => measure("sql.membershipQuery", () => client.query(...args))}));
+  return {...runtime, async invoke(name, request) {
+    const observation = {sequence: ++sequence, endpoint: name, signed: Boolean(request.auth),
+      requestedDocuments: 0, repeatedDocumentReads: 0, documentPaths: new Set(), operations: {}};
+    const start = performance.now();
+    return active.run(observation, async () => {
+      try {
+        const result = await runtime.invoke(name, request);
+        observation.status = "success";
+        observation.challengeCandidates = Array.isArray(result?.candidates) ? result.candidates.length : 0;
+        return result;
+      } catch (error) { observation.status = "failure"; throw error; }
+      finally {
+        observation.milliseconds = performance.now() - start;
+        observation.uniqueRequestedDocuments = observation.documentPaths.size;
+        delete observation.documentPaths;
+        appendFileSync(destination, JSON.stringify(observation) + "\n");
+      }
+    });
+  }};
+}
+
 async function main() {
   const app = initializeApp({projectId}, "postgis-flutter-local-host");
   const database = getFirestore(app), auth = getAuth(app);
@@ -27,7 +94,8 @@ async function main() {
     discoveryKey: Buffer.alloc(32, 71), identityKeyV1: F.identityKeyV1, scoreCursorRootKey: Buffer.alloc(32, 73)});
   await runtime.initialize();
   const fixture = F.dataset({saverParents: 35, scoreParents: 30, includeCases: false});
-  const now = new Date();
+  const now = new Date(process.env.BS_POSTGIS_FIXTURE_NOW ?? Date.now());
+  assert(Number.isFinite(now.getTime()), "valid fixed fixture timestamp required");
   // Seed raw source only, then invoke actual source-enabled projection writers.
   for (let offset = 0; offset < fixture.sources.length; offset += 200) {
     const batch = database.batch();
@@ -65,10 +133,10 @@ async function main() {
     if (published.ready) break;
   }
   assert(published.ready, "complete source publication required before exposing local host");
-  const host = await startLocalPostgisHttpHost(runtime, {port: 8188});
+  const host = await startLocalPostgisHttpHost(observe(runtime), {port: 8188});
   const metadata = {kind: "real-local-Flutter-Auth-Firestore-PostGIS", url: host.url, projectId,
     database: "bsgate0_flutter", firestore: "127.0.0.1:8088", auth: "127.0.0.1:9099",
-    fixture: fixture.manifest, publishedRevision: published.revision,
+    fixture: fixture.manifest, hostPid: process.pid, publishedRevision: published.revision,
     publishedSourceFence: await runtime.source.readFence(), fixtureTemporalNow: now.toISOString(),
     activeEntities: (await runtime.pool.query("SELECT count(*)::int AS n FROM entities WHERE valid_to=9223372036854775807")).rows[0].n};
   if (process.env.BS_POSTGIS_FLUTTER_METADATA) writeFileSync(process.env.BS_POSTGIS_FLUTTER_METADATA, JSON.stringify(metadata, null, 2) + "\n");

@@ -1,0 +1,83 @@
+{
+  "status": "SOURCE_ONLY_NO_CLOUD_EXECUTION",
+  "projectId": null,
+  "projectNumber": null,
+  "runId": "bs-postgis-readiness-002",
+  "candidateDigest": null,
+  "gate": 1,
+  "allowedProjectIds": [],
+  "region": "us-central1",
+  "hosted": {
+    "sql": {
+      "instanceConnectionName": null,
+      "database": "bs_postgis_search",
+      "restoreDatabase": "bs_postgis_restore",
+      "schema": "public",
+      "serviceAccountEmail": null
+    },
+    "firestoreDatabase": "search-qualification",
+    "epoch": "readiness-finish-002",
+    "allowedOrigins": [],
+    "enforceAppCheck": false,
+    "imageDigest": null,
+    "network": null,
+    "subnet": null,
+    "configSecret": null,
+    "approvalSecret": null,
+    "trustSecret": null,
+    "keysSecret": null,
+    "snapshot": {
+      "bucket": null,
+      "bucketCreatedAt": null,
+      "prefix": "runs/bs-postgis-readiness-002/snapshots/",
+      "snapshotId": "qualified",
+      "serviceAccountEmail": null,
+      "maxSnapshotBytes": 5368709120
+    },
+    "jobs": [
+      {
+        "id": "bs-postgis-readiness-002-initialize",
+        "action": "initialize"
+      },
+      {
+        "id": "bs-postgis-readiness-002-fixture",
+        "action": "fixture",
+        "batch": {
+          "offset": 0,
+          "count": 2,
+          "nowMs": null,
+          "operation": "seed"
+        }
+      },
+      {
+        "id": "bs-postgis-readiness-002-enroll",
+        "action": "enroll",
+        "bootstrapId": "gate1",
+        "maxPages": 8
+      },
+      {
+        "id": "bs-postgis-readiness-002-catchup",
+        "action": "catchup",
+        "maxPages": 8
+      },
+      {
+        "id": "bs-postgis-readiness-002-snapshot",
+        "action": "snapshot"
+      },
+      {
+        "id": "bs-postgis-readiness-002-restore",
+        "action": "restore",
+        "maxPages": 8
+      },
+      {
+        "id": "bs-postgis-readiness-002-lifecycle",
+        "action": "lifecycle"
+      },
+      {
+        "id": "bs-postgis-readiness-002-prune",
+        "action": "prune"
+      }
+    ]
+  },
+  "syntheticOnly": true
+}

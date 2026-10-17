@@ -1,0 +1,46 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-READINESS-FINISH-002",
+  "promptTimestamp": "2026-10-17T14:27:00-04:00",
+  "startedAt": "2026-10-17T18:35:10.680602+00:00",
+  "head": "3738a8195df4990561d3872ac60003aa7a839d27",
+  "remoteRefs": "3738a8195df4990561d3872ac60003aa7a839d27\trefs/heads/main\n3738a8195df4990561d3872ac60003aa7a839d27\trefs/tags/bs-bitestar-postgis-integration-gate0-001^{}\n",
+  "previousCandidateDigest": "ddfede5ea98d4154d59041e42505bfdb7c352f7ac144f953dbcea8732cd9a2db",
+  "priorManifestVerifiedFiles": 431,
+  "preexistingChanges": {
+    "APPROVAL-ADDENDUM-A2.md": "865f38522f833bb7a9a8a3157d49a292db627c29435093eb24f2c8e8d04581ea",
+    "LEGAL_HOSTING_PUBLICATION_BASELINE.json": "f927ace463fa7bb637ac47888d5754ee3736a8b789f4509808eeaa7a7ea2003e",
+    "LEGAL_HOSTING_PUBLICATION_BLOCKER.txt": "d939a8196370c8ebdc358a40eea131e3edd88d53a48b1524d99ea8326be6760d",
+    "WEB_BETA_RELEASE_002_EVIDENCE.json": "99440601239ebcd4fc4af8d0fc14e24e3dbd721b3fb0811957428c4a686ae6ae",
+    "WEB_BETA_RELEASE_002_QUALIFICATION.txt": "a349006dc30190b8f71a0768131421eeb3c8e9a7ba6bca05a7eb8b5ed6274457",
+    "WEB_DELETION_RELEASE_BLOCKER.txt": "530d58ed3a5964697975be6f0e9c26c64048918cf3910c72e69e286e44d31850",
+    "WEB_DELETION_RELEASE_EVIDENCE.json": "3f5b0abb6ec7ca56d9983edc8462bbc6203f3aae0801970126af3e6d26dfaae0",
+    "test/cuisine_fixture/main.dart": "453e3b3412bcb1e35d97e3af8e2c868cbd7965f93dab75f701f13395489474f0",
+    "test/visual_fixture/README.md": "b3bf2b57779323981b54aa6cf0a55ec1ab59651b202f5d9f78e0cd3887151130",
+    "test/visual_fixture/data.dart": "38cda097fae724e82f02c9f4c8c1fab9c6e731283b3879bac3bedf661129fef8",
+    "test/visual_fixture/main.dart": "c753b469e78938b7e6d5a25d36100b938bf24c262fbcc9cea09ad0802b36ff5c",
+    "test/screens/customer_bitesaver_browse_screen_test.dart": "28aa68c86b59fefd9fd9aea798cad83b52b4b80e9cabea4be324711f7d31c2ee",
+    "test/screens/restaurant_profile_bitescore_menu_test.dart": "278ffbfd9f139d003baf6b03f0b6f72549e84335e102718cfd17e6ce6344dafb"
+  },
+  "protectedOwnerHashes": {
+    "test/screens/customer_bitesaver_browse_screen_test.dart": "28aa68c86b59fefd9fd9aea798cad83b52b4b80e9cabea4be324711f7d31c2ee",
+    "test/screens/restaurant_profile_bitescore_menu_test.dart": "278ffbfd9f139d003baf6b03f0b6f72549e84335e102718cfd17e6ce6344dafb",
+    "APPROVAL-ADDENDUM-A2.md": "865f38522f833bb7a9a8a3157d49a292db627c29435093eb24f2c8e8d04581ea",
+    "test/cuisine_fixture/main.dart": "453e3b3412bcb1e35d97e3af8e2c868cbd7965f93dab75f701f13395489474f0",
+    "test/visual_fixture/README.md": "b3bf2b57779323981b54aa6cf0a55ec1ab59651b202f5d9f78e0cd3887151130",
+    "test/visual_fixture/data.dart": "38cda097fae724e82f02c9f4c8c1fab9c6e731283b3879bac3bedf661129fef8",
+    "test/visual_fixture/main.dart": "c753b469e78938b7e6d5a25d36100b938bf24c262fbcc9cea09ad0802b36ff5c"
+  },
+  "permittedChangeArea": [
+    "search guest orchestration/backend logic",
+    "separate hosted adapter and deployment source",
+    "localLinux source qualification",
+    "controller/watchdog/snapshot source",
+    "pricing and test/evidence artifacts"
+  ],
+  "sanity": [
+    "Approved existing search candidate remains appropriate; noarchitecturestudy needed.",
+    "Local Node/PostGIS/emulators available from prior run; Linux availability to verify. No cloud permission granted.",
+    "Only measured guest overhead and named missing adapters/controls are in scope.",
+    "Prior checkpoint/manifests/synthetic data and all13 preexisting files preserved; default-off/nonproduction separation retained."
+  ]
+}

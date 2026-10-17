@@ -1,0 +1,23 @@
+{
+  "status": "SOURCE_PREPARED_EXECUTION_UNVERIFIED",
+  "architecture": "linux/amd64",
+  "baseImage": "node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd",
+  "baseManifestSource": "https://hub.docker.com/v2/repositories/library/node/tags/24.21.0-bookworm-slim",
+  "baseManifestObservedAt": "2026-10-17",
+  "buildPythonImage": "python:3.12.13-slim-bookworm@sha256:6e13e65c55e33adf203d77ee371cf8bf5d81bd4902ef07565721f46bf44917af",
+  "buildPythonManifestSource": "https://hub.docker.com/v2/repositories/library/python/tags/3.12.13-slim-bookworm",
+  "buildPythonManifestObservedAt": "2026-10-17",
+  "buildCrossLanguageInputs": ["tool/postgis_staging/scripts/guard.py", "tool/postgis_staging/scripts/cloud_provider.py"],
+  "nodeVersion": "v24.21.0",
+  "officialNodeArchive": "https://nodejs.org/dist/v24.21.0/node-v24.21.0-linux-x64.tar.xz",
+  "officialNodeArchiveSha256": "fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6",
+  "checksumSource": "https://nodejs.org/dist/v24.21.0/SHASUMS256.txt",
+  "builtImageDigest": null,
+  "executedNodeBinarySha256": null,
+  "numericalQualification": "NOT_EXECUTED",
+  "sqlIntegrationQualification": "NOT_EXECUTED",
+  "renderedConsumerQualification": "NOT_EXECUTED",
+  "localLinuxEngine": "NONE_FOUND",
+  "nativeOrEmulated": "NOT_EXECUTED",
+  "runtimeWhitelistChanged": false
+}

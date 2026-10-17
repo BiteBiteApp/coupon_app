@@ -1,0 +1,2689 @@
+{
+  "kind": "actual-flutter-widget-local-http-firestore-auth-postgis",
+  "hostedEvidence": false,
+  "sampleCountsDoNotSupportHostedTailLatencyClaims": true,
+  "observations": [
+    {
+      "flow": "bitesaver-guest",
+      "run": 0,
+      "milliseconds": 3225.058,
+      "httpCalls": 28,
+      "errors": 0,
+      "phase": "first-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 100.963
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 122.267
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 67.131
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 4,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 65.433
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 5,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 69.581
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 6,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 66.647
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 7,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.161
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 8,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.945
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 9,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 65.501
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 10,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 69.616
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 11,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 62.38
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 12,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.493
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 13,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.308
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 14,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 85.819
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 15,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 67.73
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 16,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.667
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 17,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.29
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 18,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.42
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 19,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 62.523
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 20,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.228
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 21,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.195
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 22,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.069
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 23,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 65.584
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 24,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 73.205
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 25,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 64.563
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 26,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 68.544
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 27,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 64.141
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 28,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 165.806
+        }
+      ],
+      "clientDelays": [
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 288.839
+        },
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 285.011
+        }
+      ]
+    },
+    {
+      "flow": "bitesaver-guest",
+      "run": 1,
+      "milliseconds": 2760.498,
+      "httpCalls": 28,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 57.3
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 55.937
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.895
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 4,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.889
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 5,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.093
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 6,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.3
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 7,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.718
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 8,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 62.847
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 9,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.367
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 10,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.391
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 11,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 54.774
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 12,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.961
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 13,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 64.122
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 14,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 73.141
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 15,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 65.634
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 16,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.095
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 17,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 62.387
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 18,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.918
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 19,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.284
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 20,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.711
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 21,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.391
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 22,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 64.123
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 23,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.227
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 24,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.39
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 25,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.731
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 26,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 94.419
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 27,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 64.6
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 28,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 149.292
+        }
+      ],
+      "clientDelays": [
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 284.53
+        },
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 289.923
+        }
+      ]
+    },
+    {
+      "flow": "bitesaver-guest",
+      "run": 2,
+      "milliseconds": 2719.432,
+      "httpCalls": 28,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 30.861
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 47.543
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.326
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 4,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.516
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 5,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.825
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 6,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.413
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 7,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.859
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 8,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.774
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 9,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.128
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 10,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 55.381
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 11,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 56.977
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 12,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 67.201
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 13,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.072
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 14,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 82.892
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 15,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.379
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 16,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 64.005
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 17,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.951
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 18,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 64.514
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 19,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.694
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 20,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 62.589
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 21,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 64.455
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 22,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.542
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 23,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.5
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 24,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 64.112
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 25,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 79.256
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 26,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.067
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 27,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.874
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 28,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 160.266
+        }
+      ],
+      "clientDelays": [
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 294.335
+        },
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 281.364
+        }
+      ]
+    },
+    {
+      "flow": "bitesaver-guest",
+      "run": 3,
+      "milliseconds": 2709.101,
+      "httpCalls": 28,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 29.973
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 53.425
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 56.119
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 4,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.666
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 5,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 55.261
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 6,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 54.737
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 7,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 54.923
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 8,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 55.581
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 9,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 56.398
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 10,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.181
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 11,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.507
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 12,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 56.321
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 13,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 56.726
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 14,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 89.332
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 15,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 67.302
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 16,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.909
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 17,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.535
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 18,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.44
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 19,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.498
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 20,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.382
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 21,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.123
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 22,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.705
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 23,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.503
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 24,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.647
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 25,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.1
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 26,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 97.398
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 27,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 66.601
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 28,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 150.525
+        }
+      ],
+      "clientDelays": [
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 287.076
+        },
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 291.122
+        }
+      ]
+    },
+    {
+      "flow": "bitesaver-guest",
+      "run": 4,
+      "milliseconds": 2737.318,
+      "httpCalls": 28,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 32.454
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 48.08
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 54.842
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 4,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 53.786
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 5,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 55.402
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 6,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.486
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 7,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.595
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 8,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.133
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 9,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 55.507
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 10,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.374
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 11,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.84
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 12,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.272
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 13,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 62.987
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 14,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 86.67
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 15,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 66.908
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 16,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.616
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 17,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.925
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 18,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.011
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 19,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.376
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 20,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.772
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 21,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.957
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 22,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.835
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 23,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.206
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 24,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.971
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 25,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.385
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 26,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 78.72
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 27,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 74.029
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 28,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 166.527
+        }
+      ],
+      "clientDelays": [
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 285.033
+        },
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 278.697
+        }
+      ]
+    },
+    {
+      "flow": "bitesaver-guest",
+      "run": 5,
+      "milliseconds": 2796.315,
+      "httpCalls": 28,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 29.578
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 53.572
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.165
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 4,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.139
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 5,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.745
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 6,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.669
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 7,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.924
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 8,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.291
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 9,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 69.06
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 10,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 56.733
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 11,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.18
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 12,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.047
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 13,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.258
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 14,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 84.945
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 15,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 67.729
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 16,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.075
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 17,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.224
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 18,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 62.735
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 19,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.238
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 20,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 62.348
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 21,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.935
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 22,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.396
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 23,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 74.716
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 24,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 73.578
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 25,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 68.318
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 26,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 92.212
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 27,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 67.456
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 28,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 167.415
+        }
+      ],
+      "clientDelays": [
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 291.878
+        },
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 286.49
+        }
+      ]
+    },
+    {
+      "flow": "bitesaver-guest",
+      "run": 6,
+      "milliseconds": 2697.037,
+      "httpCalls": 28,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 41.359
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 49.351
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 54.204
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 4,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 52.444
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 5,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.75
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 6,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 54.313
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 7,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 54.83
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 8,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.729
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 9,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.093
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 10,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.353
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 11,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 65.583
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 12,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.915
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 13,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.921
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 14,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 91.268
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 15,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 56.843
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 16,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 56.214
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 17,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 62.941
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 18,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.409
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 19,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.948
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 20,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.731
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 21,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.962
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 22,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.147
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 23,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 56.983
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 24,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.498
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 25,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.148
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 26,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 80.986
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 27,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 64.598
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 28,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 146.1
+        }
+      ],
+      "clientDelays": [
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 287.471
+        },
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 288.327
+        }
+      ]
+    },
+    {
+      "flow": "bitesaver-guest",
+      "run": 7,
+      "milliseconds": 2704.082,
+      "httpCalls": 28,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 29.489
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 50.975
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 50.34
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 4,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 56.588
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 5,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 56.404
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 6,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.733
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 7,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.838
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 8,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.892
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 9,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.396
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 10,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.487
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 11,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 55.199
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 12,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.717
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 13,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.453
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 14,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 91.476
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 15,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 64.787
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 16,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.339
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 17,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.324
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 18,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.679
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 19,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.114
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 20,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.492
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 21,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.916
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 22,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.242
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 23,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.012
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 24,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.637
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 25,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 62.78
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 26,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 94.41
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 27,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 64.903
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 28,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 152.06
+        }
+      ],
+      "clientDelays": [
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 295.055
+        },
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 290.948
+        }
+      ]
+    },
+    {
+      "flow": "bitesaver-guest",
+      "run": 8,
+      "milliseconds": 2724.43,
+      "httpCalls": 28,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 29.012
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 49.856
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 52.066
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 4,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 54.096
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 5,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.566
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 6,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.192
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 7,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 65.086
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 8,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 55.308
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 9,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.092
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 10,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.926
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 11,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.769
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 12,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 62.257
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 13,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 64.129
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 14,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 84.178
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 15,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 66.736
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 16,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.246
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 17,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 56.363
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 18,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 52.625
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 19,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 55.629
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 20,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.218
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 21,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 63.587
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 22,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 56.18
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 23,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.723
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 24,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.136
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 25,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 65.91
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 26,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 87.526
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 27,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 72.701
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 28,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 164.774
+        }
+      ],
+      "clientDelays": [
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 290.895
+        },
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 283.826
+        }
+      ]
+    },
+    {
+      "flow": "bitesaver-guest",
+      "run": 9,
+      "milliseconds": 2678.806,
+      "httpCalls": 28,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 30.176
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 49.12
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 51.554
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 4,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.6
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 5,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.642
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 6,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 56.729
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 7,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 55.02
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 8,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.594
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 9,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 64.155
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 10,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.536
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 11,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.385
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 12,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.434
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 13,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.188
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 14,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 71.692
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 15,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 62.521
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 16,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.999
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 17,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.775
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 18,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.574
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 19,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 61.826
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 20,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.611
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 21,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 60.659
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 22,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 62.062
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 23,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 59.644
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 24,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 58.725
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 25,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 57.473
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 26,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 91.948
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 27,
+          "status": "success",
+          "challengeCandidates": 1,
+          "milliseconds": 66.187
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 28,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 155.958
+        }
+      ],
+      "clientDelays": [
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 284.965
+        },
+        {
+          "requestedMilliseconds": 250.0,
+          "milliseconds": 284.788
+        }
+      ]
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 0,
+      "milliseconds": 256.42,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "first-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 30.222
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 136.524
+        },
+        {
+          "endpoint": "getCustomerBiteSaverFavoriteStates",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 63.227
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 1,
+      "milliseconds": 247.575,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 30.007
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 132.713
+        },
+        {
+          "endpoint": "getCustomerBiteSaverFavoriteStates",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 62.024
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 2,
+      "milliseconds": 250.574,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 29.145
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 133.654
+        },
+        {
+          "endpoint": "getCustomerBiteSaverFavoriteStates",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 61.602
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 3,
+      "milliseconds": 239.734,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 28.199
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 130.7
+        },
+        {
+          "endpoint": "getCustomerBiteSaverFavoriteStates",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 56.343
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 4,
+      "milliseconds": 245.387,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 28.824
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 138.903
+        },
+        {
+          "endpoint": "getCustomerBiteSaverFavoriteStates",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 56.676
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 5,
+      "milliseconds": 243.419,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 27.357
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 135.028
+        },
+        {
+          "endpoint": "getCustomerBiteSaverFavoriteStates",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 56.941
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 6,
+      "milliseconds": 237.315,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 28.601
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 130.536
+        },
+        {
+          "endpoint": "getCustomerBiteSaverFavoriteStates",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 54.755
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 7,
+      "milliseconds": 236.819,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 27.124
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 140.007
+        },
+        {
+          "endpoint": "getCustomerBiteSaverFavoriteStates",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 55.684
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 8,
+      "milliseconds": 233.849,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 26.676
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 132.572
+        },
+        {
+          "endpoint": "getCustomerBiteSaverFavoriteStates",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 53.215
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 9,
+      "milliseconds": 234.867,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 27.087
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 130.952
+        },
+        {
+          "endpoint": "getCustomerBiteSaverFavoriteStates",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 68.759
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitescore-dish-home",
+      "run": 0,
+      "milliseconds": 118.293,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "first-observation",
+      "status": "success",
+      "usefulCards": null,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteScoreSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 40.864
+        },
+        {
+          "endpoint": "getCustomerBiteScoreSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 29.306
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitescore-dish-home",
+      "run": 1,
+      "milliseconds": 117.584,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": null,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteScoreSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 42.804
+        },
+        {
+          "endpoint": "getCustomerBiteScoreSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 26.267
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitescore-dish-home",
+      "run": 2,
+      "milliseconds": 90.259,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": null,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteScoreSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 31.449
+        },
+        {
+          "endpoint": "getCustomerBiteScoreSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 27.964
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "create-rate-finder",
+      "run": 0,
+      "milliseconds": 448.479,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "first-observation",
+      "status": "success",
+      "usefulCards": null,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteScoreSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 61.62
+        },
+        {
+          "endpoint": "getCustomerBiteScoreSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 34.128
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "create-rate-finder",
+      "run": 1,
+      "milliseconds": 436.174,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": null,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteScoreSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 48.314
+        },
+        {
+          "endpoint": "getCustomerBiteScoreSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 29.778
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "create-rate-finder",
+      "run": 2,
+      "milliseconds": 409.698,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": null,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteScoreSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 46.335
+        },
+        {
+          "endpoint": "getCustomerBiteScoreSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 26.135
+        }
+      ],
+      "clientDelays": []
+    }
+  ]
+}

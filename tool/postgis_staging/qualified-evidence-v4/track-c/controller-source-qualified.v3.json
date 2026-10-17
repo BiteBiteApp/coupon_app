@@ -1,0 +1,39 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-READINESS-FINISH-002",
+  "track": "C provider controller/watchdog",
+  "recordedAt": "2026-10-17T19:09:29.721252+00:00",
+  "expectedStartingHead": "3738a8195df4990561d3872ac60003aa7a839d27",
+  "sourceOnly": true,
+  "cloudActions": false,
+  "realLedgerOrTimer": false,
+  "providerTests": {
+    "pass": 29,
+    "fail": 0,
+    "exitCode": 0,
+    "log": "test_cloud_controller-approval-window.log"
+  },
+  "priorPureControls": {
+    "pass": 49,
+    "fail": 0
+  },
+  "linuxImageBuiltOrRun": false,
+  "files": {
+    "tool/postgis_staging/Controller.Dockerfile": "ee3a5ea7a12bd5690784d7330f16fdc56ce672ba4135c66dbace4f7d57e4334b",
+    "tool/postgis_staging/PROVIDER-GATE1.md": "1b6abaa8de202b0cbe5363de65caf4eed2a230d8ab4639ddd19e130f5d5e663e",
+    "tool/postgis_staging/config/provider.example.json": "f272197c0368b45886aa32e564251b93bd91f6de9dd42f113d4c3a7854527b81",
+    "tool/postgis_staging/scripts/cloud_provider.py": "8f6cbb4cd5f6dcff35a253d63f8f882bf5ac1aa847b8810704876c45c962ef93",
+    "tool/postgis_staging/scripts/cloud_controller.py": "65a940a9509ed4d99fd0f33e6bc3b2b75f8286c1baf7b516d49dfcd5780f036d",
+    "tool/postgis_staging/scripts/provider_entrypoint.py": "2bc722a16cc10896c008fbd4290420aa3bc942932a0432d5a23d8e90a3025432",
+    "tool/postgis_staging/scripts/render_provider_descriptors.py": "1c9ed3a86eee93a5837d445693a2192752564f1a650fbeb5cbdd5961c1cffeff",
+    "tool/postgis_staging/scripts/test_cloud_controller.py": "702f2af9383f3bcb16ffe09e039b7e9f417c2b013d2c704815464af58287b592"
+  },
+  "limitations": [
+    "Future owner-approved exact project/identities/recipients/preexisting control+evidence storage required",
+    "No live Cloud SQL/IAM/alertdelivery/watchdogindependence/absence proof",
+    "Cloud SQL delete lacks atomic identity precondition: separate exclusive single-use-name approval required",
+    "Bounded one-shot limited Gate1 jobs; not a national-scale load orchestrator",
+    "Actual Linux image build/run and managed runtime qualification outstanding"
+  ],
+  "supersedes": "controller-source-qualified.v2.json",
+  "change": "Require full job runtime within signed execute validity before reservation or provider I/O; direct negative regression and documentation. Previous receipts/logs preserved."
+}

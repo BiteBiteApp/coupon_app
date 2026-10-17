@@ -1,0 +1,990 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-READINESS-FINISH-002",
+  "track": "A guest performance and authority",
+  "recordedAt": "2026-10-17T18:48:49.912995+00:00",
+  "startingHead": "3738a8195df4990561d3872ac60003aa7a839d27",
+  "baselineCandidateDigest": "ddfede5ea98d4154d59041e42505bfdb7c352f7ac144f953dbcea8732cd9a2db",
+  "permittedChanges": "client orchestration, native backend read orchestration, focused tests and local timing harness only",
+  "sourceSha256": {
+    "functions/src/customer_bitesaver_search_session.ts": "1bdbf6716fe5ec1d7af07dad6a76b4b1c5df1a592de317ad8014f9b7984d6f81",
+    "lib/services/customer_bitesaver_search_coordinator.dart": "ac84b6a852ee7b8a7b303ca87ca0094ddf14eee220b3a92fdf4f9614830ebae6",
+    "functions/test/customer_bitesaver_search_handlers.test.js": "fe2b96d7d687cd0c54402829eafd2e0f7b4a6a1af8516627f53b4e47dafcb34c",
+    "test/services/customer_bitesaver_search_coordinator_test.dart": "2d7170351546ae9a1810021ab3ae9109453850c9a471389f0362ec6e602f3dc8",
+    "functions/test/support/postgis_flutter_host.cjs": "fe1eca4ab4772fd32049340344a7142900f450d20711308e6822f88119939961",
+    "test/services/postgis_flutter_integration_test.dart": "0594fac2f34558da0bec7d38902602c6b4d23309bbb8fdfd4601a784a278e768",
+    "functions/test/postgis_integration.test.js": "01f7f4c9e8a6ba0a1c81035867ee1008adbcc5a3623538d72b400113a49392e0"
+  },
+  "environment": {
+    "actualFlutter": true,
+    "actualHttp": true,
+    "actualAuthAndFirestoreEmulators": true,
+    "actualPostgis": true,
+    "mockProviderOrTransport": false,
+    "fixtureProjectionCount": 185,
+    "fixtureTemporalNow": "2026-10-17T19:00:00.000Z",
+    "identicalBeforeAfter": {
+      "fixture": true,
+      "fixtureTemporalNow": true,
+      "activeEntities": true,
+      "publishedSourceFence": true,
+      "publishedRevision": true
+    },
+    "currentHostPid": 29796,
+    "hostExecSession": 25989,
+    "activeHostLogExcludedFromFrozenEvidence": "guest-final-server.jsonl"
+  },
+  "baseline": {
+    "bitesaver-guest": {
+      "attempts": 10,
+      "successes": 10,
+      "failures": 0,
+      "allMs": [
+        3225.058,
+        2760.498,
+        2719.432,
+        2709.101,
+        2737.318,
+        2796.315,
+        2697.037,
+        2704.082,
+        2724.43,
+        2678.806
+      ],
+      "meanMs": 2775.2077,
+      "medianMs": 2721.9309999999996,
+      "warmObservations": 9,
+      "warmMeanMs": 2725.224333333333,
+      "warmMedianMs": 2719.432,
+      "warmRangeMs": [
+        2678.806,
+        2796.315
+      ],
+      "within2Seconds": 0,
+      "warmWithin2Seconds": 0,
+      "within4Seconds": 10,
+      "httpCalls": 280,
+      "transportErrors": 0,
+      "usefulCardsPerAttempt": [
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25
+      ],
+      "perCallMsSumMean": 1822.0261,
+      "requestedClientDelayMsMean": 500.0,
+      "observedClientDelayMsMean": 575.0572999999999,
+      "continuationsPerAttempt": [
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26
+      ],
+      "largestChallenge": 1
+    },
+    "bitesaver-signed": {
+      "attempts": 10,
+      "successes": 10,
+      "failures": 0,
+      "allMs": [
+        256.42,
+        247.575,
+        250.574,
+        239.734,
+        245.387,
+        243.419,
+        237.315,
+        236.819,
+        233.849,
+        234.867
+      ],
+      "meanMs": 242.5959,
+      "medianMs": 241.5765,
+      "warmObservations": 9,
+      "warmMeanMs": 241.05988888888888,
+      "warmMedianMs": 239.734,
+      "warmRangeMs": [
+        233.849,
+        250.574
+      ],
+      "within2Seconds": 10,
+      "warmWithin2Seconds": 9,
+      "within4Seconds": 10,
+      "httpCalls": 30,
+      "transportErrors": 0,
+      "usefulCardsPerAttempt": [
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25
+      ],
+      "perCallMsSumMean": 221.4057,
+      "requestedClientDelayMsMean": 0,
+      "observedClientDelayMsMean": 0,
+      "continuationsPerAttempt": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "largestChallenge": 0
+    },
+    "bitescore-dish-home": {
+      "attempts": 3,
+      "successes": 3,
+      "failures": 0,
+      "allMs": [
+        118.293,
+        117.584,
+        90.259
+      ],
+      "meanMs": 108.712,
+      "medianMs": 117.584,
+      "warmObservations": 2,
+      "warmMeanMs": 103.92150000000001,
+      "warmMedianMs": 103.92150000000001,
+      "warmRangeMs": [
+        90.259,
+        117.584
+      ],
+      "within2Seconds": 3,
+      "warmWithin2Seconds": 2,
+      "within4Seconds": 3,
+      "httpCalls": 6,
+      "transportErrors": 0,
+      "usefulCardsPerAttempt": [
+        null,
+        null,
+        null
+      ],
+      "perCallMsSumMean": 66.218,
+      "requestedClientDelayMsMean": 0,
+      "observedClientDelayMsMean": 0,
+      "continuationsPerAttempt": [
+        0,
+        0,
+        0
+      ],
+      "largestChallenge": 0
+    },
+    "create-rate-finder": {
+      "attempts": 3,
+      "successes": 3,
+      "failures": 0,
+      "allMs": [
+        448.479,
+        436.174,
+        409.698
+      ],
+      "meanMs": 431.45033333333333,
+      "medianMs": 436.174,
+      "warmObservations": 2,
+      "warmMeanMs": 422.936,
+      "warmMedianMs": 422.936,
+      "warmRangeMs": [
+        409.698,
+        436.174
+      ],
+      "within2Seconds": 3,
+      "warmWithin2Seconds": 2,
+      "within4Seconds": 3,
+      "httpCalls": 6,
+      "transportErrors": 0,
+      "usefulCardsPerAttempt": [
+        null,
+        null,
+        null
+      ],
+      "perCallMsSumMean": 82.10333333333332,
+      "requestedClientDelayMsMean": 0,
+      "observedClientDelayMsMean": 0,
+      "continuationsPerAttempt": [
+        0,
+        0,
+        0
+      ],
+      "largestChallenge": 0
+    }
+  },
+  "intermediateBeforeFinalParallelRead": {
+    "bitesaver-guest": {
+      "attempts": 10,
+      "successes": 10,
+      "failures": 0,
+      "allMs": [
+        2482.402,
+        2018.906,
+        2005.729,
+        2025.809,
+        1999.475,
+        1956.015,
+        2008.332,
+        1980.993,
+        1995.974,
+        2093.038
+      ],
+      "meanMs": 2056.6673,
+      "medianMs": 2007.0305,
+      "warmObservations": 9,
+      "warmMeanMs": 2009.3634444444444,
+      "warmMedianMs": 2005.729,
+      "warmRangeMs": [
+        1956.015,
+        2093.038
+      ],
+      "within2Seconds": 4,
+      "warmWithin2Seconds": 4,
+      "within4Seconds": 10,
+      "httpCalls": 280,
+      "transportErrors": 0,
+      "usefulCardsPerAttempt": [
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25
+      ],
+      "perCallMsSumMean": 1552.0003000000002,
+      "requestedClientDelayMsMean": 0.0,
+      "observedClientDelayMsMean": 0.0593,
+      "continuationsPerAttempt": [
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26
+      ],
+      "largestChallenge": 1
+    },
+    "bitesaver-signed": {
+      "attempts": 10,
+      "successes": 10,
+      "failures": 0,
+      "allMs": [
+        252.36,
+        249.392,
+        249.171,
+        249.552,
+        238.304,
+        243.88,
+        240.877,
+        242.795,
+        239.893,
+        240.69
+      ],
+      "meanMs": 244.6914,
+      "medianMs": 243.33749999999998,
+      "warmObservations": 9,
+      "warmMeanMs": 243.83933333333334,
+      "warmMedianMs": 242.795,
+      "warmRangeMs": [
+        238.304,
+        249.552
+      ],
+      "within2Seconds": 10,
+      "warmWithin2Seconds": 9,
+      "within4Seconds": 10,
+      "httpCalls": 30,
+      "transportErrors": 0,
+      "usefulCardsPerAttempt": [
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25
+      ],
+      "perCallMsSumMean": 225.12539999999998,
+      "requestedClientDelayMsMean": 0,
+      "observedClientDelayMsMean": 0,
+      "continuationsPerAttempt": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "largestChallenge": 0
+    },
+    "bitescore-dish-home": {
+      "attempts": 3,
+      "successes": 3,
+      "failures": 0,
+      "allMs": [
+        132.832,
+        96.664,
+        117.473
+      ],
+      "meanMs": 115.65633333333334,
+      "medianMs": 117.473,
+      "warmObservations": 2,
+      "warmMeanMs": 107.0685,
+      "warmMedianMs": 107.0685,
+      "warmRangeMs": [
+        96.664,
+        117.473
+      ],
+      "within2Seconds": 3,
+      "warmWithin2Seconds": 2,
+      "within4Seconds": 3,
+      "httpCalls": 6,
+      "transportErrors": 0,
+      "usefulCardsPerAttempt": [
+        null,
+        null,
+        null
+      ],
+      "perCallMsSumMean": 67.44233333333334,
+      "requestedClientDelayMsMean": 0,
+      "observedClientDelayMsMean": 0,
+      "continuationsPerAttempt": [
+        0,
+        0,
+        0
+      ],
+      "largestChallenge": 0
+    },
+    "create-rate-finder": {
+      "attempts": 3,
+      "successes": 3,
+      "failures": 0,
+      "allMs": [
+        443.721,
+        428.105,
+        412.87
+      ],
+      "meanMs": 428.232,
+      "medianMs": 428.105,
+      "warmObservations": 2,
+      "warmMeanMs": 420.4875,
+      "warmMedianMs": 420.4875,
+      "warmRangeMs": [
+        412.87,
+        428.105
+      ],
+      "within2Seconds": 3,
+      "warmWithin2Seconds": 2,
+      "within4Seconds": 3,
+      "httpCalls": 6,
+      "transportErrors": 0,
+      "usefulCardsPerAttempt": [
+        null,
+        null,
+        null
+      ],
+      "perCallMsSumMean": 78.20533333333333,
+      "requestedClientDelayMsMean": 0,
+      "observedClientDelayMsMean": 0,
+      "continuationsPerAttempt": [
+        0,
+        0,
+        0
+      ],
+      "largestChallenge": 0
+    }
+  },
+  "final": {
+    "bitesaver-guest": {
+      "attempts": 20,
+      "successes": 20,
+      "failures": 0,
+      "allMs": [
+        2511.268,
+        2063.039,
+        1975.965,
+        2017.928,
+        1992.423,
+        2016.503,
+        2005.757,
+        2009.947,
+        1948.909,
+        1983.106,
+        2568.905,
+        2138.979,
+        2094.669,
+        2090.068,
+        2088.292,
+        2081.29,
+        2089.91,
+        2064.804,
+        2044.132,
+        2027.846
+      ],
+      "meanMs": 2090.687,
+      "medianMs": 2053.5855,
+      "warmObservations": 18,
+      "warmMeanMs": 2040.7537222222222,
+      "warmMedianMs": 2035.989,
+      "warmRangeMs": [
+        1948.909,
+        2138.979
+      ],
+      "within2Seconds": 4,
+      "warmWithin2Seconds": 4,
+      "within4Seconds": 20,
+      "httpCalls": 560,
+      "transportErrors": 0,
+      "usefulCardsPerAttempt": [
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25
+      ],
+      "perCallMsSumMean": 1556.0098,
+      "requestedClientDelayMsMean": 0.0,
+      "observedClientDelayMsMean": 0.05815,
+      "continuationsPerAttempt": [
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26
+      ],
+      "largestChallenge": 1
+    },
+    "bitesaver-signed": {
+      "attempts": 10,
+      "successes": 10,
+      "failures": 0,
+      "allMs": [
+        262.165,
+        253.845,
+        253.437,
+        248.803,
+        248.973,
+        243.386,
+        247.345,
+        253.347,
+        248.405,
+        270.701
+      ],
+      "meanMs": 253.04070000000002,
+      "medianMs": 251.16000000000003,
+      "warmObservations": 9,
+      "warmMeanMs": 252.0268888888889,
+      "warmMedianMs": 248.973,
+      "warmRangeMs": [
+        243.386,
+        270.701
+      ],
+      "within2Seconds": 10,
+      "warmWithin2Seconds": 9,
+      "within4Seconds": 10,
+      "httpCalls": 30,
+      "transportErrors": 0,
+      "usefulCardsPerAttempt": [
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25
+      ],
+      "perCallMsSumMean": 233.8484,
+      "requestedClientDelayMsMean": 0,
+      "observedClientDelayMsMean": 0,
+      "continuationsPerAttempt": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "largestChallenge": 0
+    },
+    "bitescore-dish-home": {
+      "attempts": 3,
+      "successes": 3,
+      "failures": 0,
+      "allMs": [
+        145.11,
+        123.77,
+        119.422
+      ],
+      "meanMs": 129.434,
+      "medianMs": 123.77,
+      "warmObservations": 2,
+      "warmMeanMs": 121.596,
+      "warmMedianMs": 121.596,
+      "warmRangeMs": [
+        119.422,
+        123.77
+      ],
+      "within2Seconds": 3,
+      "warmWithin2Seconds": 2,
+      "within4Seconds": 3,
+      "httpCalls": 6,
+      "transportErrors": 0,
+      "usefulCardsPerAttempt": [
+        null,
+        null,
+        null
+      ],
+      "perCallMsSumMean": 78.63266666666667,
+      "requestedClientDelayMsMean": 0,
+      "observedClientDelayMsMean": 0,
+      "continuationsPerAttempt": [
+        0,
+        0,
+        0
+      ],
+      "largestChallenge": 0
+    },
+    "create-rate-finder": {
+      "attempts": 3,
+      "successes": 3,
+      "failures": 0,
+      "allMs": [
+        446.531,
+        412.563,
+        417.278
+      ],
+      "meanMs": 425.45733333333334,
+      "medianMs": 417.278,
+      "warmObservations": 2,
+      "warmMeanMs": 414.9205,
+      "warmMedianMs": 414.9205,
+      "warmRangeMs": [
+        412.563,
+        417.278
+      ],
+      "within2Seconds": 3,
+      "warmWithin2Seconds": 2,
+      "within4Seconds": 3,
+      "httpCalls": 6,
+      "transportErrors": 0,
+      "usefulCardsPerAttempt": [
+        null,
+        null,
+        null
+      ],
+      "perCallMsSumMean": 80.36,
+      "requestedClientDelayMsMean": 0,
+      "observedClientDelayMsMean": 0,
+      "continuationsPerAttempt": [
+        0,
+        0,
+        0
+      ],
+      "largestChallenge": 0
+    }
+  },
+  "serverBaseline": {
+    "samples": 10,
+    "callsPerSample": [
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28
+    ],
+    "handlerMsPerSample": [
+      1917.8642510000027,
+      1730.93312899999,
+      1723.0030850000076,
+      1701.1953309999953,
+      1714.1905820000175,
+      1777.9416260000144,
+      1687.8029590000224,
+      1706.1073329999927,
+      1709.5854160000017,
+      1686.1707470000038
+    ],
+    "operationsAreInclusiveNotAdditive": true,
+    "operationMeanPerSample": {
+      "firestore.commitWrites": {
+        "calls": 55,
+        "inclusiveMs": 58.894746200010196
+      },
+      "firestore.getDocument": {
+        "calls": 316,
+        "inclusiveMs": 516.5937754000024
+      },
+      "firestore.getDocuments": {
+        "calls": 27,
+        "inclusiveMs": 44.38877540000503
+      },
+      "firestore.queryDocuments": {
+        "calls": 26,
+        "inclusiveMs": 69.80984119999448
+      },
+      "firestore.transaction": {
+        "calls": 138,
+        "inclusiveMs": 771.8688098999803
+      },
+      "firestore.transactionRead.getDocument": {
+        "calls": 140,
+        "inclusiveMs": 254.88602090000822
+      },
+      "firestore.transactionRead.getDocuments": {
+        "calls": 112,
+        "inclusiveMs": 180.52307430000874
+      },
+      "membership.pinRevision": {
+        "calls": 1,
+        "inclusiveMs": 5.089395800000057
+      },
+      "membership.queryResults": {
+        "calls": 26,
+        "inclusiveMs": 103.92430830000049
+      },
+      "sql.membershipQuery": {
+        "calls": 191,
+        "inclusiveMs": 64.50853500000376
+      }
+    },
+    "requestedDocumentsPerSample": [
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754
+    ],
+    "repeatedDocumentReadsWithinEachCallPerSample": [
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315
+    ]
+  },
+  "serverFinal": {
+    "samples": 20,
+    "callsPerSample": [
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28,
+      28
+    ],
+    "handlerMsPerSample": [
+      1655.084085000004,
+      1446.3145800000093,
+      1400.718252999999,
+      1407.3682480000098,
+      1383.3876650000093,
+      1410.9422059999997,
+      1379.7321180000072,
+      1413.3848339999931,
+      1406.9070840000095,
+      1415.928747999962,
+      1644.557045999958,
+      1496.093044999987,
+      1483.9594169999764,
+      1474.74500000001,
+      1491.0810409999976,
+      1484.367832999982,
+      1474.0992079999996,
+      1493.151165000003,
+      1480.028706000041,
+      1501.4976710000337
+    ],
+    "operationsAreInclusiveNotAdditive": true,
+    "operationMeanPerSample": {
+      "firestore.commitWrites": {
+        "calls": 55,
+        "inclusiveMs": 55.735218549993895
+      },
+      "firestore.getDocument": {
+        "calls": 108,
+        "inclusiveMs": 208.53203425000447
+      },
+      "firestore.getDocuments": {
+        "calls": 106,
+        "inclusiveMs": 182.2708442499855
+      },
+      "firestore.queryDocuments": {
+        "calls": 26,
+        "inclusiveMs": 82.53863540000603
+      },
+      "firestore.transaction": {
+        "calls": 138,
+        "inclusiveMs": 729.7178813000066
+      },
+      "firestore.transactionRead.getDocument": {
+        "calls": 88,
+        "inclusiveMs": 160.35756000000237
+      },
+      "firestore.transactionRead.getDocuments": {
+        "calls": 138,
+        "inclusiveMs": 235.1280174500207
+      },
+      "membership.pinRevision": {
+        "calls": 1,
+        "inclusiveMs": 3.4922998999982156
+      },
+      "membership.queryResults": {
+        "calls": 26,
+        "inclusiveMs": 105.85121740000295
+      },
+      "sql.membershipQuery": {
+        "calls": 191,
+        "inclusiveMs": 65.3602663000136
+      }
+    },
+    "requestedDocumentsPerSample": [
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754,
+      754
+    ],
+    "repeatedDocumentReadsWithinEachCallPerSample": [
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315,
+      315
+    ],
+    "evidence": "guest-final-server.frozen.jsonl"
+  },
+  "interpretation": {
+    "measuredLocalOnly": true,
+    "supportsHostedTailLatencyClaim": false,
+    "target": "Strict warm two-second target is not consistently met:4/18 final warm observations within2s. Local warm median improved25.1%, with full result and unchanged protocol.",
+    "remainingCost": "26 sequential guest-history continuations remain. They retain the current protocol and privacy boundary.",
+    "noColdStartClaim": "Each Flutter process has one first observation; those are not qualified cold-start observations.",
+    "harnessScheduling": "Widget harness polls actual useful rendered content at20ms; identical before/after."
+  },
+  "changes": [
+    "Monotonic 250ms minimum pacing window and12-step bound retained; successful I/O time counts toward that window, with millisecond round-up and mandatory yielding. Actual retry delays remain250ms.",
+    "Native known parent/result reads and transactional session/checkpoint reads batched without changing validation. Final25pluslookahead parent checks use52documents in one bounded read.",
+    "Independent token-bound session and guest checkpoint reads overlap before all original validation and mutation gates.",
+    "Real integration fixture sign-in explicitly targets its guarded synthetic project, matching the existing Flutter fixture and current multi-project Auth emulator."
+  ],
+  "materialFindings": [
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "finding": "Measured avoidable fixed client pause and serialized guest authority reads",
+      "resolution": "Applied bounded orchestration only;75-ID challenge limit, same26rounds, exact recovery and all authority retained."
+    },
+    {
+      "classification": "FIX SEPARATELY \u2014 REAL BUG",
+      "finding": "Existing customer_bitesaver_runtime_wiring.test.js has12 harness/inventory failures. Frozen index.js and owner-media runtime hashes matchv3; session module under test is mocked.",
+      "evidence": "guest-native-final-tests.log",
+      "edited": false
+    }
+  ],
+  "verification": {
+    "coordinator": {
+      "pass": 106,
+      "fail": 0,
+      "log": "guest-coordinator-final-tests.log"
+    },
+    "affectedNative": {
+      "pass": 307,
+      "fail": 0,
+      "log": "guest-native-tests.log"
+    },
+    "expandedNativeIncludingPreexistingRuntimeHarness": {
+      "pass": 313,
+      "fail": 12,
+      "total": 325,
+      "log": "guest-native-final-tests.log",
+      "independentPreexistingEvidence": {
+        "functions/lib/index.js": "sha256 matches v3 compiled artifact",
+        "functions/lib/bitesaver_owner_media_runtime.js": "sha256 matches v3 compiled artifact",
+        "sessionImplementation": "harness mocks this module; changed guest source cannot cause the observed missing app Storage initialization."
+      }
+    },
+    "baselineFlutter": {
+      "testsPass": 4,
+      "testsFail": 0
+    },
+    "finalFlutter": {
+      "testsPass": 4,
+      "testsFail": 0
+    },
+    "additionalGuestFlutter": {
+      "testsPass": 1,
+      "testsFail": 0
+    },
+    "realNativeIntegrationFirstAttempt": {
+      "pass": 4,
+      "fail": 5,
+      "cause": "Auth emulator default project differs. Guarded fixture sign-in lacked explicit targetProjectId.",
+      "log": "guest-final-native-integration.log"
+    },
+    "realNativeIntegrationFinal": {
+      "pass": 9,
+      "fail": 0,
+      "log": "guest-final-native-integration-rerun.log",
+      "evidence": "guest-final-native-integration-rerun.json"
+    }
+  },
+  "status": {
+    "sourceCorrected": true,
+    "localMeasurementComplete": true,
+    "deployed": false,
+    "defaultActive": false,
+    "productionQualified": false,
+    "hostedQualified": false,
+    "committedByTrackA": false
+  },
+  "localWarmMedianImprovementPercent": 25.131828999585203,
+  "evidenceSha256": {
+    "guest-after-host.json": "8915a1b0db6d96a2d6143acf94c3b18bfdc3232e0bb2d27fa46b5e70ab7c2973",
+    "guest-final-native-integration.json": "f0c48dfa88b089b39600bef3fc3ecc660925715b5af46535dc6ccf828668c167",
+    "guest-final-host.json": "1e0f57b2409bdbb568190a6a02653704a89528f564b91973aba41047823931b9",
+    "guest-baseline-server.jsonl": "fb7e4ef65fdadb7140f7179a7226539f4fc251c0a826d32ceed07b9b09b4eb4a",
+    "guest-after-flutter.json": "9c5f9435cc019e70906ce952b8c3212c953babd5600313f384bf0a437777d4e0",
+    "guest-baseline-host.json": "40ccf91df31b1645e90327fd0c2577ddf6c30dafeec91d41cd897c78bf181621",
+    "guest-final-flutter.json": "826dfcd97ce1bb8ce5830ee8c6bdb5811999b6fc80f5d41e96098516f3dd91c9",
+    "guest-repeat-flutter.json": "a68b3bd02cd9a217d8f01fb6eec029ff9ba4f15967b664c7f2f5ef67d2e3cef9",
+    "guest-after-server.jsonl": "3638c060ba3049395bc62bee1def0b94970924cb654e8d28b684c72d277aa5f3",
+    "guest-final-native-integration-rerun.json": "2ab16185a8b4d00ba48da3bb134881fea1fe9f340ee1f9d0108af519bb1113cf",
+    "guest-baseline-flutter.json": "8978d6d15d0ba3f7596003194e7b60aca57ce813b7f40691e79e06945e83fb61",
+    "guest-final-server.frozen.jsonl": "23fbb1aea7ebd0d3525697a24d6e6c434d0e5118c8afa054f9de0991bce33f32"
+  },
+  "protectedOwnerPathsUnchanged": {
+    "test/screens/customer_bitesaver_browse_screen_test.dart": true,
+    "test/screens/restaurant_profile_bitescore_menu_test.dart": true,
+    "APPROVAL-ADDENDUM-A2.md": true,
+    "test/cuisine_fixture/main.dart": true,
+    "test/visual_fixture/README.md": true,
+    "test/visual_fixture/data.dart": true,
+    "test/visual_fixture/main.dart": true
+  }
+}

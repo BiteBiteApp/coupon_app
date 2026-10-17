@@ -1,0 +1,20 @@
+{
+  "recordedAt": "2026-10-17T19:13:44.993792+00:00",
+  "taskOwnedPortAbsence": {
+    "8188": true,
+    "55441": true,
+    "8088": true,
+    "9099": true
+  },
+  "postgresDataRetained": true,
+  "snapshotEvidenceDirectories": 6,
+  "retainedSyntheticGenerator": "functions/test/fixtures/postgis_gate0.cjs",
+  "historicalRuntimeUntouched": true,
+  "stoppedTaskOwnedPids": [
+    29796,
+    27378,
+    27398,
+    27403
+  ],
+  "taskOwnedServicesStopped": true
+}

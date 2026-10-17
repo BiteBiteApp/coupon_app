@@ -1,0 +1,32 @@
+{
+  "status": "SOURCE_ONLY_UNAPPROVED_PROVIDER_SECTION_MERGE_INTO_FULL_CONFIG",
+  "provider": {
+    "enabled": false,
+    "firstBillableAtMs": null,
+    "supervisedControlBootstrap": false,
+    "controlBucket": null,
+    "controlObject": null,
+    "configurationBucket": null,
+    "trustBucket": null,
+    "controlImageDigest": null,
+    "loadImageDigest": null,
+    "loadServiceAccount": null,
+    "controllerJob": null,
+    "watchdogJob": null,
+    "watchdogWorkflow": null,
+    "watchdogScheduler": null,
+    "controllerServiceAccount": null,
+    "watchdogServiceAccount": null,
+    "workflowServiceAccount": null,
+    "schedulerServiceAccount": null,
+    "alertTopic": null,
+    "monitoringChannels": [],
+    "resources": [],
+    "sqlExclusiveDeletion": {
+      "approved": false,
+      "singleUseNames": false,
+      "exclusiveControllerOwnership": false,
+      "ownerApprovalReference": null
+    }
+  }
+}

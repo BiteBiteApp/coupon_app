@@ -10,13 +10,15 @@
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "test:postgis-hosted": "npm run build && node --test test/postgis_execution_approval.test.cjs test/postgis_cloudsql.test.cjs test/postgis_hosted_transport.test.cjs test/postgis_hosted_entrypoint.test.cjs"
   },
   "engines": {
     "node": "24"
   },
   "main": "lib/index.js",
   "dependencies": {
+    "@google-cloud/cloud-sql-connector": "1.12.1",
     "@googleapis/playintegrity": "28.0.0",
     "@peculiar/x509": "1.14.0",
     "cbor-x": "1.6.6",

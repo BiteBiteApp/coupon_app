@@ -16,6 +16,8 @@ import {
 } from "./postgis_source_recovery.js";
 import {entityFromProjection} from "./postgis_semantics.js";
 import {insertEntity, type PostgisPool, type PostgisConnection} from "./postgis_store.js";
+import {cloudSqlPostgisIdentity, requireCloudSqlPostgisPool, type CloudSqlPostgisConfiguration} from "./postgis_cloudsql.js";
+import {GcsPostgisSnapshotStore, requireApprovedPostgisSnapshotStore} from "./postgis_snapshot_gcs.js";
 
 function snapshotId(value: string): void {
   if (!/^[A-Za-z0-9_-]{1,100}$/u.test(value)) throw new Error("Invalid recovery snapshot ID.");
@@ -157,6 +159,55 @@ export async function exportPostgisSnapshot(pool: PostgisPool, directory: string
   }
 }
 
+/** Stream bounded pages from one repeatable-read publication directly to GCS.
+ * No runner filesystem is used. Slow/failed uploads can abort the bounded SQL
+ * transaction; immutable chunks are safe to reconcile on an explicit retry.
+ */
+export async function publishHostedPostgisSnapshot(
+  pool: PostgisPool, configuration: CloudSqlPostgisConfiguration, store: GcsPostgisSnapshotStore, id: string,
+): Promise<PostgisRecoveryManifest> {
+  requireCloudSqlPostgisPool(pool, cloudSqlPostgisIdentity(configuration)); snapshotId(id);
+  requireApprovedPostgisSnapshotStore(store, configuration, id);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    const publication = (await client.query("SELECT * FROM publication WHERE singleton")).rows[0];
+    const progress = (await client.query("SELECT * FROM ingestion_progress WHERE singleton")).rows[0];
+    const ready = (await client.query("SELECT ready FROM bootstrap WHERE singleton")).rows[0]?.ready;
+    if (!ready || progress.target !== null || progress.state !== "ready") throw new Error("Cannot export an incomplete search publication.");
+    const fence = (await client.query("SELECT source_manifest FROM revisions WHERE revision=$1", [publication.revision])).rows[0]?.source_manifest as PostgisSourceFence;
+    validatePostgisSourceFence(fence);
+    if (fence.epoch !== progress.epoch || fence.shards.some((shard, index) => shard.seq !== publication.fence[index])) throw new Error("Published snapshot fence is inconsistent.");
+    const rowCount = Number((await client.query("SELECT count(*) AS count FROM source_heads")).rows[0].count);
+    const header = {protocolVersion: postgisSourceVersion, snapshotId: id, fence, rowCount};
+    const readRows = async (_id: string, after: string | null, limit: number): Promise<readonly PostgisRecoveryRow[]> => {
+      if (_id !== id || !Number.isInteger(limit) || limit < 1 || limit > 500) throw new Error("Invalid hosted snapshot page.");
+      const result = await client.query(`SELECT index_path,payload,digest FROM source_heads
+        WHERE ($1::text IS NULL OR index_path COLLATE "C" > $1::text COLLATE "C") ORDER BY index_path COLLATE "C" LIMIT $2`, [after, limit]);
+      return result.rows.map(source => {
+        const row = {payload: source.payload, digest: source.digest} as PostgisRecoveryRow;
+        if (postgisRecoveryIdentity(row) !== source.index_path || row.payload.projection === null ||
+            row.digest !== postgisSourceDigest(row.payload)) throw new Error("Published source head is corrupt.");
+        return row;
+      });
+    };
+    const hash = createHash("sha256").update(postgisRecoveryDigestHeader(header));
+    let after: string | null = null, count = 0;
+    while (true) {
+      const rows = await readRows(id, after, 500);
+      for (const row of rows) {hash.update("\n").update(postgisCanonicalJson(row)); after = postgisRecoveryIdentity(row); count++;}
+      if (rows.length < 500) break;
+    }
+    if (count !== rowCount) throw new Error("Hosted snapshot row count changed.");
+    const manifest: PostgisRecoveryManifest = {...header, digest: hash.digest("hex")};
+    await store.publish({readRecoveryManifest: async requested => requested === id ? manifest : null,
+      readRecoveryRows: readRows}, manifest);
+    await client.query("COMMIT");
+    return manifest;
+  } catch (error) {await client.query("ROLLBACK").catch(() => undefined); throw error;}
+  finally {client.release();}
+}
+
 async function verifyHeads(client: PostgisConnection, fence: PostgisSourceFence): Promise<void> {
   const actual = (await client.query(`SELECT shard,payload->>'collection' AS collection,count(*)::int AS count,
     bit_xor(('x'||digest)::bit(256))::text AS xor FROM source_heads GROUP BY shard,payload->>'collection'`)).rows;
@@ -173,6 +224,24 @@ export async function restorePostgisSnapshot(
   pool: PostgisPool, reader: PostgisRecoverySnapshotReader, id: string, batchSize = 75,
 ): Promise<{ready: boolean; restored: number; afterIdentity: string | null}> {
   await requireLocalDatabase(pool); snapshotId(id);
+  return restoreSnapshot(pool, reader, id, batchSize);
+}
+
+/** Restore has the same integrity/fence gate as local recovery and can target
+ * only the separately configured fresh restore database, never the serving DB.
+ */
+export async function restoreHostedPostgisSnapshot(
+  pool: PostgisPool, configuration: CloudSqlPostgisConfiguration,
+  reader: GcsPostgisSnapshotStore, id: string, batchSize = 75,
+): Promise<{ready: boolean; restored: number; afterIdentity: string | null}> {
+  requireCloudSqlPostgisPool(pool, cloudSqlPostgisIdentity(configuration, "restore")); snapshotId(id);
+  requireApprovedPostgisSnapshotStore(reader, configuration, id);
+  return restoreSnapshot(pool, reader, id, batchSize);
+}
+
+async function restoreSnapshot(
+  pool: PostgisPool, reader: PostgisRecoverySnapshotReader, id: string, batchSize: number,
+): Promise<{ready: boolean; restored: number; afterIdentity: string | null}> {
   if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 100) throw new Error("Invalid recovery restore page.");
   const manifest = await reader.readRecoveryManifest(id);
   if (manifest === null) throw new Error("Recovery snapshot is missing.");

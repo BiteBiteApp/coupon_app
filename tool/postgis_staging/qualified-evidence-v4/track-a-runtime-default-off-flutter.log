@@ -1,0 +1,8 @@
+00:00 +0: loading /Users/colesmart/dev/coupon_app/test/services/customer_search_candidate_runtime_test.dart
+00:00 +0: candidate is off by default and enables existing consumers explicitly
+00:00 +1: candidate routing preserves profile, menu, saved and redemption calls
+00:00 +2: BiteScore and Finder controller consume selected native-shaped results (false)
+00:00 +3: BiteSaver coordinator delivers a useful page through selected service (false)
+00:00 +4: BiteScore and Finder controller consume selected native-shaped results (true)
+00:00 +5: BiteSaver coordinator delivers a useful page through selected service (true)
+00:00 +6: All tests passed!

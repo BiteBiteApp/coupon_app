@@ -1,0 +1,161 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-READINESS-FINISH-002",
+  "reviewer": "Track A /root/query_client",
+  "reviewType": "Independent scoped review of Track B hosted jobs and final Linux build input composition",
+  "completedAt": "2026-10-17T19:13:05.937514+00:00",
+  "verdict": "PASS for reviewed source contracts and explicitly local/injected evidence; Linux and hosted execution remain unverified",
+  "sourceSha256": {
+    "functions/src/postgis_hosted_jobs.ts": "0cf285d55a60d24982e635f56abd7ec036e0b78e752e7b4eb4526131c3aee245",
+    "functions/src/postgis_hosted_job_entrypoint.ts": "1ad37ffa64d8687843c5b921ee425c750cf49c5502b4f3ab9686bc4735f84c8a",
+    "functions/src/postgis_hosted_entrypoint.ts": "210755b379629372ddf93a063a1eb8e1ee315bf56fdee8d0f8604e0d62e4a0a4",
+    "functions/src/postgis_hosted_runtime.ts": "161c6b0ba7bd78cf5df18c0560cd7295870849274b140250a6bd8e00c7b728d3",
+    "functions/src/postgis_cloudsql.ts": "299c6645ef5beaddc682adae9197cc647b8309dbabdfc9455e72517cf50273fa",
+    "functions/src/postgis_execution_approval.ts": "3efec64518f5a89799e0ed1aa283ded06aed66b021e4690bfe4a0fdd0ea4cb9f",
+    "functions/src/postgis_snapshot.ts": "e9ecdbe047b53654c366a2bd3da15d29d82d86d97311f4ae03afcab34f85c482",
+    "functions/src/postgis_snapshot_gcs.ts": "71a7831549e3c45fa665acb05108783255cecdd7e3fab1dffd88444a1c823bd0",
+    "functions/src/postgis_source_firestore.ts": "620eeaded115ce6767302967b80bc79fd8bb593aefdacadea165c519588fd7ed",
+    "functions/src/postgis_runtime.ts": "c020f3dc8e253571d5efd2c4e907508e5cf9c956a26508cdb2346375f021c920",
+    "functions/test/postgis_hosted_jobs_emulator.test.cjs": "1f54970c767a2e8aed0e02c099f230f00cb92ee61adbc8e0a085d2782514876c",
+    "functions/test/postgis_hosted_entrypoint.test.cjs": "76ae14d5206b1fd72f0d9ae03abc425886e65a351fa4c3123bef30f03578a866",
+    "functions/test/postgis_execution_approval.test.cjs": "bf0d0f7f70c46e38a70f0492c2d8bad646aeab80f6c8c6042bd07d6ab188aab9",
+    "functions/test/postgis_cloudsql.test.cjs": "294da67e7a298e70dade07bfc79fb1d5ae728a0542103adac2fa4e1c6bc0c026",
+    "functions/test/postgis_hosted_transport.test.cjs": "ec2bdcc64ec1cc653ab50e4c7c7e4cf69c17edfd35707a44a4de79979ebd0769",
+    "tool/postgis_staging/hosted/render-job.cjs": "5c536e9d0aa72becc7425d5a0061baf4dd2484a25fe89e6d3e7f2e27d4a44193",
+    "tool/postgis_staging/hosted/render-service.cjs": "17fc441f4dc52c59426d08a8fe050ade64275fd256b8b2c4e4f5cfc0648d5f70",
+    "tool/postgis_staging/hosted/hosted.example.json": "37d1d4358fd70613d415afb35c4813af48ebbe93577a174403d27aed6074d2f4",
+    "tool/postgis_staging/hosted/README.md": "bf053b8d7f529101fa7552ba8841d952b76c53446a23829c2d8f7e001d2e4bf7",
+    "tool/postgis_staging/HOSTED-ADAPTER.md": "ee6264e77c198e70be6684dcdf1ebb09f61f789c9dd267e3870b24a7ed2cdb5b",
+    "tool/postgis_staging/linux/Dockerfile": "bb569df458e399960202c932ee2099e3c14c6d4adab011cd26544d253d8f4bd3",
+    "tool/postgis_staging/linux/README.md": "4ec46d2afd7e57a6263b0bfeaadf0b915c1727fb5b443822965cff3322ba540a",
+    "tool/postgis_staging/linux/runtime-source.json": "1154d8aac54305233944ca7158c44e7c2d01310d37e742cbebbcc2b214f44bae",
+    "tool/postgis_staging/scripts/cloud_controller.py": "65a940a9509ed4d99fd0f33e6bc3b2b75f8286c1baf7b516d49dfcd5780f036d",
+    "tool/postgis_staging/scripts/test_cloud_controller.py": "702f2af9383f3bcb16ffe09e039b7e9f417c2b013d2c704815464af58287b592",
+    "tool/postgis_staging/scripts/cloud_provider.py": "8f6cbb4cd5f6dcff35a253d63f8f882bf5ac1aa847b8810704876c45c962ef93",
+    "tool/postgis_staging/scripts/guard.py": "35727623fdb0caeec1666e672cd684785a60288d2837f0cf898d6e11dd32eb6d"
+  },
+  "scope": [
+    "Real initialize -> fixed synthetic raw fixture -> native maintenance atomic journal -> bounded enrollment -> finite-fence SQL catch-up composition",
+    "Synthetic-only signed configuration, separate Saver/Score IDs, fixed mutation paths/fields, no arbitrary fixture payloads",
+    "Pending batch ordering, idempotent completed batches, exact interrupted batch retry and publication refusal",
+    "Signed snapshot identity/configuration, genuine approved store/pools, separate restore target, retained-bytes validation before prune",
+    "Bounded job pages, deadline, platform lifetime, pool cleanup, controller serialization and full signed execution horizon",
+    "Offline Cloud Run job/service descriptor alignment and final Docker build-stage dependency/source inputs"
+  ],
+  "findings": [
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "title": "A different mutation could overtake a pending fixture batch",
+      "discoveredBy": "Track B self-review during independent review",
+      "status": "RESOLVED",
+      "consequence": "A later mutation could be overwritten when an older interrupted seed resumed.",
+      "resolution": "Pending marker query now rejects every different batch before raw writes; same deterministic batch can resume and completed replay is inert. Independent actual Firestore emulator regression passed."
+    },
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "title": "Signed approval did not cover the full admitted job lifetime",
+      "discoveredBy": "Track A review, confirmed by Track C",
+      "status": "RESOLVED",
+      "consequence": "A job admitted or started just before approval expiry could continue its bounded Firestore fixture writes after signed execution authority expired.",
+      "resolution": "Controller requires full reserved duration within signed validUntil before provider I/O; job startup independently verifies the real signed config and a remaining600000ms horizon before key-file access or resource initialization. Exact600000ms allowed and a1ms provider-delay shortfall rejected in reviewer tests."
+    },
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "title": "Linux build recipe omitted Python and cross-language test modules",
+      "discoveredBy": "Root review",
+      "status": "RESOLVED IN SOURCE; LINUX BUILD NOT EXECUTED",
+      "consequence": "The declared build-stage test recipe could not run the required Node/Python approval and provider-body contracts.",
+      "resolution": "Pinned Python3.12.13 Bookworm build image receives pinned Node24/npm/C++ runtime; exact guard.py/cloud_provider.py are copied. Missing Python no longer skips the provider contract. Source inputs and documentation reviewed; actual Docker/Linux compatibility remains a future qualification."
+    }
+  ],
+  "unresolvedMaterialSourceFindings": [],
+  "verification": {
+    "typeScriptBuild": {
+      "pass": true,
+      "log": "track-a-hosted-jobs-review-build-final.log"
+    },
+    "focusedExistingContracts": {
+      "pass": 30,
+      "fail": 0,
+      "skip": 0,
+      "log": "track-a-hosted-jobs-contracts-final.log",
+      "scope": "Approval signatures/configuration; private IAM pool; native HTTP transport; entrypoints and actual Python renderer/provider body validation; pre-open expiry horizon"
+    },
+    "nativeSourceEmulator": {
+      "pass": 1,
+      "fail": 0,
+      "skip": 0,
+      "log": "track-a-hosted-jobs-emulator-final.log",
+      "scope": "Fresh isolated demo project on existing loopback8088. Actual raw records -> native maintenance -> eight journal heads; enrollment, replay, same-ID edit, delete tombstone, interruption, different-batch rejection, retry, parent hide. No SQL or managed provider used by this test."
+    },
+    "reviewerEntrypointBranches": {
+      "pass": 14,
+      "fail": 0,
+      "skip": 0,
+      "file": "track-a-hosted-job-dispatch-review-final.cjs",
+      "log": "track-a-hosted-job-dispatch-review-final.log",
+      "scope": "Genuine ephemeral Ed25519 signed configs with injected provider/runtime boundary. All eight action dispatches; page/deadline bounds; completion early exit; pending refusal; snapshot identity; restore target/page size; acknowledge-before-prune; closure on success/error; exact approval horizon and delayed start."
+    },
+    "controllerExpiryBoundary": {
+      "pass": 1,
+      "fail": 0,
+      "log": "track-a-hosted-job-controller-horizon.log",
+      "test": "test_cloud_controller.CloudControls.test_full_job_duration_must_fit_signed_execution_before_provider_io"
+    }
+  },
+  "initialFailuresRetained": [
+    {
+      "log": "track-a-hosted-jobs-emulator.log",
+      "pass": 0,
+      "fail": 1,
+      "cause": "Concurrent addition of new pending-batch assertion with preceding compiled JS; final stable build passed1/1. No unresolved source failure."
+    },
+    {
+      "log": "track-a-hosted-job-dispatch-signed-initial.log",
+      "pass": 13,
+      "fail": 1,
+      "cause": "Reviewer harness attempted to sign fractional maxPages before invoking rejection assertion; strict canonical config correctly refused it. Harness now mutates the invalid request only after creating a valid signed fixture. No application source was changed for this harness repair."
+    }
+  ],
+  "dockerReview": {
+    "sha256": "bb569df458e399960202c932ee2099e3c14c6d4adab011cd26544d253d8f4bd3",
+    "sourceInputsOnly": true,
+    "actualBuildExecuted": false,
+    "actualLinuxExecuted": false,
+    "runtimeWhitelistChanged": false,
+    "notes": [
+      "Pinned Node and Python stages target linux/amd64 Bookworm.",
+      "Final serving image remains the pinned Node image, default credential-free dry-run and non-root node user.",
+      "No live package manager installs were added to the Dockerfile; npm uses the checked-in lockfile and scripts disabled.",
+      "Do not infer dynamic linker, CPU, numerical, SQL or hosted compatibility from source review."
+    ]
+  },
+  "shutdown": {
+    "pid": 29796,
+    "sessionId": 25989,
+    "verifiedCommand": "qualified Node functions/test/support/postgis_flutter_host.cjs",
+    "signal": "SIGTERM",
+    "sessionExitCode": 0,
+    "port8188ListenerAfter": false,
+    "processExistsAfter": false,
+    "fixturesAndLogsPreserved": true
+  },
+  "limitations": [
+    "The controller serialization and sole-writer synthetic scenario are required; this does not qualify arbitrary multiwriter production ingestion.",
+    "No Docker image was pulled, built, executed or pushed; no Linux runtime whitelist or numerical qualification was changed.",
+    "No real GCS, Cloud SQL, ADC, IAM, Cloud Run job or managed Firestore was contacted. Hosted startup remains blocked by the unchanged runtime qualification guard.",
+    "Snapshot integrity/security review is additionally recorded in track-a-independent-snapshot-pricing-review.json; this receipt reviews composition and exact current dependency hashes.",
+    "No paid resource, production activation, deployment, Git mutation or source edit was performed by this reviewer."
+  ],
+  "editsByReviewer": [],
+  "evidenceSha256": {
+    "track-a-hosted-jobs-review-build-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "track-a-hosted-jobs-contracts-final.log": "31e6814909e071c40621b6b9d4e09411b9ffa0108818dee639fb6289ba6f7c5f",
+    "track-a-hosted-jobs-emulator-final.log": "0260fcdf83304c5f574eb6fbd24bc61d3d32840dc1b4e7089f19a365bef620d3",
+    "track-a-hosted-job-dispatch-review-final.cjs": "1a5844d481ebdd6cc18631ecb4ecf49420716b5e3640cfb19deede4fe93bf21e",
+    "track-a-hosted-job-dispatch-review-final.log": "3530e9e86fa1c38f68b9fc722c76f7a3b4fc8047e2b3c249d3a2522c7caae5dd",
+    "track-a-hosted-job-controller-horizon.log": "76c42e4787b90a1a22c9094182fb57aecd7b8c5c4a31c41604403d0e17bb7196",
+    "track-a-hosted-jobs-emulator.log": "2cce0ff007e184472b0c6b00ad34fbe41854447a33b8696ee7c5cb790bc815a3",
+    "track-a-hosted-job-dispatch-signed-initial.cjs": "da14226bfdbf4b61c13a770c45b97fa66850d1a3a065e4539f0c1363b0227739",
+    "track-a-hosted-job-dispatch-signed-initial.log": "c912ae641da93867a2a5497d7cab544862ab69b38fe26fdb49c87b0ae441bafd"
+  }
+}

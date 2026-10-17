@@ -11904,6 +11904,52 @@ test("guest pagination reaches all 175 eligible restaurants in 25-result pages",
   assert.ok(history.answers.every((answer) => answer.length === 0));
 });
 
+test("guest final parent batch is bounded and rejects a parent withdrawn after its answer", async t => {
+  for (const withdraw of [false, true]) await t.test(withdraw ? "withdrawn parent" : "complete page", async () => {
+    const {database, context, response: started} = await startSession(undefined, {
+      context: {identity: guestIdentity()}, request: {searchText: ""},
+    });
+    const session = markSessionReady(database, started);
+    const seeded = Array.from({length: 26}, (_, index) => addReadyRestaurant(database, session, index, {
+      offerCount: 1, onlyCoupons: true, offerOverrides: {usageRule: "Once per customer"},
+    }));
+    const getDocuments = database.getDocuments.bind(database);
+    let finalReads = 0;
+    database.getDocuments = async paths => {
+      if (paths.length === 52 && paths.every((entry, index) => index % 2 === 0
+        ? entry.startsWith(`${privateCustomerBiteSaverResultCollection}/`)
+        : entry.startsWith("restaurant_accounts/"))) {
+        finalReads++;
+        if (withdraw) database.documents.delete(`restaurant_accounts/${seeded[0].accountId}`);
+      }
+      return getDocuments(paths);
+    };
+    let response = await getCustomerBiteSaverSearchPageHandler(pageRequest(started, {
+      clientRequestId: "guest-bounded-parent-batch-0001", guestStateRevision: 3,
+    }), context);
+    let rounds = 0;
+    while (response.outcome === "guestCheckRequired") {
+      assert(response.candidates.length <= customerBiteSaverGuestCheckMaximumCandidateIds);
+      assert(++rounds <= 26);
+      response = await continueCustomerBiteSaverGuestOfferCheckHandler(
+        guestAnswerRequest(started, response, [], {clientRequestId: `guest-bounded-answer-${String(rounds).padStart(4, "0")}`}), context);
+    }
+    assert.equal(rounds, 26);
+    assert.equal(finalReads, 1);
+    assert(database.calls.getDocuments.every(paths => paths.length <= 100));
+    if (withdraw) {
+      assert.equal(response.outcome, "retryRequired");
+      assert.equal(response.reason, "sourceChanged");
+      assert.equal(response.restartFrom, "search");
+      assert.equal("result" in response, false);
+    } else {
+      assert.equal(response.outcome, "complete");
+      assert.equal(response.result.restaurants.length, 25);
+      assert.equal(new Set(response.result.restaurants.map(row => row.restaurantId)).size, 25);
+    }
+  });
+});
+
 test("concurrent conflicting guest answers have one committing winner", async () => {
   const database = new SerializedTransactionCustomerBiteSaverSearchDatabase();
   const {context, response: started} = await startSession(database, {

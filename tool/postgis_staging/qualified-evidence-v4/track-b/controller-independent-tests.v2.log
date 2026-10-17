@@ -1,0 +1,34 @@
+test_actual_resource_body_bounds_reject_before_post (test_cloud_controller.CloudControls) ... ok
+test_bootstrap_small_reservations_and_shutdown_proof_transition (test_cloud_controller.CloudControls) ... ok
+test_cleanup_authority_required_before_any_store_or_resource_io (test_cloud_controller.CloudControls) ... ok
+test_coherent_clock_rewrite_and_stale_reserved_create_are_refused (test_cloud_controller.CloudControls) ... ok
+test_conflicting_request_and_preexisting_resource_refused (test_cloud_controller.CloudControls) ... ok
+test_delayed_operation_polling_is_bounded_and_wrong_project_refused (test_cloud_controller.CloudControls) ... ok
+test_delete_uses_etag_and_requires_actual_404_for_absence (test_cloud_controller.CloudControls) ... ok
+test_descriptors_exact_identity_independent_watchdog_and_no_render_io (test_cloud_controller.CloudControls) ... ok
+test_duplicate_reservation_and_lost_resource_reply_never_recreates (test_cloud_controller.CloudControls) ... ok
+test_entrypoint_reports_pending_and_fails_unresolved_watchdog (test_cloud_controller.CloudControls) ... ok
+test_firestore_wrong_region_refused_before_post (test_cloud_controller.CloudControls) ... ok
+test_fixed_limits_and_canonical_document (test_cloud_controller.CloudControls) ... ok
+test_full_job_duration_must_fit_signed_execution_before_provider_io (test_cloud_controller.CloudControls) ... ok
+test_gcs_generation_cas_reads_exact_version_and_permission_is_not_absence (test_cloud_controller.CloudControls) ... ok
+test_immutable_deadline_and_cost_bound_stop_work (test_cloud_controller.CloudControls) ... ok
+test_import_and_dry_run_need_no_credentials_or_cloud_transport (test_cloud_controller.CloudControls) ... ok
+test_independent_watchdog_reconciles_async_deletion_and_stops_after_absence (test_cloud_controller.CloudControls) ... ok
+test_independent_watchdog_recovers_lost_create_receipt_without_main_runner (test_cloud_controller.CloudControls) ... ok
+test_job_single_attempt_timeout_reservation_and_exact_execution_cancel (test_cloud_controller.CloudControls) ... ok
+test_lost_create_not_observed_stays_unknown_not_safe_to_repeat (test_cloud_controller.CloudControls) ... ok
+test_poll_pacing_cleanup_retry_bound_and_monotonic_counters (test_cloud_controller.CloudControls) ... ok
+test_real_ed25519_cli_matches_python_digest_and_rejects_forgery (test_cloud_controller.CloudControls) ... ok
+test_rejects_production_and_forged_approval_before_any_transport (test_cloud_controller.CloudControls) ... ok
+test_replacement_incarnation_cannot_be_deleted (test_cloud_controller.CloudControls) ... ok
+test_separate_signed_checkpoint_and_gate_sequence (test_cloud_controller.CloudControls) ... ok
+test_signed_bootstrap_start_precedes_control_store_and_cannot_move (test_cloud_controller.CloudControls) ... ok
+test_singleton_restart_and_lost_creation_reply_keep_original_clock (test_cloud_controller.CloudControls) ... ok
+test_sql_stop_conditional_delete_requires_explicit_separate_policy (test_cloud_controller.CloudControls) ... ok
+test_watchdog_survives_main_runner_restart_and_malformed_heartbeat (test_cloud_controller.CloudControls) ... ok
+
+----------------------------------------------------------------------
+Ran 29 tests in 0.233s
+
+OK

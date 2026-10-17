@@ -1,0 +1,60 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-READINESS-FINISH-002",
+  "reviewer": "Track C staging_recovery",
+  "reviewedAt": "2026-10-17T19:13:25.324511+00:00",
+  "scope": "Track B approval/config binding; CloudSQL private IAM encrypted bounded pool and cleanup; hosted HTTP identity/CORS/payload/concurrency; inert entrypoints; native controlled synthetic writer and bounded source/recovery jobs; service/job descriptors. Actual cloud/Linux execution not reviewed as accomplished. Final delta additionally reviews Linux multi-stage Python/Node build dependencies and job startup approval horizon before resource opening.",
+  "findings": [
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "issue": "Node object enumeration did not preserve lexical ordering of numeric-looking keys for cross-language config digests.",
+      "resolution": "B corrected direct recursive serialization and added Python interop fixture."
+    },
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "issue": "Embedding full configDigest in a resource body that is itself inside the signed config creates self-reference.",
+      "resolution": "B removed config-digest descriptor annotation; candidate annotation retained."
+    },
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "issue": "Multiple simultaneous source/recovery jobs could exceed shared eight SQL connections and break sole-writer ordering.",
+      "resolution": "C added durable global one-pending-job admission and exact execution-completion reconciliation, independently reviewed by B."
+    },
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "issue": "Provider queue delay can leave insufficient signed execution time for the bounded job; build contract tests need Python and exact provider files.",
+      "resolution": "Controller validates whole configured duration before intent/cost/POST; actual hosted job verifies a genuine permit and requires 600000ms before key or credential opening. Pinned Python Bookworm build stage contains pinned Node and exact guard/cloud_provider sources; final runtime remains Node. Source-only Linux build remains unexecuted."
+    }
+  ],
+  "remainingMaterialFindings": [],
+  "verification": {
+    "independentCommand": "/opt/homebrew/bin/node --test --test-isolation=none test/postgis_execution_approval.test.cjs test/postgis_cloudsql.test.cjs test/postgis_hosted_transport.test.cjs test/postgis_hosted_entrypoint.test.cjs",
+    "cwd": "/Users/colesmart/dev/coupon_app/functions",
+    "failed": 0,
+    "skipped": 0,
+    "kind": "offline cryptographic/injected CloudSQL/local loopback HTTP and cross-language provider body contracts; not real cloud login",
+    "previousIndependentPassed": 29,
+    "finalDeltaCommand": "/opt/homebrew/bin/node --test --test-isolation=none test/postgis_hosted_entrypoint.test.cjs",
+    "finalDeltaPassed": 6,
+    "finalDeltaFailed": 0,
+    "finalDeltaSkipped": 0,
+    "finalDeltaLog": "track-c/track-b-entrypoint-final-independent.log",
+    "implementerFinalContracts": "B reported 30/30; final full-contract receipt recorded separately by B"
+  },
+  "lateSourceOrderingGuard": "Inspected pending-batch guard rejecting a different fixture batch while an incomplete batch exists; same-batch replay remains allowed. Agent A separately reviews latest final bytes and B reruns actual emulator test.",
+  "files": {
+    "functions/src/postgis_execution_approval.ts": "3efec64518f5a89799e0ed1aa283ded06aed66b021e4690bfe4a0fdd0ea4cb9f",
+    "functions/src/postgis_cloudsql.ts": "299c6645ef5beaddc682adae9197cc647b8309dbabdfc9455e72517cf50273fa",
+    "functions/src/postgis_hosted_runtime.ts": "161c6b0ba7bd78cf5df18c0560cd7295870849274b140250a6bd8e00c7b728d3",
+    "functions/src/postgis_hosted_transport.ts": "dbf0baa98657914e88ab828e8c1da96cb7d4b6969c120906a5ba8cc350f78e47",
+    "functions/src/postgis_hosted_entrypoint.ts": "210755b379629372ddf93a063a1eb8e1ee315bf56fdee8d0f8604e0d62e4a0a4",
+    "functions/src/postgis_hosted_jobs.ts": "0cf285d55a60d24982e635f56abd7ec036e0b78e752e7b4eb4526131c3aee245",
+    "functions/src/postgis_hosted_job_entrypoint.ts": "1ad37ffa64d8687843c5b921ee425c750cf49c5502b4f3ab9686bc4735f84c8a",
+    "tool/postgis_staging/verify-approval.cjs": "3564fb6779cb33d7f91a332110ff4d43a4c7b1a15007da6a3ad87cb3f899b99e",
+    "tool/postgis_staging/hosted/render-service.cjs": "17fc441f4dc52c59426d08a8fe050ade64275fd256b8b2c4e4f5cfc0648d5f70",
+    "tool/postgis_staging/hosted/render-job.cjs": "5c536e9d0aa72becc7425d5a0061baf4dd2484a25fe89e6d3e7f2e27d4a44193",
+    "tool/postgis_staging/linux/Dockerfile": "bb569df458e399960202c932ee2099e3c14c6d4adab011cd26544d253d8f4bd3",
+    "functions/test/postgis_hosted_entrypoint.test.cjs": "76ae14d5206b1fd72f0d9ae03abc425886e65a351fa4c3123bef30f03578a866"
+  },
+  "verdict": "PASS scoped source review; no live provider or Linux proof claimed",
+  "supersedesForFinalBytes": "track-c/track-b-independent-review.json; original retained unchanged"
+}

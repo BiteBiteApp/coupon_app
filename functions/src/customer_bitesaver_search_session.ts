@@ -11852,14 +11852,30 @@ async function currentParentForGuestProgress(value: {
   expectedCatalogFingerprint?: string;
   expectedProjectionFingerprint?: string;
   expectedSortTuple?: RestaurantResultSortTuple;
+  // Only a fresh bounded read from this request's final-page validation may
+  // supply these documents. No cross-request authority cache is retained.
+  currentSources?: Readonly<{
+    result: CustomerBiteSaverStoredDocument | null;
+    parent: CustomerBiteSaverStoredDocument | null;
+  }>;
 }): Promise<Readonly<{
   result: CustomerBiteSaverResultDocument;
   parent: CurrentParent;
 }>> {
-  const resultDocument = await value.context.database.getDocument(path(
+  const resultPath = path(
     privateCustomerBiteSaverResultCollection,
     value.resultId,
-  ));
+  );
+  const currentSources = value.currentSources ??
+    (value.expectedAccountId === undefined ? null : await (async () => {
+      const [result, parent] = await value.context.database.getDocuments([
+        resultPath, `restaurant_accounts/${value.expectedAccountId}`,
+      ]);
+      return {result, parent};
+    })());
+  const resultDocument = currentSources === null
+    ? await value.context.database.getDocument(resultPath)
+    : currentSources.result;
   const result = parseResultDocument(
     resultDocument,
     value.session,
@@ -11889,9 +11905,10 @@ async function currentParentForGuestProgress(value: {
   }
   const parent = currentParentFromRaw({
     result,
-    rawDocument: await value.context.database.getDocument(
-      `restaurant_accounts/${result.authoritativeAccountId}`,
-    ),
+    rawDocument: currentSources === null
+      ? await value.context.database.getDocument(
+        `restaurant_accounts/${result.authoritativeAccountId}`,
+      ) : currentSources.parent,
     session: value.session,
     identityKeyV1: requireCustomerBiteSaverIdentityKey(value.context),
     now: value.evaluationAt,
@@ -13135,7 +13152,15 @@ async function finalizeGuestRestaurantPage(value: {
     stored: CustomerBiteSaverGuestStoredRestaurant;
     parent: CurrentParent;
   }>> = [];
-  for (const stored of checkedStored) {
+  // At most 26 parents (25 cards plus lookahead), hence 52 documents: retain
+  // every current authority check while making one bounded Firestore read.
+  const currentSources = await value.context.database.getDocuments(
+    checkedStored.flatMap(stored => [
+      path(privateCustomerBiteSaverResultCollection, stored.resultId),
+      `restaurant_accounts/${stored.authoritativeAccountId}`,
+    ]),
+  );
+  for (const [index, stored] of checkedStored.entries()) {
     const {parent} = await currentParentForGuestProgress({
       context: value.context,
       session: value.session,
@@ -13146,6 +13171,8 @@ async function finalizeGuestRestaurantPage(value: {
       expectedCatalogFingerprint: stored.parentCatalogFingerprint,
       expectedProjectionFingerprint: stored.parentProjectionFingerprint,
       expectedSortTuple: stored.sortTuple,
+      currentSources: {result: currentSources[index * 2],
+        parent: currentSources[index * 2 + 1]},
     });
     prepared.push(Object.freeze({stored, parent}));
   }
@@ -15004,15 +15031,13 @@ export async function continueCustomerBiteSaverGuestOfferCheckHandler(
     payload,
     {callerCapabilityBinding: requestCallerBinding},
   );
-  const session = await readAuthorizedSession(
-    request,
-    context,
-    nowMs,
-    {allowExpired: true},
-  );
-  const stored = await context.database.getDocument(
-    guestCheckPath(request.operationRef),
-  );
+  // The opened token already binds both requested paths to this caller.
+  // Read them together, then retain the full session and checkpoint validation
+  // before acquiring the request gate or accepting any answer.
+  const [session, stored] = await Promise.all([
+    readAuthorizedSession(request, context, nowMs, {allowExpired: true}),
+    context.database.getDocument(guestCheckPath(request.operationRef)),
+  ]);
   const document = parseGuestCheckDocument(stored, context, session);
   if (document === null) {
     throw new CustomerBiteSaverContractError(
@@ -15097,9 +15122,11 @@ export async function continueCustomerBiteSaverGuestOfferCheckHandler(
     operation: async () => {
       const accepted = await context.database.runTransaction(
         async (transaction) => {
-          const currentSessionSnapshot = await transaction.getDocument(
-            sessionPath(request.sessionId),
-          );
+          const [currentSessionSnapshot, currentGuestSnapshot] =
+            await transaction.getDocuments([
+              sessionPath(request.sessionId),
+              guestCheckPath(request.operationRef),
+            ]);
           const currentSession = authorizeCustomerBiteSaverSession({
             request,
             session: parseSession(currentSessionSnapshot),
@@ -15119,7 +15146,7 @@ export async function continueCustomerBiteSaverGuestOfferCheckHandler(
             );
           }
           const current = parseGuestCheckDocument(
-            await transaction.getDocument(guestCheckPath(request.operationRef)),
+            currentGuestSnapshot,
             context,
             currentSession,
           );

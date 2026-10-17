@@ -1,0 +1,110 @@
+00:00 +0: loading /Users/colesmart/dev/coupon_app/test/services/customer_bitesaver_search_coordinator_test.dart
+00:00 +0: (setUpAll)
+00:00 +0: bounded signed-out explicit use supplies genuine discovery authority
+00:00 +1: bounded anonymous-a explicit use supplies genuine discovery authority
+00:00 +2: bounded signed-a explicit use supplies genuine discovery authority
+00:00 +3: bounded reading and favoriting do not begin device proof or use
+00:00 +4: bounded ambiguous retry freezes request coordinates and exact proof
+00:00 +5: bounded repeated taps share the same operation and retain completed timer through cancellation
+00:00 +6: bounded explicit use cannot reuse an active legacy presentation as device authority
+00:00 +7: bounded remote-account timer denial creates no local timer presentation
+00:00 +8: bounded cooldown failure never falls back to old writers
+00:00 +9: bounded provider failure never falls back to old writers
+00:00 +10: bounded network failure never falls back to old writers
+00:00 +11: bounded challenge failure never falls back to old writers
+00:00 +12: bounded server failure never falls back to old writers
+00:00 +13: bounded guest-to-signed during capability retires every stale completion
+00:00 +14: bounded guest-to-signed during admission retires every stale completion
+00:00 +15: bounded guest-to-signed during challenge retires every stale completion
+00:00 +16: bounded guest-to-signed during proof retires every stale completion
+00:00 +17: bounded guest-to-signed during use retires every stale completion
+00:00 +18: bounded account-a-to-b during capability retires every stale completion
+00:00 +19: bounded account-a-to-b during admission retires every stale completion
+00:00 +20: bounded account-a-to-b during challenge retires every stale completion
+00:00 +21: bounded account-a-to-b during proof retires every stale completion
+00:00 +22: bounded account-a-to-b during use retires every stale completion
+00:00 +23: bounded sign-out during capability retires every stale completion
+00:00 +24: bounded sign-out during admission retires every stale completion
+00:00 +25: bounded sign-out during challenge retires every stale completion
+00:00 +26: bounded sign-out during proof retires every stale completion
+00:00 +27: bounded sign-out during use retires every stale completion
+00:00 +28: bounded live auth change during proof fences work before auth listener delivery
+00:00 +29: bounded live auth change during use fences work before auth listener delivery
+00:00 +30: bounded owner invalidation while proof is pending prevents submission
+00:00 +31: bounded explicit cancellation while proof is pending prevents submission
+00:00 +32: bounded use completion survives read-lease expiry without new authority
+00:00 +33: bounded exact retry survives read-lease expiry without new authority
+00:00 +34: bounded cancellation removes exact-retry eligibility after lease expiry
+00:00 +35: bounded daily special rejects use before any device work
+00:00 +36: signed page point-reads retained guest evidence before availability
+00:00 +37: signed active-timer overlay expires into Fresh Search
+00:00 +38: guest active-timer evidence expires into Fresh Search
+00:00 +39: guest restaurant non-progress rejects its pending timer deadline
+00:00 +40: expired unaccepted timer evidence fails only its pending page
+00:00 +41: guest additional-offer non-progress rejects its timer deadline
+00:00 +42: guest ownership rejection cannot install a challenged timer
+00:00 +43: accepted repeated guest rounds install their earliest timer
+00:00 +44: stale guest page completion cannot cross auth with its timer
+00:00 +45: accepted signed and guest page contexts expire without coupon overlays
+00:00 +46: synchronous accepted-page expiry cannot repopulate guest or signed state
+00:00 +47: server-canonical IANA aliases remain session-bound
+00:00 +48: an expired signed evaluation requires a fresh search
+00:00 +49: signed validation cannot cross a local revision change
+00:00 +50: preparing polls are paced/non-overlapping and READY updates binding before page
+00:00 +51: bounded preparing polls stop and surface an error
+00:00 +52: transient status failure replays the exact request and recovers
+00:00 +53: paced gate retry clears a recovered preparing error
+00:00 +54: resource-exhausted status retries are bounded and explicit retry resets the budget
+00:00 +55: failed and expired statuses remain terminal until explicit action
+00:00 +56: READY deadline reconciles authoritative expiry and disables paging
+00:00 +57: READY reconciliation preserves pages when the server slid expiry
+00:00 +58: definitive page precondition reconciles to terminal expiry
+00:00 +59: page reconciliation gate retries the exact status request at short cadence
+00:00 +60: expired append cursor requires Fresh Search without exact replay
+00:00 +61: offer append failure preserves restaurant and prior offer results
+00:00 +62: offer precondition preserves restaurants and restarts only its pager
+00:00 +63: later restaurant page rejects cross-page offer ownership atomically
+00:00 +64: rejected signed ownership cannot replace a retained usage overlay
+00:00 +65: concurrent offer pagers reject one cross-restaurant offer owner
+00:00 +66: pause cancels READY deadline and resume status-checks before paging
+00:00 +67: new criteria and auth realms suppress older awaited success and error
+00:00 +68: stale page errors cannot invalidate a newer search
+00:00 +69: restaurant and offer pagers retain order beyond 120 and separate previews
+00:00 +70: rejected non-progress cannot authorize IDs or daily-special saves
+00:00 +71: rejected non-progress cannot poison ownership or signed overlays
+00:00 +72: signed and guest daily specials cannot enter redemption
+00:00 +73: guest continuation transport failure replays the exact pending answer
+00:00 +74: wrong-operation continuation stays pending for exact pager retry
+00:00 +75: twenty-five guest challenges complete across paced yields
+00:00 +76: fast guest burst keeps its minimum window with a fixed wall clock
+00:00 +77: slow successful guest work keeps a yield without extra retry sleep
+00:00 +78: account switch during successful guest yield prevents continuation
+00:00 +79: server original-operation retry is paced and gets a new transport ID
+00:00 +80: work-budget restart preserves accepted guest policy progress
+00:00 +81: work-budget page restart retains its pending timer deadline
+00:00 +82: same guest realm can retain a compatible session; realm changes clear it
+00:00 +83: favorite read and write completions cannot cross auth realms
+00:00 +84: validation and signed start replay exact immutable transport requests
+00:00 +85: same validation intent deduplicates and older success cannot replace latest
+00:00 +86: pause/resume preserves uncertain signed start recovery
+00:00 +87: same signed realm preserves an uncertain exact start
+00:00 +88: older validation error cannot poison a newer decision
+00:00 +89: superseded signed local validation cannot install its earlier expiry
+00:00 +90: ABA validation cleanup cannot erase the newest exact retry
+00:00 +91: in-flight signed start deduplicates and rejects superseding validation
+00:00 +92: new signed start rechecks local evidence after validation
+00:00 +93: signed unlimited receipts expose nullable timer anchors
+00:00 +94: guest validation rejects non-target challenges before targeted reads
+00:00 +95: guest validation starts durable local timer and never calls signed start
+00:00 +96: guest start blocks superseding validation and recovers after cleanup uncertainty
+00:00 +97: signed-out to anonymous preserves uncertain guest start recovery
+00:00 +98: guest continuation validation rejects mismatched result identity
+00:00 +99: accepted guest validation installs its challenged timer deadline
+00:00 +100: guest allowed-unlimited completes without a local usage write
+00:00 +101: guest revision change invalidates unlimited and timer authorizations
+00:00 +102: queued guest revision race adopts durable revision and requires fresh search
+00:00 +103: guest unlimited rechecks its deadline after revision read
+00:00 +104: guest legacy usage labels remain timer-only, not unlimited
+00:00 +105: guest denied direct completion remains a denial without policy
+00:00 +106: (tearDownAll)
+00:00 +106: All tests passed!

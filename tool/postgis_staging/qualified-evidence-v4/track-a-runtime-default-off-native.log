@@ -1,0 +1,11 @@
+✔ shared verified callable contexts ignore payload identities and preserve native actor domains (1.058709ms)
+✔ candidate numerical guard rejects option changes even after a cached qualification (69.586084ms)
+✔ inert staging registration rejects wrong targets and reuses exact native source handlers (17.879083ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 245.98225

@@ -1,0 +1,74 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-READINESS-FINISH-002",
+  "reviewer": "/root/query_client",
+  "completedAt": "2026-10-17T19:00:39.618291+00:00",
+  "verdict": "PASS for scoped local/default-off guard and legacy wrapper contracts",
+  "sourceSha256": {
+    "functions/src/postgis_staging_runtime.ts": "c6b64500ff00741cc168b0440aca350551a0c6fc74eaaf4101ef889af9efcc05",
+    "functions/src/customer_search_callable_context.ts": "4d69aaa73281f1a8fba91658e81d231e0d1ff1352db92e161b9d32c5727d147e",
+    "functions/src/customer_bitescore_runtime.ts": "0c8a328dad15178549522b038876c97f959d81567153c9dfde61ff50420f99a5",
+    "functions/src/index.ts": "d224af2552479b6c9a65e094e05583f1feaf5cb521807dfcc8d357234bad3012",
+    "functions/test/postgis_staging_runtime.test.js": "6d9d404734a21457dfbb24ea930a88870e75251b83b6f23f007313bf025e13b0",
+    "functions/test/customer_bitescore_runtime.test.js": "d088ade47caf3a772d7e90ac509cb520c88bb04363fea29ce8bdfb4a491fcda3",
+    "functions/test/search_index_runtime_wiring.test.js": "3e92b0b49db94c68577a9f4a624d7869fdf407c973e83e3b5cc9c07bc63199ca",
+    "lib/services/customer_search_candidate_runtime.dart": "965010f9b52cffaf3705b2a6a4afc9c29980963f227e371e885a6fb3982012ee",
+    "test/services/customer_search_candidate_runtime_test.dart": "349327d7d869dd30664a043218f403db2ef6c6125d3838357858b34231ee9e7d",
+    "tool/postgis_staging/DURABLE-SNAPSHOTS.md": "0071b3e5c4850e8a03ee649d124f2f8e731f96da047921776af6ad7d87256ebd",
+    "functions/src/postgis_runtime.ts": "c020f3dc8e253571d5efd2c4e907508e5cf9c956a26508cdb2346375f021c920"
+  },
+  "tests": [
+    {
+      "paths": [
+        "functions/test/postgis_staging_runtime.test.js"
+      ],
+      "pass": 3,
+      "fail": 0,
+      "skip": 0,
+      "log": "track-a-runtime-default-off-native.log",
+      "runtime": "qualified Node24 with BS_POSTGIS_RUNTIME_TEST=1; test isolation disabled"
+    },
+    {
+      "paths": [
+        "functions/test/customer_bitescore_runtime.test.js",
+        "functions/test/search_index_runtime_wiring.test.js"
+      ],
+      "pass": 32,
+      "fail": 0,
+      "skip": 0,
+      "log": "track-a-legacy-runtime-wiring.log",
+      "runtime": "qualified Node24 default test isolation, matching prior32 test recipe"
+    },
+    {
+      "paths": [
+        "test/services/customer_search_candidate_runtime_test.dart"
+      ],
+      "pass": 6,
+      "fail": 0,
+      "skip": 0,
+      "log": "track-a-runtime-default-off-flutter.log"
+    }
+  ],
+  "scope": [
+    "Changed runtime flags rejected after prior numeric qualification",
+    "Wrong projects, keys, remote SQL/emulators rejected; source-only registration causes no SQL connections",
+    "Production index has no candidate registration",
+    "Existing callable exports, trigger paths, retry metadata and authorization wrappers retain32 passing checks",
+    "Flutter candidate selector defaults off; explicit selector preserves native consumers and navigation/menu/Saved/redemption calls"
+  ],
+  "documentationAmendment": {
+    "path": "tool/postgis_staging/DURABLE-SNAPSHOTS.md",
+    "previousReceipt": "track-a-independent-snapshot-pricing-review.json",
+    "change": "Parent corrected numeric spacing; reviewed complete current document, no material contract or evidence change. New hash recorded here without replacing original receipt."
+  },
+  "evidenceSha256": {
+    "track-a-runtime-default-off-native.log": "005843c8a2e6b675fe5f14b37025f1cce2eec64a3e6141affc463c0821ae8281",
+    "track-a-legacy-runtime-wiring.log": "55bb84afce779f664e2152741fd0df58a4313f5db2216dad7c861781df4f71a2",
+    "track-a-runtime-default-off-flutter.log": "932584941b09ed7a4ac773236531cf9e5c444203a7870bfd96ee58b030f556d3"
+  },
+  "unresolvedFindings": [],
+  "limitations": [
+    "Local/offline checks only; no production activation or hosted qualification.",
+    "Separate pre-existing customer_bitesaver_runtime_wiring harness failures remain documented elsewhere and were not rerun or altered."
+  ],
+  "editsByReviewer": []
+}

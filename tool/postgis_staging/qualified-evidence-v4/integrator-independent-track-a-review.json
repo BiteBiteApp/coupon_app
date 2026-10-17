@@ -1,0 +1,26 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-READINESS-FINISH-002",
+  "reviewer": "integrator /root; independent of TrackA author",
+  "reviewedAt": "2026-10-17T18:57:14.865205+00:00",
+  "sourceSha256": {
+    "functions/src/customer_bitesaver_search_session.ts": "1bdbf6716fe5ec1d7af07dad6a76b4b1c5df1a592de317ad8014f9b7984d6f81",
+    "lib/services/customer_bitesaver_search_coordinator.dart": "ac84b6a852ee7b8a7b303ca87ca0094ddf14eee220b3a92fdf4f9614830ebae6",
+    "functions/test/customer_bitesaver_search_handlers.test.js": "fe2b96d7d687cd0c54402829eafd2e0f7b4a6a1af8516627f53b4e47dafcb34c",
+    "test/services/customer_bitesaver_search_coordinator_test.dart": "2d7170351546ae9a1810021ab3ae9109453850c9a471389f0362ec6e602f3dc8",
+    "functions/test/support/postgis_flutter_host.cjs": "fe1eca4ab4772fd32049340344a7142900f450d20711308e6822f88119939961",
+    "test/services/postgis_flutter_integration_test.dart": "0594fac2f34558da0bec7d38902602c6b4d23309bbb8fdfd4601a784a278e768",
+    "functions/test/postgis_integration.test.js": "01f7f4c9e8a6ba0a1c81035867ee1008adbcc5a3623538d72b400113a49392e0"
+  },
+  "verdict": "PASS; no material issue found",
+  "scope": "Exact changed guest session and coordinator symbols, underlying getDocuments ordering/empty/bounds contract, focused tests and measured evidence",
+  "checks": [
+    "75-ID challenge/history/answer/replay checks unchanged",
+    "Current authority reads remain fresh per request; maximum52 documents under existing100-document getAll bound",
+    "All original identity/catalog/projection/sort validations run after batching",
+    "Transaction reads remain before writes and retain session/guest consistency",
+    "Minimum250ms pacing window per12 steps retains event-loop yield; retry delays unchanged; monotonic time and account cancellation tested",
+    "20/20 finalpages25cards,28calls26continuations each; target2s remainsNOTconsistentlymet",
+    "Default selection/routes/IDs/menu/QR/favorites/redemption contracts unchanged"
+  ],
+  "testEvidence": "TrackA report106coordinator+307native+9actualintegration; equivalentfixture/fence/revision timing; known unrelated12wiringharness failures disclosed"
+}

@@ -1673,11 +1673,23 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     }
 
     var stepsSinceYield = 0;
+    final pacingWindow = Stopwatch()..start();
     while (true) {
       if (stepsSinceYield >= maximumGuestProtocolSteps) {
-        await _delay(guestRetryDelay);
+        // Successful network/history work already yields to the event loop.
+        // Keep the same bounded burst and minimum pacing window, without
+        // adding another full retry delay after a slow successful window.
+        final remaining = guestRetryDelay - pacingWindow.elapsed;
+        // Timer APIs operate in milliseconds; round up so submillisecond work
+        // cannot shorten the configured minimum window.
+        await _delay(
+          remaining > Duration.zero
+              ? Duration(milliseconds: (remaining.inMicroseconds + 999) ~/ 1000)
+              : Duration.zero,
+        );
         requireOperationCurrent();
         stepsSinceYield = 0;
+        pacingWindow.reset();
       }
       stepsSinceYield += 1;
       requireOperationCurrent();
@@ -1818,6 +1830,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
           await _delay(guestRetryDelay);
           requireOperationCurrent();
           stepsSinceYield = 0;
+          pacingWindow.reset();
           final recheckedRevision = await _guestUsageStore.readRevision();
           requireOperationCurrent();
           if (recheckedRevision != retry.guestStateRevision) {

@@ -1,0 +1,48 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-READINESS-FINISH-002",
+  "reviewer": "Track B source_ingestion",
+  "recordedAt": "2026-10-17T19:11:35.968781+00:00",
+  "scope": "Independent final controller/provider/entrypoint/descriptors review; no production/cloud execution",
+  "verdict": "No unresolved material finding in reviewed source paths",
+  "files": {
+    "tool/postgis_staging/Controller.Dockerfile": "ee3a5ea7a12bd5690784d7330f16fdc56ce672ba4135c66dbace4f7d57e4334b",
+    "tool/postgis_staging/PROVIDER-GATE1.md": "1b6abaa8de202b0cbe5363de65caf4eed2a230d8ab4639ddd19e130f5d5e663e",
+    "tool/postgis_staging/config/provider.example.json": "f272197c0368b45886aa32e564251b93bd91f6de9dd42f113d4c3a7854527b81",
+    "tool/postgis_staging/scripts/cloud_provider.py": "8f6cbb4cd5f6dcff35a253d63f8f882bf5ac1aa847b8810704876c45c962ef93",
+    "tool/postgis_staging/scripts/cloud_controller.py": "65a940a9509ed4d99fd0f33e6bc3b2b75f8286c1baf7b516d49dfcd5780f036d",
+    "tool/postgis_staging/scripts/provider_entrypoint.py": "2bc722a16cc10896c008fbd4290420aa3bc942932a0432d5a23d8e90a3025432",
+    "tool/postgis_staging/scripts/render_provider_descriptors.py": "1c9ed3a86eee93a5837d445693a2192752564f1a650fbeb5cbdd5961c1cffeff",
+    "tool/postgis_staging/scripts/test_cloud_controller.py": "702f2af9383f3bcb16ffe09e039b7e9f417c2b013d2c704815464af58287b592"
+  },
+  "independentTests": {
+    "command": "PATH=<retained pinned Node24 runtime>:$PATH python3 -m unittest discover -s tool/postgis_staging/scripts -p test_cloud_controller.py -v",
+    "pass": 29,
+    "fail": 0,
+    "log": "track-b/controller-independent-tests.v2.log"
+  },
+  "reviewedContracts": [
+    "GCS exact-generation CAS, unknown outcomes retain reservations; immutable signed original start and deadline",
+    "Verified Ed25519 initial approval, separately signed $100 checkpoint and exact config binding",
+    "Mandatory gate5 cleanup authority covers signed original start+lifetime+7200 before any store/resource I/O; missing gate/short coverage tested",
+    "Create admission rechecks current gate, heartbeat freshness and teardown margin; previously reserved work does not bypass stale-heartbeat guard",
+    "Global one pending workload job keeps eight reserved SQL connections and sole-writer boundary; run API completion is insufficient; observed exact execution incarnation/completion releases slot",
+    "Cleanup survives lost main-run create receipt, reconciles exact ownership, polls bounded pending operations, records exact GET absence, avoids repeated completed deletion; replacement identity/403/timeout never treated absent",
+    "Watchdog CLI returns nonzero on unknown/refused outcomes or alert publication failure; pending operations explicit; no total-removal claim",
+    "SQL deletion atomic-incarnation limitation explicit and separate signed exclusive single-use-name precondition retained",
+    "Metadata identity validated lazily after approval; provider host/response/timeout bounds; no token logging",
+    "Pinned controller Dockerfile remains source-only/unbuilt",
+    "Job admission re-verifies signed execute window and requires now + full reserved task duration <= validUntil before cost reservation, durable job intent or provider POST; 59-second approval/60-second job regression rejects with zero writes/cost/POST"
+  ],
+  "findingsResolved": [
+    "Signed ledger start must equal config firstBillableAtMs, not only self-consistent deadline arithmetic",
+    "Reserved create must recheck heartbeat and gate at execution",
+    "Different approved jobs must share global admission until prior actual execution completes",
+    "Signed execution approval must cover the full task duration, in addition to the paid-resource deadline; delayed container start is separately checked by the TypeScript job entrypoint"
+  ],
+  "limits": [
+    "Injected provider transports and pure clocks are not managed-provider proof",
+    "Linux image not built or executed",
+    "Future live IAM, watchdog independence, alert delivery and retained-charge reconciliation remain required"
+  ],
+  "priorReceipt": "track-b/controller-independent-review.json"
+}

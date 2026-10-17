@@ -21,8 +21,9 @@ if (process.env.BS_POSTGIS_SQL_TEST !== "1" || process.env.POSTGIS_SOURCE_EMULAT
   const {LocalPostgisSnapshotReader, exportPostgisSnapshot, restorePostgisSnapshot} = require("../lib/postgis_snapshot.js");
   const {validatePostgisRecoverySnapshot} = require("../lib/postgis_source_recovery.js");
   const fixture = require("./fixtures/postgis_gate0.cjs");
+  const {makeGcsSnapshotFixture} = require("./support/postgis_gcs_fixture.cjs");
 
-  test("real Firestore bootstrap survives SQL loss via immutable files, bounded resume and post-snapshot replay", async (t) => {
+  for (const storage of ["local-files", "simulated-gcs-json-api"]) test(`real Firestore bootstrap survives SQL loss via ${storage}, bounded resume and post-snapshot replay`, async (t) => {
     const suffix = randomBytes(5).toString("hex");
     const sourceDatabase = `bsgate0_snapshot_source_${suffix}`, restoredDatabase = `bsgate0_snapshot_restore_${suffix}`;
     const admin = new Pool({host: "127.0.0.1", port: 55441, database: "postgres", user: "bsgate0", max: 1});
@@ -63,7 +64,10 @@ if (process.env.BS_POSTGIS_SQL_TEST !== "1" || process.env.POSTGIS_SOURCE_EMULAT
       do {intake = await original.catchUp(75);} while (!intake.ready);
       assert.equal(Number((await original.pool.query("SELECT count(*) FROM source_heads")).rows[0].count), data.documents.length);
       exported = await exportPostgisSnapshot(original.pool, directory, "qualified");
-      const reader = new LocalPostgisSnapshotReader(directory);
+      const localReader = new LocalPostgisSnapshotReader(directory);
+      const gcs = storage === "simulated-gcs-json-api" ? makeGcsSnapshotFixture() : null;
+      const reader = gcs ? gcs.createStore() : localReader;
+      if (gcs) await reader.publish(localReader, exported);
       assert.equal(exported.rowCount, data.documents.length);
       await validatePostgisRecoverySnapshot(reader, exported);
       await assert.rejects(exportPostgisSnapshot(original.pool, directory, "qualified"), /already exists/);
@@ -82,6 +86,13 @@ if (process.env.BS_POSTGIS_SQL_TEST !== "1" || process.env.POSTGIS_SOURCE_EMULAT
       assert.equal((await db.collection(postgisSourceEventsCollection).get()).size, 1);
       await original.close(); original = null;
       await admin.query(`DROP DATABASE ${sourceDatabase}`); created.delete(sourceDatabase);
+      if (gcs) {
+        // The fake provider holds the actual generation-pinned bytes. Remove
+        // runner export files too; restoration must use the JSON API adapter.
+        for (const extension of ["manifest.json", "rows.jsonl", "offsets.json"]) await fs.unlink(localReader.path("qualified", extension));
+        await fs.writeFile(path.join(directory, "simulated-provider-objects.json"), JSON.stringify(
+          [...gcs.objects.entries()].map(([name, item]) => ({name, metadata: item.metadata, bodyBase64: item.body.toString("base64")})), null, 2));
+      }
       // The source SQL database is now gone and older source events were pruned.
       await admin.query(`CREATE DATABASE ${restoredDatabase}`); created.add(restoredDatabase);
       restored = new PostgisReadModel(createLocalPostgisPool(sqlConfig(restoredDatabase)), source);
@@ -102,8 +113,10 @@ if (process.env.BS_POSTGIS_SQL_TEST !== "1" || process.env.POSTGIS_SOURCE_EMULAT
       assert.equal(changed.payload.projection.customerPublicProjection.displayName, "Updated after retained snapshot");
       assert.deepEqual((await restored.pool.query("SELECT fence FROM publication WHERE singleton")).rows[0].fence,
         (await source.readFence()).shards.map((shard) => shard.seq));
-      await assert.rejects(restorePostgisSnapshot(restored.pool, reader, "other-snapshot", 75), /missing/);
-      const evidence = {syntheticOnly: true, firestoreEmulator: host, postgres: "127.0.0.1:55441",
+      await assert.rejects(restorePostgisSnapshot(restored.pool, reader, "other-snapshot", 75), gcs ? /outside approved scope/ : /missing/);
+      const evidence = {syntheticOnly: true, storage, realGcsContacted: false,
+        localExportFilesRemovedBeforeRestore: gcs !== null, providerObjects: gcs?.objects.size ?? null,
+        firestoreEmulator: host, postgres: "127.0.0.1:55441",
         sourceProject: isolatedProject, documents: data.documents.length, sourceDatabaseDeleted: true,
         sourceEventsPruned: removedEvents, postSnapshotEventsReplayed: 1, restorePages,
         interruptedRestoreResumed: true, concurrentIngestionRejected: true, snapshot: exported,

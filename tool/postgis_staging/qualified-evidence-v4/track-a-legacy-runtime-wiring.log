@@ -1,0 +1,42 @@
+✔ authenticated admission stays bound to one user across client instances; guest and user scopes remain separate (0.4395ms)
+✔ Terms callables use verified Firebase actor, never spoofed payload identity or draft receipts (1.694458ms)
+(node:32868) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+✔ all prior exports remain and each search-index trigger is exported once (261.391208ms)
+✔ restaurant-account cleanup retains exact wiring and is a repeatable no-op (0.756ms)
+✔ dish proposal private-state trigger uses exact background-only metadata (0.381667ms)
+✔ Admin user directory triggers use exact private paths and background-only metadata (0.368708ms)
+✔ compiled trigger metadata uses exact private paths and background event types (0.363292ms)
+✔ actual Firebase export metadata enables retry for only the intended triggers (246.096334ms)
+✔ offer triggers delegate catalog signaling after existing child reconciliation (0.824042ms)
+✔ retry-enabled exports propagate failures and preserve delivery identity (1.964334ms)
+✔ compiled parent wrappers make malformed root events side-effect-free (0.95125ms)
+✔ Admin search loads prepared owner and claim invitations through one exact batch (0.67425ms)
+✔ global runtime remains us-central1 Node 24 with no new parameter binding (0.352292ms)
+✔ exactly four Coupon Admin paged v2 callables use least-privilege secrets (0.363292ms)
+✔ the Admin Link paged callable uses exactly its cursor and geocoding secrets (0.308333ms)
+✔ Admin Link callables preserve exact authorized UIDs before parsing (0.7185ms)
+✔ all Coupon Admin paged callables reject unauthenticated and non-Admin callers before data access (0.363708ms)
+✔ the six isolated Admin paging callables accept the real Admin envelope and reject spoofed or anonymous authority (3.254708ms)
+✔ preparation updates reject non-Admin callers before data access (0.330542ms)
+✔ exactly two Admin QR batch callables are wired without secrets (0.382917ms)
+✔ the Admin mailing batch callable is wired once without secrets (0.361375ms)
+✔ the Admin mailing adapter uses one exact public-restaurant getAll only (0.376ms)
+✔ exactly nine Rating Admin paged v2 callables use least-privilege secrets (0.308209ms)
+✔ all Rating Admin paged callables authorize before request or data access (0.405083ms)
+✔ dish-suggestion actions and scheduler expose only the exact bounded endpoints (0.337084ms)
+✔ Rating destructive operations expose exactly six callables and one bounded scheduler (0.385125ms)
+✔ Rating destructive action and status callables reject missing authentication (0.480584ms)
+✔ Rating destructive scheduler logs only its fixed aggregate summary (0.377125ms)
+✔ dish-suggestion callables authorize before request or data access (0.698833ms)
+✔ dish-suggestion scheduler logs only its fixed bounded summary (0.490334ms)
+✔ existing geohash triggers retain their original exact paths (0.262916ms)
+✔ Firestore rules expose only current BiteSaver projections and deny private state (1.313083ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 611.977542

@@ -1,0 +1,22 @@
+✔ initialize delegates once and closes (1.344084ms)
+✔ fixture delegates once and closes (0.245583ms)
+✔ lifecycle delegates once and closes (0.180625ms)
+✔ enroll bounds pages and recognizes durable completion (0.365167ms)
+✔ catchup bounds pages and recognizes durable completion (0.332084ms)
+✔ deadline stops subsequent native page (0.190542ms)
+✔ pending source blocks publication before store or native work and closes (0.892208ms)
+✔ snapshot forwards signed config snapshot identity to approved helper (0.168084ms)
+✔ prune acknowledges actual retained manifest before one bounded deletion (0.415541ms)
+✔ restore uses separate target, initializes, bounds pages, and closes both pools (0.243084ms)
+✔ work errors propagate and both opened targets close (0.299042ms)
+✔ unknown job and unbounded page counts fail before resource opening (0.209334ms)
+✔ exact 600s signed startup horizon permits the bounded job (0.129625ms)
+✔ provider queue delay makes a previously adequate signed horizon reject before resources (0.1245ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 139.066208

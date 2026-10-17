@@ -1,0 +1,229 @@
+{
+  "checkedDate": "2026-10-17",
+  "region": "us-central1",
+  "currency": "USD",
+  "noDiscountCreditsOrTaxAssumed": true,
+  "ratesVerifiedFromOfficialPublicPages": true,
+  "actualAccountPricesAndUsageVerified": false,
+  "paidRunAuthorized": false,
+  "items": [
+    {
+      "item": "SQL vCPU",
+      "units": "384",
+      "rateKey": "sqlCpuHour",
+      "usd": "15.8592",
+      "assumption": "48 zonal +24 HA hours; HA requires later Gate3 approval"
+    },
+    {
+      "item": "SQL memory",
+      "units": "1536",
+      "rateKey": "sqlMemoryGiBHour",
+      "usd": "10.752",
+      "assumption": "16GiB; same96 effective zonal hours"
+    },
+    {
+      "item": "SQL zonal SSD",
+      "units": "4800",
+      "rateKey": "sqlSsdGiBHour",
+      "usd": "1.117809600",
+      "assumption": "100GiB; no auto-resize"
+    },
+    {
+      "item": "SQL HA SSD",
+      "units": "2400",
+      "rateKey": "sqlHaSsdGiBHour",
+      "usd": "1.117807200",
+      "assumption": "100GiB; conditional24h HA"
+    },
+    {
+      "item": "SQL backups and retained exposure",
+      "units": "43200",
+      "rateKey": "sqlBackupGiBHour",
+      "usd": "4.734244800",
+      "assumption": "Conservative3x100GiB over full72h plus3days after deletion; no final/on-demand backup assumed"
+    },
+    {
+      "item": "SQL PITR/log allowance",
+      "units": "7200",
+      "rateKey": "sqlBackupGiBHour",
+      "usd": "0.789040800",
+      "assumption": "Conservative100GiB charged-equivalent allowance for1-day PITR; actual managed log billing/storage must be checked"
+    },
+    {
+      "item": "Search app CPU",
+      "units": "1036800",
+      "rateKey": "runCpuSecond",
+      "usd": "24.883200",
+      "assumption": "Upper all4instances busy full72h; minInstances0"
+    },
+    {
+      "item": "Search app memory",
+      "units": "1036800",
+      "rateKey": "runMemoryGiBSecond",
+      "usd": "2.5920000",
+      "assumption": "1GiB/instance; same billable duration"
+    },
+    {
+      "item": "Search HTTP requests",
+      "units": "1",
+      "rateKey": "runMillionRequests",
+      "usd": "0.40",
+      "assumption": "All1million attempts, including failed/retried transports"
+    },
+    {
+      "item": "Ingestion/control CPU planning allowance",
+      "units": "400000",
+      "rateKey": "runCpuSecond",
+      "usd": "9.600000",
+      "assumption": "Assumed400k billable seconds, NOT measured; reserve each batch using Gate1/2 calibration before expansion"
+    },
+    {
+      "item": "Ingestion/control memory planning allowance",
+      "units": "400000",
+      "rateKey": "runMemoryGiBSecond",
+      "usd": "1.0000000",
+      "assumption": "1GiB; same assumed400k seconds"
+    },
+    {
+      "item": "Load runner CPU",
+      "units": "21600",
+      "rateKey": "runJobCpuSecond",
+      "usd": "0.388800",
+      "assumption": "One1CPU job; six active hours, bounded600s invocations"
+    },
+    {
+      "item": "Load runner memory",
+      "units": "21600",
+      "rateKey": "runJobMemoryGiBSecond",
+      "usd": "0.043200",
+      "assumption": "One1GiB job; six active hours"
+    },
+    {
+      "item": "Firestore reads",
+      "units": "2000",
+      "rateKey": "firestoreRead100k",
+      "usd": "60.00",
+      "assumption": "200million total billable read units INCLUDING index-entry batches, minimum queries, retries and authority reads"
+    },
+    {
+      "item": "Firestore writes",
+      "units": "400",
+      "rateKey": "firestoreWrite100k",
+      "usd": "36.00",
+      "assumption": "40million total including projection/outbox/head/enrollment/control"
+    },
+    {
+      "item": "Firestore deletes",
+      "units": "300",
+      "rateKey": "firestoreDelete100k",
+      "usd": "3.00",
+      "assumption": "30million incl TTL/cleanup; no free named-database quota assumed"
+    },
+    {
+      "item": "Firestore document+index storage",
+      "units": "7200",
+      "rateKey": "firestoreStorageGiBHour",
+      "usd": "1.479448800",
+      "assumption": "100GiB assumed combined documents, indexes and metadata for72h; measure actual growth before load"
+    },
+    {
+      "item": "Firestore retained storage exposure",
+      "units": "2400",
+      "rateKey": "firestoreStorageGiBHour",
+      "usd": "0.493149600",
+      "assumption": "One additional day deletion/reconciliation contingency; not a retention promise"
+    },
+    {
+      "item": "North America Internet egress",
+      "units": "50",
+      "rateKey": "networkInternetGiB",
+      "usd": "6.00",
+      "assumption": "Assumed50GiB; destination-limited estimate"
+    },
+    {
+      "item": "Cross-zone private transfer",
+      "units": "200",
+      "rateKey": "networkCrossZoneGiB",
+      "usd": "2.00",
+      "assumption": "Assumed200GiB; same-region Direct VPC; no NAT/connector VM"
+    },
+    {
+      "item": "Logging",
+      "units": "10",
+      "rateKey": "logIngestGiB",
+      "usd": "5.00",
+      "assumption": "10GiB; no free allotment credit; <=30day storage included"
+    },
+    {
+      "item": "Artifact Registry retained image",
+      "units": "480",
+      "rateKey": "artifactGiBHour",
+      "usd": "0.065753280",
+      "assumption": "2GiB for72h +7days; builds local; no hosted build"
+    },
+    {
+      "item": "Snapshot evidence retention",
+      "units": "1200",
+      "rateKey": "gcsGiBHour",
+      "usd": "0.032876400",
+      "assumption": "5GiB for72h +7days; existing proposal, no new retention promise"
+    },
+    {
+      "item": "Snapshot possible soft-delete exposure",
+      "units": "840",
+      "rateKey": "gcsGiBHour",
+      "usd": "0.023013480",
+      "assumption": "Additional7days if provider soft-delete policy applies; verify before approval"
+    },
+    {
+      "item": "GCS controller/snapshot writes",
+      "units": "100",
+      "rateKey": "gcsClassA1000",
+      "usd": "0.500",
+      "assumption": "100k assumed operations including CAS, failed/retried requests"
+    },
+    {
+      "item": "GCS controller/snapshot reads",
+      "units": "1000",
+      "rateKey": "gcsClassB1000",
+      "usd": "0.4000",
+      "assumption": "1million assumed reads including repeated verification/pruning"
+    },
+    {
+      "item": "Independent control internal steps",
+      "units": "432",
+      "rateKey": "workflowInternal1000",
+      "usd": "4.32",
+      "assumption": "Once/minute for72h, up to100 internal steps per check including polls/retries"
+    },
+    {
+      "item": "Control external steps",
+      "units": "10",
+      "rateKey": "workflowExternal1000",
+      "usd": "0.250",
+      "assumption": "10k assumed external steps/alert calls"
+    },
+    {
+      "item": "Scheduler",
+      "units": "0.09677419354838709677419354839",
+      "rateKey": "schedulerJob31Days",
+      "usd": "0.009677419354838709677419354839",
+      "assumption": "One job, three days; paused jobs still charged; no free credit"
+    }
+  ],
+  "explicitUnpricedAllowancesUsd": {
+    "network/destination and API-accounting uncertainty": "7",
+    "alerts, trigger delivery, storage metadata, scanning and retained-charge uncertainty": "15"
+  },
+  "modeledUsd": "214.85",
+  "cleanupReserveUsd": "30.00",
+  "modeledPlusReserveUsd": "244.85",
+  "historical20261002PlusReserveUsd": "255.54",
+  "changeFromRoundedHistoricalUsd": "-10.69",
+  "planningCeilingUsd": "300.00",
+  "earlyOwnerCheckpointUsd": "100.00",
+  "verdict": "PLANNING ONLY; independent reservations, owner checkpoint and actual billing calibration required",
+  "idleAndCleanup": "SQL billed throughout72h even idle; app min0; cleanup30 reserved separately. Deleted SQL is not proof all backups/logs/artifacts are unbilled.",
+  "conditionalCosts": "No second SQL instance, NAT, VPC connector VM, paid CI, remote build, extra backups or minimum Run instances included; any change needs a new itemized forecast and approval.",
+  "notAGuaranteedMaximum": "Unmeasured ingestion/runtime and retained-service costs can exceed assumptions. Gates stop before reservation/checkpoint limits; provider alerts/caps do not guarantee the overall ceiling."
+}

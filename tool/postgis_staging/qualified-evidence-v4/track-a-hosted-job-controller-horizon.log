@@ -1,0 +1,6 @@
+test_full_job_duration_must_fit_signed_execution_before_provider_io (test_cloud_controller.CloudControls) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+OK

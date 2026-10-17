@@ -49,7 +49,8 @@ test("real Firestore maintenance → journal → PostGIS → native customer del
       try { await auth.createUser({uid: user, email, password}); }
       catch (error) { if (error.code !== "auth/uid-already-exists" && error.code !== "auth/email-already-exists") throw error; }
       const response = await fetch("http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=synthetic-only",
-        {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({email, password, returnSecureToken: true})});
+        {method: "POST", headers: {"content-type": "application/json", authorization: "Bearer owner"},
+          body: JSON.stringify({targetProjectId: projectId, email, password, returnSecureToken: true})});
       const result = await response.json();
       assert(response.ok && typeof result.idToken === "string", "real Auth emulator sign-in failed");
       const decoded = await auth.verifyIdToken(result.idToken);

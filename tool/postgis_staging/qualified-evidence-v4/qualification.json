@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "runId": "BS-BITESTAR-POSTGIS-READINESS-FINISH-002",
+  "recordedAt": "2026-10-17T19:13:49.708083+00:00",
+  "externalReportDirectory": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-READINESS-FINISH-002-20261017",
+  "evidenceSha256": {
+    "baseline.json": "7a43bd45ca3aa1ba76be90e857b4dd5458a75c612d56c1155a63bb33a25104ad",
+    "current-price-worksheet.json": "c1183423193680a49294a8ba206148c778cc7de42df4dee43b25285a3eab7617",
+    "final-local-controller-pricing-v2.log": "6c65808350f41f797a603e25ef0fdbfada53847dd66f91d297e89b06e6db4fa8",
+    "final-snapshot-qualification.log": "825d7e68b3238ea1d59ef9b2296e12d6524681e123240a57c6ba56b1db4c15c0",
+    "final-typescript-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "guest-after-flutter.json": "9c5f9435cc019e70906ce952b8c3212c953babd5600313f384bf0a437777d4e0",
+    "guest-after-host.json": "8915a1b0db6d96a2d6143acf94c3b18bfdc3232e0bb2d27fa46b5e70ab7c2973",
+    "guest-after-server.jsonl": "3638c060ba3049395bc62bee1def0b94970924cb654e8d28b684c72d277aa5f3",
+    "guest-baseline-flutter.json": "8978d6d15d0ba3f7596003194e7b60aca57ce813b7f40691e79e06945e83fb61",
+    "guest-baseline-host.json": "40ccf91df31b1645e90327fd0c2577ddf6c30dafeec91d41cd897c78bf181621",
+    "guest-baseline-server.jsonl": "fb7e4ef65fdadb7140f7179a7226539f4fc251c0a826d32ceed07b9b09b4eb4a",
+    "guest-coordinator-final-tests.log": "f04ed8ffc0e7013552fb55a9ae56b7be171fc699244eacfdfffc4f24f3a91a64",
+    "guest-final-flutter.json": "826dfcd97ce1bb8ce5830ee8c6bdb5811999b6fc80f5d41e96098516f3dd91c9",
+    "guest-final-host.json": "1e0f57b2409bdbb568190a6a02653704a89528f564b91973aba41047823931b9",
+    "guest-final-native-integration-rerun.json": "2ab16185a8b4d00ba48da3bb134881fea1fe9f340ee1f9d0108af519bb1113cf",
+    "guest-final-native-integration-rerun.log": "a11df6b11ee837f8d00f92e77cb445763a09f3761204c6b5f7dad74614c769c8",
+    "guest-final-native-integration.json": "f0c48dfa88b089b39600bef3fc3ecc660925715b5af46535dc6ccf828668c167",
+    "guest-final-server.frozen.jsonl": "23fbb1aea7ebd0d3525697a24d6e6c434d0e5118c8afa054f9de0991bce33f32",
+    "guest-native-final-tests.log": "48975ad57fb30705682b615a8f20005bc1d39f3f4ee3a3818097c1812d38fe40",
+    "guest-native-tests.log": "281578ab7f24bd61ecb18069fc761db53d2dc511e40923a18f643bc0ab0cf6bb",
+    "guest-repeat-flutter.json": "a68b3bd02cd9a217d8f01fb6eec029ff9ba4f15967b664c7f2f5ef67d2e3cef9",
+    "integrator-final-source-review.json": "3b10daa3ecdda25841973615640b7e01f6e415b93581fea9850024ea47956205",
+    "integrator-independent-track-a-review.json": "9f563ab5d8d5102cbe44f10926406a760ed4fdb6b2ee1b605c40f093394f6d46",
+    "local-cleanup.json": "2ac48c90fbf4a402b28075b9aa5886e0f80e4b86349a7e47329778c2e28c700d",
+    "preservation-pre-freeze.json": "c1caf110a41ea403930e8ff19340acedfd723727771668d3f8ec3a40ace379f5",
+    "recovery-snapshot-qvA0O2/qualification.json": "b0eca3d47ef8b05b562a30eef7892261970acf38397a76b32e448284fa414aa1",
+    "recovery-snapshot-uelDdT/qualification.json": "3d2a6a6bd29608f6c364702c83701d6de290ca275f1566f32145c7c176acdaab",
+    "track-a-hosted-job-controller-horizon.log": "76c42e4787b90a1a22c9094182fb57aecd7b8c5c4a31c41604403d0e17bb7196",
+    "track-a-hosted-job-dispatch-review-final.cjs": "1a5844d481ebdd6cc18631ecb4ecf49420716b5e3640cfb19deede4fe93bf21e",
+    "track-a-hosted-job-dispatch-review-final.log": "3530e9e86fa1c38f68b9fc722c76f7a3b4fc8047e2b3c249d3a2522c7caae5dd",
+    "track-a-hosted-jobs-contracts-final.log": "31e6814909e071c40621b6b9d4e09411b9ffa0108818dee639fb6289ba6f7c5f",
+    "track-a-hosted-jobs-emulator-final.log": "0260fcdf83304c5f574eb6fbd24bc61d3d32840dc1b4e7089f19a365bef620d3",
+    "track-a-independent-hosted-jobs-review.json": "209b30a32eae1c40fdd8d3990f1a54f1391a07a83bd7777f40c3523c94ce352c",
+    "track-a-independent-snapshot-pricing-review.json": "072c97900b913c5f680b20a55e491f290989c1b589f589c2dc1e682d72bbc4fa",
+    "track-a-legacy-runtime-wiring.log": "55bb84afce779f664e2152741fd0df58a4313f5db2216dad7c861781df4f71a2",
+    "track-a-performance-authority.json": "633c955d0c95a33ad77dc6f2738e35d79c62de45639213ab3d323756aaef3ea5",
+    "track-a-runtime-default-off-checks.json": "b9b70d2294188b92ac83050a7a366245d821f569e4862d1954cce86677945f74",
+    "track-a-runtime-default-off-flutter.log": "932584941b09ed7a4ac773236531cf9e5c444203a7870bfd96ee58b030f556d3",
+    "track-a-runtime-default-off-native.log": "005843c8a2e6b675fe5f14b37025f1cce2eec64a3e6141affc463c0821ae8281",
+    "track-b/build.v2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "track-b/contracts.v2.log": "c0fcc11b629b9a20cd6330157a52a184d9b6bb1415e457d8c95529acd93efbd8",
+    "track-b/controller-independent-review.v2.json": "f93b548b5541a70f65883eae652542720f788d7c216c6030caa79764c310c6b3",
+    "track-b/controller-independent-tests.v2.log": "b43fde4e986f1e23ecb0582e7e8d30ce1e8ab9e4cec5e3e66f3d5f064cc578af",
+    "track-b/source-job-emulator.log": "9441bf2d72a8b9afc9e119241746d750ab81ba23967a5ad3838c0ec707a2583c",
+    "track-b/source-qualified.v2.json": "738293e7057a17f6a148ebbf362a46acad576a636bcfeabfef80eaa8663ffe6a",
+    "track-c/controller-source-qualified.v3.json": "6c02d41b5f148bd5951f98b3a127b41975f960afb12a9d7e69053f0b51ab2e6a",
+    "track-c/owner-handoff-independent-review.v2.json": "acd6966fb767a2ce1de7a6bfbc3dad9db410a5f26496d56fb17d6915e5ad7f78",
+    "track-c/test_cloud_controller-approval-window.log": "5e60df980894b366fafff89c0e9f3a2e813a1099f0aae478efe677ec5557ae60",
+    "track-c/track-b-independent-review.v2.json": "7cdc2e822160db53dcbd16b872be68cfaeff666d62bd71d21ae344488622d1d0"
+  },
+  "retainedInitialFailureLogsSha256": {
+    "guest-final-native-integration.log": "65db175cf2ace17afbb1c63e88f53280bc33c80fd82156c9589f882a92a7fd99",
+    "snapshot-integration.log": "490ad87cdfc3aa320e457b6bdfc158082a34f5a45c486e6f58574e538f0a2f87",
+    "track-a-snapshot-review-initial.log": "bebad8b9c546438191416f7cd752d68659a2f9503428f9b4426c016b881c14ad",
+    "track-a-hosted-jobs-emulator.log": "2cce0ff007e184472b0c6b00ad34fbe41854447a33b8696ee7c5cb790bc815a3",
+    "track-a-hosted-job-dispatch-signed-initial.log": "c912ae641da93867a2a5497d7cab544862ab69b38fe26fdb49c87b0ae441bafd"
+  },
+  "testCountsAreOverlapping": true,
+  "tests": {
+    "nativeAuthority": {
+      "pass": 307,
+      "fail": 0
+    },
+    "flutterCoordinator": {
+      "pass": 106,
+      "fail": 0
+    },
+    "actualNativeIntegration": {
+      "pass": 9,
+      "fail": 0
+    },
+    "defaultOffNativeGuards": {
+      "pass": 3,
+      "fail": 0
+    },
+    "legacyWiring": {
+      "pass": 32,
+      "fail": 0
+    },
+    "flutterSelectors": {
+      "pass": 6,
+      "fail": 0
+    },
+    "snapshotInjectedAndActualLocalRecovery": {
+      "pass": 17,
+      "fail": 0
+    },
+    "controllerAndLegacySafetyAndPricing": {
+      "pass": 81,
+      "fail": 0
+    },
+    "hostedInjectedAndLoopbackContracts": {
+      "pass": 30,
+      "fail": 0
+    },
+    "syntheticSourceJobActualEmulator": {
+      "pass": 1,
+      "fail": 0
+    },
+    "independentHostedJobDispatch": {
+      "pass": 14,
+      "fail": 0
+    },
+    "expandedNativeIncludingPreexistingHarness": {
+      "pass": 313,
+      "fail": 12,
+      "preexisting": true
+    }
+  },
+  "reviewReceipts": {
+    "guest": "integrator-independent-track-a-review.json",
+    "snapshotsPricing": "track-a-independent-snapshot-pricing-review.json",
+    "snapshotsFinalDocAndDefaultOff": "track-a-runtime-default-off-checks.json",
+    "hosted": "track-a-independent-hosted-jobs-review.json",
+    "controller": "track-b/controller-independent-review.v2.json",
+    "integratorSupplement": "integrator-final-source-review.json",
+    "handoff": "track-c/owner-handoff-independent-review.v2.json"
+  },
+  "cloudProviderCalls": false,
+  "realResourceTimerStarted": false,
+  "linuxExecuted": false,
+  "priorV3Gate0": "PASS retained for its original frozen evidence",
+  "limitations": [
+    "Guest warm target not consistently met:4/18 under two seconds",
+    "No actual Linux/image or hosted/provider/scale qualification",
+    "Separate paid approval and exact owner inputs required",
+    "12 unrelated preexisting Saver runtime harness failures remain"
+  ]
+}

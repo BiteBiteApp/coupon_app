@@ -1,0 +1,786 @@
+✔ guest check contract exports the exact bounded collection constants (0.33475ms)
+✔ continuation parser accepts and freezes only the exact complete shape (2.694792ms)
+✔ continuation parser bounds unique opaque unavailable offer IDs (0.46875ms)
+✔ ordered candidate digest is stable, order-sensitive, and closed (0.155833ms)
+✔ operation reference is deterministic, opaque, request-bound, and the document ID (0.177791ms)
+✔ guest check token round trips all bindings without plaintext leakage (0.289167ms)
+✔ guest check token uses fresh injectable nonces while operation identity stays stable (0.309584ms)
+✔ token rejects tampering, key changes, cursor substitution, and oversized envelopes (0.275791ms)
+✔ decode rejects every independently substituted operation binding (1.040792ms)
+✔ authenticated payload parsing is exact and verifies purpose and candidate digest (0.894459ms)
+✔ token enforces logical expiry and the five-minute maximum lifetime (0.312334ms)
+✔ continuation/token preflight rejects unchallenged and stale answers without state (1.096416ms)
+(node:29797) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+(node:29787) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+✖ customer BiteSaver exports have exact v2 runtime metadata (106.536417ms)
+✔ actual Firebase metadata retains exact secrets and retry policy (248.841625ms)
+✖ approved runtime isolation and proposal schedule preserve the complete export inventory (207.482625ms)
+✖ approved BiteScore additions retain exact isolated runtime metadata (206.933167ms)
+✔ exactly thirteen Browse, Saved, Menu and guest exports share the dedicated Node 24 runtime identity (208.225542ms)
+✖ exactly eleven Admin-support callables pin their identity with exact per-function secret bindings (224.636792ms)
+✔ actual Users reader rejects non-Admin access before resolving its cursor secret (211.882875ms)
+✔ device callables pin separate runtime identities with otherwise unchanged metadata (240.886625ms)
+✖ device callable factories use trusted Firebase actors and isolated secrets (0.771333ms)
+✖ device callable failures are sanitized and never fall back to account-only writers (0.501417ms)
+✖ device callable quota failures expose only bounded retry guidance (0.432959ms)
+✖ challenge remains available without device, discovery, or identity secrets (0.3845ms)
+✖ callables route exact identity and only their required decoded keys (0.379583ms)
+✖ callables expose only contract failures and fix unexpected failures (0.436416ms)
+✖ private worker routes the job and propagates failures for retry (0.344375ms)
+✖ profile-use context uses the existing two-key public page callable and actual auth (0.605875ms)
+✔ deletion uses dedicated identities, worker-only Stripe access, and a private schedule (253.702667ms)
+✔ late-image cleanup is a single private fixed-bucket finalize event with no Stripe secret (274.028833ms)
+✔ parent catalog fingerprints canonicalize Firestore Timestamp values (1.3105ms)
+✔ projected and raw parent catalog fingerprints retain exact nanos (4.918667ms)
+✔ projected and raw parent catalog fingerprints agree without a marker (0.375959ms)
+✔ start handler validates its closed request before any database access (21.646083ms)
+✔ start handler creates one bounded private session and exact safe response (2.071209ms)
+▶ start fails closed on malformed or cross-bound active private state
+  ✔ control has an undeclared field (0.677666ms)
+  ✔ pointer is bound to another caller (0.541209ms)
+✔ start fails closed on malformed or cross-bound active private state (1.374625ms)
+✔ start cannot bypass unfinished-session control through a malformed session (0.621ms)
+✔ stored session criteria must remain fully canonical and version-bound (0.968334ms)
+✔ start retry and non-fresh equivalent request reuse the authorized session (1.095375ms)
+✔ non-fresh starts cannot reuse membership across clock contracts (14.896667ms)
+✔ start replay survives pointer movement and binds the time-zone contract (1.531791ms)
+✔ authorized activity slides logical expiry and touches preparing work (1.222042ms)
+✔ idle touches cap at absolute expiry and cannot resurrect a session (2.040375ms)
+✔ status handler is closed, authorized, sanitized, and recreates only missing work (1.116959ms)
+✔ status accepts actual worker progress to offerRanges between reads (0 restaurants) (4.546833ms)
+✔ status accepts actual worker progress to offerRanges between reads (1 restaurants) (7.226666ms)
+✔ status accepts actual worker progress to ready between reads (0 restaurants) (2.932167ms)
+✔ status accepts actual worker progress to ready between reads (1 restaurants) (4.014625ms)
+✔ status releases each old gate before observing two actual catalog restarts (2.019625ms)
+✔ status observes actual worker terminal failure without reviving the session (4.781833ms)
+✔ status crossing expiry releases its gate and cannot prolong preparation (0.655292ms)
+▶ status reauthorizes changed private authority and rejects same-generation query changes
+  ✔ caller (0.464459ms)
+  ✔ capability (0.408667ms)
+  ✔ actor (0.404291ms)
+  ✔ criteria (0.404375ms)
+  ✔ query (0.40575ms)
+  ✔ expiry (0.382333ms)
+  ✔ malformed (0.338042ms)
+✔ status reauthorizes changed private authority and rejects same-generation query changes (2.994666ms)
+✔ status duplicate and concurrent requests respect the live gate and replay after release (0.994208ms)
+✔ ZIP 34461 A-B-A reuses ready A while fresh and new-instance starts replace it (2.77375ms)
+✔ signed session status rejects guest, anonymous, and wrong-UID replay (0.676083ms)
+✔ one live gate serializes status and page continuations per session (4.971333ms)
+▶ signed preview rechecks an edited same-ID offer instead of losing its restaurant
+  ✔ 1 prepared coupon(s) (3.666959ms)
+  ✔ 2 prepared coupon(s) (3.455833ms)
+✔ signed preview rechecks an edited same-ID offer instead of losing its restaurant (7.227833ms)
+▶ edited same-ID offers still require current matching, visibility, and signed usage
+  ✔ no longer matches the offer-only query (2.210541ms)
+  ✔ withdrawn (1.763ms)
+  ✔ expired (5.599625ms)
+  ✔ already used (2.432041ms)
+✔ edited same-ID offers still require current matching, visibility, and signed usage (12.17125ms)
+✔ candidate admission resumes a failed pin without jobs or deadline extension (5.040292ms)
+✔ candidate admission rejects excess starts before requesting revision pins (0.796458ms)
+✔ candidate guest discovery retains explicit bounded history challenges (11.858291ms)
+✔ restaurant membership query uses the exact ordered 26-row contract (0.351666ms)
+✔ restaurant page requires readiness and a strict authorized request (0.522917ms)
+▶ malformed private results fail sanitized while withdrawn results stay unavailable
+  ✔ safe snapshot has a nested undeclared field (1.075792ms)
+  ✔ preview identity has a nested undeclared field (1.168459ms)
+  ✔ withdrawn result is not misreported as corruption (0.711333ms)
+✔ malformed private results fail sanitized while withdrawn results stay unavailable (3.095083ms)
+✔ restaurant page returns exactly 25 safe DTOs from a 26-row lookahead (43.584917ms)
+✔ page retries freeze evaluation time and return byte-stable opaque tokens (96.856792ms)
+▶ signed identical page replay expires with returned timed offers
+  ✔ restaurantPage (7.067625ms)
+  ✔ offerPage (6.059333ms)
+✔ signed identical page replay expires with returned timed offers (13.321709ms)
+▶ signed page replay deadline matrix retains its anchor and rejects stale issuance
+  ✔ restaurantPage: window (7.734875ms)
+  ✔ restaurantPage: window-visible-when-unavailable (8.685084ms)
+  ✔ restaurantPage: specific-day (5.857834ms)
+  ✔ restaurantPage: today-only (5.743583ms)
+  ✔ restaurantPage: fall-back (11.451333ms)
+  ✔ offerPage: window (6.722875ms)
+  ✔ offerPage: window-visible-when-unavailable (8.999833ms)
+  ✔ offerPage: specific-day (6.032041ms)
+  ✔ offerPage: today-only (5.782875ms)
+  ✔ offerPage: fall-back (11.747583ms)
+  ✔ restaurantPage: cutoff crossed during final replay read (2.673125ms)
+  ✔ offerPage: cutoff crossed during final replay read (3.052917ms)
+  ✔ restaurantPage: earlier metadata witness deadline (7.265208ms)
+  ✔ offerPage: earlier metadata witness deadline (17.099334ms)
+✔ signed page replay deadline matrix retains its anchor and rejects stale issuance (109.549417ms)
+✔ cursor request bindings fail before any database access (48.069ms)
+✔ restaurant page does not advertise a continuation after consuming its exact final lookahead (33.733167ms)
+▶ signed restaurant continuation requires a usable witness after item 25
+  ✔ exactly 25 usable rows exhaust (17.459083ms)
+  ✔ an unavailable final 26th row is exhaustion (18.882458ms)
+  ✔ the usable 27th row is preserved for the next page (46.219083ms)
+  ✔ several rejected lookahead rows precede the witness (25.619834ms)
+  ✔ 100 consumed rows retain unresolved progress (64.874167ms)
+✔ signed restaurant continuation requires a usable witness after item 25 (173.392417ms)
+✔ restaurant preview backfills past signed usage (2.516875ms)
+✔ restaurant preview proves hasMore from the current third offer (3.086083ms)
+✔ restaurant preview discovers a third offer that became available after preparation (4.740917ms)
+✔ restaurant preview live fallback reaches beyond retained candidates (5.731916ms)
+✔ preview fallback proves exact 100-candidate exhaustion (9.056584ms)
+✔ restaurant preview work shares one 100-candidate page budget (23.54525ms)
+✔ restaurant preview continuation resumes an unresolved first row (11.681791ms)
+✔ restaurant page fences parent catalog changes before delivery (1.019125ms)
+✔ multi-snapshot restaurant backfill fences every delivered raw offer (5.449667ms)
+✔ restaurant page backfills in immutable order and stops at 100 consumed rows (9.703708ms)
+✔ restaurant page proves exact 100-row exhaustion without a false cursor (7.293709ms)
+✔ per-parent offer query uses exact ordered 26-row pagination (0.141708ms)
+✔ offer page is strict, parent-bound, ordered, safe, and exactly 25 (15.884125ms)
+▶ signed offer continuation requires a usable witness after item 25
+  ✔ exactly 25 usable rows exhaust (9.942583ms)
+  ✔ an unavailable final 26th row is exhaustion (8.11425ms)
+  ✔ the usable 27th row is preserved for the next page (23.046292ms)
+  ✔ several rejected lookahead rows precede the witness (15.433209ms)
+  ✔ 100 consumed rows retain unresolved progress (51.00875ms)
+✔ signed offer continuation requires a usable witness after item 25 (107.863542ms)
+✔ offer pages preserve nanosecond timestamps and Firestore UTF-8 ID ties (12.726542ms)
+✔ delivery admits offers whose time-only availability changed since indexing (3.163167ms)
+✔ offer page honors signed usage suppression with backfill (8.498458ms)
+✔ multi-snapshot offer backfill fences signed usage before delivery (11.927125ms)
+✔ offer page stops after 100 consumed candidates and resumes (13.512083ms)
+✔ offer page proves exact 100-candidate exhaustion without a false cursor (10.529375ms)
+✔ signed usage transport failures stay explicit and retriable on pages (3.614917ms)
+✔ bounded menu pages expose only allowlisted own-menu presentation (4.04725ms)
+✔ menu empty, retry, and rejected-request operation budgets stay read-only (2.878458ms)
+✔ menu capability and expired cursors fail before source reads (3.611125ms)
+▶ menu completion authority cannot cross or renew the original deadline
+  ✔ signed delayed content rejects at expiry (2.81575ms)
+  ✔ guest delayed content rejects at expiry (4.044792ms)
+  ✔ delayed shared content rejects at expiry (2.473834ms)
+  ✔ delayed empty response rejects at expiry (2.768208ms)
+  ✔ delayed absent shared response rejects at expiry (2.303875ms)
+  ✔ deadline is valid just before and invalid at or after expiry (5.659375ms)
+  ✔ still-valid delayed cursor keeps the original deadline (2.780625ms)
+  ✔ a shorter inbound cursor cannot be renewed (4.3ms)
+  ✔ attempt replacement during a content read rejects (2.618125ms)
+  ✔ attempt replacement during the final source read rejects the signed own full response (2.50725ms)
+  ✔ attempt replacement during the final source read rejects the guest own empty response (5.453125ms)
+  ✔ attempt replacement during the final source read rejects the signed shared short response (2.458625ms)
+  ✔ attempt replacement during the final source read rejects the guest shared absent response (3.770708ms)
+✔ menu completion authority cannot cross or renew the original deadline (44.506417ms)
+▶ menu continuation requires a bounded legitimate-entry lookahead
+  ✔ 24 legitimate rows reports exact continuation (2.807416ms)
+  ✔ 25 legitimate rows reports exact continuation (2.487541ms)
+  ✔ 26 legitimate rows reports exact continuation (4.001416ms)
+  ✔ multiple pages retain every legitimate row exactly once (5.259666ms)
+  ✔ rejected rows after the visible boundary prove exhaustion (2.909375ms)
+  ✔ a later legitimate row survives rejected lookahead rows (4.188583ms)
+  ✔ the exact valid byte-boundary row appears once across the page chain (6.597208ms)
+  ✔ a compact projection remains reachable from an individually large source row (4.352ms)
+  ✔ a rejected large boundary row preserves forward progress (4.289ms)
+  ✔ scan-budget exhaustion remains distinct from confirmed source exhaustion (4.732542ms)
+✔ menu continuation requires a bounded legitimate-entry lookahead (42.080958ms)
+✔ menu images omit writer-shaped own and shared source identities (5.875833ms)
+✔ bounded shared menu requires a current catalog or legacy-owner relationship (3.0345ms)
+✔ menu authorization rejects undelivered IDs and source changes between reads (4.145166ms)
+✔ favorite handler enforces signed strict 0/25/50/75 request bounds (36.210167ms)
+✔ restaurant-page delivery evidence is exact, bounded, and replay-safe (62.464292ms)
+✔ a challenge-only offer cannot authorize a signed favorite read (3.993167ms)
+✔ delivery evidence from another session does not authorize favorites (2.311125ms)
+✔ a failed delivery-evidence commit does not authorize favorites (5.825ms)
+✔ additional-offer pages authorize exactly the offers they return (18.721458ms)
+✔ favorite states are batched, distinguish outcomes, and fail unknown (5.837417ms)
+✔ favorite state resolves a delivered live-fallback offer mapping (5.895959ms)
+✔ same child offer ID under two restaurants cannot collide in favorites (4.080792ms)
+✔ canonical favorite tri-state never falls back to legacy IDs (3.049417ms)
+✔ signed usage never crosses same child IDs between restaurants (5.662708ms)
+✔ redemption validation is strict, bounded, idempotent, and DTO-safe (11.919084ms)
+✔ signed logical redemption IDs cannot be rebound to another target (5.889375ms)
+✔ a denied signed logical redemption cannot be revived with fresh coordinates (8.360792ms)
+✔ concurrent signed transports share one logical redemption reservation (4.034292ms)
+✔ redemption validation cannot return allowed after its clock fence crosses (2.742125ms)
+✔ same-session re-delivery preserves original redemption authorization (15.204042ms)
+✔ signed redemption start commits one canonical timer and recovers retries (8.135ms)
+✔ device-bound discovery use reuses session, occurrence, delivery, and current-source authority (production=false) (3.96275ms)
+✔ device-bound discovery use reuses session, occurrence, delivery, and current-source authority (production=true) (7.442125ms)
+✔ production Browse fresh-proof recovery survives idle expiry and source withdrawal within the original deadline (5.163666ms)
+✔ production combined-use composition permits an unauthenticated Browse guest (8.990542ms)
+✔ committed start recovery rechecks the absolute deadline after reads (9.531125ms)
+✔ unlimited redemption start has no timer or durable usage (4.175917ms)
+✔ once-per-day start becomes used and retains the established reset (9.354125ms)
+✔ redemption start rejects invalid evidence, caller, and source races (8.355417ms)
+✔ redemption start rechecks validation time after transactional reads (3.481917ms)
+✔ proximity proof cannot become stale between validation and start (3.876208ms)
+✔ signed start rejects a validated daily special without mutation (3.728666ms)
+✔ start rejects missing capability and wrong attempt or query evidence (4.006583ms)
+✔ old daily retry cannot overwrite a later canonical redemption (8.0785ms)
+✔ offer occurrence request bindings fail before any database access (2.134625ms)
+✔ daily preview uses Dart-compatible normalized boolean fields (2.031791ms)
+✔ legacy string proximity radii stay canonical through page and redemption (4.913375ms)
+✔ proximity redemption requires exact fresh current coordinates (6.103292ms)
+✔ typed-location sessions cannot redeem proximity-only offers (4.941917ms)
+✔ redemption honors signed usage failures without leakage (6.585708ms)
+▶ page cursor chains freeze scheduled membership and absolute expiry
+  ✔ signed restaurant page (108.289875ms)
+  ✔ signed offer page (55.928167ms)
+  ✔ guest restaurant page (157.212833ms)
+  ✔ guest offer page (62.064417ms)
+✔ page cursor chains freeze scheduled membership and absolute expiry (383.826042ms)
+▶ page cursor chains preserve the customer-local 00:01 snapshot
+  ✔ signed restaurant page (46.902292ms)
+  ✔ signed offer page (24.420417ms)
+  ✔ guest restaurant page (117.45ms)
+  ✔ guest offer page (67.890625ms)
+✔ page cursor chains preserve the customer-local 00:01 snapshot (257.0145ms)
+✔ delivered offer identity and occurrence remain usable after sixteen minutes (4.335625ms)
+✔ redemption replay preserves its anchor while rechecking current time (6.208042ms)
+✔ favorite resolution closes the whole batch on uncertain result state (7.100292ms)
+✔ guest restaurant and offer pages complete only after explicit checks (22.703833ms)
+✔ guest evaluation context stores the offset at its frozen instant (8.574083ms)
+✔ guest restaurant previews retain mixed offer selection after daily prefix (10.857584ms)
+✔ guest offer paging intersects large local history and reaches offer 101 (165.427292ms)
+✔ guest offer-page refresh preserves its original scheduled-start anchor (44.618458ms)
+✔ guest restaurant-page refresh preserves scheduled-offer membership (23.600958ms)
+✔ guest pending offer expiry cannot become a stale-positive delivery (4.34675ms)
+▶ guest page checkpoints enforce daily-special eligibility deadlines
+  ✔ offer page: inclusive 08:00-08:02 window (34.960125ms)
+  ✔ offer page: specificDays local-day boundary (28.367459ms)
+  ✔ offer page: expiry-less todayOnly local-day boundary (27.868167ms)
+  ✔ offer page: fall-back transition below the window start (83.540042ms)
+  ✔ restaurant page: inclusive 08:00-08:02 window (34.380041ms)
+  ✔ restaurant page: specificDays local-day boundary (52.097917ms)
+  ✔ restaurant page: expiry-less todayOnly local-day boundary (25.559292ms)
+  ✔ restaurant page: fall-back transition below the window start (81.038458ms)
+✔ guest page checkpoints enforce daily-special eligibility deadlines (368.574792ms)
+✔ guest work-budget recovery keeps its original scheduled-start anchor (61.394125ms)
+✔ guest offer checkpoints cross five minutes and refresh in place (740.58075ms)
+✔ an accepted guest page answer survives response loss and token expiry (28.905667ms)
+✔ a guest continuation checkpoint cannot outlive its page cursor (48.1125ms)
+▶ guest checkpoint refresh invalidates revision, source, day, and session changes
+  ✔ guest revision creates a separately bound operation (5.95925ms)
+  ✔ a withdrawn source invalidates an expired batch (4.830208ms)
+  ✔ a local-day reset invalidates retained usage decisions (4.82675ms)
+  ✔ an expired session is reported as sessionChanged (3.6985ms)
+✔ guest checkpoint refresh invalidates revision, source, day, and session changes (19.595417ms)
+▶ guest local-history size matrix intersects only bounded candidates
+  ✔ 0 local unavailable IDs (8.506041ms)
+  ✔ 1 local unavailable IDs (11.033625ms)
+  ✔ 74 local unavailable IDs (7.036041ms)
+  ✔ 75 local unavailable IDs (7.357667ms)
+  ✔ 76 local unavailable IDs (6.779542ms)
+  ✔ 150 local unavailable IDs (7.230292ms)
+  ✔ 1000 local unavailable IDs (6.995333ms)
+  ✔ 10000 local unavailable IDs (8.940208ms)
+✔ guest local-history size matrix intersects only bounded candidates (64.269542ms)
+✔ guest pagination reaches all 175 eligible restaurants in 25-result pages (1247.3105ms)
+▶ guest final parent batch is bounded and rejects a parent withdrawn after its answer
+  ✔ complete page (164.347083ms)
+  ✔ withdrawn parent (150.029625ms)
+✔ guest final parent batch is bounded and rejects a parent withdrawn after its answer (314.549292ms)
+✔ concurrent conflicting guest answers have one committing winner (8.994667ms)
+✔ guest checks retain 75 maximum-domain source IDs within state and token bounds (75.102083ms)
+✔ guest offer answer cannot expose an offer withdrawn after acceptance (5.297833ms)
+✔ guest answers reject incomplete or nonmember input before mutation (8.845042ms)
+▶ guest logical redemption fences bind concurrent challenges and results
+  ✔ allowed redemption (26.629958ms)
+  ✔ locally denied redemption (14.029959ms)
+✔ guest logical redemption fences bind concurrent challenges and results (40.853208ms)
+✔ guest proximity redemption cannot outlive its fresh-position check (16.425291ms)
+✔ guest direct redemption replay expires at its original minute fence (17.45125ms)
+▶ malformed persisted guest checks fail closed without completing
+  ✔ extra top-level key (0.851291ms)
+  ✔ extra original-request key (0.741958ms)
+  ✔ original-request operation mismatch (0.722625ms)
+  ✔ extra progress key (0.717125ms)
+  ✔ progress operation mismatch (0.715833ms)
+  ✔ extra stored-offer key (0.754708ms)
+  ✔ stored-offer order key malformed (0.735917ms)
+  ✔ extra active-batch key (0.731667ms)
+  ✔ active-batch operation mismatch (0.737291ms)
+  ✔ candidate digest mismatch (0.802959ms)
+  ✔ availability generation mismatch (1.156666ms)
+  ✔ consumed boundary mismatch (1.114042ms)
+  ✔ malformed active token (1.193333ms)
+  ✔ active time ordering mismatch (0.755125ms)
+  ✔ active expiry outside document fence (0.775042ms)
+  ✔ active sequence mismatch (0.938458ms)
+  ✔ completed state retains an active batch (1.284333ms)
+  ✔ accepted state omits its accepted answer (1.255292ms)
+  ✔ awaiting state carries retry metadata (1.214375ms)
+  ✔ operation fingerprint mismatch (1.236416ms)
+✔ malformed persisted guest checks fail closed without completing (21.640166ms)
+▶ persisted accepted-answer metadata is exact and batch-bound
+  ✔ extra accepted-answer key (1.313625ms)
+  ✔ malformed accepted-answer client request (1.188625ms)
+  ✔ accepted-answer sequence differs from batch (1.174ms)
+  ✔ accepted-answer fingerprint is malformed (1.141833ms)
+  ✔ accepted-answer fingerprint is valid but incorrect (1.140792ms)
+  ✔ accepted-answer contains a nonmember (1.150208ms)
+  ✔ accepted-answer contains a duplicate (1.340792ms)
+  ✔ accepted-answer subset is not canonically ordered (1.329791ms)
+  ✔ awaiting state retains an accepted answer (1.449959ms)
+  ✔ accepted state omits its active batch (1.002458ms)
+  ✔ extra last-accepted key (0.919375ms)
+  ✔ malformed last-accepted client request (1.036834ms)
+  ✔ malformed last-accepted fingerprint (0.963917ms)
+  ✔ last-accepted sequence does not precede current (0.892542ms)
+  ✔ advanced sequence omits last-accepted metadata (0.845834ms)
+  ✔ current sequence skips after last acceptance (0.960167ms)
+✔ persisted accepted-answer metadata is exact and batch-bound (27.914792ms)
+▶ persisted guest restaurant progress rejects malformed nested state
+  ✔ extra current-restaurant key (0.84525ms)
+  ✔ current-restaurant result identity mismatch (0.776208ms)
+  ✔ current-restaurant visible count is negative (0.732375ms)
+  ✔ current-restaurant retained count exceeds visible count (0.886375ms)
+  ✔ current restaurant duplicates a ready restaurant (0.861042ms)
+  ✔ extra ready-restaurant key (0.902292ms)
+  ✔ ready restaurant has no selected offers (0.872083ms)
+  ✔ ready restaurant duplicates a metadata witness (0.948833ms)
+  ✔ ready restaurant has an inconsistent unknown count (0.872458ms)
+  ✔ ready restaurant count is below its selected offers (0.919458ms)
+  ✔ ready restaurant has-more flag disagrees with count (0.972542ms)
+✔ persisted guest restaurant progress rejects malformed nested state (17.573167ms)
+▶ persisted guest redemption progress is identity-bound and exact
+  ✔ extra redemption-progress key (0.951125ms)
+  ✔ extra redemption stored-offer key (1.229583ms)
+  ✔ redemption progress targets another offer (0.933083ms)
+  ✔ redemption stored offer diverges from target (0.898959ms)
+  ✔ redemption local answer appears before acceptance (1.297042ms)
+  ✔ redemption offer source fingerprint diverges from batch (1.333792ms)
+  ✔ redemption original coordinates contain an extra key (0.933ms)
+✔ persisted guest redemption progress is identity-bound and exact (21.451625ms)
+✔ genuine profile and Browse share usage and signed challenge scope (profileFirst=true) (21.782334ms)
+✔ genuine profile and Browse share usage and signed challenge scope (profileFirst=false) (17.430417ms)
+✔ cuisine-only worker matches survive public restaurant and offer-page revalidation (28.438708ms)
+ℹ tests 325
+ℹ suites 0
+ℹ pass 313
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5786.572459
+
+✖ failing tests:
+
+test at functions/test/customer_bitesaver_runtime_wiring.test.js:403:1
+✖ customer BiteSaver exports have exact v2 runtime metadata (106.536417ms)
+  Error: The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.
+      at AppStore.getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:79:19)
+      at getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:222:36)
+      at getStorage (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/storage/index.js:49:32)
+      at Object.<anonymous> (/Users/colesmart/dev/coupon_app/functions/lib/index.js:1955:130)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10)
+      at Module.load (node:internal/modules/cjs/loader:1651:32)
+      at Module._load (node:internal/modules/cjs/loader:1443:12)
+      at Module.mockedLoad (/Users/colesmart/dev/coupon_app/functions/test/customer_bitesaver_runtime_wiring.test.js:385:29)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:261:19) {
+    errorInfo: { code: 'app/no-app', message: 'The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.' },
+    codePrefix: 'app'
+  }
+
+test at functions/test/customer_bitesaver_runtime_wiring.test.js:479:1
+✖ approved runtime isolation and proposal schedule preserve the complete export inventory (207.482625ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  ... Skipped lines
+  
+    [
+      'acceptCustomerBiteScoreTerms',
+      'advanceCustomerBiteScoreProfileList',
+      'advanceCustomerBiteScoreSearch',
+      'applyRatingAdminDishSuggestionGroup',
+  +   'approveRestaurantNameChange',
+      'awardApprovedDishProposalContributionPoints',
+      'awardContributionPoints',
+      'awardCreatedDishContributionPoints',
+      'awardDishImageContributionPoints',
+      'awardReviewMilestoneContributionPoints',
+  ...
+      'cleanupDeletedRestaurantCoupons',
+  +   'cleanupExpiredScreeningPhotos',
+      'completeCustomerBiteScoreRestaurantProvenance',
+      'continueCustomerBiteSaverGuestOfferCheck',
+      'continueCustomerBiteScoreReviewAggregates',
+      'createBiteScoreRestaurantClaimInvite',
+      'createCheckoutSession',
+  ...
+      'createSubscriptionCheckoutSession',
+  +   'decideAdminScreeningPhoto',
+  +   'decideBiteScoreReviewText',
+  +   'expireBiteScoreReviewTexts',
+      'getAccountDeletionStatus',
+      'getAdminPostingRestriction',
+      'getCustomerBiteSaverFavoriteStates',
+      'getCustomerBiteSaverMenuPage',
+      'getCustomerBiteSaverOfferPage',
+  ...
+      'getCustomerPostingStatus',
+  +   'getOwnBiteScoreReviewText',
+  +   'getOwnerScreenedPhoto',
+      'getRatingDestructiveOperationStatus',
+      'getReviewerSafetyStatus',
+      'issueCustomerBiteSaverDeviceUseChallenge',
+      'issueMenuImageUploadAuthorization',
+  +   'listAdminScreeningPhotos',
+      'listBiteSaverSubscriptionReturnEvents',
+  +   'listBiteScoreReviewText',
+      'listCouponAdminCouponsPage',
+      'listCouponAdminInviteHistoryPage',
+      'listCouponAdminQueuePage',
+      'listRatingAdminContributionLedgerPage',
+      'listRatingAdminDestructiveOperationsPage',
+  ...
+      'prepareAdminRestaurantQrBatch',
+  +   'previewAdminScreeningPhoto',
+      'previewRestaurantInvite',
+      'processAccountDeletionRequests',
+      'processDishProposalResolutionWork',
+      'processPrivateCustomerBiteSaverSearchJob',
+      'processPrivateSearchIndexJob',
+  ...
+      'rejectRatingAdminDishSuggestionGroup',
+  +   'removeBiteSaverOwnerImage',
+      'requestAccountDeletion',
+      'resolveCustomerBiteScoreDishCreation',
+      'resolveCustomerBiteScoreRestaurantCreation',
+      'reverseContributionPointLedgerEntry',
+      'reverseContributionPointsForDish',
+  ...
+      'submitReviewerReport',
+  +   'submitScreenedBiteScorePhoto',
+  +   'submitScreenedOwnerPhoto',
+      'subscriptionCheckoutCancel',
+      'subscriptionCheckoutSuccess',
+      'toggleCustomerBiteScorePhotoVote',
+      'unblockReviewer',
+      'updateAdminRestaurantQrPreparation',
+      'useCustomerBiteSaverCoupon',
+  +   'useOwnerScreenedPhoto',
+      'validateCustomerBiteSaverOfferRedemptionStart',
+      'validateCustomerBiteSaverSavedOfferRedemptionStart',
+      'verifyAdminUserDirectory'
+    ]
+  
+      at TestContext.<anonymous> (/Users/colesmart/dev/coupon_app/functions/test/customer_bitesaver_runtime_wiring.test.js:484:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [
+      'acceptCustomerBiteScoreTerms',                            'advanceCustomerBiteScoreProfileList',
+      'advanceCustomerBiteScoreSearch',                          'applyRatingAdminDishSuggestionGroup',
+      'approveRestaurantNameChange',                             'awardApprovedDishProposalContributionPoints',
+      'awardContributionPoints',                                 'awardCreatedDishContributionPoints',
+      'awardDishImageContributionPoints',                        'awardReviewMilestoneContributionPoints',
+      'blockReviewer',                                           'claimBiteSaverSubscriptionReturnEvent',
+      'cleanupAccountDeletionFinalizedImage',                    'cleanupDeletedRestaurantCoupons',
+      'cleanupExpiredScreeningPhotos',                           'completeCustomerBiteScoreRestaurantProvenance',
+      'continueCustomerBiteSaverGuestOfferCheck',                'continueCustomerBiteScoreReviewAggregates',
+      'createBiteScoreRestaurantClaimInvite',                    'createCheckoutSession',
+      'createCouponRestaurantInvite',                            'createCustomerBiteScorePhoto',
+      'createCustomerPortalSession',                             'createSubscriptionCheckoutSession',
+      'decideAdminScreeningPhoto',                               'decideBiteScoreReviewText',
+      'expireBiteScoreReviewTexts',                              'getAccountDeletionStatus',
+      'getAdminPostingRestriction',                              'getCustomerBiteSaverFavoriteStates',
+      'getCustomerBiteSaverMenuPage',                            'getCustomerBiteSaverOfferPage',
+      'getCustomerBiteSaverSavedMenuPage',                       'getCustomerBiteSaverSavedPage',
+      'getCustomerBiteSaverSearchPage',                          'getCustomerBiteSaverSearchStatus',
+      'getCustomerBiteScoreDetail',                              'getCustomerBiteScoreProfileListPage',
+      'getCustomerBiteScoreProfileSummary',                      'getCustomerBiteScoreSearchPage',
+      'getCustomerBiteScoreSuggestions',                         'getCustomerBiteScoreTerms',
+      'getCustomerPostingStatus',                                'getOwnBiteScoreReviewText',
+      'getOwnerScreenedPhoto',                                   'getRatingDestructiveOperationStatus',
+      'getReviewerSafetyStatus',                                 'issueCustomerBiteSaverDeviceUseChallenge',
+      'issueMenuImageUploadAuthorization',                       'listAdminScreeningPhotos',
+      'listBiteSaverSubscriptionReturnEvents',                   'listBiteScoreReviewText',
+      'listCouponAdminCouponsPage',                              'listCouponAdminInviteHistoryPage',
+      'listCouponAdminQueuePage',                                'listRatingAdminContributionLedgerPage',
+      'listRatingAdminDestructiveOperationsPage',                'listRatingAdminDirectoryPage',
+      'listRatingAdminDishSuggestionsPage',                      'listRatingAdminInviteHistoryPage',
+      'listRatingAdminQueuePage',                                'listRatingAdminUserPointsPage',
+      'listRestaurantInvites',                                   'maintainAdminRestaurantQrPreparationFromBiteScoreUnclaim',
+      'maintainAdminUserDirectoryFromBiteScoreRestaurant',       'maintainAdminUserDirectoryFromDishEditProposal',
+      'maintainAdminUserDirectoryFromDishReport',                'maintainAdminUserDirectoryFromDishReview',
+      'maintainAdminUserDirectoryFromDuplicateRestaurantReport', 'maintainAdminUserDirectoryFromPublicReviewerProfile',
+      'maintainAdminUserDirectoryFromRestaurantAccount',         'maintainAdminUserDirectoryFromRestaurantClaimRequest',
+      'maintainAdminUserDirectoryFromRestaurantReport',          'maintainAdminUserDirectoryFromReviewFeedbackVote',
+      'maintainAdminUserDirectoryFromReviewReport',              'maintainAdminUserDirectoryFromUserProfile',
+      'maintainBiteSaverCouponOfferSearchIndex',                 'maintainBiteSaverDailySpecialSearchIndex',
+      'maintainBiteSaverRestaurantGeohash',                      'maintainBiteSaverRestaurantSearchIndex',
+      'maintainBiteScoreDishSearchIndex',                        'maintainBiteScoreDishSearchIndexFromAggregate',
+      'maintainBiteScoreRestaurantGeohash',                      'maintainBiteScoreRestaurantSearchIndex',
+      'maintainCustomerBiteScoreDishAggregate',                  'maintainCustomerBiteScoreFavoriteDish',
+      'maintainCustomerBiteScoreFavoriteRestaurant',             'maintainCustomerBiteScoreImage',
+      'maintainCustomerBiteScoreLinkedMenuImage',                'maintainCustomerBiteScoreLinkedMenuItem',
+      'maintainCustomerBiteScoreLinkedMenuSection',              'maintainCustomerBiteScoreMenuImage',
+      'maintainCustomerBiteScoreMenuItem',                       'maintainCustomerBiteScoreMenuSection',
+      'maintainCustomerBiteScoreReviewAggregate',                'maintainCustomerBiteScoreReviewFeedback',
+      'maintainCustomerBiteScoreSuggestionCatalog',              'maintainDishEditProposalPrivateState',
+      'markAdminRestaurantQrBatchPrepared',                      'markContributionPointLedgerEntriesCelebrated',
+      ... 60 more items
+    ],
+    expected: [
+      'acceptCustomerBiteScoreTerms',                             'advanceCustomerBiteScoreProfileList',
+      'advanceCustomerBiteScoreSearch',                           'applyRatingAdminDishSuggestionGroup',
+      'awardApprovedDishProposalContributionPoints',              'awardContributionPoints',
+      'awardCreatedDishContributionPoints',                       'awardDishImageContributionPoints',
+      'awardReviewMilestoneContributionPoints',                   'blockReviewer',
+      'claimBiteSaverSubscriptionReturnEvent',                    'cleanupAccountDeletionFinalizedImage',
+      'cleanupDeletedRestaurantCoupons',                          'completeCustomerBiteScoreRestaurantProvenance',
+      'continueCustomerBiteSaverGuestOfferCheck',                 'continueCustomerBiteScoreReviewAggregates',
+      'createBiteScoreRestaurantClaimInvite',                     'createCheckoutSession',
+      'createCouponRestaurantInvite',                             'createCustomerBiteScorePhoto',
+      'createCustomerPortalSession',                              'createSubscriptionCheckoutSession',
+      'getAccountDeletionStatus',                                 'getAdminPostingRestriction',
+      'getCustomerBiteSaverFavoriteStates',                       'getCustomerBiteSaverMenuPage',
+      'getCustomerBiteSaverOfferPage',                            'getCustomerBiteSaverSavedMenuPage',
+      'getCustomerBiteSaverSavedPage',                            'getCustomerBiteSaverSearchPage',
+      'getCustomerBiteSaverSearchStatus',                         'getCustomerBiteScoreDetail',
+      'getCustomerBiteScoreProfileListPage',                      'getCustomerBiteScoreProfileSummary',
+      'getCustomerBiteScoreSearchPage',                           'getCustomerBiteScoreSuggestions',
+      'getCustomerBiteScoreTerms',                                'getCustomerPostingStatus',
+      'getRatingDestructiveOperationStatus',                      'getReviewerSafetyStatus',
+      'issueCustomerBiteSaverDeviceUseChallenge',                 'issueMenuImageUploadAuthorization',
+      'listBiteSaverSubscriptionReturnEvents',                    'listCouponAdminCouponsPage',
+      'listCouponAdminInviteHistoryPage',                         'listCouponAdminQueuePage',
+      'listRatingAdminContributionLedgerPage',                    'listRatingAdminDestructiveOperationsPage',
+      'listRatingAdminDirectoryPage',                             'listRatingAdminDishSuggestionsPage',
+      'listRatingAdminInviteHistoryPage',                         'listRatingAdminQueuePage',
+      'listRatingAdminUserPointsPage',                            'listRestaurantInvites',
+      'maintainAdminRestaurantQrPreparationFromBiteScoreUnclaim', 'maintainAdminUserDirectoryFromBiteScoreRestaurant',
+      'maintainAdminUserDirectoryFromDishEditProposal',           'maintainAdminUserDirectoryFromDishReport',
+      'maintainAdminUserDirectoryFromDishReview',                 'maintainAdminUserDirectoryFromDuplicateRestaurantReport',
+      'maintainAdminUserDirectoryFromPublicReviewerProfile',      'maintainAdminUserDirectoryFromRestaurantAccount',
+      'maintainAdminUserDirectoryFromRestaurantClaimRequest',     'maintainAdminUserDirectoryFromRestaurantReport',
+      'maintainAdminUserDirectoryFromReviewFeedbackVote',         'maintainAdminUserDirectoryFromReviewReport',
+      'maintainAdminUserDirectoryFromUserProfile',                'maintainBiteSaverCouponOfferSearchIndex',
+      'maintainBiteSaverDailySpecialSearchIndex',                 'maintainBiteSaverRestaurantGeohash',
+      'maintainBiteSaverRestaurantSearchIndex',                   'maintainBiteScoreDishSearchIndex',
+      'maintainBiteScoreDishSearchIndexFromAggregate',            'maintainBiteScoreRestaurantGeohash',
+      'maintainBiteScoreRestaurantSearchIndex',                   'maintainCustomerBiteScoreDishAggregate',
+      'maintainCustomerBiteScoreFavoriteDish',                    'maintainCustomerBiteScoreFavoriteRestaurant',
+      'maintainCustomerBiteScoreImage',                           'maintainCustomerBiteScoreLinkedMenuImage',
+      'maintainCustomerBiteScoreLinkedMenuItem',                  'maintainCustomerBiteScoreLinkedMenuSection',
+      'maintainCustomerBiteScoreMenuImage',                       'maintainCustomerBiteScoreMenuItem',
+      'maintainCustomerBiteScoreMenuSection',                     'maintainCustomerBiteScoreReviewAggregate',
+      'maintainCustomerBiteScoreReviewFeedback',                  'maintainCustomerBiteScoreSuggestionCatalog',
+      'maintainDishEditProposalPrivateState',                     'markAdminRestaurantQrBatchPrepared',
+      'markContributionPointLedgerEntriesCelebrated',             'moderatePhotoReport',
+      'pageCustomerBiteScoreImages',                              'pageCustomerBiteScoreMenu',
+      'pageCustomerBiteScoreReviews',                             'prepareAdminRestaurantMailingLabelBatch',
+      'prepareAdminRestaurantQrBatch',                            'previewRestaurantInvite',
+      'processAccountDeletionRequests',                           'processDishProposalResolutionWork',
+      ... 46 more items
+    ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at functions/test/customer_bitesaver_runtime_wiring.test.js:530:1
+✖ approved BiteScore additions retain exact isolated runtime metadata (206.933167ms)
+  AssertionError [ERR_ASSERTION]: saveCustomerBiteScoreReview
+  + actual - expected
+  
+    {
+      availableMemoryMb: null,
+      callableTrigger: {},
+  +   concurrency: 2,
+  -   concurrency: null,
+      ingressSettings: null,
+      labels: {},
+  +   maxInstances: 2,
+  -   maxInstances: null,
+      minInstances: null,
+      platform: 'gcfv2',
+  +   secretEnvironmentVariables: [],
+      serviceAccountEmail: 'bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com',
+      timeoutSeconds: 60,
+      vpc: null
+    }
+  
+      at TestContext.<anonymous> (/Users/colesmart/dev/coupon_app/functions/test/customer_bitesaver_runtime_wiring.test.js:540:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: { availableMemoryMb: null, timeoutSeconds: 60, minInstances: null, maxInstances: 2, ingressSettings: null, concurrency: 2, serviceAccountEmail: 'bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com', vpc: null, platform: 'gcfv2', secretEnvironmentVariables: [], labels: {}, callableTrigger: {} },
+    expected: { availableMemoryMb: null, timeoutSeconds: 60, minInstances: null, maxInstances: null, ingressSettings: null, concurrency: null, serviceAccountEmail: 'bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com', vpc: null, platform: 'gcfv2', labels: {}, callableTrigger: {} },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at functions/test/customer_bitesaver_runtime_wiring.test.js:580:1
+✖ exactly eleven Admin-support callables pin their identity with exact per-function secret bindings (224.636792ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'listCouponAdminCouponsPage',
+      'listCouponAdminInviteHistoryPage',
+      'listCouponAdminQueuePage',
+      'listRatingAdminDestructiveOperationsPage',
+      'listRatingAdminDirectoryPage',
+  +   'listRatingAdminDishSuggestionsPage',
+      'listRatingAdminInviteHistoryPage',
+      'listRatingAdminQueuePage',
+      'searchAdminLinkRestaurantsPage',
+      'searchCouponAdminRestaurantsPage',
+      'searchRatingAdminRestaurantsPage',
+  
+      at TestContext.<anonymous> (/Users/colesmart/dev/coupon_app/functions/test/customer_bitesaver_runtime_wiring.test.js:582:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'listCouponAdminCouponsPage', 'listCouponAdminInviteHistoryPage', 'listCouponAdminQueuePage', 'listRatingAdminDestructiveOperationsPage', 'listRatingAdminDirectoryPage', 'listRatingAdminDishSuggestionsPage', 'listRatingAdminInviteHistoryPage', 'listRatingAdminQueuePage', 'searchAdminLinkRestaurantsPage', 'searchCouponAdminRestaurantsPage', 'searchRatingAdminRestaurantsPage', 'searchRatingAdminUsersPage' ],
+    expected: [ 'listCouponAdminCouponsPage', 'listCouponAdminInviteHistoryPage', 'listCouponAdminQueuePage', 'listRatingAdminDestructiveOperationsPage', 'listRatingAdminDirectoryPage', 'listRatingAdminInviteHistoryPage', 'listRatingAdminQueuePage', 'searchAdminLinkRestaurantsPage', 'searchCouponAdminRestaurantsPage', 'searchRatingAdminRestaurantsPage', 'searchRatingAdminUsersPage' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at functions/test/customer_bitesaver_runtime_wiring.test.js:676:1
+✖ device callable factories use trusted Firebase actors and isolated secrets (0.771333ms)
+  Error: The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.
+      at AppStore.getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:79:19)
+      at getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:222:36)
+      at getStorage (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/storage/index.js:49:32)
+      at Object.<anonymous> (/Users/colesmart/dev/coupon_app/functions/lib/index.js:1955:130)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10)
+      at Module.load (node:internal/modules/cjs/loader:1651:32)
+      at Module._load (node:internal/modules/cjs/loader:1443:12)
+      at Module.mockedLoad (/Users/colesmart/dev/coupon_app/functions/test/customer_bitesaver_runtime_wiring.test.js:385:29)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:261:19) {
+    errorInfo: { code: 'app/no-app', message: 'The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.' },
+    codePrefix: 'app'
+  }
+
+test at functions/test/customer_bitesaver_runtime_wiring.test.js:743:1
+✖ device callable failures are sanitized and never fall back to account-only writers (0.501417ms)
+  Error: The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.
+      at AppStore.getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:79:19)
+      at getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:222:36)
+      at getStorage (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/storage/index.js:49:32)
+      at Object.<anonymous> (/Users/colesmart/dev/coupon_app/functions/lib/index.js:1955:130)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10)
+      at Module.load (node:internal/modules/cjs/loader:1651:32)
+      at Module._load (node:internal/modules/cjs/loader:1443:12)
+      at Module.mockedLoad (/Users/colesmart/dev/coupon_app/functions/test/customer_bitesaver_runtime_wiring.test.js:385:29)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:261:19) {
+    errorInfo: { code: 'app/no-app', message: 'The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.' },
+    codePrefix: 'app'
+  }
+
+test at functions/test/customer_bitesaver_runtime_wiring.test.js:785:1
+✖ device callable quota failures expose only bounded retry guidance (0.432959ms)
+  Error: The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.
+      at AppStore.getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:79:19)
+      at getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:222:36)
+      at getStorage (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/storage/index.js:49:32)
+      at Object.<anonymous> (/Users/colesmart/dev/coupon_app/functions/lib/index.js:1955:130)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10)
+      at Module.load (node:internal/modules/cjs/loader:1651:32)
+      at Module._load (node:internal/modules/cjs/loader:1443:12)
+      at Module.mockedLoad (/Users/colesmart/dev/coupon_app/functions/test/customer_bitesaver_runtime_wiring.test.js:385:29)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:261:19) {
+    errorInfo: { code: 'app/no-app', message: 'The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.' },
+    codePrefix: 'app'
+  }
+
+test at functions/test/customer_bitesaver_runtime_wiring.test.js:816:1
+✖ challenge remains available without device, discovery, or identity secrets (0.3845ms)
+  Error: The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.
+      at AppStore.getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:79:19)
+      at getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:222:36)
+      at getStorage (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/storage/index.js:49:32)
+      at Object.<anonymous> (/Users/colesmart/dev/coupon_app/functions/lib/index.js:1955:130)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10)
+      at Module.load (node:internal/modules/cjs/loader:1651:32)
+      at Module._load (node:internal/modules/cjs/loader:1443:12)
+      at Module.mockedLoad (/Users/colesmart/dev/coupon_app/functions/test/customer_bitesaver_runtime_wiring.test.js:385:29)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:261:19) {
+    errorInfo: { code: 'app/no-app', message: 'The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.' },
+    codePrefix: 'app'
+  }
+
+test at functions/test/customer_bitesaver_runtime_wiring.test.js:835:1
+✖ callables route exact identity and only their required decoded keys (0.379583ms)
+  Error: The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.
+      at AppStore.getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:79:19)
+      at getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:222:36)
+      at getStorage (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/storage/index.js:49:32)
+      at Object.<anonymous> (/Users/colesmart/dev/coupon_app/functions/lib/index.js:1955:130)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10)
+      at Module.load (node:internal/modules/cjs/loader:1651:32)
+      at Module._load (node:internal/modules/cjs/loader:1443:12)
+      at Module.mockedLoad (/Users/colesmart/dev/coupon_app/functions/test/customer_bitesaver_runtime_wiring.test.js:385:29)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:261:19) {
+    errorInfo: { code: 'app/no-app', message: 'The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.' },
+    codePrefix: 'app'
+  }
+
+test at functions/test/customer_bitesaver_runtime_wiring.test.js:896:1
+✖ callables expose only contract failures and fix unexpected failures (0.436416ms)
+  Error: The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.
+      at AppStore.getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:79:19)
+      at getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:222:36)
+      at getStorage (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/storage/index.js:49:32)
+      at Object.<anonymous> (/Users/colesmart/dev/coupon_app/functions/lib/index.js:1955:130)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10)
+      at Module.load (node:internal/modules/cjs/loader:1651:32)
+      at Module._load (node:internal/modules/cjs/loader:1443:12)
+      at Module.mockedLoad (/Users/colesmart/dev/coupon_app/functions/test/customer_bitesaver_runtime_wiring.test.js:385:29)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:261:19) {
+    errorInfo: { code: 'app/no-app', message: 'The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.' },
+    codePrefix: 'app'
+  }
+
+test at functions/test/customer_bitesaver_runtime_wiring.test.js:950:1
+✖ private worker routes the job and propagates failures for retry (0.344375ms)
+  Error: The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.
+      at AppStore.getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:79:19)
+      at getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:222:36)
+      at getStorage (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/storage/index.js:49:32)
+      at Object.<anonymous> (/Users/colesmart/dev/coupon_app/functions/lib/index.js:1955:130)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10)
+      at Module.load (node:internal/modules/cjs/loader:1651:32)
+      at Module._load (node:internal/modules/cjs/loader:1443:12)
+      at Module.mockedLoad (/Users/colesmart/dev/coupon_app/functions/test/customer_bitesaver_runtime_wiring.test.js:385:29)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:261:19) {
+    errorInfo: { code: 'app/no-app', message: 'The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.' },
+    codePrefix: 'app'
+  }
+
+test at functions/test/customer_bitesaver_runtime_wiring.test.js:981:1
+✖ profile-use context uses the existing two-key public page callable and actual auth (0.605875ms)
+  Error: The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.
+      at AppStore.getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:79:19)
+      at getApp (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/app/lifecycle.js:222:36)
+      at getStorage (/Users/colesmart/dev/coupon_app/functions/node_modules/firebase-admin/lib/storage/index.js:49:32)
+      at Object.<anonymous> (/Users/colesmart/dev/coupon_app/functions/lib/index.js:1955:130)
+      at Module._compile (node:internal/modules/cjs/loader:1929:14)
+      at Object..js (node:internal/modules/cjs/loader:2060:10)
+      at Module.load (node:internal/modules/cjs/loader:1651:32)
+      at Module._load (node:internal/modules/cjs/loader:1443:12)
+      at Module.mockedLoad (/Users/colesmart/dev/coupon_app/functions/test/customer_bitesaver_runtime_wiring.test.js:385:29)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:261:19) {
+    errorInfo: { code: 'app/no-app', message: 'The default Firebase app does not exist. Make sure you call initializeApp() before using any of the Firebase services.' },
+    codePrefix: 'app'
+  }

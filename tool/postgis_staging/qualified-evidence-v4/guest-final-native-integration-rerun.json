@@ -1,0 +1,576 @@
+{
+  "syntheticOnly": true,
+  "projectId": "demo-bs-postgis-integration",
+  "sql": {
+    "host": "127.0.0.1",
+    "port": 55441,
+    "database": "bsgate0_integration",
+    "user": "bsgate0"
+  },
+  "epoch": "native-integration-v1",
+  "source": "actual Firestore maintenance + durable journal",
+  "membership": "actual PostgreSQL/PostGIS",
+  "delivery": "loopback HTTP, verified Auth emulator tokens, native handler protocols",
+  "fixture": {
+    "syntheticOnly": true,
+    "generator": "postgis_gate0.v1",
+    "counts": {
+      "biteSaver:restaurant": 35,
+      "biteSaver:offer": 60,
+      "biteScore:restaurant": 20,
+      "biteScore:dish": 40
+    },
+    "documentCount": 155,
+    "sourceCount": 155,
+    "fingerprint": "e108db774706867a08c798b945f0a3140d66a801f9166d03dfac61a131b7af0f",
+    "dimensions": {
+      "saverParents": 35,
+      "scoreParents": 20,
+      "offersPerRestaurant": 2,
+      "dishesPerRestaurant": 2,
+      "noOfferEvery": 7
+    }
+  },
+  "measurements": [
+    {
+      "operation": "saver-first-page",
+      "elapsedMs": 153.4798340000002,
+      "attempts": 1
+    },
+    {
+      "operation": "saver-second-page",
+      "elapsedMs": 67.07366699999966,
+      "attempts": 1
+    },
+    {
+      "operation": "guest-broad-first-challenge",
+      "elapsedMs": 46.9226249999997,
+      "attempts": 1
+    },
+    {
+      "operation": "signed-edited-page",
+      "elapsedMs": 55.475625000000036,
+      "attempts": 1
+    },
+    {
+      "operation": "signed-edited-offer-page",
+      "elapsedMs": 41.87437500000033,
+      "attempts": 1
+    },
+    {
+      "operation": "signed-current-usage-revocation",
+      "elapsedMs": 46.623875000000226,
+      "attempts": 1
+    },
+    {
+      "operation": "guest-edited-challenge",
+      "elapsedMs": 44.14241700000002,
+      "attempts": 1
+    },
+    {
+      "operation": "guest-history-challenge",
+      "elapsedMs": 54.37183300000015,
+      "attempts": 1
+    },
+    {
+      "operation": "guest-negative-race-challenge",
+      "elapsedMs": 41.67791599999964,
+      "attempts": 1
+    },
+    {
+      "operation": "withdrawn-offer-page",
+      "elapsedMs": 39.85237500000039,
+      "attempts": 1
+    },
+    {
+      "operation": "score-first-page",
+      "elapsedMs": 34.73570799999925,
+      "attempts": 1
+    },
+    {
+      "operation": "score-second-page",
+      "elapsedMs": 41.24083300000075,
+      "attempts": 1
+    },
+    {
+      "operation": "finder-first-page",
+      "elapsedMs": 25.88616699999966,
+      "attempts": 1
+    }
+  ],
+  "transportMeasurements": [
+    {
+      "endpoint": "startCustomerBiteSaverSearchV2",
+      "caller": "signed",
+      "status": 200,
+      "elapsedMs": 54.77445799999987,
+      "requestBytes": 317,
+      "responseBytes": 403
+    },
+    {
+      "endpoint": "getCustomerBiteSaverSearchPageV2",
+      "caller": "signed",
+      "status": 200,
+      "elapsedMs": 153.35599999999977,
+      "requestBytes": 379,
+      "responseBytes": 140705
+    },
+    {
+      "endpoint": "getCustomerBiteSaverSearchPageV2",
+      "caller": "signed",
+      "status": 200,
+      "elapsedMs": 67.01770899999974,
+      "requestBytes": 1802,
+      "responseBytes": 34628
+    },
+    {
+      "endpoint": "getCustomerBiteSaverMenuPage",
+      "caller": "signed",
+      "status": 200,
+      "elapsedMs": 21.54800000000023,
+      "requestBytes": 418,
+      "responseBytes": 294
+    },
+    {
+      "endpoint": "startCustomerBiteSaverSearchV2",
+      "caller": "guest",
+      "status": 401,
+      "elapsedMs": 1.048207999999704,
+      "requestBytes": 317,
+      "responseBytes": 74
+    },
+    {
+      "endpoint": "startCustomerBiteScoreSearchV2",
+      "caller": "guest",
+      "status": 400,
+      "elapsedMs": 0.6833750000000691,
+      "requestBytes": 55,
+      "responseBytes": 85
+    },
+    {
+      "endpoint": "startCustomerBiteSaverSearchV2",
+      "caller": "guest",
+      "status": 400,
+      "elapsedMs": 0.7157500000002983,
+      "requestBytes": 285,
+      "responseBytes": 82
+    },
+    {
+      "endpoint": "startCustomerBiteSaverSearchV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 27.295458999999937,
+      "requestBytes": 343,
+      "responseBytes": 403
+    },
+    {
+      "endpoint": "getCustomerBiteSaverSearchPageV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 46.8794170000001,
+      "requestBytes": 381,
+      "responseBytes": 2604
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 59.117959000000155,
+      "requestBytes": 2160,
+      "responseBytes": 2604
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 47.62166699999989,
+      "requestBytes": 2160,
+      "responseBytes": 2604
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 47.123375000000124,
+      "requestBytes": 2160,
+      "responseBytes": 2604
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 48.246250000000146,
+      "requestBytes": 2160,
+      "responseBytes": 2604
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 48.241333999999824,
+      "requestBytes": 2160,
+      "responseBytes": 2604
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 54.816375000000335,
+      "requestBytes": 2160,
+      "responseBytes": 2604
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 50.467375000000175,
+      "requestBytes": 2160,
+      "responseBytes": 2604
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 50.86541699999998,
+      "requestBytes": 2160,
+      "responseBytes": 2604
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 52.97054100000014,
+      "requestBytes": 2160,
+      "responseBytes": 2604
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 50.970208000000184,
+      "requestBytes": 2160,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 67.55195800000001,
+      "requestBytes": 2162,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 51.57075000000032,
+      "requestBytes": 2162,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 50.258790999999746,
+      "requestBytes": 2162,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 53.36200000000008,
+      "requestBytes": 2162,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 57.10224999999991,
+      "requestBytes": 2162,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 55.18362500000012,
+      "requestBytes": 2162,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 55.30529200000001,
+      "requestBytes": 2162,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 55.44066699999985,
+      "requestBytes": 2162,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 58.85408400000006,
+      "requestBytes": 2162,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 56.52316699999983,
+      "requestBytes": 2162,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 52.33970800000043,
+      "requestBytes": 2162,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 59.16558400000031,
+      "requestBytes": 2162,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 53.94616600000063,
+      "requestBytes": 2162,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 55.92895800000042,
+      "requestBytes": 2162,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 55.39249999999993,
+      "requestBytes": 2162,
+      "responseBytes": 2606
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 80.41558299999997,
+      "requestBytes": 2162,
+      "responseBytes": 143504
+    },
+    {
+      "endpoint": "startCustomerBiteSaverSearchV2",
+      "caller": "signed",
+      "status": 200,
+      "elapsedMs": 26.489666000000398,
+      "requestBytes": 323,
+      "responseBytes": 403
+    },
+    {
+      "endpoint": "getCustomerBiteSaverSearchPageV2",
+      "caller": "signed",
+      "status": 200,
+      "elapsedMs": 55.43254199999956,
+      "requestBytes": 379,
+      "responseBytes": 3842
+    },
+    {
+      "endpoint": "getCustomerBiteSaverOfferPageV2",
+      "caller": "signed",
+      "status": 200,
+      "elapsedMs": 41.844584000000395,
+      "requestBytes": 444,
+      "responseBytes": 3360
+    },
+    {
+      "endpoint": "getCustomerBiteSaverSearchPageV2",
+      "caller": "signed",
+      "status": 403,
+      "elapsedMs": 3.6052080000008573,
+      "requestBytes": 379,
+      "responseBytes": 72
+    },
+    {
+      "endpoint": "getCustomerBiteSaverSearchPageV2",
+      "caller": "signed",
+      "status": 200,
+      "elapsedMs": 46.596832999999606,
+      "requestBytes": 379,
+      "responseBytes": 765
+    },
+    {
+      "endpoint": "startCustomerBiteSaverSearchV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 25.009415999999874,
+      "requestBytes": 323,
+      "responseBytes": 403
+    },
+    {
+      "endpoint": "getCustomerBiteSaverSearchPageV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 44.082666999999674,
+      "requestBytes": 376,
+      "responseBytes": 2601
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 45.02283400000033,
+      "requestBytes": 2153,
+      "responseBytes": 4109
+    },
+    {
+      "endpoint": "getCustomerBiteSaverOfferPageV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 38.345124999999825,
+      "requestBytes": 441,
+      "responseBytes": 2650
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 36.25120799999968,
+      "requestBytes": 2207,
+      "responseBytes": 3622
+    },
+    {
+      "endpoint": "validateCustomerBiteSaverOfferRedemptionStart",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 43.4751669999996,
+      "requestBytes": 2471,
+      "responseBytes": 2664
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 37.246250000000146,
+      "requestBytes": 2215,
+      "responseBytes": 1240
+    },
+    {
+      "endpoint": "getCustomerBiteSaverSearchPageV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 54.30116700000053,
+      "requestBytes": 376,
+      "responseBytes": 2601
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 36.410791999999674,
+      "requestBytes": 2202,
+      "responseBytes": 1033
+    },
+    {
+      "endpoint": "getCustomerBiteSaverSearchPageV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 41.61637500000052,
+      "requestBytes": 376,
+      "responseBytes": 2601
+    },
+    {
+      "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 24.001209000000017,
+      "requestBytes": 2153,
+      "responseBytes": 253
+    },
+    {
+      "endpoint": "validateCustomerBiteSaverOfferRedemptionStart",
+      "caller": "guest",
+      "status": 200,
+      "elapsedMs": 30.219333999999435,
+      "requestBytes": 2483,
+      "responseBytes": 1181
+    },
+    {
+      "endpoint": "startCustomerBiteSaverSearchV2",
+      "caller": "signed",
+      "status": 200,
+      "elapsedMs": 26.112291999999798,
+      "requestBytes": 323,
+      "responseBytes": 403
+    },
+    {
+      "endpoint": "getCustomerBiteSaverSearchPageV2",
+      "caller": "signed",
+      "status": 200,
+      "elapsedMs": 39.7963749999999,
+      "requestBytes": 379,
+      "responseBytes": 765
+    },
+    {
+      "endpoint": "startCustomerBiteScoreSearchV2",
+      "caller": "signed",
+      "status": 200,
+      "elapsedMs": 26.16362500000014,
+      "requestBytes": 268,
+      "responseBytes": 304
+    },
+    {
+      "endpoint": "getCustomerBiteScoreSearchPageV2",
+      "caller": "signed",
+      "status": 200,
+      "elapsedMs": 34.53137499999957,
+      "requestBytes": 261,
+      "responseBytes": 58059
+    },
+    {
+      "endpoint": "getCustomerBiteScoreSearchPageV2",
+      "caller": "signed",
+      "status": 200,
+      "elapsedMs": 41.03595800000039,
+      "requestBytes": 978,
+      "responseBytes": 34483
+    },
+    {
+      "endpoint": "startCustomerBiteScoreSearchV2",
+      "caller": "signed",
+      "status": 200,
+      "elapsedMs": 24.563124999999673,
+      "requestBytes": 266,
+      "responseBytes": 303
+    },
+    {
+      "endpoint": "getCustomerBiteScoreSearchPageV2",
+      "caller": "signed",
+      "status": 200,
+      "elapsedMs": 25.806624999999258,
+      "requestBytes": 261,
+      "responseBytes": 6824
+    }
+  ],
+  "privateCanaryExcluded": true
+}

@@ -1,5 +1,23 @@
 # BiteStar PostGIS staging preparation
 
+## Current continuation — 2026-10-17 readiness finish 002
+
+The source-only continuation is recorded in `READINESS-FINISH-002.md` and the
+explicit v4 candidate/readiness manifests. It adds secure hosted connection and
+transport source, controller/watchdog provider adapters, independent snapshot
+storage, reproducible Linux build source and measured guest improvements. Read
+`HOSTED-ADAPTER.md`, `PROVIDER-GATE1.md` and `DURABLE-SNAPSHOTS.md` for their exact
+execution boundaries and future hosted checks. No cloud execution is authorized.
+
+The original v3 Gate0 PASS and its frozen evidence remain unchanged. The section
+below describes that preceding checkpoint; its statements that hosted adapters are
+missing are dated history, superseded only by the new source/test evidence.
+`scripts/price_worksheet.py` preserves October2 arithmetic. The current public-rate
+worksheet is `scripts/price_worksheet_20261017.py`, with dated links and assumptions
+in `pricing-2026-10-17.json`. Neither worksheet authorizes spending.
+
+## Preceding Gate0 checkpoint — preserved description
+
 This is the source-only package for `BS-BITESTAR-POSTGIS-INTEGRATION-GATE0-001`.
 It cannot provision, deploy, load, delete or change a cloud resource. No run ledger,
 billable start time or 72-hour deadline has been created for a real staging run.

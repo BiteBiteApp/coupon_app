@@ -19,6 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // -> Firestore emulator + real PostGIS. No response fixtures or fake provider.
 const _url = String.fromEnvironment('BS_POSTGIS_HTTP_URL');
 const _evidencePath = String.fromEnvironment('BS_POSTGIS_UI_EVIDENCE');
+const _samples = int.fromEnvironment('BS_POSTGIS_UI_SAMPLES', defaultValue: 3);
 
 class _RealHttpOverrides extends HttpOverrides {}
 
@@ -41,6 +42,8 @@ void main() {
   final batch = DateTime.now().microsecondsSinceEpoch.toString();
   var calls = 0;
   var errors = 0;
+  final callTimings = <Map<String, Object?>>[];
+  final delayTimings = <Map<String, Object?>>[];
   Future<Map<String, dynamic>> post(
     Uri uri,
     Object body, {
@@ -71,18 +74,36 @@ void main() {
     bool signed = false,
   }) async {
     calls++;
-    final response = await post(Uri.parse('$_url/$name'), {
-      'data': data,
-    }, signed: signed);
-    if (response['error'] case final Map error) {
+    final watch = Stopwatch()..start();
+    final timing = <String, Object?>{'endpoint': name, 'sequence': calls};
+    callTimings.add(timing);
+    try {
+      final response = await post(Uri.parse('$_url/$name'), {
+        'data': data,
+      }, signed: signed);
+      if (response['error'] case final Map error) {
+        timing['errorCode'] = error['status'];
+        throw CustomerBiteSaverCallableTransportException(
+          code: (error['status'] as String).toLowerCase().replaceAll('_', '-'),
+          message: error['message'] as String,
+        );
+      }
+      final result = response['result'];
+      timing['status'] = 'success';
+      if (result is Map) {
+        timing['challengeCandidates'] = result['candidates'] is List
+            ? (result['candidates'] as List).length
+            : 0;
+      }
+      return result;
+    } catch (_) {
       errors++;
-      throw CustomerBiteSaverCallableTransportException(
-        code: (error['status'] as String).toLowerCase().replaceAll('_', '-'),
-        message: error['message'] as String,
-      );
+      timing['status'] = 'failure';
+      rethrow;
+    } finally {
+      watch.stop();
+      timing['milliseconds'] = watch.elapsedMicroseconds / 1000;
     }
-    final result = response['result'];
-    return result;
   }
 
   setUp(() {
@@ -109,11 +130,14 @@ void main() {
       );
     }
   });
-  Future<void> initialize(WidgetTester tester) async {
-    if (http != null) return;
+  Future<void> initialize(
+    WidgetTester tester, {
+    bool freshAccount = false,
+  }) async {
+    if (http != null && !freshAccount) return;
     await tester.runAsync(() async {
       networkZone = Zone.current;
-      http = HttpOverrides.runWithHttpOverrides(
+      http ??= HttpOverrides.runWithHttpOverrides(
         () => HttpClient(),
         _RealHttpOverrides(),
       );
@@ -152,7 +176,7 @@ void main() {
   Future<void> untilUseful(WidgetTester tester, Finder useful) async {
     for (
       var attempt = 0;
-      attempt < 200 && useful.evaluate().isEmpty;
+      attempt < 750 && useful.evaluate().isEmpty;
       attempt++
     ) {
       await tester.runAsync(
@@ -172,7 +196,33 @@ void main() {
     expect(tester.takeException(), isNull);
   }
 
-  void record(String flow, Stopwatch watch, int run) {
+  void resetObservation() {
+    calls = 0;
+    errors = 0;
+    callTimings.clear();
+    delayTimings.clear();
+  }
+
+  Future<void> observedDelay(Duration duration) async {
+    final watch = Stopwatch()..start();
+    try {
+      await Future<void>.delayed(duration);
+    } finally {
+      watch.stop();
+      delayTimings.add({
+        'requestedMilliseconds': duration.inMicroseconds / 1000,
+        'milliseconds': watch.elapsedMicroseconds / 1000,
+      });
+    }
+  }
+
+  void record(
+    String flow,
+    Stopwatch watch,
+    int run, {
+    String status = 'success',
+    int? usefulCards,
+  }) {
     watch.stop();
     observations.add({
       'flow': flow,
@@ -181,6 +231,10 @@ void main() {
       'httpCalls': calls,
       'errors': errors,
       'phase': run == 0 ? 'first-observation' : 'warm-observation',
+      'status': status,
+      'usefulCards': usefulCards,
+      'calls': List<Map<String, Object?>>.from(callTimings),
+      'clientDelays': List<Map<String, Object?>>.from(delayTimings),
     });
   }
 
@@ -192,9 +246,12 @@ void main() {
         tester.view.physicalSize = const Size(1000, 1600);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
-        for (var run = 0; run < 3; run++) {
-          calls = 0;
-          errors = 0;
+        final failures = <int>[];
+        for (var run = 0; run < _samples; run++) {
+          // Independent equivalent empty-history actors avoid changing the
+          // existing six-starts/minute signed admission limit during sampling.
+          if (signed) await initialize(tester, freshAccount: true);
+          resetObservation();
           SharedLocationStateService.resetForTesting();
           location();
           final auth = signed
@@ -213,42 +270,68 @@ void main() {
                 'gate0-ui-client-${signed ? 'signed' : 'guest'}-$run-$batch',
             initialAuth: auth,
             authSnapshotProvider: () => auth,
+            delay: observedDelay,
           );
           final watch = Stopwatch()..start();
-          await tester.pumpWidget(
-            MaterialApp(
-              home: CustomerBiteSaverBrowseScreen(
-                coordinator: coordinator,
-                timeContextProvider: () async =>
-                    const CustomerBiteSaverTimeContext(
-                      timeZone: 'America/New_York',
-                      utcOffsetMinutes: -240,
-                    ),
-                onAction: (_, selection) async {
-                  expect(selection.isCurrent, isTrue);
-                  return const CustomerBiteSaverBrowseActionResult();
-                },
-                locationRestoreLoader: () async => SharedLocationRestoreResult(
-                  state: SharedLocationStateService.state,
+          var status = 'failure';
+          try {
+            await tester.pumpWidget(
+              MaterialApp(
+                home: CustomerBiteSaverBrowseScreen(
+                  coordinator: coordinator,
+                  timeContextProvider: () async =>
+                      const CustomerBiteSaverTimeContext(
+                        timeZone: 'America/New_York',
+                        utcOffsetMinutes: -240,
+                      ),
+                  onAction: (_, selection) async {
+                    expect(selection.isCurrent, isTrue);
+                    return const CustomerBiteSaverBrowseActionResult();
+                  },
+                  locationRestoreLoader: () async =>
+                      SharedLocationRestoreResult(
+                        state: SharedLocationStateService.state,
+                      ),
                 ),
               ),
-            ),
-          );
-          await untilUseful(
-            tester,
-            find.textContaining('Synthetic noodle offer', findRichText: true),
-          );
-          expect(coordinator.restaurants, isNotEmpty);
-          expect(coordinator.restaurants.first.offers, isNotEmpty);
-          expect(
-            coordinator.restaurants.first.restaurantId.value,
-            startsWith('bsr_'),
-          );
-          expect(coordinator.error, isNull);
-          record(signed ? 'bitesaver-signed' : 'bitesaver-guest', watch, run);
-          await tester.pumpWidget(const SizedBox());
-          await tester.pump();
+            );
+            await untilUseful(
+              tester,
+              find.textContaining('Synthetic noodle offer', findRichText: true),
+            );
+            expect(coordinator.restaurants, hasLength(25));
+            expect(
+              coordinator.restaurants.every(
+                (restaurant) => restaurant.offers.isNotEmpty,
+              ),
+              isTrue,
+            );
+            expect(coordinator.restaurants.first.offers, isNotEmpty);
+            expect(
+              coordinator.restaurants.first.restaurantId.value,
+              startsWith('bsr_'),
+            );
+            expect(coordinator.error, isNull);
+            status = 'success';
+          } catch (_) {
+            failures.add(run);
+          } finally {
+            record(
+              signed ? 'bitesaver-signed' : 'bitesaver-guest',
+              watch,
+              run,
+              status: status,
+              usefulCards: coordinator.restaurants.length,
+            );
+            await tester.pumpWidget(const SizedBox());
+            await tester.pump();
+          }
         }
+        expect(
+          failures,
+          isEmpty,
+          reason: 'Every attempted sample is retained in evidence.',
+        );
       },
       skip: _url.isEmpty,
     );
@@ -262,8 +345,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     for (var run = 0; run < 3; run++) {
-      calls = 0;
-      errors = 0;
+      resetObservation();
       SharedLocationStateService.resetForTesting();
       location();
       final api = CustomerBiteScoreSearchService(transport: invoke);
@@ -295,8 +377,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       for (var run = 0; run < 3; run++) {
-        calls = 0;
-        errors = 0;
+        resetObservation();
         final api = CustomerBiteScoreSearchService(transport: invoke);
         await tester.pumpWidget(
           MaterialApp(

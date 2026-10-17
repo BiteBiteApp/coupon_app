@@ -1,0 +1,27 @@
+✔ construction and missing/forged approval are inert; production/mismatched config refused (2.434792ms)
+✔ immutable generation-pinned chunks round-trip beyond500 rows; retry is identical (34.037041ms)
+✔ lost upload acknowledgements reconcile verified bytes and do not duplicate (14.312292ms)
+✔ interrupted upload never publishes completeness and resumes create-if-absent (15.271416ms)
+✔ missing chunk rejects recovery evidence (13.139792ms)
+✔ corrupt chunk rejects recovery evidence (15.155375ms)
+✔ generation chunk rejects recovery evidence (13.433667ms)
+✔ metadata chunk rejects recovery evidence (11.439708ms)
+✔ terminal generation replacement/removal after pin is rejected even for identical bytes (12.174ms)
+✔ conflicting create cannot overwrite previously durable rows (14.177625ms)
+✔ permission and timeout failures are not absence; bucket incarnation/scope and expiry fail closed (0.511ms)
+✔ unverified source and storage overflow never produce a terminal manifest (10.510625ms)
+✔ empty complete snapshot retains fence and validates without data objects (2.091042ms)
+✔ malformed provider JSON and transport errors never expose response fragments (0.427625ms)
+✔ hosted streaming export uses branded approved SQL and no filesystem; restore binds exact store and ID (19.595958ms)
+✔ real Firestore bootstrap survives SQL loss via local-files, bounded resume and post-snapshot replay (5344.946458ms)
+ℹ Qualified 546 real projection rows; recovery evidence /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-READINESS-FINISH-002-20261017/recovery-snapshot-uelDdT/qualification.json
+✔ real Firestore bootstrap survives SQL loss via simulated-gcs-json-api, bounded resume and post-snapshot replay (5139.296167ms)
+ℹ Qualified 546 real projection rows; recovery evidence /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-READINESS-FINISH-002-20261017/recovery-snapshot-qvA0O2/qualification.json
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10754.481542

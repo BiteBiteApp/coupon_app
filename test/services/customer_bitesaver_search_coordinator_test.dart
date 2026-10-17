@@ -3942,13 +3942,119 @@ void main() {
     expect(api.restaurantPageRequests, hasLength(1));
     expect(api.continuationRequests, hasLength(challengeCount));
     expect(delayCalls, hasLength(greaterThanOrEqualTo(6)));
-    expect(delayCalls, everyElement(harness.coordinator.guestRetryDelay));
+    expect(
+      delayCalls,
+      everyElement(
+        predicate<Duration>(
+          (delay) =>
+              delay > Duration.zero &&
+              delay <= harness.coordinator.guestRetryDelay,
+        ),
+      ),
+    );
     expect(
       harness.coordinator.status,
       CustomerBiteSaverCoordinatorStatus.ready,
     );
     expect(harness.coordinator.restaurantPager!.error, isNull);
   });
+
+  test(
+    'fast guest burst keeps its minimum window with a fixed wall clock',
+    () async {
+      final api = _FakeApi();
+      api.onStart = (_) async => _startResponse();
+      api.onRestaurantPage = (_) async => _guestRestaurantResponse(
+        _map(_guestResponses['restaurantChallenge']),
+      );
+      api.onContinuation = (_) async => _guestContinuationResponse(
+        _map(_guestResponses['restaurantComplete']),
+      );
+      final harness = _Harness(
+        api: api,
+        auth: const CustomerBiteSaverAuthSnapshot.signedOut(),
+        maximumGuestProtocolSteps: 1,
+        delay: Future<void>.delayed,
+      );
+      addTearDown(harness.dispose);
+      final wallClock = harness.now;
+      final elapsed = Stopwatch()..start();
+
+      await harness.coordinator.startSearch(_criteria());
+
+      expect(harness.now, wallClock);
+      expect(
+        elapsed.elapsed,
+        greaterThanOrEqualTo(harness.coordinator.guestRetryDelay),
+      );
+      expect(api.continuationRequests, hasLength(1));
+      expect(
+        harness.coordinator.status,
+        CustomerBiteSaverCoordinatorStatus.ready,
+      );
+    },
+  );
+
+  test(
+    'slow successful guest work keeps a yield without extra retry sleep',
+    () async {
+      final api = _FakeApi();
+      final delays = <Duration>[];
+      api.onStart = (_) async => _startResponse();
+      api.onRestaurantPage = (_) async {
+        // Real elapsed I/O already consumes the existing pacing window.
+        await Future<void>.delayed(const Duration(milliseconds: 270));
+        return _guestRestaurantResponse(
+          _map(_guestResponses['restaurantChallenge']),
+        );
+      };
+      api.onContinuation = (_) async => _guestContinuationResponse(
+        _map(_guestResponses['restaurantComplete']),
+      );
+      final harness = _Harness(
+        api: api,
+        auth: const CustomerBiteSaverAuthSnapshot.signedOut(),
+        maximumGuestProtocolSteps: 1,
+        delay: (duration) async => delays.add(duration),
+      );
+      addTearDown(harness.dispose);
+
+      await harness.coordinator.startSearch(_criteria());
+
+      expect(delays, [Duration.zero]);
+      expect(api.continuationRequests, hasLength(1));
+      expect(
+        harness.coordinator.status,
+        CustomerBiteSaverCoordinatorStatus.ready,
+      );
+    },
+  );
+
+  test(
+    'account switch during successful guest yield prevents continuation',
+    () async {
+      final api = _FakeApi();
+      api.onStart = (_) async => _startResponse();
+      api.onRestaurantPage = (_) async => _guestRestaurantResponse(
+        _map(_guestResponses['restaurantChallenge']),
+      );
+      late final _Harness harness;
+      harness = _Harness(
+        api: api,
+        auth: const CustomerBiteSaverAuthSnapshot.signedOut(),
+        maximumGuestProtocolSteps: 1,
+        delay: (_) async => harness.coordinator.updateAuth(
+          const CustomerBiteSaverAuthSnapshot.signed('changed-account'),
+        ),
+      );
+      addTearDown(harness.dispose);
+
+      await harness.coordinator.startSearch(_criteria());
+
+      expect(api.continuationRequests, isEmpty);
+      expect(harness.coordinator.restaurants, isEmpty);
+    },
+  );
 
   test(
     'server original-operation retry is paced and gets a new transport ID',

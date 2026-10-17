@@ -1,0 +1,120 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-READINESS-FINISH-002",
+  "track": "B secure hosted adapter and Linux preparation",
+  "recordedAt": "2026-10-17T19:13:46.164668+00:00",
+  "expectedStartingHead": "3738a8195df4990561d3872ac60003aa7a839d27",
+  "currentHead": "3738a8195df4990561d3872ac60003aa7a839d27",
+  "sourceOnly": true,
+  "cloudCalls": false,
+  "productionChanges": false,
+  "commitsByThisAgent": false,
+  "build": {
+    "status": "PASS",
+    "runtime": "Node24.21.0 retained exact macOS arm64 binary",
+    "log": "track-b/build.v2.log"
+  },
+  "tests": {
+    "offlineInjectedAndLoopbackHttp": {
+      "pass": 30,
+      "fail": 0,
+      "skip": 0,
+      "log": "track-b/contracts.v2.log"
+    },
+    "actualFirestoreSoleWriterJobChain": {
+      "pass": 1,
+      "fail": 0,
+      "skip": 0,
+      "log": "track-b/source-job-emulator.log",
+      "scope": "fresh demo-bs-postgis-hosted-* project on explicit loopback8088; native raw->projection/journal pipeline, same-ID edit, tombstone, hidden parent, interruption, different-pending-batch rejection, replay and finite enrollment"
+    },
+    "independentController": {
+      "pass": 29,
+      "fail": 0,
+      "log": "track-b/controller-independent-tests.v2.log"
+    }
+  },
+  "dependencyInstallation": {
+    "command": "npm ci --ignore-scripts --no-audit --no-fund --prefix functions",
+    "exitCode": 0,
+    "installationNode": "v26.3.0",
+    "npm": "11.16.0",
+    "engineWarning": "Project targets24; installation scripts disabled. Actual source builds and tests ran retained Node24.21.0. Linux package build remains unexecuted.",
+    "connector": "@google-cloud/cloud-sql-connector1.12.1 exact pin",
+    "preexistingPackageVersionOrIntegrityChanges": [],
+    "originalLockEntriesPreserved": 608,
+    "newPackageEntries": 33
+  },
+  "files": {
+    "functions/package.json": "6aecae564bc3cef4dbbeca25991a8634b857baa365378f2fc2cd311dc1e7b7e9",
+    "functions/package-lock.json": "062a0dd70d51553e6346df95eb86429f10f8be7c9b33ad2a7d8c4f0f7d806ab7",
+    "functions/src/postgis_cloudsql.ts": "299c6645ef5beaddc682adae9197cc647b8309dbabdfc9455e72517cf50273fa",
+    "functions/src/postgis_execution_approval.ts": "3efec64518f5a89799e0ed1aa283ded06aed66b021e4690bfe4a0fdd0ea4cb9f",
+    "functions/src/postgis_hosted_entrypoint.ts": "210755b379629372ddf93a063a1eb8e1ee315bf56fdee8d0f8604e0d62e4a0a4",
+    "functions/src/postgis_hosted_job_entrypoint.ts": "1ad37ffa64d8687843c5b921ee425c750cf49c5502b4f3ab9686bc4735f84c8a",
+    "functions/src/postgis_hosted_jobs.ts": "0cf285d55a60d24982e635f56abd7ec036e0b78e752e7b4eb4526131c3aee245",
+    "functions/src/postgis_hosted_runtime.ts": "161c6b0ba7bd78cf5df18c0560cd7295870849274b140250a6bd8e00c7b728d3",
+    "functions/src/postgis_hosted_transport.ts": "dbf0baa98657914e88ab828e8c1da96cb7d4b6969c120906a5ba8cc350f78e47",
+    "functions/test/postgis_cloudsql.test.cjs": "294da67e7a298e70dade07bfc79fb1d5ae728a0542103adac2fa4e1c6bc0c026",
+    "functions/test/postgis_execution_approval.test.cjs": "bf0d0f7f70c46e38a70f0492c2d8bad646aeab80f6c8c6042bd07d6ab188aab9",
+    "functions/test/postgis_hosted_entrypoint.test.cjs": "76ae14d5206b1fd72f0d9ae03abc425886e65a351fa4c3123bef30f03578a866",
+    "functions/test/postgis_hosted_jobs_emulator.test.cjs": "1f54970c767a2e8aed0e02c099f230f00cb92ee61adbc8e0a085d2782514876c",
+    "functions/test/postgis_hosted_transport.test.cjs": "ec2bdcc64ec1cc653ab50e4c7c7e4cf69c17edfd35707a44a4de79979ebd0769",
+    "tool/postgis_staging/verify-approval.cjs": "3564fb6779cb33d7f91a332110ff4d43a4c7b1a15007da6a3ad87cb3f899b99e",
+    "tool/postgis_staging/HOSTED-ADAPTER.md": "ee6264e77c198e70be6684dcdf1ebb09f61f789c9dd267e3870b24a7ed2cdb5b",
+    "tool/postgis_staging/hosted/README.md": "bf053b8d7f529101fa7552ba8841d952b76c53446a23829c2d8f7e001d2e4bf7",
+    "tool/postgis_staging/hosted/hosted.example.json": "37d1d4358fd70613d415afb35c4813af48ebbe93577a174403d27aed6074d2f4",
+    "tool/postgis_staging/hosted/render-job.cjs": "5c536e9d0aa72becc7425d5a0061baf4dd2484a25fe89e6d3e7f2e27d4a44193",
+    "tool/postgis_staging/hosted/render-service.cjs": "17fc441f4dc52c59426d08a8fe050ade64275fd256b8b2c4e4f5cfc0648d5f70",
+    "tool/postgis_staging/linux/Dockerfile": "bb569df458e399960202c932ee2099e3c14c6d4adab011cd26544d253d8f4bd3",
+    "tool/postgis_staging/linux/README.md": "4ec46d2afd7e57a6263b0bfeaadf0b915c1727fb5b443822965cff3322ba540a",
+    "tool/postgis_staging/linux/numerical-diagnostics.cjs": "21e2465db0ae227126c4864180ebeed8dc495ddccebe5c68de7e8319c17f8147",
+    "tool/postgis_staging/linux/runtime-source.json": "1154d8aac54305233944ca7158c44e7c2d01310d37e742cbebbcc2b214f44bae"
+  },
+  "linux": {
+    "status": "SOURCE_PREPARED_EXECUTION_UNVERIFIED",
+    "engineDiscovery": "No docker/podman/limactl/colima/qemu-system-aarch64/multipass binaries or common Docker/PodmanDesktop/UTM/OrbStack app installations",
+    "baseImage": "node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd",
+    "builtOrRun": false,
+    "runtimeGuardChanged": false,
+    "buildPythonImage": "python:3.12.13-slim-bookworm@sha256:6e13e65c55e33adf203d77ee371cf8bf5d81bd4902ef07565721f46bf44917af",
+    "pythonContractTestsSkippable": false,
+    "buildDependencyFiles": {
+      "tool/postgis_staging/scripts/guard.py": "35727623fdb0caeec1666e672cd684785a60288d2837f0cf898d6e11dd32eb6d",
+      "tool/postgis_staging/scripts/cloud_provider.py": "8f6cbb4cd5f6dcff35a253d63f8f882bf5ac1aa847b8810704876c45c962ef93"
+    }
+  },
+  "limits": [
+    "No actual CloudSQL IAM/TLS/private route/refresh execution",
+    "No Linux numerical/runtime/realSQL/rendered qualification",
+    "Limited controlled synthetic Gate1 jobs only; source trigger factory optional and not deployed",
+    "No real signing key, approved project, credentials, secret payload, resources or paid timer initialized",
+    "Native SDK requests not claimed cancelled at HTTP timeout; four admission slots remain held until settlement"
+  ],
+  "resolvedFindings": [
+    "Canonical numeric-looking object keys must serialize lexically across Node/Python",
+    "CloudSQL must snapshot config before connector await",
+    "Hosted descriptor labels align with controller, and omit self-referential config-digest annotation",
+    "HTTP response deadline and shutdown bounded; late work cannot cause unlimited replacement admission",
+    "Different synthetic mutation blocked while failed batch pending; only exact replay allowed",
+    "Linux build must include pinned Python and exact guard/provider modules; cross-language tests fail if Python is missing",
+    "Delayed job start must verify signed execute approval covers full600s platform lifetime before opening keys, credentials or connections"
+  ],
+  "priorReceipt": "track-b/source-qualified.json",
+  "independentReview": {
+    "status": "PASS_FOR_SOURCE_AND_LOCAL_CONTRACTS",
+    "reviewReceipts": {
+      "track-a-independent-hosted-jobs-review.json": "209b30a32eae1c40fdd8d3990f1a54f1391a07a83bd7777f40c3523c94ce352c",
+      "track-c/track-b-independent-review.v2.json": "7cdc2e822160db53dcbd16b872be68cfaeff666d62bd71d21ae344488622d1d0"
+    },
+    "controllerReceipt": "track-b/controller-independent-review.v2.json",
+    "unresolvedMaterialSourceFindings": []
+  },
+  "qualification": "Source prepared, locally tested and independently reviewed; Linux and managed hosted execution unverified. No deployment or activation.",
+  "evidenceSha256": {
+    "track-b/build.v2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "track-b/contracts.v2.log": "c0fcc11b629b9a20cd6330157a52a184d9b6bb1415e457d8c95529acd93efbd8",
+    "track-b/source-job-emulator.log": "9441bf2d72a8b9afc9e119241746d750ab81ba23967a5ad3838c0ec707a2583c",
+    "track-b/controller-independent-tests.v2.log": "b43fde4e986f1e23ecb0582e7e8d30ce1e8ab9e4cec5e3e66f3d5f064cc578af",
+    "track-b/controller-independent-review.v2.json": "f93b548b5541a70f65883eae652542720f788d7c216c6030caa79764c310c6b3"
+  }
+}
