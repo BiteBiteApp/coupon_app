@@ -1,0 +1,161 @@
+BiteStar Privacy Policy
+
+Effective date: On first public publication.
+
+BiteStar is owned and operated by ColeSmart LLC ("ColeSmart," "we," "us," or "our").
+
+We respect your privacy. This Privacy Policy explains what information BiteStar collects, why we use it, when it may be shared, and what choices you have regarding your information.
+
+Information We Collect
+
+Account Information
+
+When you create an account, we may collect your email address, phone number, username, display name, authentication information, and account preferences, depending on how you register or sign in.
+
+When Terms acceptance is enabled, we record the Terms version you accept and the acceptance time against your account. The same acceptance applies when that account uses customer and restaurant-owner features.
+
+Certain publicly available features may be accessible without creating a registered account.
+
+Restaurant and Business Information
+
+Restaurant owners and authorized representatives may provide restaurant names, addresses, contact details, business hours, menus, photographs, coupons, Daily Specials, and other information needed to display and manage their restaurants.
+
+We may maintain application status, ownership-verification information, subscription status, and related business records.
+
+Ratings, Reviews, and Photographs
+
+When you participate in dish ratings, we may collect your ratings, written reviews, photographs, suggested edits, reports, and other contributions.
+
+Some contributions may be publicly visible, along with your public display name, profile information, badges, or other permitted public contributions.
+
+Location Information
+
+BiteStar uses location information to help users discover restaurants, coupons, Daily Specials, and dishes.
+
+You may enter a city, ZIP code, or another supported search location.
+
+BiteStar may save your last entered ZIP code or location preference on your device. Entered locations and permitted device coordinates may also be supplied to platform geocoding services. Features using server-based search send relevant location and search criteria to BiteStar's service providers.
+
+If you grant location permission, BiteStar may process device-location coordinates to provide nearby results or evaluate location-dependent features.
+
+You can manage location permissions through your device settings.
+
+Device and Technical Information
+
+We may process device or installation identifiers, app version, technical error information, security-verification signals, and information associated with coupon usage or other activity as needed to operate and protect BiteStar.
+
+Certain preferences, saved activity, and feature-related information may be stored on your device.
+
+Guest browsing does not require an age answer. Guest use can still involve local preferences and identifiers, network requests, and processing by the services described in this Policy. Where device-based coupon verification is enabled, platform security evidence and coupon-use identifiers are sent to BiteStar to enforce usage limits and prevent abuse.
+
+Subscription and Payment Information
+
+Restaurant-owner subscriptions are processed through the applicable payment provider, currently Stripe.
+
+BiteStar may receive and retain subscription-status, transaction-reference, and billing-related information needed to manage service access, reconcile transactions, and fulfill legal obligations.
+
+How We Use Information
+
+We use information to operate restaurant discovery, coupons, Daily Specials, dish ratings and reviews; authenticate accounts; display permitted public contributions; manage restaurant-owner subscriptions; enforce coupon-use restrictions; provide support; prevent fraud and misuse; maintain reliability; and comply with applicable law.
+
+We may send necessary account-verification, password-recovery, service, and support communications.
+
+Public Contributions
+
+Dish ratings, reviews, photographs, public profiles, and other submitted content may be displayed to other users.
+
+Please avoid posting private information about yourself or other people.
+
+Reports and moderation decisions may affect whether particular contributions remain publicly visible.
+
+Sharing Information
+
+ColeSmart LLC does not sell personal information.
+
+Information may be made available when necessary:
+
+• To display contributions intentionally made public.
+• To service providers supporting authentication, cloud hosting, data storage, technical operations, and subscription processing.
+• To comply with applicable law or respond to lawful requests.
+• To protect the service, investigate misuse, or address security issues.
+• In connection with a legitimate business transition, subject to applicable legal requirements.
+
+Service providers may include Google/Firebase for authentication, hosting, storage and service operations; Stripe for subscription payments; and Apple or Google platform services for location, geocoding and device-security verification where used.
+
+When written-review screening is enabled, BiteStar sends your submitted headline and written notes to OpenAI's Moderation service. We do not attach your account profile, email, payment information or photographs to that text-screening request; personal information you include in your own words is part of the submitted text.
+
+When photograph screening is enabled, BiteStar sends submitted customer and restaurant-owner photographs to Google Cloud Vision to help identify inappropriate content. Authorized BiteStar administrators may privately review held words and photographs. Screening does not guarantee detection of all inappropriate content.
+
+Approval of a restaurant-owner photograph makes it available to the authorized owner; the owner must still attach or save it to publish it.
+
+Your Choices
+
+Depending on the feature, you may update account information, manage location permissions, remove certain saved items, and request permanent account deletion.
+
+You may contact us regarding applicable privacy requests. Identity verification may be required.
+
+Account Deletion and Data Retention
+
+You may request permanent deletion through Delete Account in BiteStar or through the account-deletion page on the BiteStar website. The web process lets you sign in to your existing account and request deletion without installing the mobile app.
+
+For your security, we may require you to verify your identity before accepting the request.
+
+Once accepted, BiteStar begins processing the removal of your personal account information and associated contributions, including applicable reviews, ratings, votes, photographs, and saved activity.
+
+If you operate a restaurant-owner account, its coupons, Daily Specials, and subscription-based promotional content become unavailable. BiteStar also initiates the applicable subscription-cancellation process. Cancellation may remain pending until confirmed, and deleting an account does not automatically result in a refund.
+
+Certain shared restaurant information, dish catalog records, and contributions belonging to other users may remain. Deletion of your account does not automatically remove independently maintained restaurant or dish listings.
+
+After account deletion, certain limited records may be retained when reasonably necessary for security, fraud prevention, enforcing coupon-usage restrictions, financial recordkeeping, legal obligations, and documenting deletion requests. These may include device-identification and anti-abuse information, coupon-use restriction records, transaction references, and deletion-processing records.
+
+Information may also remain temporarily in service-provider backup or recovery systems. Retention periods vary by record type and purpose. Expiration of a session, security challenge, or other logical retention period does not necessarily result in immediate physical erasure.
+
+We retain information only as long as reasonably necessary for its applicable purposes or as otherwise required by law.
+
+Deletion processing may continue after you close the app. Where available, you can check the status of your request through the account-deletion process.
+
+When screening and its retention controls are enabled, unpublished review words awaiting human review expire 30 consecutive 24-hour days after their original submission. Words whose screening cannot complete have a seven-day window for an explicit retry. A successful retry that still needs human review uses the original 30-day deadline.
+
+Unpublished photographs awaiting review, including approved restaurant-owner photographs not yet attached, expire 30 consecutive 24-hour days after original submission. Uploaded photographs whose screening fails have a seven-day window for an explicit retry. Retries do not restart these clocks.
+
+Expired submissions cannot be newly published. Rejected unpublished words are promptly removed from the current private proposal; rejected unpublished photographs are scheduled for prompt deletion. Physical cleanup is asynchronous and may take additional time, including during service interruptions.
+
+These screening windows do not set retention periods for published content, business or financial records, backups, or minimal moderation, security and deletion-status records. Limited identifiers, content digests, status and timing records may remain to prevent duplicate processing or stale publication and support moderation and deletion handling. Their retention depends on those purposes and applicable legal requirements; the screening windows are not a promise to erase all such records within 30 or seven days.
+
+Security
+
+We use technical and organizational safeguards intended to protect information. However, no internet-based service or storage system can be guaranteed completely secure.
+
+Children and Parental Guidance
+
+BiteStar is a general-audience food-discovery service, not an app specifically designed for children.
+
+Users must be at least 13 years old, or satisfy any higher minimum age required by applicable law, to create accounts or submit public contributions.
+
+Where BiteStar presents an age question, the answer is evaluated locally to decide whether registration can continue. This is self-reported age, not independent age verification. The entered age is cleared rather than stored or sent to our servers; no date of birth or persistent eligibility record is retained by this check.
+
+Guest browsing does not establish a visitor's age or parental consent. Parents and guardians should consider the public content and data practices described in this Policy when supervising children.
+
+Public reviews may contain language or opinions that parents consider inappropriate for younger visitors.
+
+If you believe a child has provided personal information contrary to applicable requirements, contact us so we can review the situation and take appropriate action under applicable law.
+
+Your Privacy Rights
+
+Depending on your location, applicable law may give you rights to request access to, correction of, or deletion of certain personal information, along with other privacy choices.
+
+We may need to verify your identity before acting on protected requests.
+
+Changes to This Policy
+
+We may update this Privacy Policy as BiteStar evolves or legal requirements change.
+
+We will update the effective date and provide additional notice when required by applicable law.
+
+Contact
+
+ColeSmart LLC
+
+contact@colesmartllc.com
+
+https://app.colesmartllc.com/

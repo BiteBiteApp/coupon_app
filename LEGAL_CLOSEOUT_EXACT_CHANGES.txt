@@ -1,0 +1,210 @@
+BiteStar — exact final changes to existing legal text
+Run: BS-BITESTAR-LEGAL-FINAL-CLOSEOUT-001
+Baseline: b1f8cd9d02d06940a0d8949e80acd657cc9b5da1
+Status: OWNER-DIRECTED FINAL SOURCE; UNPUBLISHED.
+
+All existing document structure and paragraphs not listed here remain unchanged.
+For additions, the BEFORE text is the unchanged anchor, not deleted text.
+The new deletion information page is reproduced in full in legal/delete-account.txt.
+
+1. Privacy — ADD AFTER
+Reason: Disclose existing shared, UID-bound receipt; no new collection.
+
+BEFORE / ANCHOR:
+When you create an account, we may collect your email address, phone number, username, display name, authentication information, and account preferences, depending on how you register or sign in.
+
+FINAL:
+When Terms acceptance is enabled, we record the Terms version you accept and the acceptance time against your account. The same acceptance applies when that account uses customer and restaurant-owner features.
+
+----------------------------------------------------------------------
+
+2. Privacy — ADD AFTER
+Reason: Distinguish local preferences from geocoding and feature-dependent server search.
+
+BEFORE / ANCHOR:
+You may enter a city, ZIP code, or another supported search location.
+
+FINAL:
+BiteStar may save your last entered ZIP code or location preference on your device. Entered locations and permitted device coordinates may also be supplied to platform geocoding services. Features using server-based search send relevant location and search criteria to BiteStar's service providers.
+
+----------------------------------------------------------------------
+
+3. Privacy — ADD AFTER
+Reason: No zero-data guest claim; local guest key is not equated with transmitted proof.
+
+BEFORE / ANCHOR:
+Certain preferences, saved activity, and feature-related information may be stored on your device.
+
+FINAL:
+Guest browsing does not require an age answer. Guest use can still involve local preferences and identifiers, network requests, and processing by the services described in this Policy. Where device-based coupon verification is enabled, platform security evidence and coupon-use identifiers are sent to BiteStar to enforce usage limits and prevent abuse.
+
+----------------------------------------------------------------------
+
+4. Privacy — REPLACE
+Reason: Named conditional processing based on completed source; no provider retention/training guarantee.
+
+BEFORE / ANCHOR:
+Service providers may include Google/Firebase, Stripe, and other providers established by the app's actual implementation.
+
+FINAL:
+Service providers may include Google/Firebase for authentication, hosting, storage and service operations; Stripe for subscription payments; and Apple or Google platform services for location, geocoding and device-security verification where used.
+
+When written-review screening is enabled, BiteStar sends your submitted headline and written notes to OpenAI's Moderation service. We do not attach your account profile, email, payment information or photographs to that text-screening request; personal information you include in your own words is part of the submitted text.
+
+When photograph screening is enabled, BiteStar sends submitted customer and restaurant-owner photographs to Google Cloud Vision to help identify inappropriate content. Authorized BiteStar administrators may privately review held words and photographs. Screening does not guarantee detection of all inappropriate content.
+
+Approval of a restaurant-owner photograph makes it available to the authorized owner; the owner must still attach or save it to publish it.
+
+----------------------------------------------------------------------
+
+5. Privacy — REPLACE
+Reason: Existing authenticated web deletion route; prepared information page links to it.
+
+BEFORE / ANCHOR:
+You may request permanent deletion of your BiteStar account through the available account-deletion process.
+
+FINAL:
+You may request permanent deletion through Delete Account in BiteStar or through the account-deletion page on the BiteStar website. The web process lets you sign in to your existing account and request deletion without installing the mobile app.
+
+----------------------------------------------------------------------
+
+6. Privacy — ADD AFTER
+Reason: Use approved windows only for private submissions; retain purpose-based metadata disclosure without invented duration.
+
+BEFORE / ANCHOR:
+Deletion processing may continue after you close the app. Where available, you can check the status of your request through the account-deletion process.
+
+FINAL:
+When screening and its retention controls are enabled, unpublished review words awaiting human review expire 30 consecutive 24-hour days after their original submission. Words whose screening cannot complete have a seven-day window for an explicit retry. A successful retry that still needs human review uses the original 30-day deadline.
+
+Unpublished photographs awaiting review, including approved restaurant-owner photographs not yet attached, expire 30 consecutive 24-hour days after original submission. Uploaded photographs whose screening fails have a seven-day window for an explicit retry. Retries do not restart these clocks.
+
+Expired submissions cannot be newly published. Rejected unpublished words are promptly removed from the current private proposal; rejected unpublished photographs are scheduled for prompt deletion. Physical cleanup is asynchronous and may take additional time, including during service interruptions.
+
+These screening windows do not set retention periods for published content, business or financial records, backups, or minimal moderation, security and deletion-status records. Limited identifiers, content digests, status and timing records may remain to prevent duplicate processing or stale publication and support moderation and deletion handling. Their retention depends on those purposes and applicable legal requirements; the screening windows are not a promise to erase all such records within 30 or seven days.
+
+----------------------------------------------------------------------
+
+7. Privacy — REPLACE
+Reason: Completed default-off age source; no new data or independent verification claim.
+
+BEFORE / ANCHOR:
+The intended account policy is that users must be at least 13 years old, or satisfy any higher minimum age required by applicable law, to create accounts or submit public contributions.
+
+FINAL:
+Users must be at least 13 years old, or satisfy any higher minimum age required by applicable law, to create accounts or submit public contributions.
+
+Where BiteStar presents an age question, the answer is evaluated locally to decide whether registration can continue. This is self-reported age, not independent age verification. The entered age is cleared rather than stored or sent to our servers; no date of birth or persistent eligibility record is retained by this check.
+
+----------------------------------------------------------------------
+
+8. Privacy — REPLACE
+Reason: Remove unsupported implication of a qualified under-13 browsing mode without changing guest access.
+
+BEFORE / ANCHOR:
+Younger children may browse publicly available information under parental supervision only where supported by applicable children's privacy requirements and the actual app implementation.
+
+FINAL:
+Guest browsing does not establish a visitor's age or parental consent. Parents and guardians should consider the public content and data practices described in this Policy when supervising children.
+
+----------------------------------------------------------------------
+
+9. Privacy — REPLACE
+Reason: Move engineering release qualification out of legal prose; propose existing contact channel for concern handling.
+
+BEFORE / ANCHOR:
+Children's privacy safeguards and the guest-data-handling implementation require separate pre-release verification.
+
+FINAL:
+If you believe a child has provided personal information contrary to applicable requirements, contact us so we can review the situation and take appropriate action under applicable law.
+
+----------------------------------------------------------------------
+
+10. Terms — REPLACE
+Reason: Make already-approved one-document scope explicit.
+
+BEFORE / ANCHOR:
+These Terms explain the rules and conditions for accessing and using BiteStar.
+
+FINAL:
+These Terms explain the rules and conditions for accessing and using BiteStar. They cover customers, restaurant owners and authorized contributors, including contributors to shared menus.
+
+----------------------------------------------------------------------
+
+11. Terms — REPLACE
+Reason: Final-form sentence; the date is tied to separately authorized first publication.
+
+BEFORE / ANCHOR:
+The final Terms will become effective when approved and published, with any required acceptance or notice.
+
+FINAL:
+These Terms take effect on the effective date shown with the published version, with any required acceptance or notice.
+
+----------------------------------------------------------------------
+
+12. Terms — REPLACE
+Reason: Match approved guest and minimal-age source without claiming child-safe browsing.
+
+BEFORE / ANCHOR:
+Younger children may browse under parental supervision only where applicable privacy requirements and implemented safeguards permit.
+
+FINAL:
+Guest browsing does not require an age answer. Where an age question is presented for registration, it uses self-reported age rather than independent verification. Guest access does not establish age or parental consent; parents and guardians should consider the public content and data practices described in the Privacy Policy.
+
+----------------------------------------------------------------------
+
+13. Terms — REPLACE
+Reason: Describe qualified shared acceptance while conditional; no activation or changed authority.
+
+BEFORE / ANCHOR:
+This is intended product policy; actual under-13 guest handling and account-age safeguards remain a separate pre-release qualification.
+
+FINAL:
+When required acceptance is enabled, you must accept the current applicable Terms before creating or substantively changing public contributions, including customer reviews and photographs and restaurant-owner profiles, offers, specials and menus. One acceptance applies to the same account across customer and owner roles. A new mandatory version requires renewed acceptance.
+
+Acceptance does not grant restaurant ownership, approval, subscription access or other publishing permissions. Browsing, reporting, blocking, permitted withdrawal or deletion, and legitimate account or subscription management remain subject to their separate processes.
+
+----------------------------------------------------------------------
+
+14. Terms — REPLACE
+Reason: Concrete existing controls; no standalone-photo blocking promise.
+
+BEFORE / ANCHOR:
+Users may report reviews and other content through the reporting tools available in the app.
+
+FINAL:
+Use Report Review or Report Photo where available to report inappropriate content. Where Block Reviewer is available, it hides that reviewer's reviews from your browsing; you can manage blocked reviewers in My Profile.
+
+----------------------------------------------------------------------
+
+15. Terms — ADD AFTER
+Reason: Disclose screening and private Admin review without automatic-ban claim.
+
+BEFORE / ANCHOR:
+ColeSmart LLC may investigate reports, restrict content visibility, remove violating contributions, or limit participation when reasonably necessary and supported by applicable law and implemented service controls.
+
+FINAL:
+When enabled, written-review screening uses OpenAI and photograph screening uses Google Cloud Vision, with private review by authorized BiteStar administrators where needed, as described in the Privacy Policy. A screening flag is not proof of misconduct and does not automatically suspend an account. Screening is not a guarantee that all inappropriate content will be detected.
+
+----------------------------------------------------------------------
+
+16. Both documents — public website contact
+BEFORE: https://www.colesmartllc.com/
+FINAL: https://app.colesmartllc.com/
+Owner approved the app hostname as the public destination.
+
+17. Both documents — release metadata
+Removed: Draft for Owner Review — Not Yet Published
+BEFORE: Effective date: Pending final approval and publication.
+FINAL: Effective date: On first public publication.
+Added to Terms: Terms version: bitestar-terms-v1
+This does not publish documents or activate the acceptance policy.
+
+Owner-directed corrections to the earlier review draft:
+The unsupported service-provider protection assurance was removed entirely.
+No monitored-mailbox promise or manual support/deletion service was added.
+The final deletion page uses the existing secure authenticated browser process,
+explains identity verification, and retains contact details without promising
+monitoring, response times or email-only deletion authority.
+
+No billing, trial, cancellation, refund, licensing or Florida-law clause changed.

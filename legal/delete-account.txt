@@ -1,0 +1,39 @@
+BiteStar Account Deletion
+
+Effective date: On first public publication.
+
+BiteStar is owned and operated by ColeSmart LLC. This page explains how to request permanent account deletion and what happens to your information.
+
+Request deletion without installing the app
+
+Open the secure BiteStar account-deletion screen in your browser. Sign in to your existing account, choose Delete Account, and complete the identity verification and confirmation shown there. You do not need the mobile app. Opening this information page does not sign you in or submit a deletion request.
+
+Open secure account deletion: /#/account/delete
+
+In the app, use Delete Account from the account controls. Uninstalling BiteStar does not delete your account.
+
+Identity verification
+
+Use the secure browser process above to request deletion. You must verify that you control the account before deletion can be authorized. An email address alone is not deletion authority.
+
+Do not send passwords, sign-in codes, payment-card details or identity documents by email.
+
+What is deleted or made unavailable
+
+Once your request is securely accepted, BiteStar begins removing personal account information and associated reviews, ratings, votes, photographs and saved activity. Restaurant-owner promotional content becomes unavailable, and the applicable subscription-cancellation process begins. Confirmation can remain pending; deletion does not automatically issue a refund.
+
+What may remain
+
+Independently maintained restaurant and dish catalog information and other people's contributions may remain. Limited security, fraud-prevention, coupon-use, financial and deletion-processing records may be retained for their applicable purposes or legal obligations. Provider backups and recovery systems may retain information temporarily. The private screening windows in the Privacy Policy do not apply to all of these records.
+
+Timing and confirmation
+
+Processing may continue after you close the app or browser and is not instantaneous. Keep the browser or app's saved deletion receipt to check status after sign-out. Clearing local data can remove that receipt. A pending status is not confirmation that deletion is complete.
+
+Contact
+
+ColeSmart LLC
+
+contact@colesmartllc.com
+
+https://app.colesmartllc.com/

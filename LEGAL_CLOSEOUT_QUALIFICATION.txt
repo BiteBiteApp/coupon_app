@@ -1,0 +1,251 @@
+HISTORICAL DRAFT QUALIFICATION — NOT THE FINAL SOURCE QUALIFICATION
+This records the earlier owner-review draft and its original checksum manifest.
+The owner then directed finalization with specific corrections. Final source was
+retested and independently reviewed separately; see LEGAL_CLOSEOUT_FINAL_QUALIFICATION.txt
+and LEGAL_CLOSEOUT_FINAL_FILES.sha256.
+
+BiteStar — legal document closeout, owner-review qualification
+Run ID: BS-BITESTAR-LEGAL-FINAL-CLOSEOUT-001
+Prompt timestamp: October 17, 2026, 12:20 AM EDT
+Role/task type: bounded legal-copy reconciliation and publication-source preparation
+Expected starting main: b1f8cd9d02d06940a0d8949e80acd657cc9b5da1
+Actual starting main:   b1f8cd9d02d06940a0d8949e80acd657cc9b5da1
+Current main:           b1f8cd9d02d06940a0d8949e80acd657cc9b5da1
+Previous checkpoint: bs-bitestar-registration-age-minimal-001 (peeled matches main)
+Review preparation: October 17, 2026; final gate timestamp recorded below.
+
+VERDICT
+
+Draft source prepared and locally tested. Final owner/legal approval is pending.
+The exact text is not legally final, committed, deployed or publicly published.
+The task continues in this same chat after the one approval request. No new
+legal-development assignment is needed. Publication and coordinated feature
+activation remain separate controlled release operations.
+
+PERMITTED CHANGE AREA AND SCOPE REVIEW
+
+Legal presentation/copy, static legal-page assets, focused tests and review
+artifacts. Existing source architecture, navigation destinations, IDs, account
+and backend contracts, Rules, subscription/billing and deployment config remain
+unchanged. No new service, framework, storage schema, deletion endpoint or
+metadata-retention mechanism was introduced.
+
+The full existing documents were reused. The shared pure-Dart block data removes
+the need to maintain duplicate app/web prose. Existing app screens retain their
+classes/routes and DraftLegalPage layout. The generator escapes text and emits
+standalone HTML and review text. Flutter's ordinary web build copies web/ assets
+to build/web. The original firebase.json remains byte-identical.
+
+Review entry: LEGAL_CLOSEOUT_OWNER_APPROVAL.txt
+Exact changed paragraphs: LEGAL_CLOSEOUT_EXACT_CHANGES.txt
+Complete proposed text: legal/privacy-policy.txt, legal/terms-of-service.txt,
+                       legal/delete-account.txt
+Copy checksums/state: legal/review-manifest.json
+Frozen source/test/review bytes: LEGAL_CLOSEOUT_FILES.sha256
+This qualification report is excluded from its own checksum manifest.
+
+RECONCILIATION AND STATE
+
+One Terms document covers customer/owner/shared-menu contributors; acceptance
+version/time stays bound to the same account. Acceptance does not grant owner
+authority, approval, billing access or publication permissions. Current approved
+policy remains null; Terms client/runtime candidates remain OFF. Existing receipt
+and accepted-version source contracts were not changed.
+
+Age: 13+ policy retained; local self-report only, cleared rather than retained,
+no DOB/eligibility record. Age policy stays OFF; no existing-account backfill.
+Guest browsing has no age question. No under-13 safe-mode or zero-data claim.
+Local ZIP/preferences are distinguished from platform geocoding and conditional
+server search/device coupon evidence. No new tracking was invented.
+
+OpenAI receives submitted headline/notes when written screening is enabled;
+personal information typed into those words is still part of the payload.
+Google Cloud Vision screens customer and owner photographs when enabled.
+Held material can receive private Admin review. Approved owner photos still
+require explicit attachment/save before publication. No automatic-ban guarantee.
+
+Private retention: original 30-day human-review clock; seven-day screening-failure
+retry window; retries do not reset original deadlines; prompt rejection cleanup;
+asynchronous physical deletion. These are not blanket windows for published
+content, financial records, backups or minimal operational metadata. Source-only
+screening and cleanup flags were not changed or activated.
+
+The existing license, price, 60-day trial, cancellation/refund and Florida-law
+clauses remain verbatim. The independent reviewer separately checked 25 retained
+baseline literals. No payment implementation or trial configuration changed.
+
+Deletion: the public information page contains no scripts, form, account lookup
+or account data. It links to the existing /#/account/delete browser route.
+main.dart resolves the fragment; AccountDeletionScreen supports existing-account
+sign-in, confirmation/reauthentication and saved receipt/status handling. The
+existing runtime verifies authenticated identity and the self-deletion target.
+Knowing an email address alone grants no deletion authority. Email support is
+explicitly unconfirmed in draft; the approval package supplies an exact proposed
+final support wording that helps the existing verified flow. No new staff
+deletion or unauthenticated request execution is promised.
+
+TESTS AND VERIFICATION
+
+PASS: flutter test test/screens/legal_information_screens_test.dart
+      test/screens/legal_information_navigation_test.dart
+      test/legal/legal_artifacts_test.dart — 66 tests, 0 failures.
+  12 legal-screen cases: Android/iOS, normal/2x/3x text, exact complete fixture,
+  headings/semantics, narrow layouts and no overflow.
+  48 existing-menu cases: both legal documents, both app modes, Android/iOS,
+  1x/2x/3x, guest and injected signed-in auth realm; back navigation preserves
+  the same shell and mode. This is widget coverage, not live Auth qualification.
+  6 artifact cases: app-source/generator/HTML/text/hash parity, unapproved draft
+  state, static no-Auth/no-form output, secure deletion link and retained clauses.
+
+PASS: after the final responsive heading adjustment, reran all 6 artifact cases.
+PASS: dart run tool/generate_legal_pages.dart --check — all 7 outputs match.
+PASS: scoped Dart analysis of the eight changed/new Dart source/test files —
+      no issues. git diff --check — no whitespace issues.
+PASS: flutter build web --release --no-pub — final build completed.
+PASS: Functions TypeScript compilation and the new focused Node test — 1 pass,
+      0 fail. It binds any future approved policy text/version to visible legal
+      text and SHA-256, rejects installation while unapproved, and permits a
+      legally approved copy to coexist with a null/dormant acceptance policy.
+      No full backend suite or real provider requests were needed or run.
+
+PASS: python3 tool/test_legal_hosting.py http://127.0.0.1:5891 — 5 groups,
+      15 distinct routes. Actual Firebase Hosting emulator, demo project,
+      unchanged hosting rules with an isolated local build directory.
+  All three legal HTML routes return exact built bytes, not Flutter bootstrap.
+  QR/coupon, QR/BiteScore and both invite families return unchanged fallbacks.
+  Stripe success/cancel and subscription portal-return return unchanged files.
+  Android/Apple association files and iOS update endpoint retain their contents;
+  update endpoint preserves no-store. Root and account/delete retain Flutter.
+  All requests are anonymous read-only GETs; no cookies or account required.
+
+Browser inspection: real local static pages at 1280x900 and 320x780; navigation
+between the legal pages; readable headings and no horizontal overflow. At 320,
+viewport content width/scroll width both 305px (scrollbar consumes the rest).
+For 200% text, temporary copies outside the repository changed only root font
+size, producing measured 34px body text rather than 17px. All three remained
+within the viewport. Responsive h1 sizing was refined to avoid needless word
+breaks. This is an enlarged-font fixture, not a claim of native-device zoom or
+live accessibility certification. No production Flutter application was opened
+or authenticated for these checks.
+
+Ordinary corrected test/setup issues: generator relative import caused two
+Flutter load/compiler failures; corrected to one package identity and all tests
+passed. An initial isolated emulator absolute-directory setup returned 404s;
+fixed the temporary config to a relative symlink, then all route checks passed.
+One scoped lint info was fixed. These were introduced harness/setup issues,
+not pre-existing product failures. No test expectation was weakened to pass.
+
+INDEPENDENT REVIEW
+
+eligibility_review: PASS for owner-review draft. Checked actual final copy,
+age/guest/provider/retention/deletion evidence, preserved consequential clauses,
+default-OFF controls, and parity-test design. No source blocker found. The new
+provider-protection assertion requires owner/legal confirmation of contracts.
+Reviewer read actual source/tests; did not independently rerun the suites.
+
+surface_review: final PASS. Independently verified all 19 frozen files, built
+HTML/source parity and text digests; inspected source/tests, the 15-route test
+and logged verification. No blocking finding. Suites were reviewed, not rerun.
+Manifest SHA-256: d07e0a41d7245dc7ab27241d75a05949fd90bd428e864af5889e5657e4d03559.
+
+PUBLIC URL BASELINE — READ ONLY, NOT A DEPLOYMENT
+
+At 2026-10-17 04:32:14 UTC, the three proposed legal paths on each of
+https://app.colesmartllc.com and https://coupon-app-29446.web.app returned HTTP200
+but contained Flutter bootstrap, not legal HTML. All six body SHA-256 values:
+81e46f2c80be5e605abc79d4c52378d979b68675c4d986a042a62bbddada0e4b.
+The same origins' root pages matched. www.colesmartllc.com returned a different
+marketing page. Matching public bytes are not authoritative custom-domain
+binding evidence; verify binding/live baseline before an authorized release.
+The proposed legal URLs are therefore not live legal-document URLs today.
+
+OFFICIAL REQUIREMENTS — REVIEWED OCTOBER 17, 2026
+
+Apple requires accessible privacy-policy links in metadata/in-app and adequate
+data-use, sharing and retention/deletion disclosure; accounts need in-app
+deletion. Its AI-sharing permission requirement is a separate activation check.
+The draft cannot establish actual provider protection or required consent.
+https://developer.apple.com/app-store/review/guidelines/ (5.1.1 and 5.1.2)
+
+Apple privacy declarations cover relevant collection by the app and partners.
+Prepared text does not complete those declarations.
+https://developer.apple.com/app-store/app-privacy-details/
+
+Google Play requires a functioning external deletion-request resource, clearly
+identifying the app/developer and usable without reinstalling the app. The
+proposed static page leads to existing secure browser deletion; real release
+reachability/sign-in/request handling must still be verified before submission.
+https://support.google.com/googleplay/android-developer/answer/13327111?hl=en
+
+Google Data Safety is a separate declaration of actual app/third-party handling;
+writing a privacy policy does not complete that form or store acceptance.
+https://support.google.com/googleplay/android-developer/answer/10787469
+
+Google UGC policy requires applicable terms acceptance before contribution,
+content rules and ongoing moderation/reporting/blocking controls. Source-qualified
+but OFF Terms/moderation cannot be represented as an active released safeguard.
+https://support.google.com/googleplay/android-developer/answer/9876937
+
+COPPA applicability depends on actual audience and knowledge/data practices.
+Self-reporting and guest access do not independently verify age or establish
+parental consent. The qualified retry limitation remains a legal/release item;
+this task does not invent persistent child tracking or a new eligibility system.
+https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions
+
+Firebase serves exact static files before configured rewrites. Local HTTP tests
+confirmed that behavior with this build and the existing rewrite configuration.
+https://firebase.google.com/docs/hosting/full-config
+
+BUG FILTER AND UNRESOLVED DECISION
+
+FIX NOW / DIRECTLY REQUIRED: stale age/guest engineering prose, missing named
+conditional screening/retention disclosures and app/web drift risk corrected in
+the proposed source. Static URLs proved locally without changing existing links.
+
+PRODUCT DECISION REQUIRED: the single owner/legal package covers final wording
+and factual/legal representations, purpose-based metadata retention, company/
+contact and monitored support handling, public hostname/version/date. Counsel
+and actual release verification are not certified by source tests.
+
+ACCEPT AND CLOSE: Admin moving reviews remains unwanted; Stage 2D and completed
+coupon/menu/whiteboard work stay closed. No unrelated historical failure was
+used to expand the task. No separate incidental bug was found that must block
+this draft qualification.
+
+GIT / PRODUCTION BOUNDARIES
+
+main never switched. Index remains empty. No current-task commit, tag or push;
+these await the explicitly required wording approval. All 7 pre-existing owner
+files match their starting SHA-256 byte-for-byte. All 245 snapshotted protected
+service/backend/Rules/Hosting files also match their starting SHA-256.
+Those hashes supplement the reviewed caller/routes and integration tests; they
+are not treated as a substitute for integration evidence.
+
+No Hosting/Functions/Rules deployment, Terms/age/moderation activation, real
+OpenAI/Vision call, Auth/customer-data mutation, payment/trial change, domain/DNS,
+IAM/secret/signing or App Store/Play Console change. Local demo Hosting was the
+only Firebase emulator started. Source-prepared, owner-approved, committed,
+published, runtime-active and store-qualified remain distinct states.
+
+The canonical backlog is updated in place with this pending-approval status,
+preserving earlier history. No replacement backlog is created.
+
+FINAL APPROVAL-GATE RECORD
+
+Preparation completed / paused for owner approval: 2026-10-17 04:38:34 UTC.
+Full baseline reconstruction plus exactly the documented paragraph changes
+matches both complete proposed texts. No unlisted legal wording change remains.
+Backlog append readback verified: complete prior text preserved byte-for-byte
+at the text level, with the intended pending-approval entry added at the end.
+Both temporary local preview servers and the agent-created tab were closed.
+Remote main and peeled prior tag independently reverified unchanged.
+
+protected: 7 files verified unchanged at final gate.
+28aa68c86b59fefd9fd9aea798cad83b52b4b80e9cabea4be324711f7d31c2ee  test/screens/customer_bitesaver_browse_screen_test.dart
+278ffbfd9f139d003baf6b03f0b6f72549e84335e102718cfd17e6ce6344dafb  test/screens/restaurant_profile_bitescore_menu_test.dart
+865f38522f833bb7a9a8a3157d49a292db627c29435093eb24f2c8e8d04581ea  APPROVAL-ADDENDUM-A2.md
+453e3b3412bcb1e35d97e3af8e2c868cbd7965f93dab75f701f13395489474f0  test/cuisine_fixture/main.dart
+b3bf2b57779323981b54aa6cf0a55ec1ab59651b202f5d9f78e0cd3887151130  test/visual_fixture/README.md
+38cda097fae724e82f02c9f4c8c1fab9c6e731283b3879bac3bedf661129fef8  test/visual_fixture/data.dart
+c753b469e78938b7e6d5a25d36100b938bf24c262fbcc9cea09ad0802b36ff5c  test/visual_fixture/main.dart
+contracts: 245 files verified unchanged at final gate.

@@ -1,0 +1,186 @@
+BiteStar Terms of Service
+
+Terms version: bitestar-terms-v1
+
+Effective date: On first public publication.
+
+Welcome to BiteStar, a service owned and operated by ColeSmart LLC.
+
+These Terms explain the rules and conditions for accessing and using BiteStar. They cover customers, restaurant owners and authorized contributors, including contributors to shared menus.
+
+These Terms take effect on the effective date shown with the published version, with any required acceptance or notice.
+
+About BiteStar
+
+BiteStar offers two complementary ways to explore food.
+
+Coupons & Specials helps users discover restaurant offers, Daily Specials, menus, and other restaurant information.
+
+Dish Ratings lets users discover, rate, and review individual menu items.
+
+Rate the dish. Not the restaurant.
+
+BiteStar's dish-rating system focuses on individual food items rather than relying solely on an overall restaurant rating.
+
+Accounts and Age Requirements
+
+Some BiteStar features are available without creating a registered account. Other features require registration, verification, or appropriate authorization.
+
+Account holders must provide accurate information, safeguard their credentials, and refrain from impersonating others.
+
+Users must be at least 13 years old, or meet a higher applicable legal minimum age, to create accounts or submit public contributions.
+
+Guest browsing does not require an age answer. Where an age question is presented for registration, it uses self-reported age rather than independent verification. Guest access does not establish age or parental consent; parents and guardians should consider the public content and data practices described in the Privacy Policy.
+
+When required acceptance is enabled, you must accept the current applicable Terms before creating or substantively changing public contributions, including customer reviews and photographs and restaurant-owner profiles, offers, specials and menus. One acceptance applies to the same account across customer and owner roles. A new mandatory version requires renewed acceptance.
+
+Acceptance does not grant restaurant ownership, approval, subscription access or other publishing permissions. Browsing, reporting, blocking, permitted withdrawal or deletion, and legitimate account or subscription management remain subject to their separate processes.
+
+Reviews and Community Standards
+
+BiteStar encourages genuine ratings, reviews, and opinions about individual dishes.
+
+Customers may praise good food, describe disappointment, and express criticism candidly.
+
+Occasional mild profanity or strong criticism does not automatically violate the community standards.
+
+BiteStar does not permit:
+
+• Threats, harassment, bullying, or hateful or discriminatory attacks.
+• Sexually explicit, exploitative, or excessively graphic content.
+• Disclosure of another person's private information without authorization.
+• Fraudulent ratings, fabricated reviews, impersonation, or deliberate manipulation of dish scores.
+• Spam, scams, unlawful material, or other seriously abusive content.
+• Copyright infringement or other unauthorized use of third-party material.
+
+ColeSmart LLC may review, restrict, hide, or remove content when permitted or required by the service's rules and applicable law.
+
+Use Report Review or Report Photo where available to report inappropriate content. Where Block Reviewer is available, it hides that reviewer's reviews from your browsing; you can manage blocked reviewers in My Profile.
+
+Ownership of Contributions
+
+You retain ownership of original content you create, subject to the rights of others.
+
+By submitting content, you grant ColeSmart LLC a nonexclusive license to host, store, reproduce, display, and distribute that content as reasonably necessary to operate and promote the BiteStar service.
+
+This does not transfer ownership of your original photographs, reviews, or other original contributions to ColeSmart LLC.
+
+Content removal and account deletion remain subject to applicable processes, privacy rights, and law.
+
+Restaurant Information and Offers
+
+Restaurants and authorized contributors may submit information including menus, operating hours, photographs, coupons, and Daily Specials.
+
+Restaurant details, prices, menu items, and offers can change.
+
+Coupons and specials may have expiration dates, redemption rules, usage limitations, location conditions, or other stated restrictions.
+
+Customers should review each offer's conditions.
+
+Participating restaurants are responsible for their applicable products, services, and valid offers, subject to law.
+
+ColeSmart LLC cannot guarantee that all third-party information remains accurate or that every listed item or offer remains available.
+
+Restaurant-Owner Accounts
+
+Restaurant owners and authorized representatives must have appropriate authority to act for the businesses they manage.
+
+Participation in subscription-based promotional features may require approval and an eligible subscription.
+
+Owners are responsible for maintaining accurate business information and honoring applicable offers.
+
+ColeSmart LLC may restrict promotional visibility or participation for legitimate operational, security, policy, or legal reasons.
+
+Restaurant Subscriptions, Free Trials, and Billing
+
+BiteStar's current restaurant subscription price is $24.95 per month.
+
+Eligible first-time subscribers may receive a 60-day free trial.
+
+Unless canceled before the applicable trial ends, a subscription automatically converts to recurring monthly billing under the terms disclosed at checkout.
+
+Previous subscribers may not qualify for another free trial.
+
+Subscription payments are processed through Stripe.
+
+Restaurant owners may cancel their subscriptions at any time through the available subscription-management process.
+
+For ordinary cancellations, service generally continues through the current paid billing period or free-trial period, as applicable.
+
+There is no separate cancellation penalty.
+
+Payments are generally nonrefundable once a billing period begins, except where required by law.
+
+Billing mistakes, duplicate charges, or other exceptional circumstances may be reviewed, and refunds may be issued when appropriate.
+
+Ordinary cancellation does not automatically provide a prorated refund for unused subscription time.
+
+Permanent account deletion is a separate action. An accepted deletion request initiates immediate subscription cancellation, with confirmation potentially pending. Subscription-based content becomes unavailable, and deletion does not automatically issue a refund.
+
+Any rights provided by applicable consumer-protection law remain unaffected.
+
+Pricing changes will be disclosed, with notice or consent when required by applicable law.
+
+Prohibited Uses
+
+Users must not:
+
+• Access another person's account without authorization.
+• Manipulate reviews or ratings.
+• Abuse coupon redemption or usage restrictions.
+• Submit fraudulent ownership claims.
+• Interfere with security systems or service operation.
+• Harass others or use BiteStar for unlawful purposes.
+• Systematically extract protected service information through unauthorized methods.
+
+Moderation and Account Restrictions
+
+ColeSmart LLC may investigate reports, restrict content visibility, remove violating contributions, or limit participation when reasonably necessary and supported by applicable law and implemented service controls.
+
+When enabled, written-review screening uses OpenAI and photograph screening uses Google Cloud Vision, with private review by authorized BiteStar administrators where needed, as described in the Privacy Policy. A screening flag is not proof of misconduct and does not automatically suspend an account. Screening is not a guarantee that all inappropriate content will be detected.
+
+Account deletion and removal of individual content are separate actions.
+
+Third-Party Services
+
+BiteStar may connect users to participating restaurants, payment services, app stores, or other independently operated third-party services.
+
+Those services may have their own terms and privacy policies.
+
+Service Availability
+
+We work to keep BiteStar reliable, but cannot guarantee uninterrupted service or error-free operation.
+
+Availability and functionality may be affected by maintenance, technical problems, security needs, or circumstances beyond our reasonable control.
+
+Nothing in these Terms excludes legal rights or remedies that cannot lawfully be excluded.
+
+Intellectual Property
+
+BiteStar's software, original designs, branding, and other materials owned by ColeSmart LLC are protected by applicable intellectual-property laws.
+
+Third-party names, trademarks, photographs, and other materials remain the property of their respective owners.
+
+Governing Law and Disputes
+
+BiteStar is owned and operated by ColeSmart LLC, a Florida limited liability company.
+
+These Terms are governed by the laws of the State of Florida, United States, except where applicable law requires otherwise.
+
+Disputes arising from the use of BiteStar may be brought before a court of competent jurisdiction, subject to applicable law.
+
+Nothing in these Terms limits any consumer rights or legal remedies that cannot lawfully be waived.
+
+Changes to the Terms
+
+We may update the Terms as BiteStar develops.
+
+We will update the effective date and provide further notice or obtain consent when required by law.
+
+Contact
+
+ColeSmart LLC
+
+contact@colesmartllc.com
+
+https://app.colesmartllc.com/

@@ -1,0 +1,171 @@
+BiteStar — FINAL SOURCE closeout
+Run ID: BS-BITESTAR-LEGAL-FINAL-CLOSEOUT-001
+Original prompt: October 17, 2026, 12:20 AM EDT
+Continuation: owner direction in the same chat on October 17, 2026
+Role: bounded legal-document finalization, testing, review and checkpointing
+Expected/actual starting main: b1f8cd9d02d06940a0d8949e80acd657cc9b5da1
+Checkpoint tag: bs-bitestar-legal-final-closeout-001
+Exact checkpoint commit: resolve the annotated tag with git rev-parse TAG^{}.
+Remote commit/tag verification is recorded in the canonical backlog and final reply.
+
+VERDICT AND OWNER AUTHORITY
+
+The documents are source-final under the owner's explicit direction to finish
+this existing assignment and safely checkpoint it. No further general legal
+approval gate or legal-development assignment is needed. This is not counsel
+certification or store/release qualification. The owner rejected the unsupported
+provider-protection assurance and mailbox-monitoring/manual-service proposal,
+approved app.colesmartllc.com, and directed preservation of established provisions.
+Those directions have been applied without adding another legal promise.
+
+Final documents and exact changes:
+  legal/privacy-policy.txt
+  legal/terms-of-service.txt
+  legal/delete-account.txt
+  LEGAL_CLOSEOUT_EXACT_CHANGES.txt
+Prepared webpages: web/privacy-policy.html, web/terms-of-service.html,
+                  web/delete-account.html
+Final checksums: LEGAL_CLOSEOUT_FINAL_FILES.sha256
+Copy/state metadata: legal/review-manifest.json
+
+LEGAL_CLOSEOUT_OWNER_APPROVAL.txt and LEGAL_CLOSEOUT_QUALIFICATION.txt are marked
+historical. Their earlier questions/draft verdict do not describe current source.
+LEGAL_CLOSEOUT_FILES.sha256 preserves the prior draft's recorded hashes; use the
+new FINAL manifest for the current qualified bytes. Later changes need affected
+tests and review again; merely replacing a hash does not inherit qualification.
+
+WHAT CHANGED
+
+The existing complete Privacy Policy and shared customer/owner Terms were
+preserved and reconciled, not rewritten. Actual additions/corrections describe
+shared acceptance receipts, self-reported local age handling, guest/device/ZIP
+processing, named conditional text/photo screening, private Admin review,
+reporting/blocking, approved private retention windows and secure browser deletion.
+
+The unsupported provider contractual-protection statement is absent. Google/
+Firebase, Stripe, relevant Apple/Google platform services, OpenAI text screening
+and Google Cloud Vision photo screening are identified with their purposes.
+The established statement that ColeSmart LLC does not sell personal information
+remains; use of providers is not described as selling customer data.
+
+The deletion page directs users to the existing /#/account/delete secure browser
+flow with sign-in, identity verification and confirmation. It contains no form,
+account lookup or personal account information. There is no new manual service,
+email-only deletion authority, monitored-mailbox or response-time promise.
+Existing contact details remain. All three documents use the approved app host.
+Account-deletion execution, saved receipt behavior and billing consequences are
+unchanged. Real release sign-in/deletion qualification remains separate.
+
+Draft labels are removed from final app/web/text artifacts. The Terms visibly
+identify bitestar-terms-v1. The effective-date line is “Effective date: On first
+public publication.” This avoids backdating or pretending the unpublished source
+is already effective. At the separately authorized publication, record the actual
+publication date and recheck generated copies/hashes before any acceptance cutover.
+No version is installed into the backend acceptance policy by this task.
+
+The purpose-based minimal-metadata disclosure has no invented seven-/30-day
+blanket erasure promise. Published content, business/financial records, backups
+and operational identifiers/digests/status records remain distinguished from
+private screening material. No new retention mechanism, migration or policy
+duration was invented. Established age, guest and moderation decisions stand.
+
+Unchanged consequential terms include price, 60-day trial, cancellation/refunds,
+content license and Florida law/disputes. Independent review checked 25 retained
+baseline literals. A complete reconstruction of the original two documents plus
+only the documented changes matched the final text exactly.
+
+EXECUTION PATH AND SCOPE
+
+One pure-Dart legal copy source feeds the existing app screens and deterministic
+HTML/text generator. Existing screen classes/navigation and renderer layout are
+preserved. The historical DraftLegalPage class name remains to avoid unnecessary
+API churn; no visible draft label remains. Terms metadata is shared with the web
+generator. Static files are copied by the ordinary Flutter web build.
+
+Permitted changes: legal copy/presentation, static assets, scoped tests and
+closeout evidence. No service/backend/Rules/identity/authorization/payment or
+Hosting-route changes. No new website application, framework, endpoint, schema,
+infrastructure or paid service. All 245 previously snapshotted protected files
+remain byte-identical, supplemented by actual routing/integration checks.
+
+FINAL VALIDATION
+
+PASS — 67 Flutter tests: 12 complete legal-page widget cases; 48 navigation cases
+covering guest/injected signed-in realm, both modes, Android/iOS and 1x/2x/3x;
+7 static/copy/state/regression tests. Exact text, headings, back navigation,
+no network requirement, full-scaled glyph bounds and source/web/hash parity pass.
+The added regression test rejects the removed provider/mailbox/manual-process
+assertions and verifies named services, no-sale wording and final hostname.
+
+PASS — final web release build; scoped analysis of nine source/test Dart files
+has no issues; generator --check verifies all seven output files; diff whitespace
+check passes. The focused Node future-Terms-copy test passes (1 test). Backend
+compiled source is unchanged from the successful prior compilation in this run.
+No full backend suite or live provider call was needed.
+
+PASS — real isolated Firebase Hosting emulator, demo project, unchanged rewrite/
+header configuration: 5 groups/15 distinct routes. All three legal HTML routes
+return exact built source without Auth or Flutter bootstrap. QR/invite fallbacks,
+Stripe success/cancel/portal, app associations, update endpoint/no-store, and
+Flutter root/deletion entry remain intact. No deployment occurred.
+
+Final local visual checks cover mobile and desktop, legal cross-navigation and
+200% font fixtures (temporary copies outside the repository, changing only root
+font size). All three pages remain within their viewport. Widget tests also
+exercise 3x text. This is bounded rendering evidence, not real-device/store
+certification. Prior official-source requirements and release limitations are
+retained in the historical qualification; no new general audit was opened.
+
+Independent eligibility review: PASS. Actual final source reviewed; removed
+assurances, factual copy, unchanged consequential provisions, app/web/version
+consistency, manifest digests, default-OFF state and unchanged execution confirmed.
+No additional consequential owner decision identified. Suites reviewed, not rerun.
+Final surface/frozen-file review is recorded in the completion record below.
+
+PUBLICATION / ACTIVATION BOUNDARY
+
+Owner-approved destination: https://app.colesmartllc.com
+Prepared paths: /privacy-policy.html, /terms-of-service.html, /delete-account.html.
+Source is ready for the separately authorized publication. Nothing is published
+by this commit. Earlier read-only live baseline in this same run showed these
+paths returning the existing Flutter shell, not the prepared legal pages.
+No new claim of live URL reachability is made. The actual live target/baseline,
+secure browser flow and existing routes must be verified at controlled release.
+
+approvedBiteScoreTerms remains null; runtime/client Terms flags remain OFF.
+Age, text/photo screening and cleanup defaults remain OFF. No existing receipt
+is altered or fabricated. Final legal copy does not activate dormant systems.
+No production Auth/data, Functions/Rules/Hosting, OpenAI/Vision, Stripe, DNS,
+secrets/IAM/signing or app-store change occurred. Data Safety/App Privacy and
+AI-sharing-permission/store qualification remain release responsibilities, not
+claims established by writing these documents.
+
+BUG FILTER / GIT
+
+FIX NOW / DIRECTLY REQUIRED: remove unsupported assurances, finish final source
+and exact parity, retain secure deletion and existing links. Completed.
+ACCEPT AND CLOSE: no new consequential legal decision was demonstrated; no new
+general review is opened. Unwanted Admin review movement, Stage 2D and completed
+coupon/menu/whiteboard/Terms/age engineering remain closed.
+No separate incidental production bug was found requiring expansion.
+
+main stays the working branch. Exact intended paths only are staged. Seven
+pre-existing owner files are excluded and remain byte-for-byte unchanged; their
+original hashes are retained in the historical qualification. No force push,
+branch operation, reset, cleanup or stash. Annotated checkpoint tag identifies
+the coherent reviewed source. Commit/push authority comes from the original
+assignment and the owner's explicit continuation to complete checkpointing.
+The existing canonical backlog is updated in place after remote verification.
+
+COMPLETION / PRE-CHECKPOINT RECORD
+
+Source qualification completed: 2026-10-17 05:03:25 UTC.
+Final surface review PASS: all 22 frozen files verified twice, built HTML parity
+and text digests independently verified, final tests/logs and scope inspected.
+No blocker or further consequential approval issue. Suites reviewed, not rerun.
+Final manifest SHA-256: f8f2e0d21c616a868105822a2c59d1adb7c30c9ec39d58c66dfbfa4617b81d3b.
+Final mobile/desktop and 200% text inspection completed; 320px fixtures have
+305px content/scroll width and 34px body font without horizontal overflow.
+Temporary preview servers and agent-created browser tab were closed.
+Final byte verification: 7 protected files unchanged.
+Final byte verification: 245 contracts files unchanged.

@@ -1,0 +1,152 @@
+HISTORICAL REVIEW PACKAGE — SUPERSEDED BY OWNER DIRECTION
+The owner directed completion in this same assignment, rejected the provider
+assurance and mailbox promise, and approved app.colesmartllc.com. The historical
+questions below are not a new approval gate. See LEGAL_CLOSEOUT_FINAL_QUALIFICATION.txt
+and legal/*.txt for final source and status.
+
+BiteStar — one consolidated owner/legal approval package
+Run: BS-BITESTAR-LEGAL-FINAL-CLOSEOUT-001
+Prompt: October 17, 2026, 12:20 AM EDT
+State: PROPOSED WORDING. OWNER APPROVAL PENDING. NOT PUBLISHED.
+
+Already complete
+
+The existing Privacy Policy and Terms have been reconciled with completed
+customer/owner Terms, age, guest-data, screening, retention and deletion source.
+One shared copy now supplies the existing app pages and three static webpages.
+The ordinary Flutter web build includes them without a new site or backend.
+The existing legal structure, $24.95 monthly price, 60-day trial, cancellation,
+refund, content-license and Florida-law/dispute wording is preserved.
+
+The single Terms document for both roles, minimum 13+ registration policy and
+guest browsing without an age question are settled decisions, not new choices.
+Admin movement of misplaced reviews remains ACCEPT AND CLOSE.
+
+Complete text and exact changes
+
+Read these files in the same repository:
+  legal/privacy-policy.txt          Complete proposed Privacy Policy
+  legal/terms-of-service.txt        Complete proposed shared Terms
+  legal/delete-account.txt          Complete proposed deletion information
+  LEGAL_CLOSEOUT_EXACT_CHANGES.txt   Every changed/added legal paragraph
+
+Prepared webpage source:
+  web/privacy-policy.html
+  web/terms-of-service.html
+  web/delete-account.html
+
+All currently retain the draft banner and pending effective date. The deletion
+draft explicitly marks the email process unconfirmed. The exact final email
+replacement proposed for approval is below. No final version has been silently
+installed in the acceptance policy.
+
+ONE APPROVAL REQUEST — THREE GROUPED DECISIONS
+
+1. Approve the full wording, including the following factual/legal assurances,
+   or identify exact exceptions for correction.
+
+   The actual changes explain conditional shared acceptance, self-reported
+   local age handling, guest/location/device processing, OpenAI review-text
+   screening, Google Cloud Vision customer/owner photograph screening,
+   private Admin review, reporting/blocking and secure browser deletion.
+   They preserve the approved private 30-day review and seven-day failure
+   windows, prompt rejection cleanup, and asynchronous physical cleanup.
+
+   Recommended metadata disclosure: keep the exact purpose-based paragraph
+   in Privacy / Account Deletion and Data Retention. It names limited
+   identifiers, digests, status/timing and security/deletion records, without
+   promising that all metadata disappears in 30 or seven days. This is a
+   disclosure, not authorization for indefinite retention. The alternative
+   is to hold publication until the owner supplies a justified retention
+   schedule; do not invent a duration or build a new retention service here.
+
+   Confirm the existing general-audience and no-sale representations remain
+   accurate. Explicitly approve the new statement: “We require service
+   providers processing personal information for us to protect it consistently
+   with this Policy and applicable law.” Source inspection cannot establish
+   contractual protections. Do not approve that assertion if arrangements
+   with the relevant providers do not support it.
+
+   The material counsel questions are whether the stated audience/actual
+   child-data handling, jurisdiction-dependent rights, provider protections
+   and purpose-based retention description are sufficient for the intended
+   launch. Existing licensing, billing/refund and Florida-law clauses remain
+   consequential legal terms; their preservation is not a legal certification.
+   Apple’s separate requirement for explicit permission before personal data
+   is shared with third-party AI must be qualified before screening activation;
+   publishing this policy alone does not establish that permission.
+
+2. Confirm ColeSmart LLC, a Florida limited liability company;
+   contact@colesmartllc.com; and https://www.colesmartllc.com/ are the approved
+   public details, and confirm the mailbox is monitored for the described
+   privacy, child-data concern and deletion-support requests.
+
+   Primary external deletion: the existing secure browser account-deletion
+   screen, reached through /#/account/delete. A person signs in to their own
+   account, completes required identity verification, and confirms deletion.
+   No mobile installation is required. No anonymous deletion endpoint is
+   proposed. Source tests do not replace a live release smoke test.
+
+   If the mailbox/process is confirmed, replace the two explicitly proposed
+   support paragraphs in legal/delete-account.txt with these exact paragraphs:
+
+   “For help requesting deletion, email contact@colesmartllc.com with the
+   subject ‘BiteStar account deletion.’ We monitor this mailbox for these
+   requests. You can use the secure browser process above without installing
+   the app.”
+
+   “Support can help you use the secure browser deletion or account-recovery
+   process and check the request status. We must verify that you control the
+   account before any protected action. An email address alone is not deletion
+   authority. Do not send passwords, sign-in codes, payment-card details or
+   identity documents by email.”
+
+   This promises support for the existing verified process, not a new manual
+   staff deletion system or deletion merely upon receiving an email. If the
+   mailbox is not ready, identify that exception; the secure browser method
+   can stand alone, with the unsupported support promise omitted.
+
+3. Approve the destination and version/date approach.
+
+   Preferred public paths on the existing BiteStar Hosting site:
+     https://app.colesmartllc.com/privacy-policy.html
+     https://app.colesmartllc.com/terms-of-service.html
+     https://app.colesmartllc.com/delete-account.html
+
+   The existing Firebase project is coupon-app-29446. Its web.app origin and
+   app.colesmartllc.com currently return matching Flutter app-shell bytes.
+   The six proposed legal paths currently return that shell, not legal pages.
+   The www.colesmartllc.com marketing homepage is different; no connection
+   between that website and this Hosting target is assumed. Confirm the app
+   hostname as the intended destination. The actual custom-domain binding
+   must be verified during the separately authorized release.
+
+   Recommended first shared Terms version: bitestar-terms-v1.
+   Recommended effective date: the separately authorized first publication
+   date, not today's drafting date and not a retrospective acceptance date.
+   Until that date is scheduled, the approved source candidate can say
+   “Effective date: On first public publication.” The controlled release
+   replaces that line with the actual date and rechecks text/version parity.
+   No existing receipt is fabricated, and approval of text does not activate
+   acceptance or grandfather an obsolete version.
+
+What approval authorizes next, in this same chat
+
+Apply the approved wording and support details; remove draft labels only from
+the approved source candidate; record the proposed version/date approach;
+regenerate and test app/web copies; independently review the final bytes;
+exact-stage, commit, create the annotated checkpoint tag and push main safely.
+All seven protected owner files stay untouched. No new legal-development
+assignment is needed for this follow-through.
+
+What remains separate
+
+Hosting publication, live URL/secure deletion verification, store declarations
+and acceptance, device/release qualification, and coordinated Terms/age/
+moderation activation remain separately authorized beta-release actions.
+This package grants none of those permissions. No production deployment,
+provider call, Auth/data mutation, billing/DNS/secret or store change occurred.
+
+Reply once with approval of groups 1–3, or list only the exceptions/corrections.
+Silence is not approval. The task pauses here because Part 7–8 of your request
+explicitly requires owner/legal approval before final-source checkpointing.

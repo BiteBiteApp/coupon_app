@@ -1,17 +1,34 @@
 import 'package:flutter/material.dart';
 
+import '../legal/legal_documents.dart';
 import 'bitesaver_colors.dart';
 
-/// Shared presentation only. Draft status and pending publication stay visible
-/// in the document; rendering requires no authentication or external services.
+List<Widget> legalDocumentWidgets(LegalDocument document) => [
+  for (final block in document.blocks)
+    switch (block.kind) {
+      LegalBlockKind.paragraph => LegalParagraph(block.text.single),
+      LegalBlockKind.heading => LegalSectionHeading(block.text.single),
+      LegalBlockKind.subheading => LegalSectionHeading(
+        block.text.single,
+        subsection: true,
+      ),
+      LegalBlockKind.bullets => LegalBulletList(block.text),
+      LegalBlockKind.link => LegalParagraph(block.text.join(': ')),
+    },
+];
+
+/// Shared legal presentation; rendering requires no authentication or services.
+/// The historical class name does not imply draft status.
 class DraftLegalPage extends StatelessWidget {
   final String title;
   final List<Widget> children;
+  final List<String> metadata;
 
   const DraftLegalPage({
     super.key,
     required this.title,
     required this.children,
+    this.metadata = const [legalEffectiveDateLabel],
   });
 
   @override
@@ -47,18 +64,7 @@ class DraftLegalPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Draft for Owner Review — Not Yet Published',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: BiteSaverColors.orangeDark,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    const LegalParagraph(
-                      'Effective date: Pending final approval and publication.',
-                    ),
+                    for (final line in metadata) LegalParagraph(line),
                     ...children,
                   ],
                 ),
