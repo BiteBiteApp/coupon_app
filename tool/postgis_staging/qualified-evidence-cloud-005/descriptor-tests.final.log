@@ -1,0 +1,11 @@
+✔ diagnostic descriptor has only three signed inputs, no server or runtime keys, fixed bounded command (200.89775ms)
+✔ diagnostic descriptor refuses substituted targets, mutable images, missing or moving input versions (1.047459ms)
+✔ fixed diagnostic descriptor satisfies the existing provider exact-body contract without provider requests (70.371084ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 311.550833

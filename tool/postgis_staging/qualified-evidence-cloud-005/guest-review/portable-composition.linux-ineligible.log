@@ -1,0 +1,20 @@
+﹣ actual hosted composition selects absent mode (0.9535ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ actual hosted composition selects false mode (0.074209ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ actual hosted composition selects true mode (0.044375ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ signed invalid JSON types reject before native/provider construction (0.0445ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ changed mode, stale permit and modified signature reject before key or provider access (0.127625ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ post-construction caller mutation cannot flip false signed mode (0.240625ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ post-construction caller mutation cannot flip true signed mode (0.08275ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ unsigned environment and caller request cannot enable absent signed mode (0.033917ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ signed hosted window enforces exact history intersection and global75 bound (0.1425ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ signed-in Saver retains native25-card behavior with either hosted guest setting (0.100625ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ BiteScore and Finder retain actual native results under either guest setting (0.050542ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ legacy native V1 remains serial even with context option true (1.927584ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+ℹ tests 12
+ℹ suites 0
+ℹ pass 0
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 12
+ℹ todo 0
+ℹ duration_ms 585.369751

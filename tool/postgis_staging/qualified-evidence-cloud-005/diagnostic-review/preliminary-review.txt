@@ -1,0 +1,43 @@
+Independent preliminary native diagnostic review — run005
+
+Scope and status
+Read-only review of the existing diagnostic, approval/private SQL adapter and hosted composition. No repository edit, host install, cloud API/authentication, deployment, test-service mutation or new agent. This is a source design recommendation, not final source qualification or execution approval. The final implementation and rebuilt image still require independent review/tests.
+
+Recommended smallest execution path
+Use a separate explicit diagnostic entrypoint and private numerical runner. Clone the full JSON configuration before any await. Validate the existing syntheticOnly:true/singleton nonproduction project/run/private SQL identity, exact Gate1-only diagnostic action/job id and fixed resource caps. Verify the real Ed25519 approval against that exact configuration, separate immutable trust map, candidate and project/number. Require at least the full600-second platform task lifetime remaining at actual container start. Only then initialize the existing createCloudSqlPostgisPool connector. Its PRIVATE/IAM authentication, bounded pool/deadlines, target/user health check and per-operation permit checks are reusable unchanged.
+
+Do not route the diagnostic through openApprovedHostedPostgisResources, runApprovedHostedPostgisJob or createHostedPostgisRuntime: their hosted guard is correct, and they also initialize unrelated Firebase/search resources and keys. Do not add a runtime bypass flag, environment override, cached qualification or hosted guard exception. Do not call select, PostgisMembership, handlers, PostgisReadModel initialization, native fixture/source writers, Firestore/Auth/AppCheck or an HTTP listener. The diagnostic entrypoint must return evidence only and close the pool on success, assertion failure, expired approval, SQL error and timeout.
+
+SQL capability boundary
+Use one acquired client in BEGIN READ ONLY, fixed numerical VALUES/subqueries/parameters and a fixed allowlist of server/settings/extension metadata statements. The numerical expression should come from the unchanged production queryPlan expression using fixed internal criteria, as the existing diagnostic does; execute only the extracted expression, never the generated entities query. No caller-provided SQL, arbitrary expressions, identifiers, filesystem output paths, coordinates, query sizes or iteration counts. Return the result, not the SQL connection/capability.
+
+Read-only transactions reject ordinary data mutation but do not prevent reads of real tables. The diagnostic role should therefore have only CONNECT to the exact disposable synthetic database, no application table rights, no schema CREATE, no broad role memberships, and only any narrowly required metadata/PostGIS-version function access. The first diagnostic-only signed configuration may bind this role through existing hosted.sql.serviceAccountEmail; later workload identity/config needs fresh approval. Exact grants and real effective privileges remain future supervised-bootstrap proof, not something source tests establish. No customer data belongs in this isolated project/database.
+
+Bounded evidence
+Reuse the retained318 SQL lower-bound pairs and1512 radius-edge cases without claiming they are universal proof. Add the retained34 float8/numeric conversion cases, extra_float_digits and the fixed IEEE arithmetic checks. Capture actual Node/V8/platform/architecture, executable SHA256, kernel, selected CPU vendor/model/flags, libc runtime version if available, final query/oracle/diagnostic source hashes, PG server version and PostGIS extension/runtime version. CPU metadata must use a size-limited allowlist, not an environment or full process report dump. Resource/job/image incarnation is verified by the provider receipt, not self-reported native:true. Use an absolute duration cap below the600-second task limit, a fixed query/count budget and the existing per-SQL timeout; stop before another query when expired. Bound stdout/results. Label finiteSamplesAreNotUniversalProof:true and servingRuntimeQualified:false. A failed required case is a nonzero/incomplete diagnostic, never a runtime PASS.
+
+Required local regression matrix
+- Import/dry-run/no or forged approval initializes no connector, credentials, Firebase, keys or listener.
+- Reject production/demo/nonallowlisted project, wrong gate/job/action/config/signature, bad syntheticOnly, expired or insufficient600-second horizon, and caller mutation across awaits before I/O.
+- Genuine ephemeral signed configuration executes the diagnostic through an injected private/IAM connector. Capture every SQL statement to prove fixed literal/parameter/metadata-only access and no tables or writes.
+- Assert bounded loops/result size, deadline/error cleanup, and no exported/returned serving capability.
+- A real local isolated SQL execution exercises the exact numerical engine; it does not impersonate managed IAM/native evidence.
+- In the rebuilt actual image, run the diagnostic locally with bounded resources and verify unchanged hosted refusal before and after diagnostic execution (including cached local qualification).
+- Renderer/provider contracts bind the diagnostic entrypoint, exact job id, fixed args, signed image/principal/private route, one task, parallelism one, retries zero and timeout600s; no runtime overrides or keys mount is needed.
+
+Native qualification sequence
+A separately approved supervised Gate1 may execute only the diagnostic. Freeze its actual native job/image/binary/CPU/PG evidence. Independently reconcile retained exact-rational proof, actual V8 dispatch/code generation/constants and PG conversion assumptions against that runtime; finite samples alone cannot grant compatibility. If satisfactory, explicitly authorize the exact hosted tuple in a later source correction, retain all local distinctions, rebuild/test/review the affected image, then issue a new approved candidate/config/image signature. Only that image can initialize source/serving/snapshot jobs. Until then ordinary hosted execution remains blocked.
+
+The cloud package must show this real pause and its holding/retained costs. It must not imply the current image performs the whole search/snapshot drill immediately or that independent proof/rebuild necessarily fits the900-second bootstrap window. No real signature, start, provider identity, receipt or qualification is created by preparation.
+
+Findings using owner Bug Filter
+FIX NOW / DIRECTLY REQUIRED: Existing local numerical script hardcodes a loopback DB and has no permit; existing hosted source job path intentionally refuses native execution. A separate permit-controlled fixed diagnostic is the smallest repair required by this task.
+ACCEPT AND CLOSE: Reuse the existing approval and private SQL connection contracts; do not broaden their permissions or relax the serving guard.
+ACCEPT AND CLOSE: Finite-vector results and runtime metadata are evidence, not universal proof or hosted allowance. Preserve the independent proof/rebuild/new-signature gate.
+PRODUCT DECISION REQUIRED: Actual bootstrap/workload approval, effective diagnostic DB grants, provider runtime and managed SQL evidence and holding costs require later owner-approved execution. This review authorizes none.
+
+Primary references checked for this review
+https://docs.cloud.google.com/sql/docs/postgres/iam-authentication — IAM login and database object grants are distinct; automatic connector authentication uses temporary credentials.
+https://www.postgresql.org/docs/current/sql-set-transaction.html — READ ONLY disallows listed writes; it does not mean no disk writes or no table reads.
+
+No tests executed in this preliminary review. Original004 evidence is reused unchanged. Await the parent-selected frozen implementation for final review and isolated tests.

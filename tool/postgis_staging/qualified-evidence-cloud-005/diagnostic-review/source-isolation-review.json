@@ -1,0 +1,105 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005",
+  "reviewer": "/root/source_ingestion",
+  "completedAt": "2026-10-18T01:43:38.781012+00:00",
+  "scope": "Independent native diagnostic source, descriptor and local isolation contract review",
+  "status": "SOURCE_ISOLATION_PASS_AWAIT_ACTUAL_IMAGE_NUMERICAL_EVIDENCE",
+  "sourceFiles": [
+    {
+      "path": "functions/src/postgis_native_diagnostic.ts",
+      "sha256": "48eb5f0b55295da8cf300e7f1d4356a65d8b25db47b466625e2e09a85034db58",
+      "primaryMatchesSelected": true
+    },
+    {
+      "path": "functions/src/postgis_execution_approval.ts",
+      "sha256": "3efec64518f5a89799e0ed1aa283ded06aed66b021e4690bfe4a0fdd0ea4cb9f",
+      "primaryMatchesSelected": true
+    },
+    {
+      "path": "functions/src/postgis_cloudsql.ts",
+      "sha256": "299c6645ef5beaddc682adae9197cc647b8309dbabdfc9455e72517cf50273fa",
+      "primaryMatchesSelected": true
+    },
+    {
+      "path": "functions/src/postgis_runtime.ts",
+      "sha256": "74887f3e8af5546a59402e79b4f18557c340db6c371aa9d2fd7ccb374cdeae85",
+      "primaryMatchesSelected": true
+    },
+    {
+      "path": "functions/src/postgis_query.ts",
+      "sha256": "309e27651e330a1fd04fd3c9063605c59b2bce83d8364e98bd85c6b8803dacdf",
+      "primaryMatchesSelected": true
+    },
+    {
+      "path": "functions/src/restaurant_geo_helpers.ts",
+      "sha256": "8fc56748c811d848b853be0912522b451e1e7c01c0cd1060be2f1cde7ffd9066",
+      "primaryMatchesSelected": true
+    },
+    {
+      "path": "functions/test/postgis_native_diagnostic.test.cjs",
+      "sha256": "668181717ddcdc4827571972d6b250b67b254c21468b213ab344ebe0bf5cc83f",
+      "primaryMatchesSelected": true
+    },
+    {
+      "path": "functions/test/postgis_native_diagnostic_descriptor.test.cjs",
+      "sha256": "b2500afc6d23e840b73bc587ea3af27cc2bffc497091eae0071cc9735551ceec",
+      "primaryMatchesSelected": true
+    },
+    {
+      "path": "tool/postgis_staging/hosted/render-diagnostic.cjs",
+      "sha256": "e2e3cdc342e59f7ab8bab8410e5fe712c1ef313e044b89dc4e4d9218c74d94f6",
+      "primaryMatchesSelected": true
+    }
+  ],
+  "compiledDiagnostic": {
+    "path": "functions/lib/postgis_native_diagnostic.js",
+    "sha256": "6eb5ca74528fc52bcdcf5abb82f84f213965d28d757953fcb31b6fad26219d03"
+  },
+  "tests": {
+    "command": "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node --test --test-isolation=none test/postgis_native_diagnostic.test.cjs test/postgis_native_diagnostic_descriptor.test.cjs",
+    "cwd": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/selected-source/functions",
+    "passed": 19,
+    "failed": 0,
+    "skipped": 0,
+    "exitCode": 0,
+    "log": "selected-native-contracts-independent.log",
+    "logSha256": "2090011884d5c626f8677b70a03f8c3403e8b95df9b86c878d7ef6f6a9ba0a4f",
+    "detail": "16 isolation +3 descriptor tests. Earlier report-only16 tests overlap and must not be added as unique coverage."
+  },
+  "earlierReportHarness": {
+    "path": "native-diagnostic-isolation.test.cjs",
+    "sha256": "8b7b1b937c5aea3f9b97124162e4a225be454c97ab2bbd2392c093ead6a75227",
+    "log": "native-diagnostic-isolation.log",
+    "logSha256": "b6c7dd0e2ef6440c20cd4c6a488b58aad9fef75e762e7db67e63f07f1c5c714e",
+    "passed": 16
+  },
+  "findings": [
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "status": "CORRECTED_AND_RETESTED",
+      "finding": "Capturing options.jobId only before identity validation allowed mutation during awaits to mislabel returned evidence. Parent captured one primitive jobId for validation and evidence. Independent mutation regression passes."
+    },
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "finding": "Existing signature/config identity, synthetic-only fixed diagnostic principal/database, Gate1 action,600-second approval horizon and private IAM pool are reused. No changes to numerical serving guard or production exports."
+    },
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "finding": "358 fixed statements comprise one identity probe, BEGIN READ ONLY,355 numerical/metadata reads and ROLLBACK. No application table query or arbitrary SQL input is exposed. Error/expiry/deadline paths release and close resources."
+    },
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "finding": "Renderer uses immutable image/private route/exact diagnostic principal with1task,1parallelism,zero retries,600s cap and only config/approval/trust mounts; no server port or runtime-key mount."
+    }
+  ],
+  "limitations": [
+    "Injected SQL values only establish isolation contracts, not actual numerical values or managed authentication.",
+    "Actual least-privilege database grants, native CPU/provider provenance and hosted managed SQL behavior require the later supervised gate.",
+    "Hosted search/source/snapshot initialization remains refused until separate native proof review, narrow source allowance, rebuilt image and new approved config.",
+    "Actual rebuilt-image binary/hash and numerical test evidence are pending a subsequent addendum."
+  ],
+  "unresolvedMaterialSourceFindings": [],
+  "repositoryEditsByReviewer": false,
+  "cloudActions": false,
+  "sourceGuardChangedByReviewer": false
+}

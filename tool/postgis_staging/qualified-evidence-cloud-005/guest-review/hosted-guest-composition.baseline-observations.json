@@ -1,0 +1,24 @@
+{
+  "scope": "Report-only actual hosted composition with real qualified Darwin guard and cryptographic permit, injected lower storage/provider boundaries; no cloud execution",
+  "node": "v24.21.0",
+  "platform": "darwin",
+  "guardUnmodified": true,
+  "observations": [
+    {
+      "case": "absent",
+      "firstCandidates": 1,
+      "rounds": 26,
+      "cards": 25,
+      "orderedIdsSha256": "d0031fcf30975955ddfab51ce7a9e9dd836b479b94cbabb25dcc9615631470ba",
+      "signedConfigDigest": null
+    },
+    {
+      "case": "false",
+      "firstCandidates": 1,
+      "rounds": 26,
+      "cards": 25,
+      "orderedIdsSha256": "d0031fcf30975955ddfab51ce7a9e9dd836b479b94cbabb25dcc9615631470ba",
+      "signedConfigDigest": null
+    }
+  ]
+}

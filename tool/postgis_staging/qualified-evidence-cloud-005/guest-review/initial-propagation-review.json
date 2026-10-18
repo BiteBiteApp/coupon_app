@@ -1,0 +1,250 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005",
+  "promptTimestamp": "2026-10-17T20:51:00-04:00",
+  "reviewedAt": "2026-10-18T01:32:46.288020+00:00",
+  "reviewer": "/root/query_client",
+  "role": "Independent read-only initial guest-setting contract review",
+  "permittedChangeArea": "External report artifacts only; no repository writes, Git mutation, cloud call or subagent.",
+  "expectedHead": "76281bddc4a76b6e6ed899560eb8d7227024a156",
+  "actualHead": "76281bddc4a76b6e6ed899560eb8d7227024a156",
+  "sourceState": "Initial committed baseline before005 implementation; working hashes recorded separately in case root begins authorized edits.",
+  "executionPath": [
+    "hostedPostgisMain --execute reads explicit operator configuration/approval/trust paths.",
+    "openApprovedHostedPostgisResources clones whole configuration, derives cloudSqlPostgisIdentity including digestPostgisConfiguration(entire config), verifies real canonical Ed25519 envelope, validates hosted config and real hosted runtime before keys/ADC/clients.",
+    "createHostedPostgisRuntime clones configuration again; each invoke validates that private copy against immutable permit and branded CloudSQL pool identity.",
+    "Current native Saver context omits guestRestaurantWindow; PostGIS handler spreads context and adds searchBackend postgis.",
+    "Native guest restaurant operation opts into private windowVersion1 only when context.guestRestaurantWindow===true AND context.searchBackend===postgis. Public caller DTO has no mode selector."
+  ],
+  "smallestRequiredRepair": [
+    "Add optional boolean hosted.guestRestaurantWindow to HostedPostgisConfiguration type.",
+    "Reject present non-boolean values in requireHostedPostgisConfiguration; retain default serial for absence.",
+    "Forward configuration.hosted.guestRestaurantWindow===true from the existing private JSON clone into native Saver context.",
+    "Set template false explicitly and document signed/default-off meaning; do not add environment/public request switch.",
+    "No approval schema, hash function, guest algorithm, privacy, retention, client/UI, production export or runtime guard change required."
+  ],
+  "initialProbe": {
+    "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/guest-review/initial-config-probe.json",
+    "sha256": "849f60abbe9fdec577be82ca4e7e3a7da16b441e59d7d89f058073b931e3da10",
+    "results": {
+      "recordedAt": "2026-10-18T01:31:48.871Z",
+      "scope": "Offline initial compiled-validator probe only; no runtime construction, provider, keys persisted, credentials or cloud call. Ephemeral test-only signatures do not authorize execution.",
+      "results": [
+        {
+          "case": "absent",
+          "configDigest": "eb2b9961af27c01d8624ac344fa6805c9c4937878b9c7cc19f8cbb910ee8f439",
+          "accepted": true
+        },
+        {
+          "case": "false",
+          "configDigest": "95f55b27923effbcc1095400c0d6b0df7ee2c3018eb65012a7445fe064aba9c3",
+          "accepted": true
+        },
+        {
+          "case": "true",
+          "configDigest": "4ef2a216e235e7c063a51e5989ada5854c112cbeb9e77aa939dc13419656df6b",
+          "accepted": true
+        },
+        {
+          "case": "invalid-null",
+          "configDigest": "7fd06f1bfe2d6312e7b0f13a70b4f0661e10685773e0e7f4bc99a46939251be2",
+          "accepted": true
+        },
+        {
+          "case": "invalid-string",
+          "configDigest": "1a4abf9b3f3ab9457a3f54529a0155d1746c6bc40349476081cb7421999edd52",
+          "accepted": true
+        },
+        {
+          "case": "invalid-number",
+          "configDigest": "15d4a54a69e0850b8a5bb8a9c2a9760b4ebd88636f2f65b56eeea72b8606e73c",
+          "accepted": true
+        }
+      ],
+      "fullConfigurationDigestAlreadyBindsMode": true,
+      "changedConfigurationOldPermitRejected": true
+    },
+    "compiledModuleHashes": {
+      "functions/lib/postgis_hosted_runtime.js": "6bd53af48764e8b69e97d63db04a39422ab89c9d711dd1b73a932ab0392789cc",
+      "functions/lib/postgis_execution_approval.js": "33ed71e19126f321b061fd266450b621c94e162f7448ccc7cf03137016b1a12e",
+      "functions/lib/postgis_cloudsql.js": "78a404b4af0a08ade3728c5e8f936f14c0a8910511bf9959115dfdfd88fed360"
+    },
+    "limitation": "Proves current compiled validation/digest behavior only; does not claim actual hosted composition or cloud execution."
+  },
+  "focusedTests": [
+    {
+      "case": "Absent and explicit false",
+      "test": "Real signed config + actual createHostedPostgisRuntime.invoke start/page/continue, existing35-parent one-offer native fixture.",
+      "assertions": [
+        "First challenge1 ID; no windowVersion;26 continuations; complete25 ordered expected public restaurant IDs; hasMore true.",
+        "Both signatures/config digests remain distinct and valid; no implicit normalization."
+      ]
+    },
+    {
+      "case": "Explicit true",
+      "test": "Same actual hosted composition and fixture with separately signed true configuration.",
+      "assertions": [
+        "Private progress windowVersion1; first challenge26 IDs across ordered parents; one answer yields same25 useful public IDs/order and truthful hasMore.",
+        "All challenge counts<=75; unrelated local history never included in answer.",
+        "Existing dense75-ID, replay, exclusion and day-boundary evidence remains applicable to unchanged native implementation."
+      ]
+    },
+    {
+      "case": "Invalid type",
+      "test": "Sign each invalid JSON value with ephemeral test-only key so type validator is actually reached.",
+      "assertions": [
+        "null, string, number, array and object reject before provider construction; test cannot merely fail old signature.",
+        "Explicit undefined is not serializable under canonical config and must not be silently signed as absent."
+      ]
+    },
+    {
+      "case": "Modified config and signature mismatch",
+      "test": "Valid false permit used with true configuration; altered approval payload/digest retaining old signature; invalid signature.",
+      "assertions": [
+        "Fail before key-file/ADC/provider initialization.",
+        "Do not recompute or re-sign attacker change and call it a tamper test."
+      ]
+    },
+    {
+      "case": "Mutation after validation before construction",
+      "test": "Verify valid false permit; mutate original config or replace hosted object to true; call runtime constructor.",
+      "assertions": [
+        "Digest/permit mismatch rejects, with no native search/projection write."
+      ]
+    },
+    {
+      "case": "Mutation after construction",
+      "test": "Build actual runtime, then mutate caller-owned config false\u2192true and separately true\u2192false before start/page.",
+      "assertions": [
+        "Private cloned config preserves originally signed mode in both directions, including a new guest operation after mutation.",
+        "Do not test only before constructor or only boolean echo."
+      ]
+    },
+    {
+      "case": "Unsigned override and preserved paths",
+      "test": "Environment BS_POSTGIS_GUEST_WINDOW=1 with signed absent/false; extra caller property attempting guestRestaurantWindow true.",
+      "assertions": [
+        "Cannot enable window: strict input rejection or serial result are acceptable; no caller context override.",
+        "V1 native path stays serial even if context option true without PostGIS backend.",
+        "Signed-in Saver, Score and Finder still execute existing contexts; do not add guest setting to actor/fingerprint/public DTO."
+      ]
+    },
+    {
+      "case": "Actual guard and rebuilt image",
+      "test": "Retain exact source guard; run unchanged guard negatives and no-I/O dry run in new image, bind current source/compiled hashes.",
+      "assertions": [
+        "Real Linux hosted mode still refuses even after successful local qualification/cache.",
+        "No environment bypass, test-only source switch, or hosted native tuple allowance.",
+        "Original004 image/manifests remain historical and unmodified."
+      ]
+    }
+  ],
+  "compositionIsolation": "Prefer retained exact qualified Darwin Node24.21 with unmodified real hosted guard. Existing createCloudSqlPostgisPool dependency seam creates real branded pool using injected connector/driver. Isolate Firestore/source constructors and PostgisMembership at test-module boundary; keep real crypto verifier, createHostedPostgisRuntime, createPostgisSearchHandlers and native session handlers. Reuse native in-memory authority/seed helpers and fixed fake Date only where fixture availability needs it. Do not stub native handlers merely to echo the context boolean. Linux image can separately prove real hosted refusal; if unit module mocking of guard is used there, label it isolated composition only and retain unmocked refusal tests. No production seam or allowance is justified by tests.",
+  "findings": [
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "finding": "Current hosted runtime ignores the requested signed guest mode; separately signed invalid values pass existing hosted validation. A future staging experiment could accidentally remain serial. Existing full-config digest already prevents mode tampering with an old permit.",
+      "likelihood": "Deterministic when future signed hosted mode is attempted; no current hosted execution or customer activation.",
+      "proportionality": "Optional strict boolean validation + one existing-context property; user explicitly authorized this repair in005. No guest algorithm or policy redesign."
+    }
+  ],
+  "reusedEvidence": [
+    "004 final image304native+24independent guest checks and unchanged guest/source hashes.",
+    "004 global75-ID, exactintersection, orderedpages, actor/realm/session/revision replay, source/usage authority, signed/Score/Finder evidence.",
+    "004 exact local runtime qualification and Linux hosted refusal, including rejection before cached qualification.",
+    "004 performance evidence remains descriptive; no new timing/architecture investigation needed for a configuration propagation change."
+  ],
+  "governance": {
+    "read": [
+      "AGENTS.md",
+      "current005 prompt",
+      "LINUX-QUALIFICATION-004.md",
+      "combined-source.linux-004.json",
+      "HOSTED-ADAPTER.md",
+      "relevant PROVIDER-GATE1/PRESPEND-LOCAL-003/DURABLE-SNAPSHOTS/safety README sections"
+    ],
+    "narrowerInstructions": "No nested AGENTS.md under functions/tool/test.",
+    "actualBugFilter": "Retained actual004 bug-filter.txt read; consequence first, likelihood second, proportionality third.",
+    "sanityChecklist": "Retained actual004 sanity-checklist.txt relevant sections read; reuse known qualification and keep source/test/live distinctions."
+  },
+  "sourceHashes": [
+    {
+      "path": "functions/src/postgis_hosted_runtime.ts",
+      "committedSha256": "6aa32d0d23b502a8d91eb57850ebc967e2bc81f50300a95cfa76a9b98104b3ac",
+      "observedWorkingSha256": "6aa32d0d23b502a8d91eb57850ebc967e2bc81f50300a95cfa76a9b98104b3ac"
+    },
+    {
+      "path": "functions/src/postgis_hosted_entrypoint.ts",
+      "committedSha256": "78f55eee2f4ad2d5989c76ff26c0ccbb8fb29c233a248f3f7b5dcfff7c9abac7",
+      "observedWorkingSha256": "78f55eee2f4ad2d5989c76ff26c0ccbb8fb29c233a248f3f7b5dcfff7c9abac7"
+    },
+    {
+      "path": "functions/src/postgis_cloudsql.ts",
+      "committedSha256": "299c6645ef5beaddc682adae9197cc647b8309dbabdfc9455e72517cf50273fa",
+      "observedWorkingSha256": "299c6645ef5beaddc682adae9197cc647b8309dbabdfc9455e72517cf50273fa"
+    },
+    {
+      "path": "functions/src/postgis_execution_approval.ts",
+      "committedSha256": "3efec64518f5a89799e0ed1aa283ded06aed66b021e4690bfe4a0fdd0ea4cb9f",
+      "observedWorkingSha256": "3efec64518f5a89799e0ed1aa283ded06aed66b021e4690bfe4a0fdd0ea4cb9f"
+    },
+    {
+      "path": "functions/src/postgis_handlers.ts",
+      "committedSha256": "94eb93a362b84132d886c60827a6c797b57884d1f4830bf9343fdf70a5a37021",
+      "observedWorkingSha256": "94eb93a362b84132d886c60827a6c797b57884d1f4830bf9343fdf70a5a37021"
+    },
+    {
+      "path": "functions/src/postgis_runtime.ts",
+      "committedSha256": "74887f3e8af5546a59402e79b4f18557c340db6c371aa9d2fd7ccb374cdeae85",
+      "observedWorkingSha256": "74887f3e8af5546a59402e79b4f18557c340db6c371aa9d2fd7ccb374cdeae85"
+    },
+    {
+      "path": "functions/src/customer_bitesaver_search_session.ts",
+      "committedSha256": "eed290895555fd171365179d729b070f211c94a79404be5e766e1df50866018e",
+      "observedWorkingSha256": "eed290895555fd171365179d729b070f211c94a79404be5e766e1df50866018e"
+    },
+    {
+      "path": "functions/src/customer_search_callable_context.ts",
+      "committedSha256": "4d69aaa73281f1a8fba91658e81d231e0d1ff1352db92e161b9d32c5727d147e",
+      "observedWorkingSha256": "4d69aaa73281f1a8fba91658e81d231e0d1ff1352db92e161b9d32c5727d147e"
+    },
+    {
+      "path": "functions/test/customer_bitesaver_search_handlers.test.js",
+      "committedSha256": "1e3afcc4e6979b3e601f8250adfa22e4f93e6dd9c2832c52863e4350c552f042",
+      "observedWorkingSha256": "1e3afcc4e6979b3e601f8250adfa22e4f93e6dd9c2832c52863e4350c552f042"
+    },
+    {
+      "path": "functions/test/postgis_cloudsql.test.cjs",
+      "committedSha256": "294da67e7a298e70dade07bfc79fb1d5ae728a0542103adac2fa4e1c6bc0c026",
+      "observedWorkingSha256": "294da67e7a298e70dade07bfc79fb1d5ae728a0542103adac2fa4e1c6bc0c026"
+    },
+    {
+      "path": "functions/test/postgis_execution_approval.test.cjs",
+      "committedSha256": "bf0d0f7f70c46e38a70f0492c2d8bad646aeab80f6c8c6042bd07d6ab188aab9",
+      "observedWorkingSha256": "bf0d0f7f70c46e38a70f0492c2d8bad646aeab80f6c8c6042bd07d6ab188aab9"
+    },
+    {
+      "path": "functions/test/postgis_hosted_transport.test.cjs",
+      "committedSha256": "ec2bdcc64ec1cc653ab50e4c7c7e4cf69c17edfd35707a44a4de79979ebd0769",
+      "observedWorkingSha256": "ec2bdcc64ec1cc653ab50e4c7c7e4cf69c17edfd35707a44a4de79979ebd0769"
+    },
+    {
+      "path": "functions/test/postgis_hosted_entrypoint.test.cjs",
+      "committedSha256": "76ae14d5206b1fd72f0d9ae03abc425886e65a351fa4c3123bef30f03578a866",
+      "observedWorkingSha256": "76ae14d5206b1fd72f0d9ae03abc425886e65a351fa4c3123bef30f03578a866"
+    },
+    {
+      "path": "tool/postgis_staging/hosted/hosted.example.json",
+      "committedSha256": "37d1d4358fd70613d415afb35c4813af48ebbe93577a174403d27aed6074d2f4",
+      "observedWorkingSha256": "37d1d4358fd70613d415afb35c4813af48ebbe93577a174403d27aed6074d2f4"
+    },
+    {
+      "path": "tool/postgis_staging/hosted/render-service.cjs",
+      "committedSha256": "17fc441f4dc52c59426d08a8fe050ade64275fd256b8b2c4e4f5cfc0648d5f70",
+      "observedWorkingSha256": "17fc441f4dc52c59426d08a8fe050ade64275fd256b8b2c4e4f5cfc0648d5f70"
+    }
+  ],
+  "testsActuallyRunNow": [
+    "Offline initial configuration probe: canonical digest differs for absent/false/true; changed config with old real test permit rejects; initial signed null/string/number acceptance recorded as baseline."
+  ],
+  "status": "Initial review complete; awaiting root final source/tests/image for independent verification. Not final qualification or spending approval."
+}

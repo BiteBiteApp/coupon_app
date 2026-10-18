@@ -1,0 +1,167 @@
+{
+  "status": "PROPOSED_UNCREATED_PROJECT_AVAILABILITY_UNVERIFIED_NO_EXECUTION_AUTHORITY",
+  "projectId": "bitestar-search-g005-20261017",
+  "projectNumber": null,
+  "billingAccountId": "01A48F-0E48E0-1A5439",
+  "runId": "bs-postgis-g005-20261017",
+  "region": "us-central1",
+  "originalFirstBillableAtMs": null,
+  "signedResourceLifetimeSecondsProposed": 21600,
+  "outerLifetimeMaximumSecondsUnchanged": 259200,
+  "teardownLeadSeconds": 1800,
+  "bootstrapMaximumSecondsExisting": 900,
+  "bootstrapMaximumSecondsRequested": 7200,
+  "buckets": {
+    "control": "bitestar-search-g005-20261017-control",
+    "configuration": "bitestar-search-g005-20261017-config",
+    "trust": "bitestar-search-g005-20261017-trust",
+    "evidence": "bitestar-search-g005-20261017-evidence"
+  },
+  "bucketPolicyProposal": "Regional STANDARD us-central1, uniform bucket-level access, public access prevention; no object-versioning, lock/hold or soft-delete promise. For this new isolated bucket proposal explicitly request soft-delete0 and no retention lock; actual provider policy and metadata must be captured. Exact config/trust objects operator-written, runtime read-only; control CAS separate; evidence prefix immutable generation-pinned. Retain allocated evidence/artifacts at most10days under cleanup accounting; copy needed nonsecret evidence outside disposable SQL first.",
+  "network": {
+    "name": "bs-postgis-g005-20261017",
+    "subnet": "bs-postgis-g005-20261017",
+    "subnetCidr": "10.73.0.0/26",
+    "privateGoogleAccess": true,
+    "privateServiceAccessRangeName": "bs-postgis-g005-20261017-sql-range",
+    "privateServiceAccessCidr": "10.74.0.0/16",
+    "route": "Cloud Run Direct VPC PRIVATE_RANGES_ONLY; Cloud SQL private address only; no public SQL IP, NAT or Serverless VPC Access connector VM"
+  },
+  "sql": {
+    "name": "bs-postgis-g005-20261017-db",
+    "edition": "ENTERPRISE",
+    "version": "POSTGRES_18",
+    "tier": "db-custom-4-16384",
+    "availability": "ZONAL",
+    "storageType": "PD_SSD",
+    "storageGiB": 100,
+    "autoResize": false,
+    "publicIp": false,
+    "iamAuthentication": true,
+    "database": "bs_postgis_diagnostic",
+    "restoreDatabaseDeferred": "bs_postgis_restore",
+    "backupRetentionCount": 3,
+    "pitrDays": 1,
+    "finalBackup": false,
+    "deletionProtection": false,
+    "noOnDemandBackups": true
+  },
+  "phaseAWorkloadResourceNames": [
+    "bs-postgis-g005-20261017-bootstrap-probe",
+    "bs-postgis-g005-20261017-db",
+    "bs-postgis-g005-20261017-native",
+    "bs-postgis-g005-20261017-cancel-probe"
+  ],
+  "phaseAJobLimits": {
+    "cpu": 1,
+    "memoryGiB": 1,
+    "taskCount": 1,
+    "parallelism": 1,
+    "maxRetries": 0,
+    "timeoutSeconds": 600,
+    "serializedWorkloadJobs": true,
+    "diagnosticCommand": [
+      "node",
+      "functions/lib/postgis_native_diagnostic.js",
+      "--execute",
+      "/config/value.json",
+      "/approval/value.json",
+      "/trust/value.json",
+      "bs-postgis-g005-20261017-native"
+    ],
+    "cancelProbeCommandProposal": "Fixed signed node -e setTimeout(()=>process.exit(0),540000) job using the same approved image; no arbitrary operator payload or network work. This is a deliberate bounded cancellation target, not a load generator."
+  },
+  "deferredNamesNotInitialExecutionAuthority": {
+    "search": "bs-postgis-g005-20261017-search",
+    "load": "bs-postgis-g005-20261017-load",
+    "restore": "bs-postgis-g005-20261017-restore",
+    "sourceInitialize": "bs-postgis-g005-20261017-initialize",
+    "fixture": "bs-postgis-g005-20261017-fixture",
+    "enroll": "bs-postgis-g005-20261017-enroll",
+    "catchup": "bs-postgis-g005-20261017-catchup",
+    "snapshot": "bs-postgis-g005-20261017-snapshot",
+    "firestoreDatabase": "search-qualification"
+  },
+  "control": {
+    "controllerJob": "bs-postgis-g005-20261017-controller",
+    "watchdogJob": "bs-postgis-g005-20261017-watchdog",
+    "workflow": "bs-postgis-g005-20261017-guardian",
+    "scheduler": "bs-postgis-g005-20261017-watch",
+    "schedulerFrequency": "* * * * * UTC; zero automatic retry",
+    "alertTopic": "projects/bitestar-search-g005-20261017/topics/bs-postgis-g005-20261017-alerts",
+    "artifactRepository": "bs-postgis-g005-20261017",
+    "ledgerObject": "runs/bs-postgis-g005-20261017/control.json",
+    "controllerWatchdogTaskCpu": 1,
+    "controllerWatchdogMemoryMiB": 512,
+    "controllerWatchdogMaxSeconds": 600,
+    "controllerWatchdogRetries": 0
+  },
+  "serviceAccounts": {
+    "controller": "g005-controller@bitestar-search-g005-20261017.iam.gserviceaccount.com",
+    "watchdog": "g005-watchdog@bitestar-search-g005-20261017.iam.gserviceaccount.com",
+    "workload": "bs-postgis-g005-20261017-diag@bitestar-search-g005-20261017.iam.gserviceaccount.com",
+    "workflow": "g005-workflow@bitestar-search-g005-20261017.iam.gserviceaccount.com",
+    "scheduler": "g005-scheduler@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+  },
+  "phaseAApiEnablementProposal": [
+    "serviceusage.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+    "iam.googleapis.com",
+    "compute.googleapis.com",
+    "servicenetworking.googleapis.com",
+    "sqladmin.googleapis.com",
+    "run.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "storage.googleapis.com",
+    "workflows.googleapis.com",
+    "workflowexecutions.googleapis.com",
+    "cloudscheduler.googleapis.com",
+    "monitoring.googleapis.com",
+    "pubsub.googleapis.com",
+    "logging.googleapis.com",
+    "secretmanager.googleapis.com"
+  ],
+  "deferredApis": [
+    "firestore.googleapis.com",
+    "firebase.googleapis.com",
+    "identitytoolkit.googleapis.com",
+    "firebaseappcheck.googleapis.com"
+  ],
+  "workloadIdentityAndDatabaseGrants": "Exact diagnostic identity only. Exact custom IAM permissions cloudsql.instances.connect/get/login only on the isolated project; no executeSql permission. IAM database username omits .gserviceaccount.com. Bootstrap operator creates bs_postgis_diagnostic and approved PostGIS extensions. Revoke PUBLIC database CREATE/TEMP and public-schema CREATE; grant diagnostic CONNECT and public-schema USAGE plus EXECUTE on only the fixed PostGIS functions if default EXECUTE has been revoked. Fixed scalar SQL and pg_catalog reads only; no TEMP, tables, DML, arbitrary SQL or ordinary workload grants. Public functions are not protected by a function-level USAGE privilege; schema USAGE and function EXECUTE are distinct.",
+  "controlIamProposal": {
+    "details": "See iam.json, including exact permission arrays, binding levels and provider service agents. Proposed only; no IAM applied or live-tested."
+  },
+  "ownerInputsRequired": [
+    "Approve NEW proposed project association to the already identified billing account; proposed project availability and number remain unknown.",
+    "Approve bootstrap 900-to-7200-second exception and necessary source correction/requalification before execution. Existing guard still requires 900 seconds.",
+    "Approve diagnostic/control phase only, six-hour signed resource limit, $15 setup/work allocation including $5 bootstrap, and separate $30 cleanup reserve within $300 planning ceiling.",
+    "Resolve native notification conditional-failover limitation. Contacts are supplied, but no channel, SMS verification, email send or delivery proof exists.",
+    "Approve scoped project IAM/network/control/storage setup and actual independent SQL single-use ownership preflight; do not treat proposed permissions as that evidence.",
+    "Approve a future immutable phase-transition design before ordinary source/snapshot work; no timer or cumulative cost reset.",
+    "Keep initial phase attended while owner is awake; no reliance on overnight response. Unattended operation remains blocked without real independent automatic cleanup proof."
+  ],
+  "revision": "v2; preserves original proposal files",
+  "billingAccountEvidence": "Parent read-only inspection reports existing open My Billing Account linked to production BiteStar. Association of the NEW proposed project requires approval; no association performed. Account currency, discounts and taxes not independently verified by this reviewer.",
+  "diagnosticInputSecrets": [
+    {
+      "name": "projects/bitestar-search-g005-20261017/secrets/bs-postgis-g005-20261017-config",
+      "version": null,
+      "mount": "/config/value.json",
+      "status": "UNCREATED; actual numeric version required, never latest"
+    },
+    {
+      "name": "projects/bitestar-search-g005-20261017/secrets/bs-postgis-g005-20261017-approval",
+      "version": null,
+      "mount": "/approval/value.json",
+      "status": "UNCREATED; actual numeric version required, never latest"
+    },
+    {
+      "name": "projects/bitestar-search-g005-20261017/secrets/bs-postgis-g005-20261017-trust",
+      "version": null,
+      "mount": "/trust/value.json",
+      "status": "UNCREATED; actual numeric version required, never latest"
+    }
+  ],
+  "notificationPlan": "See notifications.json. Owner requests primary email and conditional SMS fallback only. Native dual-channel fan-out does not implement this. Approval package remains BLOCKED until an explicit notification decision; no duplicate SMS silently enabled.",
+  "bootstrapDatabaseMethod": "Temporary human IAM Data API, explicitly owner-approved authenticated HTTPS SQL route; no public SQL IP or password. See bootstrap-database.txt. Disable and verify before private diagnostic. SQL deletion stays supervised."
+}

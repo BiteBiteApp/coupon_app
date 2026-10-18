@@ -1,0 +1,91 @@
+{
+  "status": "CONDITIONS_PROPOSED_ONLY_NOTIFICATION_SELECTION_BLOCKED",
+  "projectId": "bitestar-search-g005-20261017",
+  "notificationChannels": null,
+  "requiredOwnerChannels": [
+    "Primary email supplied; channel uncreated.",
+    "Backup SMS supplied; unverified and not attached. Native conditional failover requires owner decision."
+  ],
+  "policies": [
+    {
+      "displayName": "bs-postgis-g005-20261017 watchdog no completion",
+      "enabled": true,
+      "combiner": "OR",
+      "notificationChannels": [],
+      "conditions": [
+        {
+          "displayName": "No watchdog completion in15minutes, including missing data",
+          "conditionThreshold": {
+            "filter": "resource.type=\"cloud_run_job\" AND resource.labels.project_id=\"bitestar-search-g005-20261017\" AND resource.labels.location=\"us-central1\" AND resource.labels.job_name=\"bs-postgis-g005-20261017-watchdog\" AND metric.type=\"run.googleapis.com/job/completed_execution_count\"",
+            "aggregations": [
+              {
+                "alignmentPeriod": "900s",
+                "perSeriesAligner": "ALIGN_SUM",
+                "crossSeriesReducer": "REDUCE_SUM"
+              }
+            ],
+            "comparison": "COMPARISON_LT",
+            "thresholdValue": 1,
+            "duration": "60s",
+            "evaluationMissingData": "EVALUATION_MISSING_DATA_ACTIVE"
+          }
+        }
+      ]
+    },
+    {
+      "displayName": "bs-postgis-g005-20261017 watchdog failures",
+      "enabled": true,
+      "combiner": "OR",
+      "notificationChannels": [],
+      "conditions": [
+        {
+          "displayName": "Watchdog failure",
+          "conditionThreshold": {
+            "filter": "resource.type=\"cloud_run_job\" AND resource.labels.project_id=\"bitestar-search-g005-20261017\" AND resource.labels.location=\"us-central1\" AND resource.labels.job_name=\"bs-postgis-g005-20261017-watchdog\" AND metric.type=\"run.googleapis.com/job/completed_execution_count\" AND metric.labels.result=\"failed\"",
+            "aggregations": [
+              {
+                "alignmentPeriod": "60s",
+                "perSeriesAligner": "ALIGN_SUM",
+                "crossSeriesReducer": "REDUCE_SUM"
+              }
+            ],
+            "comparison": "COMPARISON_GT",
+            "thresholdValue": 0,
+            "duration": "0s"
+          }
+        }
+      ]
+    },
+    {
+      "displayName": "bs-postgis-g005-20261017 safety pause or teardown",
+      "enabled": true,
+      "combiner": "OR",
+      "notificationChannels": [],
+      "conditions": [
+        {
+          "displayName": "Successful safety action still needs human delivery",
+          "conditionMatchedLog": {
+            "filter": "resource.type=\"cloud_run_job\" AND resource.labels.project_id=\"bitestar-search-g005-20261017\" AND resource.labels.location=\"us-central1\" AND resource.labels.job_name=\"bs-postgis-g005-20261017-watchdog\" AND (jsonPayload.safetyAction=\"pause-load-stop-sql-and-alert\" OR jsonPayload.safetyAction=\"stop-load-export-and-teardown\")"
+          }
+        }
+      ],
+      "alertStrategy": {
+        "notificationRateLimit": {
+          "period": "300s"
+        },
+        "autoClose": "1800s"
+      }
+    }
+  ],
+  "activationPrerequisites": [
+    "Replace empty notificationChannels only with actual channel resource names obtained after approved creation/verification; no fictional numeric IDs.",
+    "Create policies before a successful baseline watchdog execution; verify the actual metric series and log fields with bounded read-only provider inspection.",
+    "Also induce a controlled failed watchdog and a successful pause/stop to prove all three routes. Pub/Sub publish acceptance does not prove email/SMS delivery.",
+    "The completion-count threshold handles emitted zeros as well as missing samples. A pure metric-absence condition alone may not catch zeros. Official metric sampling60s and visibility delay up to120s mean this is not a delivery-time SLA.",
+    "Monitor setup is not evidence of independent execution; no baseline/no real delivery means controlsVerified stays false.",
+    "Notification selection stays empty until owner resolves native conditional-fallback incompatibility; do not attach SMS as routine duplicate.",
+    "Scheduler-silence, failed watchdog and successful safety-action conditions each require a real incident and actual recipient delivery proof under the approved notification design.",
+    "No overnight owner-response dependency. Initial phase attended; unattended admission blocked until real independent cleanup proof."
+  ],
+  "revision": "v2"
+}

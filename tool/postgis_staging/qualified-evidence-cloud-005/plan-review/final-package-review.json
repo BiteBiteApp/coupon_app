@@ -1,0 +1,88 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005",
+  "reviewer": "/root/staging_recovery",
+  "reviewedAt": "2026-10-18T01:55:40.814699+00:00",
+  "verdict": "PASS_AS_SOURCE_ONLY_APPROVAL_PROPOSAL; NOT_EXECUTABLE_OR_CLOUD_QUALIFIED",
+  "scope": "Independent exact API/request-shape, permission/cleanup authority, bootstrap sequence, project/resource/budget/notification consistency and owner report review. No repository edits, cloud execution, notification sends or test-suite reruns.",
+  "files": [
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/bootstrap-database.txt",
+      "sha256": "146abe1f11b812f84c2852e47c99d442ad51cc74d3c5d0d2e97c1ce9b1aad87e"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/commands.txt",
+      "sha256": "e4956c447d8d7b10fbe5e10878ffd722b9547d29f06baa320ba460bafea15a87"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/costs.json",
+      "sha256": "1a9e8d7b9cbcff7dd3461d531ae6375492d54ebb07e2775f07e8d58c02b03a77"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/iam.json",
+      "sha256": "0f37cc74414fa949525ed788179f30ae7b3d463f051b9cc1d2d9149d367c86f0"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/monitoring.json",
+      "sha256": "787c1e82a09742bb3e046a2551b5a2ad9170a86e2541913cee42c880b95621dd"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/notifications.json",
+      "sha256": "98db325c97ad94cc663460dc13898bd87016362bf57165882970495033734a3b"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/official-sources.json",
+      "sha256": "4f7a90b716aa080d268e829412259b03e07b0cd9c0fd8c6ee1a65de24e0328b5"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/proposal.json",
+      "sha256": "149af080440aa5214924e955d0e9c93e43a8b3d24f97f9790584dc61d59e923a"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/resources.json",
+      "sha256": "c4f11ca93808a47c2d0970a3b74193d5d4a7ad5550e737ae186de32cc0ef77cb"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/verified-existing.json",
+      "sha256": "c3fa8cce6d98332382c67bf668aba7f652ec23c84a6c17e2ce4ecb4d5b4e2b71"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/CLOUD-PACKAGE-005.md",
+      "sha256": "73894f7bc8bc1b808c6de270f110b99ff3d0514f4a51e3b854b26ec1aee10ff0"
+    }
+  ],
+  "changedSinceFirstPass": [
+    "commands.txt",
+    "iam.json",
+    "resources.json"
+  ],
+  "resolvedFindings": [
+    "P005-C1: v1beta4 executeSql request uses sqlStatement string; semicolon-separated fixed SQL supported, not sqlStatements/query.",
+    "P005-C2: supervised human cleanup has named temporary custom role with get/update/delete and explicit retained-backup inspection/deletion authority, separate from revoked setup grants and not automatic eligibility.",
+    "P005-C3: original T0 ledger, prepaid unrun bootstrap probe, runner loss, actual owned absence, confirm-controls then begin-work precede SQL/native/cancel admission.",
+    "P005-C4: resource references point to package-local IAM and notification files.",
+    "Follow-up: Data API disabling/operation wait/re-read occurs while temporary instances.update permission remains; setup API/IAM is removed afterward."
+  ],
+  "crossChecks": {
+    "packageJsonFilesParsed": 8,
+    "packageFilesHashed": 10,
+    "ownerReportHashed": true,
+    "budgetArithmetic": true,
+    "rawBillingReceiptHashMatches": true,
+    "localImageIdentityMatchesIndependentReceipt": true
+  },
+  "confirmedLimits": [
+    "New project proposed, unavailable/number unverified; no actual new project metadata, signatures, paid start, ownership/delivery receipt or registry digest fabricated.",
+    "Initial phase is attended diagnostic/control only; no browser/search/source/snapshot serving authority.",
+    "Bootstrap 900-to-7200 seconds and email-only attended exception require owner approval plus future source correction/requalification. Neither was silently implemented.",
+    "Native conditional email-to-SMS fallback is unimplemented; no SMS attached or sent. Routine progress delivery is not claimed complete.",
+    "Temporary authenticated public HTTPS Data API route disclosed; private SQL IP and connector diagnostic remain distinct. No password, public SQL IP, VM or admin job is inferred.",
+    "Automatic SQL deletion remains ineligible due to setup authority/preflight timing. Actual IAM and cleanup checks are future work; source descriptors do not establish them.",
+    "$15 includes $5 bootstrap; $30 cleanup reserve is additional within $300 planning ceiling. $100 checkpoint is forecast, original outer 72-hour clock never resets; six-hour phase is proposed.",
+    "Full Gates1/5 snapshot and normal native runtime need independent managed proof, rebuild/new approval and a separately resolved immutable phase transition.",
+    "No overnight human-response reliance and no unattended readiness claim; alert delivery does not prove automatic cleanup.",
+    "Final source/local-image results are distinguished from managed Cloud SQL/private provider routing/IAM/native hardware qualification. Existing 004 evidence is explicitly reused."
+  ],
+  "officialSchemaSource": "https://docs.cloud.google.com/sql/docs/postgres/admin-api/rest/v1beta4/instances/executeSql",
+  "retainedPriorReceipt": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/plan-review/final-package-review.first-pass.json",
+  "limitations": "Proposal reviewed against current official docs and actual checked-in method calls. No provider IAM validation, request execution, provisioning, alert delivery, payment or cleanup action was performed. Source implementation/runtime qualification relies on the other independent receipts linked by the report, not a new broad re-audit here."
+}

@@ -1,0 +1,17 @@
+{
+  "scope": "Report-only actual hosted composition with real qualified Darwin guard and cryptographic permit, injected lower storage/provider boundaries; no cloud execution",
+  "node": "v24.21.0",
+  "platform": "darwin",
+  "guardUnmodified": true,
+  "observations": [
+    {
+      "case": "score-finder",
+      "resultsPerFlow": 1,
+      "modes": [
+        false,
+        true
+      ],
+      "sameNativeItems": true
+    }
+  ]
+}

@@ -30,6 +30,7 @@ export type HostedPostgisConfiguration = CloudSqlPostgisConfiguration & Readonly
   hosted: CloudSqlPostgisConfiguration["hosted"] & Readonly<{
     firestoreDatabase: "search-qualification"; epoch: string;
     allowedOrigins: readonly string[]; enforceAppCheck: boolean;
+    guestRestaurantWindow?: boolean;
   }>;
 }>;
 export type HostedPostgisResources = Readonly<{
@@ -47,6 +48,8 @@ export function requireHostedPostgisConfiguration(configuration: HostedPostgisCo
         try {const url = new URL(origin); return url.origin !== origin || url.protocol !== "https:" || url.username !== "" || url.password !== "";}
         catch {return true;}
       }) || typeof configuration.hosted.enforceAppCheck !== "boolean" ||
+      (Object.prototype.hasOwnProperty.call(configuration.hosted, "guestRestaurantWindow") &&
+        typeof configuration.hosted.guestRestaurantWindow !== "boolean") ||
       process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_AUTH_EMULATOR_HOST) {
     throw new Error("The hosted candidate requires approved isolated resources and exact browser origins.");
   }
@@ -91,7 +94,8 @@ export function createHostedPostgisRuntime(configuration: HostedPostgisConfigura
     try {
       if (name.includes("BiteSaver")) {
         const context = {database: authority, discoveryKey: options.discoveryKey,
-          identityKeyV1: options.identityKeyV1, identity: customerBiteSaverCallableIdentity(request)};
+          identityKeyV1: options.identityKeyV1, identity: customerBiteSaverCallableIdentity(request),
+          guestRestaurantWindow: configuration.hosted.guestRestaurantWindow === true};
         if (name === "getCustomerBiteSaverFavoriteStates") return await getCustomerBiteSaverFavoriteStatesHandler(request.data, context);
         if (name === "getCustomerBiteSaverMenuPage") return await getCustomerBiteSaverMenuPageHandler(request.data, context);
         if (name === "validateCustomerBiteSaverOfferRedemptionStart") return await validateCustomerBiteSaverOfferRedemptionStartHandler(request.data, context);

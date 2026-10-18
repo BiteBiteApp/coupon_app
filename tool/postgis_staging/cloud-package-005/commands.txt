@@ -1,0 +1,137 @@
+PROPOSED ONLY — DO NOT RUN. No execution approval or original paid-start time exists.
+These are the selected operations for review, not an executable bootstrap script.
+Current 900-second guard, two-channel descriptor requirement and immutable phase
+transition must be resolved before any paid operation. Never fill placeholders
+with invented project numbers, timestamps, image digests or signatures.
+
+OFFLINE REPRODUCTION (performed against selected-source, not dirty owner source)
+  node functions/node_modules/typescript/bin/tsc -p functions/tsconfig.json
+  node --test-isolation=none --test functions/test/postgis_hosted_guest_setting.test.cjs
+  node --test-isolation=none --test functions/test/postgis_native_diagnostic.test.cjs functions/test/postgis_native_diagnostic_descriptor.test.cjs
+  docker build --platform linux/amd64 -f tool/postgis_staging/linux/Dockerfile -t bitestar-postgis-cloud-005:qualified-local EXACT_REVIEWED_BUILD_CONTEXT
+  docker image inspect bitestar-postgis-cloud-005:qualified-local --format '{{.Id}}'
+  node tool/postgis_staging/hosted/render-diagnostic.cjs /ABS/FUTURE_FINAL_SIGNED_CONFIG.json bs-postgis-g005-20261017-native
+The last render command needs future actual metadata; it was tested with clearly
+synthetic fixtures, not an actual cloud configuration. Use the qualified Darwin
+Node for the hosted composition test; Linux intentionally refuses hosted scope.
+
+FUTURE BOOTSTRAP, ONLY AFTER SEPARATE SOURCE AND EXECUTION APPROVAL
+1. Verify operator identity/authority, project-name availability and proposed
+   billing account. Establish the original non-resetting T0 BEFORE any billable
+   operation, including setup/control/storage. Keep one cumulative liability ledger.
+   gcloud projects create bitestar-search-g005-20261017 --name='BiteStar Search G005'
+   gcloud billing projects link bitestar-search-g005-20261017 --billing-account=01A48F-0E48E0-1A5439
+   gcloud projects describe bitestar-search-g005-20261017 --format='json(projectId,projectNumber,createTime,lifecycleState)'
+   Parent/organization policy must be observed. No guessed organization ID or
+   permission modification is an automatic fallback. Capture actual receipts.
+
+2. Enable exactly resources.json phaseAApiEnablementProposal in that new project.
+   Create its named VPC/subnet (10.73.0.0/26, Private Google Access) and allocated
+   Private Service Access range (10.74.0.0/16), then the Service Networking peering.
+   Create only the five named identities, custom permission sets/bindings in
+   iam.json, provider-managed service agents and scoped setup grants. Validate
+   effective permissions before workload admission. No Owner/Editor or keys.
+   gcloud services enable API_NAMES_FROM_REVIEWED_RESOURCES_JSON --project=bitestar-search-g005-20261017
+   gcloud compute networks create bs-postgis-g005-20261017 --subnet-mode=custom --project=bitestar-search-g005-20261017
+   gcloud compute networks subnets create bs-postgis-g005-20261017 --network=bs-postgis-g005-20261017 --range=10.73.0.0/26 --region=us-central1 --enable-private-ip-google-access --project=bitestar-search-g005-20261017
+   gcloud compute addresses create bs-postgis-g005-20261017-sql-range --global --purpose=VPC_PEERING --addresses=10.74.0.0 --prefix-length=16 --network=bs-postgis-g005-20261017 --project=bitestar-search-g005-20261017
+   gcloud services vpc-peerings connect --service=servicenetworking.googleapis.com --ranges=bs-postgis-g005-20261017-sql-range --network=bs-postgis-g005-20261017 --project=bitestar-search-g005-20261017
+
+3. Create exactly the four regional STANDARD buckets named in resources.json:
+   control, config, trust and evidence. Apply uniform access/public-access
+   prevention, proposed soft-delete=0, no versioning/retention lock/holds and
+   ten-day evidence/artifact retention. Inspect actual metadata; lifecycle
+   eligibility is not proof of absence or zero charges. Runtime control CAS has
+   only exact-ledger get/create/delete, config/trust only reads. No production
+   bucket. The human cleanup operator accounts for residual versions/objects.
+   gcloud storage buckets create gs://EXACT_PROPOSED_BUCKET --project=bitestar-search-g005-20261017 --location=us-central1 --uniform-bucket-level-access --public-access-prevention
+   gcloud storage buckets update gs://EXACT_PROPOSED_BUCKET --clear-soft-delete
+   gcloud storage buckets describe gs://EXACT_PROPOSED_BUCKET --format=json
+   Review policy/creation receipts without reading unrelated objects.
+
+4. Create Artifact Registry repository bs-postgis-g005-20261017 (Docker,
+   us-central1). ONLY an approved later push may upload the two exact reviewed
+   images. Read the registry digest afterward; a proposed URI is not a receipt.
+   Record actual project/bucket metadata, channel IDs, image digests, input
+   versions and budget reservations before final config signing. Do not create
+   any signing key in cloud or print private signing material.
+
+5. Initialize the durable ledger with the original T0 recorded before step1;
+   never substitute this later initialization time. Create control jobs/Workflow/
+   Scheduler and reviewed Monitoring policies first. Within the already reserved
+   bootstrap allowance, create the named bootstrap-probe job but never run it.
+   Induce runner loss, observe the independent watchdog remove the owned probe,
+   and verify actual absence. Submit actual alert/shutdown evidence through
+   confirm-controls, then begin-work; SQL/native/cancel admission in step6 is
+   forbidden before these real receipts pass the approved bootstrap limits.
+   Scheduler once/minute, no retries; watchdog600s, 1CPU/512MiB, one task/no retry.
+   Approve the email-only attended exception and its source changes first.
+   Numeric channel IDs remain absent until approved creation. Induce a real
+   baseline, failure, safety action and scheduler silence and confirm the email
+   at the actual recipient. Pub/Sub acceptance and successful job exit do not
+   substitute. No SMS channel is attached under the recommended exception.
+
+6. Through the controller's signed reserve/launch flow, create the exact SQL
+   instance and bounded diagnostic/cancellation jobs in resources.json. Do not
+   bypass reservations with an unrecorded direct SQL/jobs-create command.
+   SQL: POSTGRES_18, Enterprise, db-custom-4-16384,100GiB SSD,no auto-resize,
+   zonal/private IP, IAM login, three backups/PITR1day, no final/on-demand backup.
+   Reconcile lost create replies by exact name/incarnation before retrying.
+   A proposed template is not an ownership attestation.
+
+7. Temporary SQL bootstrap, only with explicit approval of authenticated public
+   HTTPS Data API access despite no public SQL IP (bootstrap-database.txt):
+   PATCH sqladmin.googleapis.com/sql/v1beta4/projects/bitestar-search-g005-20261017/instances/bs-postgis-g005-20261017-db
+     {"settings":{"settingsVersion":"ACTUAL_CURRENT_VERSION","dataApiAccess":"ALLOW_DATA_API"}}
+   POST .../instances/bs-postgis-g005-20261017-db/users
+     {"name":"ACTUAL_AUTHENTICATED_HUMAN_EMAIL","type":"CLOUD_IAM_USER","databaseRoles":["cloudsqlsuperuser"]}
+   POST .../instances/bs-postgis-g005-20261017-db/databases
+     {"name":"bs_postgis_diagnostic"}
+   POST .../instances/bs-postgis-g005-20261017-db/users
+     {"name":"bs-postgis-g005-20261017-diag@bitestar-search-g005-20261017.iam","type":"CLOUD_IAM_SERVICE_ACCOUNT"}
+   POST .../instances/bs-postgis-g005-20261017-db/executeSql
+     {"database":"bs_postgis_diagnostic","autoIamAuthn":true,"partialResultMode":"FAIL_PARTIAL_RESULT","sqlStatement":"FIXED_REVIEWED_BOOTSTRAP_DDL_BELOW_AS_ONE_SEMICOLON_SEPARATED_STRING"}
+   Fixed bootstrap DDL (only new synthetic diagnostic database):
+     CREATE EXTENSION IF NOT EXISTS postgis;
+     CREATE EXTENSION IF NOT EXISTS pg_trgm;
+     CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
+     REVOKE CREATE,TEMP ON DATABASE bs_postgis_diagnostic FROM PUBLIC;
+     REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+     GRANT CONNECT ON DATABASE bs_postgis_diagnostic TO "bs-postgis-g005-20261017-diag@bitestar-search-g005-20261017.iam";
+     GRANT USAGE ON SCHEMA public TO "bs-postgis-g005-20261017-diag@bitestar-search-g005-20261017.iam";
+   Do not grant database ownership, table access, DDL, TEMP or superuser to diag.
+   Reconcile metadata before retry after ambiguous DDL. Revoke temporary human
+   elevated database membership; PATCH DISALLOW_DATA_API using newly observed
+   settingsVersion while temporary instances.update permission remains; await
+   and verify, THEN revoke temporary setup API/IAM permissions. Do not delete roles that
+   own extensions. Only then run the diagnostic's private connector path.
+
+8. Exact approved diagnostic command (platform600s/work540s, zero retry):
+   node functions/lib/postgis_native_diagnostic.js --execute /config/value.json /approval/value.json /trust/value.json bs-postgis-g005-20261017-native
+   It opens no listener and reads no application tables or Firebase. Save
+   evidence without config/signing credentials. Successful vectors do not grant
+   native hosting qualification. Independent proof review must precede exact
+   runtime allowance, image rebuild and new signed config. The existing ledger
+   forbids changing these identities: no silent replacement or fresh-T0 successor.
+
+9. Supervised loss/cancel/cleanup drill: drop the local runner; observe independent
+   watchdog. Suspend Scheduler deliberately AFTER baseline and verify silence
+   email. Resume only under approved drill steps. Cancellation addresses the
+   exact observed execution and etag; await operation and verify terminal state.
+   gcloud run jobs executions cancel ACTUAL_OBSERVED_EXECUTION --region=us-central1 --project=bitestar-search-g005-20261017
+   SQL stop uses settings.activationPolicy=NEVER with observed settingsVersion;
+   await actual operation completion, re-read instance. Compute stopping leaves
+   storage/backups/control charges. Automatic SQL deletion is ineligible in
+   this initial plan; the attended authorized human verifies and deletes the
+   exact instance, then verifies actual absence and remaining backup charges.
+   Delete only exact task jobs/control resources and generation-pinned data
+   after retaining nonsecret evidence and accounting for liabilities. Keep
+   guard/scheduler alive until required cleanup evidence is durable. No blanket
+   project-delete shortcut, global cleanup or production operation.
+
+10. Full snapshot recovery is NOT executable in this first diagnostic phase.
+    After a separately approved immutable transition preserving original T0,
+    cumulative costs and liabilities, the later tiny synthetic source/snapshot
+    phase must export, lose/restart response, restore into bs_postgis_restore,
+    compare actual counts/fences/bytes, then prove absence/remaining charges.
+    Until then full Gates1+5 and unattended operation remain NOT QUALIFIED.

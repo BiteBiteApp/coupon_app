@@ -1,0 +1,85 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005",
+  "reviewer": "Track C staging_recovery, independent feasibility reviewer",
+  "recordedAt": "2026-10-18T01:38:40.895656+00:00",
+  "expectedStartingHead": "76281bddc4a76b6e6ed899560eb8d7227024a156",
+  "scope": "Read-only existing source/control plan and public official documentation; report-only proposal; no repository edits, no cloud API/account calls or resources, no tests repeated",
+  "verdict": "PROPOSED_DIAGNOSTIC_FIRST_PACKAGE; NOT_EXECUTABLE_UNDER_UNCHANGED900_SECOND_BOOTSTRAP; NO_SPEND_AUTHORIZATION",
+  "findings": [
+    {
+      "classification": "PRODUCT DECISION REQUIRED",
+      "id": "bootstrap-window",
+      "consequence": "Existing code requires ledger initialization AND actual delivered-alert/shutdown proof before T0+900s; fresh project/API/IAM/bucket/image/control setup cannot honestly be promised to complete that chain. A short budget does not make provider waits short.",
+      "smallestRecommendation": "Request a bounded two-hour setup/control-proof window, retaining$5 and original T0, and only after owner approval patch/requalify hardcoded900 guard. Two hours is a proposed supervised timeout, not a provider SLA. If it expires, reconcile/stop; no timestamp reset.",
+      "alternativesRejected": "Calling billable pre-provisioning free/outsideT0 or silently using already-proven flags would break the approved clock/evidence boundary. Existing verified control resources were not found."
+    },
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "id": "alert-wiring-plan",
+      "consequence": "Existing renderer only monitors failed watchdog executions. Scheduler silence need not produce failure, and successful safety pause only publishes Pub/Sub with no downstream delivery adapter in this package.",
+      "smallestRecommendation": "Include the exact proposed completion-silence, failed-job and safety-action log policies, tied to two actual approved notification channels; test real baseline and induced silence/delivery later. No new notification runtime required."
+    },
+    {
+      "classification": "PRODUCT DECISION REQUIRED",
+      "id": "immutable-phase-transition",
+      "consequence": "Current ledger binds configDigest and candidateDigest forever, and Controller.start refuses a new ledger after the original bootstrap window. Native evidence requires proof review/new runtime allowance/new image/config; those cannot be swapped into the first ledger, nor can a fresh run silently resetT0 or cumulative cost.",
+      "smallestRecommendation": "Authorize only diagnostic/control phaseA now; terminate and reconcile its resources. Ordinary serving/source/snapshot phaseB remains blocked until owner-approved transition preserving original T0, deadline and cumulative liabilities is implemented/reviewed or a genuinely separate experiment is explicitly authorized. Do not claim the existing code can continueA\u2192B automatically.",
+      "scopeDecision": "An increase to bootstrap time alone does not solve immutable configuration handoff. A broad controller redesign is not justified in005; keep this explicit consequential next decision."
+    },
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "id": "honest-gate-costs",
+      "consequence": "A15-dollar gate is not an all-in15-dollar authorization when30 cleanup reserve is mandatory. Full72-hour SQL and worst recurring-watchdog costs plus reserve/setup can cross100 before load.",
+      "smallestRecommendation": "Recommend six-hour phaseA signed resource lifetime,15 work/setup including5bootstrap and30reserve inside300. Include all external control/holding/delayed costs; use the whole forecast and a separate signed $100 approval when reached."
+    },
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "id": "conditional-cleanup",
+      "consequence": "Current controller detects incomplete/lost/cancelled outcomes and stops expensive operations, but storage/backups/logs/control remain chargeable; it cannot prove live IAM exclusivity or deliver an absent scheduler alert on its own.",
+      "smallestRecommendation": "Keep supervised first phase; named awake human fallback, defaultSQL automatic deletion disabled until actual independent exclusivity proof; no overnight/unattended claim."
+    }
+  ],
+  "recommendedSequence": [
+    "Owner approves exact proposal and bounded bootstrap correction; no execute signature until necessary provider receipts exist.",
+    "Before first billable setup/upload, record conservative original T0 and the6-hour phase deadline; this is not an invented provider creation timestamp. Create approved project/control infrastructure under the5-dollar subset, record actual projectNumber and bucketmetadata, then freeze real phaseA config and sign separate trust-backed approval forGates1and5 and cleanup through deadline+2hours.",
+    "Use only a cheap created-but-unrun bootstrap probe job to demonstrate real runner-loss shutdown/etagabsence and alert delivery. Confirm controls within requested2h window. Pre-approval code remains900 and must refuse the new plan until changed after owner approval.",
+    "Create exact zonalSQL and native diagnostic job; permit-controlled synthetic job\u2264600s with full runtime horizon at admission/start. Capture CPU/runtime/binary/server/extension/conversion evidence, not a hosted-servingPASS.",
+    "Run a distinct one-shot fixed cancellation probe, induce runnerloss, observe actual cancellation andSQLstop LRO completion; exercise lostreply/no duplicate create and denied/unknown responses. Independently suspend scheduler after observedmetricbaseline, prove both channels and named human fallback.",
+    "At the six-hour deadline (begin teardown30min earlier), stop/cancel, delete only with valid ownership or explicit supervised approval, verify exact404absence, accountretainedstorage/backups/control/queuedjobs; retain evidence outsideSQL.",
+    "Review native evidence independently offline; if proof holds, propose exact native allowance and rebuild newimage/config. No ordinary hosted search/source/snapshot run is authorized byphaseA. The immutable phase transition and residual originalclock/cumulative budget require a new concrete approved decision; failed evidence may endthe investigation."
+  ],
+  "whenOwnerUnavailable": "No new work/checkpoint consent is inferred. Watchdog pauses admission, cancels work, and requests SQL stop with actual completion checking. At deadline it attempts eligible cleanup. An unavailable or failed watchdog leaves independent Monitoring to alert the named human fallback; continuing storage/control charges remain reserved. If no awake fallback can commit, do not start this supervised phase.",
+  "forecastExample": "Initial planned15+30reserve=45; add any unreconciled previoussetup/holding/delayedliabilities before approval. A72h unchanged plan example exceeds105.88 beforebackups; the100 checkpoint can therefore blockfirstSQL/create reservation, not merelylaterload.",
+  "sourceHashes": {
+    "tool/postgis_staging/PROVIDER-GATE1.md": "1b6abaa8de202b0cbe5363de65caf4eed2a230d8ab4639ddd19e130f5d5e663e",
+    "tool/postgis_staging/HOSTED-ADAPTER.md": "ee6264e77c198e70be6684dcdf1ebb09f61f789c9dd267e3870b24a7ed2cdb5b",
+    "tool/postgis_staging/DURABLE-SNAPSHOTS.md": "0071b3e5c4850e8a03ee649d124f2f8e731f96da047921776af6ad7d87256ebd",
+    "tool/postgis_staging/config/provider.example.json": "15d9ffe2dc6ce57aded62748736bd842d843e8441587044066fe5f127ab4fe15",
+    "tool/postgis_staging/config/staging.json": "0f95e9300e8661867389a967a39413ebac7f6bdf0e5a1b60f3d5137ae25bd83d",
+    "tool/postgis_staging/hosted/hosted.example.json": "37d1d4358fd70613d415afb35c4813af48ebbe93577a174403d27aed6074d2f4",
+    "tool/postgis_staging/hosted/README.md": "bf053b8d7f529101fa7552ba8841d952b76c53446a23829c2d8f7e001d2e4bf7",
+    "tool/postgis_staging/hosted/render-job.cjs": "5c536e9d0aa72becc7425d5a0061baf4dd2484a25fe89e6d3e7f2e27d4a44193",
+    "tool/postgis_staging/hosted/render-service.cjs": "17fc441f4dc52c59426d08a8fe050ade64275fd256b8b2c4e4f5cfc0648d5f70",
+    "tool/postgis_staging/scripts/cloud_controller.py": "d8ed5eade98216424d07396037381f26f0377fdb3e6c2c4c29f9baede5c2a9af",
+    "tool/postgis_staging/scripts/cloud_provider.py": "b6a465032526a5b3c6e17d4797a1f082d268fbb9fca7ca371f0fba8274830fd8",
+    "tool/postgis_staging/scripts/guard.py": "35727623fdb0caeec1666e672cd684785a60288d2837f0cf898d6e11dd32eb6d",
+    "tool/postgis_staging/scripts/provider_entrypoint.py": "ff8af3fb4901eded6c6a0a971c4c114f8bb2ed6f257f71f6ac96c9bd544fbe91",
+    "tool/postgis_staging/scripts/render_provider_descriptors.py": "1c9ed3a86eee93a5837d445693a2192752564f1a650fbeb5cbdd5961c1cffeff",
+    "tool/postgis_staging/scripts/price_worksheet_20261017.py": "d04e91bbd7c5277718fb2a974def8968e35198e2aae47d5084b2fee861d128b5",
+    "tool/postgis_staging/pricing-2026-10-17.json": "3f1c8b5dc736564c9fb184233ca2b9a906aabcb3007393feba7f25aac8ce752a"
+  },
+  "artifacts": [
+    "proposed-resource-arrangement.json",
+    "proposed-small-gate-costs.json",
+    "proposed-monitoring-policies.json",
+    "official-sources.json"
+  ],
+  "liveOnlyEvidenceStillRequired": [
+    "Actual project/billing association andnamesavailability",
+    "Actual native runtime/managedSQL compatibility",
+    "Real recipientdelivery andscheduler-silence behavior",
+    "Effective IAM exclusivity/single-use ownership",
+    "Real cancellation/stop/delete/absence and retained-charge calibration",
+    "Real GCS snapshot/restore andordinaryhostedtransport in later approvedphase"
+  ]
+}

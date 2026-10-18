@@ -1,0 +1,257 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005",
+  "reviewer": "/root/source_ingestion",
+  "completedAt": "2026-10-18T01:48:30.022447+00:00",
+  "reviewType": "Independent final image-byte and numerical-evidence addendum",
+  "verdict": "PASS: bounded isolated diagnostic source and exact local emulated-Linux image; no hosted numerical or execution allowance",
+  "image": {
+    "dockerId": "sha256:490d11883372dd938254efca22c13f35f4e9bb56e4c44934b1f55257130774d1",
+    "tag": "bitestar-postgis-cloud-005:qualified-local",
+    "descriptor": {
+      "mediaType": "application/vnd.oci.image.index.v1+json",
+      "digest": "sha256:490d11883372dd938254efca22c13f35f4e9bb56e4c44934b1f55257130774d1",
+      "size": 856
+    },
+    "architecture": "amd64",
+    "os": "linux",
+    "nodeBinarySha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c",
+    "identityNote": "Actual Docker Id is an OCI image-index digest; not represented as an OCI config digest."
+  },
+  "imageFiles": [
+    {
+      "path": "functions/src/postgis_native_diagnostic.ts",
+      "sha256": "48eb5f0b55295da8cf300e7f1d4356a65d8b25db47b466625e2e09a85034db58",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "functions/src/postgis_execution_approval.ts",
+      "sha256": "3efec64518f5a89799e0ed1aa283ded06aed66b021e4690bfe4a0fdd0ea4cb9f",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "functions/src/postgis_cloudsql.ts",
+      "sha256": "299c6645ef5beaddc682adae9197cc647b8309dbabdfc9455e72517cf50273fa",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "functions/src/postgis_runtime.ts",
+      "sha256": "74887f3e8af5546a59402e79b4f18557c340db6c371aa9d2fd7ccb374cdeae85",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "functions/src/postgis_query.ts",
+      "sha256": "309e27651e330a1fd04fd3c9063605c59b2bce83d8364e98bd85c6b8803dacdf",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "functions/src/restaurant_geo_helpers.ts",
+      "sha256": "8fc56748c811d848b853be0912522b451e1e7c01c0cd1060be2f1cde7ffd9066",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "functions/src/postgis_hosted_runtime.ts",
+      "sha256": "252d82c68218cb54c49754449eca271c076b224d9d86c574c2cc2a6a9bd52f91",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "functions/src/postgis_hosted_entrypoint.ts",
+      "sha256": "78f55eee2f4ad2d5989c76ff26c0ccbb8fb29c233a248f3f7b5dcfff7c9abac7",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "functions/test/postgis_native_diagnostic.test.cjs",
+      "sha256": "668181717ddcdc4827571972d6b250b67b254c21468b213ab344ebe0bf5cc83f",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "functions/test/postgis_native_diagnostic_descriptor.test.cjs",
+      "sha256": "b2500afc6d23e840b73bc587ea3af27cc2bffc497091eae0071cc9735551ceec",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "tool/postgis_staging/hosted/render-diagnostic.cjs",
+      "sha256": "e2e3cdc342e59f7ab8bab8410e5fe712c1ef313e044b89dc4e4d9218c74d94f6",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "tool/postgis_staging/linux/Dockerfile",
+      "sha256": "770e24db3bcbd3a21f3a12d0060e1dec05990b7714633fc2cef31e8714c1c279",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "functions/package-lock.json",
+      "sha256": "062a0dd70d51553e6346df95eb86429f10f8be7c9b33ad2a7d8c4f0f7d806ab7",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "functions/lib/postgis_native_diagnostic.js",
+      "sha256": "6eb5ca74528fc52bcdcf5abb82f84f213965d28d757953fcb31b6fad26219d03",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "functions/lib/postgis_query.js",
+      "sha256": "2c20fd3a37946f18909171b468559fbd24f6d982daca98b7b994a071d99cb471",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "functions/lib/postgis_runtime.js",
+      "sha256": "5d8eb096c39ab7712c97872fb95dac41cdf76e8fd81b6cab855711cd476ce02e",
+      "imageMatchesSelected": true
+    },
+    {
+      "path": "functions/lib/restaurant_geo_helpers.js",
+      "sha256": "626346013693e751c92f3b070a7d8e8eac56d78a76cc1078b18a98fc37f64144",
+      "imageMatchesSelected": true
+    }
+  ],
+  "independentlyExecutedThisAddendum": [
+    "Bounded network-none immutable-image sha256sum command for Node plus17 selected inputs",
+    "Read-only docker image inspect",
+    "Local hash/evidence invariants and reviewed tests/logs"
+  ],
+  "numericalEvidence": {
+    "provenance": "Parent-executed exact rebuilt image against new task-owned local PostgreSQL; independently inspected script and evidence, without repeating completed SQL work",
+    "scope": "LOCAL_EMULATED_LINUX_ACTUAL_POSTGRESQL; injected transport, ephemeral test-only signature, not Cloud SQL/IAM evidence or execution approval",
+    "runtime": {
+      "node": "v24.21.0",
+      "v8": "13.6.233.17-node.53",
+      "platform": "linux",
+      "arch": "x64",
+      "kernel": "7.0.14-linuxkit",
+      "cpuModels": [
+        "VirtualApple @ 2.50GHz"
+      ],
+      "nodeSha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c",
+      "execArgv": [],
+      "nodeOptionsPresent": false
+    },
+    "session": {
+      "extra_float_digits": "1",
+      "read_only": "on",
+      "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+      "postgis": "POSTGIS=\"3.6.4 94d984b\" [EXTENSION] PGSQL=\"180\" GEOS=\"3.14.1-CAPI-1.20.5\" (compiled against GEOS 3.13.1) PROJ=\"9.8.1 NETWORK_ENABLED=OFF URL_ENDPOINT=https://cdn.proj.org USER_WRITABLE_DIRECTORY=/var/lib/postgresql/.local/share/proj DATABASE_PATH=/usr/share/proj/proj.db\" (compiled against PROJ 9.6.0) LIBXML=\"2.9.14\" LIBJSON=\"0.18\" LIBPROTOBUF=\"1.5.1\" WAGYU=\"0.5.0 (Internal)\" TOPOLOGY"
+    },
+    "combinedBoundVectors": 318,
+    "positiveBounds": 257,
+    "radiusEdgeVectors": 1512,
+    "acceptedRadiusEdgeVectors": 730,
+    "missed": 0,
+    "floatNumericBridgeCases": 34,
+    "maximumCoordinateError": 2.842170943040401e-14,
+    "arithmeticCases": 13,
+    "leastPrivilegeDenials": [
+      "SELECT *",
+      "CREATE TABLE",
+      "CREATE TEMP"
+    ],
+    "elapsedMs": 753,
+    "sameInspected004NodeBinary": true,
+    "unchanged004ServingGuard": true
+  },
+  "testEvidence": {
+    "independentSelectedSourceContracts": {
+      "pass": 19,
+      "fail": 0,
+      "skip": 0,
+      "receipt": "source-isolation-review.json"
+    },
+    "imageBuild": {
+      "pass": 49,
+      "fail": 0,
+      "detail": "30 earlier contracts passed in initial build and are a cached final layer;19 new diagnostic/descriptor contracts passed in corrected final build."
+    },
+    "finalApplicableRuntimeBatch": {
+      "pass": 39,
+      "fail": 0,
+      "skip": 0,
+      "provenance": "Parent-run log independently reviewed, includes6 runtime guards and16 diagnostic contracts."
+    },
+    "countsOverlap": true,
+    "initialFailuresPreserved": [
+      {
+        "artifact": "search-image-build.log",
+        "pass": 14,
+        "fail": 5,
+        "detail": "Diagnostic test child processes carried disallowed numerical flags. Final Dockerfile uses --test-isolation=none; source guard was not weakened."
+      },
+      {
+        "artifact": "affected-tests.image.log",
+        "pass": 44,
+        "fail": 2,
+        "detail": "Build-only offline verifier CLI/Python tests attempted in smaller final runtime. Log shows missing Python and empty CLI stdout; Dockerfile confirms build-only tools omitted from runtime. Those contracts passed in build stage. Applicable runtime batch was selected and passed, not described as the same46-test suite now passing."
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "path": "diagnostic-review/source-isolation-review.json",
+      "sha256": "7f6a172b30cbbe1906f01928db831dba5c492f7b7e89baeb58d42f324ef67c32"
+    },
+    {
+      "path": "diagnostic-review/final-image.inspect.json",
+      "sha256": "7349cd6c745b44abec3a4ab941187f89eb653e9ac191c368f339c5683139b5b6"
+    },
+    {
+      "path": "diagnostic-review/final-image.sha256",
+      "sha256": "708bed5139dd8c96c7e34c0a46f71d5a79251e57a2cd227eee7a7e43da2dd7ef"
+    },
+    {
+      "path": "local-numerical.cjs",
+      "sha256": "54719073fdacc1221ff84c948e9f4cba436b48c4104317975993e057c9543631"
+    },
+    {
+      "path": "local-numerical.final.json",
+      "sha256": "39372d6615cd429318bfa4a65bfaa646a500c49d7a96e4baae32ad767d5b9c60"
+    },
+    {
+      "path": "local-numerical.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "search-image-build.log",
+      "sha256": "6121d3a99e415915aed90f7b2ca50f8bd1ef318d11ef2f5f8a9ec33f3eb98025"
+    },
+    {
+      "path": "search-image-build.final.log",
+      "sha256": "ca9cfa08856e339ab8918754fa39a824864a49ce009ed8fa9e4d7a4943bc2239"
+    },
+    {
+      "path": "affected-tests.image.log",
+      "sha256": "1a48e92632671e3c56fc625e8f33cd2b7903863963ca2cd3c6df4360c42ed756"
+    },
+    {
+      "path": "affected-tests.image.final.log",
+      "sha256": "27f1d23cf40d67146ee8b47535c19835615a989ce6f0e8e57c37f10048b1a20a"
+    },
+    {
+      "path": "image-default-dry-run.json",
+      "sha256": "a4c971f17b50db8502db6dbba42c001099d0318ae7ecbcd5a421b61fece9fb76"
+    },
+    {
+      "path": "image-diagnostic-dry-run.json",
+      "sha256": "2ff26c6a0cb3b37a77a1ce1b999dbf3aecc14ccbf34fb5535bf7466efa5c70cb"
+    }
+  ],
+  "findings": [
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "statement": "Image bytes, actual local evidence and unchanged guard agree; no need to repeat the prior exact-rational/ELF investigation because numerical runtime binary, relevant oracle/query source and local tuple remain the inspected identities."
+    },
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "statement": "Fixed diagnostic SQL uses a real restricted local role; normal and temporary table creation and private canary SELECT are denied. Managed IAM and effective future grants remain live-only proof."
+    },
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "statement": "Initial test-harness/package mismatches were preserved and corrected without loosening approval or serving guards."
+    }
+  ],
+  "unresolvedMaterialFindings": [],
+  "limits": [
+    "This is local Rosetta linux/amd64 and local PostgreSQL, not native Cloud Run/Cloud SQL or actual IAM/TLS/provider proof.",
+    "Ephemeral test-only signatures do not grant owner execution authority.",
+    "Finite vectors are not universal numerical proof and do not qualify a hosted tuple.",
+    "Future diagnostic evidence still needs independent proof reconciliation, explicit narrow hosted allowance, affected rebuild/tests and new image/config approval.",
+    "No cloud actions, repository edits, service changes or repeated SQL workload were performed by this reviewer in this addendum."
+  ]
+}

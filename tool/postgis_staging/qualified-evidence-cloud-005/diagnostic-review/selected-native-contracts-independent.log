@@ -1,0 +1,27 @@
+✔ import and dry-run do not initialize credentials, cloud clients or listeners (104.895916ms)
+✔ authentic permit performs only fixed synthetic and metadata SQL with bounded IAM pool (84.310875ms)
+✔ forged signature and unknown trust reject before connector I/O (0.560375ms)
+✔ configuration or candidate changed after signing rejects before I/O (0.417625ms)
+✔ wrong Gate2 rejects even when genuinely signed for Gate2 (0.174916ms)
+✔ production, demo and wrong project allowlist reject before I/O (0.31625ms)
+✔ non-diagnostic database, wrong principal and wrong instance reject before I/O (0.324042ms)
+✔ wrong job, action, protocol or extra plan keys reject before I/O (0.454625ms)
+✔ syntheticOnly must be literal true (0.286875ms)
+✔ expired, future and insufficient full-task approvals reject before I/O (0.54875ms)
+✔ caller mutations across await cannot change validated identity or receipt job (65.044291ms)
+✔ SQL error destroys diagnostic lease and closes pool/connector (45.63125ms)
+✔ approval expiry during SQL stops before next numerical operation and closes resources (45.275333ms)
+✔ work deadline stops the next SQL operation without late loop continuation (44.917125ms)
+✔ runtime NODE_OPTIONS cannot turn a diagnostic into a flag bypass (0.343042ms)
+✔ unrecognized CLI mode or empty job cannot reach real connection setup (2.753958ms)
+✔ diagnostic descriptor has only three signed inputs, no server or runtime keys, fixed bounded command (0.343917ms)
+✔ diagnostic descriptor refuses substituted targets, mutable images, missing or moving input versions (0.438041ms)
+✔ fixed diagnostic descriptor satisfies the existing provider exact-body contract without provider requests (49.581334ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 575.927166

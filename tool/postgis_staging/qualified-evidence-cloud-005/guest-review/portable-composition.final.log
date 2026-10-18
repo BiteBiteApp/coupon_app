@@ -1,0 +1,20 @@
+✔ actual hosted composition selects absent mode (224.983584ms)
+✔ actual hosted composition selects false mode (175.535708ms)
+✔ actual hosted composition selects true mode (78.07625ms)
+✔ signed invalid JSON types reject before native/provider construction (1.536208ms)
+✔ changed mode, stale permit and modified signature reject before key or provider access (0.733334ms)
+✔ post-construction caller mutation cannot flip false signed mode (168.423333ms)
+✔ post-construction caller mutation cannot flip true signed mode (75.00525ms)
+✔ unsigned environment and caller request cannot enable absent signed mode (172.032125ms)
+✔ signed hosted window enforces exact history intersection and global75 bound (127.608667ms)
+✔ signed-in Saver retains native25-card behavior with either hosted guest setting (46.88475ms)
+✔ BiteScore and Finder retain actual native results under either guest setting (4.314333ms)
+✔ legacy native V1 remains serial even with context option true (8.399959ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1403.991708

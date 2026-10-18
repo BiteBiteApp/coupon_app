@@ -1,0 +1,72 @@
+{
+  "scope": "Report-only actual hosted composition with real qualified Darwin guard and cryptographic permit, injected lower storage/provider boundaries; no cloud execution",
+  "node": "v24.21.0",
+  "platform": "darwin",
+  "guardUnmodified": true,
+  "observations": [
+    {
+      "case": "absent",
+      "firstCandidates": 1,
+      "rounds": 26,
+      "cards": 25,
+      "orderedIdsSha256": "d0031fcf30975955ddfab51ce7a9e9dd836b479b94cbabb25dcc9615631470ba",
+      "signedConfigDigest": "be3e6e1a70e8a9d87633f1763ff747cdc229daab1bfa2cdc50cbdea31eb3930c"
+    },
+    {
+      "case": "false",
+      "firstCandidates": 1,
+      "rounds": 26,
+      "cards": 25,
+      "orderedIdsSha256": "d0031fcf30975955ddfab51ce7a9e9dd836b479b94cbabb25dcc9615631470ba",
+      "signedConfigDigest": "cbb04db3b7c6aa73af0043b6118d894b1fd52ebb4af61c902dde816643c237c6"
+    },
+    {
+      "case": "true",
+      "firstCandidates": 26,
+      "rounds": 1,
+      "cards": 25,
+      "orderedIdsSha256": "d0031fcf30975955ddfab51ce7a9e9dd836b479b94cbabb25dcc9615631470ba",
+      "signedConfigDigest": "3455170a0be28d2e1a9cee41ee465ac8077e9f64d0992db98d94f324265fed4e"
+    },
+    {
+      "case": "mutation-false",
+      "firstCandidates": 1,
+      "rounds": 26,
+      "cards": 25,
+      "orderedIdsSha256": "d0031fcf30975955ddfab51ce7a9e9dd836b479b94cbabb25dcc9615631470ba",
+      "signedConfigDigest": "cbb04db3b7c6aa73af0043b6118d894b1fd52ebb4af61c902dde816643c237c6"
+    },
+    {
+      "case": "mutation-true",
+      "firstCandidates": 26,
+      "rounds": 1,
+      "cards": 25,
+      "orderedIdsSha256": "d0031fcf30975955ddfab51ce7a9e9dd836b479b94cbabb25dcc9615631470ba",
+      "signedConfigDigest": "3455170a0be28d2e1a9cee41ee465ac8077e9f64d0992db98d94f324265fed4e"
+    },
+    {
+      "case": "unsigned-overrides",
+      "firstCandidates": 1,
+      "rounds": 26,
+      "cards": 25,
+      "orderedIdsSha256": "d0031fcf30975955ddfab51ce7a9e9dd836b479b94cbabb25dcc9615631470ba",
+      "signedConfigDigest": "be3e6e1a70e8a9d87633f1763ff747cdc229daab1bfa2cdc50cbdea31eb3930c"
+    },
+    {
+      "case": "75-and-intersection",
+      "maximumChallenge": 75,
+      "rounds": 2,
+      "cards": 25,
+      "unrelatedHistoryDisclosed": false
+    },
+    {
+      "case": "score-finder",
+      "resultsPerFlow": 1,
+      "modes": [
+        false,
+        true
+      ],
+      "sameNativeItems": true
+    }
+  ]
+}

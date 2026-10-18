@@ -1,0 +1,51 @@
+{
+  "status": "BLOCKED_NATIVE_CONDITIONAL_FAILOVER_UNSUPPORTED",
+  "reviewedAt": "2026-10-18T01:46:47.802504+00:00",
+  "projectId": "bitestar-search-g005-20261017",
+  "ownerContacts": {
+    "primaryEmail": "colesmartllc@gmail.com",
+    "backupSmsE164": "+13522359828",
+    "source": "Parent relayed explicit owner answer; not independent delivery or phone verification."
+  },
+  "ownerPolicy": {
+    "email": "normal progress, checkpoints, warnings and completion",
+    "sms": "only if primary email delivery fails or cannot be confirmed; no routine duplicate SMS",
+    "humanRecovery": "Owner checks while awake. Overnight cleanup must not depend on response.",
+    "spendingAuthorized": false
+  },
+  "verifiedPublicFacts": [
+    "Cloud Monitoring supports email and SMS channels. SMS requires phone verification, is not fully reliable, and may be unavailable in some regions.",
+    "An alert policy sends to every selected notification channel. Per-channel strategy is renotification interval, not sequential failover.",
+    "Official notification troubleshooting exposes failure logs. No documented positive email-to-recipient delivery receipt or email-first conditional SMS policy is available in the reviewed native API. Absence of an error is not a delivery receipt.",
+    "Native alerting is event/incident notification; routine arbitrary progress/completion email is not an implemented capability of the existing Pub/Sub-only controller.",
+    "Official pricing lists no separate native SMS notification fee. Alert-policy billing begins no sooner than September 1, 2027; published data/API/logging costs still apply. No carrier-price or delivery guarantee follows from this."
+  ],
+  "proposedMinimalDecision": "Keep ordinary notifications email-only and keep this initial phase attended; require explicit owner approval for manual receipt confirmation/fallback or a narrowly specified receipt-aware delivery service. Do not attach SMS directly to every Monitoring policy. This proposal does not itself satisfy automatic conditional failover, and must not be labelled ready.",
+  "smallestConsequentialAlternatives": [
+    {
+      "option": "Explicit exception for critical safety incidents only",
+      "change": "Allow email plus SMS fan-out for watchdog failure, scheduler silence and incomplete cleanup while keeping routine progress email-only. This is simpler and avoids a new relay, but changes owner condition and requires explicit agreement."
+    },
+    {
+      "option": "Preserve strict conditional fallback",
+      "change": "Approve a bounded delivery relay or established escalation provider, define recipient delivery/acknowledgment evidence and timeout, fail over only on explicit failure or expiry. Additional source, credentials/service, costs and independent proof are required; not silently included in this task."
+    }
+  ],
+  "implementationBlockers": [
+    "Existing render_provider_descriptors.py requires at least two distinct native channel resource names. Do not silently weaken it or supply duplicate channels as fake redundancy.",
+    "No actual email channel, verified SMS channel, numeric channel ID, subscription/forwarder, notification send, delivery proof or conditional relay exists.",
+    "No unattended or overnight execution until real independent automatic cleanup (including absence/remaining liabilities) is demonstrated; alert delivery alone is insufficient."
+  ],
+  "costProposal": {
+    "nativeSmsLineItemUsd": 0,
+    "interpretation": "No separately published Google SMS line item, not an assertion of guaranteed free carrier delivery. Existing $3 alerts/logs/API uncertainty allocation retained.",
+    "additionalRelayOrEscalationUsd": null,
+    "relayCostStatus": "Unselected and unapproved; cannot quote zero."
+  },
+  "sources": [
+    "https://docs.cloud.google.com/monitoring/support/notification-options",
+    "https://docs.cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.alertPolicies",
+    "https://docs.cloud.google.com/monitoring/alerts/troubleshoot-missing-notifications",
+    "https://cloud.google.com/products/observability/pricing"
+  ]
+}

@@ -1,0 +1,24 @@
+✔ import and dry-run do not initialize credentials, cloud clients or listeners (98.7515ms)
+✔ authentic permit performs only fixed synthetic and metadata SQL with bounded IAM pool (79.717583ms)
+✔ forged signature and unknown trust reject before connector I/O (0.5615ms)
+✔ configuration or candidate changed after signing rejects before I/O (0.435917ms)
+✔ wrong Gate2 rejects even when genuinely signed for Gate2 (0.176416ms)
+✔ production, demo and wrong project allowlist reject before I/O (0.321709ms)
+✔ non-diagnostic database, wrong principal and wrong instance reject before I/O (0.334916ms)
+✔ wrong job, action, protocol or extra plan keys reject before I/O (0.446917ms)
+✔ syntheticOnly must be literal true (0.272166ms)
+✔ expired, future and insufficient full-task approvals reject before I/O (0.5715ms)
+✔ caller mutations across await cannot change validated identity or receipt job (77.74575ms)
+✔ SQL error destroys diagnostic lease and closes pool/connector (45.6745ms)
+✔ approval expiry during SQL stops before next numerical operation and closes resources (45.031208ms)
+✔ work deadline stops the next SQL operation without late loop continuation (44.940083ms)
+✔ runtime NODE_OPTIONS cannot turn a diagnostic into a flag bypass (0.355291ms)
+✔ unrecognized CLI mode or empty job cannot reach real connection setup (0.877208ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 526.41225

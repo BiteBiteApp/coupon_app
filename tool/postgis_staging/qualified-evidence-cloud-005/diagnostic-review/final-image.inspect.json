@@ -1,0 +1,69 @@
+[
+    {
+        "Id": "sha256:490d11883372dd938254efca22c13f35f4e9bb56e4c44934b1f55257130774d1",
+        "RepoTags": [
+            "bitestar-postgis-cloud-005:qualified-local"
+        ],
+        "RepoDigests": [
+            "bitestar-postgis-cloud-005@sha256:490d11883372dd938254efca22c13f35f4e9bb56e4c44934b1f55257130774d1"
+        ],
+        "Comment": "buildkit.dockerfile.v0",
+        "Created": "2026-10-18T01:44:58.134837506Z",
+        "Config": {
+            "User": "node",
+            "ExposedPorts": {
+                "8080/tcp": {}
+            },
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "NODE_VERSION=24.21.0",
+                "YARN_VERSION=1.22.22",
+                "PORT=8080"
+            ],
+            "Entrypoint": [
+                "docker-entrypoint.sh"
+            ],
+            "Cmd": [
+                "node",
+                "functions/lib/postgis_hosted_entrypoint.js",
+                "--dry-run",
+                "/app/tool/postgis_staging/hosted/hosted.example.json"
+            ],
+            "WorkingDir": "/app",
+            "ArgsEscaped": true
+        },
+        "Architecture": "amd64",
+        "Os": "linux",
+        "Size": 600300537,
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:e58989146fcec76699871403b9897b5c014af1ccd85f5a9300a215e7975525d7",
+                "sha256:a52fce3e2e53c15bee62149c2a83480bfc3000e19b253dba304220e3d487582f",
+                "sha256:65d71716d250882cedd073ea8e6ab52eb8ce7372fb9eed886775d91dbf9b0f74",
+                "sha256:bdfbfbb03dafc1b269c0668c632ae06c04bff6bc9ae624c8a9cbb3ecb4ad1d3c",
+                "sha256:b6a146dc1aed9a3193cadd3aa94373029d72d93c212e59a42c5d0194b2157ab5",
+                "sha256:7d34e0ef06c86f84227bd857ee19a1d4e3ba6ea48ebedf1e426fa31e1860a525",
+                "sha256:1f4cf7699be7c0b4a26a3bfc32cc3e3cdeb4e9cee87eb363bbcbaab705de4ce2",
+                "sha256:d595361adcaa1bc6f302f27f76e79acb895673ce6e0cf64e118c22a87185d4e1",
+                "sha256:02f2187446e3c8b75bcb24db233e878c61ef36c312c8e720da8a1962a6dab3f2"
+            ]
+        },
+        "Metadata": {
+            "LastTagTime": "2026-10-18T01:45:00.602720673Z"
+        },
+        "Descriptor": {
+            "mediaType": "application/vnd.oci.image.index.v1+json",
+            "digest": "sha256:490d11883372dd938254efca22c13f35f4e9bb56e4c44934b1f55257130774d1",
+            "size": 856
+        },
+        "Identity": {
+            "Build": [
+                {
+                    "Ref": "iayclag4zgxs1r3n8dqugswk4",
+                    "CreatedAt": "2026-10-18T01:45:00.603954673Z"
+                }
+            ]
+        }
+    }
+]

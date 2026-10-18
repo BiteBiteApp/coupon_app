@@ -1,0 +1,35 @@
+{
+  "protectedCount": 489,
+  "unchangedCount": 488,
+  "explicitAuthorizedChanges": [
+    {
+      "path": "tool/postgis_staging/linux/Dockerfile",
+      "before": "bb569df458e399960202c932ee2099e3c14c6d4adab011cd26544d253d8f4bd3",
+      "after": "770e24db3bcbd3a21f3a12d0060e1dec05990b7714633fc2cef31e8714c1c279"
+    }
+  ],
+  "ownerTrackedExcluded": [
+    "functions/src/index.ts",
+    "functions/src/restaurant_geocoding.ts",
+    "lib/main.dart",
+    "lib/screens/bitescore_dish_detail_screen.dart",
+    "lib/screens/bitescore_home_screen.dart",
+    "lib/screens/bitescore_restaurant_dishes_screen.dart",
+    "lib/screens/coupon_detail_screen.dart",
+    "lib/screens/customer_account_screen.dart",
+    "lib/screens/customer_bitesaver_browse_destinations.dart",
+    "lib/screens/customer_bitesaver_browse_screen.dart",
+    "lib/screens/customer_bitesaver_saved_destinations.dart",
+    "lib/screens/main_navigation_screen.dart",
+    "lib/services/customer_bitesaver_device_proof_service.dart",
+    "lib/services/customer_bitesaver_runtime.dart",
+    "lib/services/customer_session_service.dart",
+    "lib/services/shared_location_state_service.dart",
+    "lib/widgets/persistent_bottom_navigation.dart",
+    "pubspec.lock",
+    "pubspec.yaml",
+    "test/screens/customer_bitesaver_browse_screen_test.dart",
+    "test/screens/restaurant_profile_bitescore_menu_test.dart"
+  ],
+  "allOwnerBytesPreserved": true
+}

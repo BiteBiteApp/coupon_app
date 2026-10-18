@@ -1,0 +1,376 @@
+{
+  "status": "PROPOSED_EXACT_PERMISSION_PLAN_NOT_APPLIED_OR_LIVE_IAM_TESTED",
+  "projectId": "bitestar-search-g005-20261017",
+  "reviewedAt": "2026-10-18T01:46:47.802504+00:00",
+  "principals": {
+    "controller": "g005-controller@bitestar-search-g005-20261017.iam.gserviceaccount.com",
+    "watchdog": "g005-watchdog@bitestar-search-g005-20261017.iam.gserviceaccount.com",
+    "workload": "bs-postgis-g005-20261017-diag@bitestar-search-g005-20261017.iam.gserviceaccount.com",
+    "workflow": "g005-workflow@bitestar-search-g005-20261017.iam.gserviceaccount.com",
+    "scheduler": "g005-scheduler@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+  },
+  "runtimeBindings": [
+    {
+      "principals": [
+        "g005-controller@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "cloudsql.instances.create",
+        "cloudsql.instances.get"
+      ],
+      "scope": "projects/bitestar-search-g005-20261017",
+      "purpose": "Create/get approved SQL and poll its SQL operations; SQL operation GET uses instances.get.",
+      "proposedCustomRoleId": "g005SqlCreate"
+    },
+    {
+      "principals": [
+        "g005-watchdog@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "cloudsql.instances.get",
+        "cloudsql.instances.update",
+        "cloudsql.instances.delete"
+      ],
+      "scope": "projects/bitestar-search-g005-20261017",
+      "purpose": "Read/stop/delete approved SQL, with actual exclusive-name evidence and settings-version/incarnation validation. No atomic SQL deletion precondition claimed.",
+      "proposedCustomRoleId": "g005SqlCleanup"
+    },
+    {
+      "principals": [
+        "g005-controller@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "run.jobs.create"
+      ],
+      "scope": "projects/bitestar-search-g005-20261017",
+      "purpose": "Create only the three signed workload job bodies through controller checks; IAM create itself is project scope.",
+      "proposedCustomRoleId": "g005JobCreate"
+    },
+    {
+      "principals": [
+        "g005-controller@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "run.jobs.get",
+        "run.jobs.run",
+        "run.executions.list"
+      ],
+      "scope": "projects/bitestar-search-g005-20261017",
+      "purpose": "Read/run/reconcile fixed workload jobs.",
+      "proposedCondition": {
+        "expression": "resource.name in [\"projects/bitestar-search-g005-20261017/locations/us-central1/jobs/bs-postgis-g005-20261017-bootstrap-probe\", \"projects/bitestar-search-g005-20261017/locations/us-central1/jobs/bs-postgis-g005-20261017-native\", \"projects/bitestar-search-g005-20261017/locations/us-central1/jobs/bs-postgis-g005-20261017-cancel-probe\"]",
+        "note": "Proposed job-name condition; live IAM validation required before admission, not a claim of tested condition support."
+      },
+      "proposedCustomRoleId": "g005JobRun"
+    },
+    {
+      "principals": [
+        "g005-watchdog@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "run.jobs.get",
+        "run.jobs.delete",
+        "run.executions.list",
+        "run.executions.cancel"
+      ],
+      "scope": "projects/bitestar-search-g005-20261017",
+      "purpose": "Read/delete jobs and cancel exact observed executions without starting jobs.",
+      "proposedCondition": {
+        "expression": "resource.name in [\"projects/bitestar-search-g005-20261017/locations/us-central1/jobs/bs-postgis-g005-20261017-bootstrap-probe\", \"projects/bitestar-search-g005-20261017/locations/us-central1/jobs/bs-postgis-g005-20261017-native\", \"projects/bitestar-search-g005-20261017/locations/us-central1/jobs/bs-postgis-g005-20261017-cancel-probe\"] || resource.name.startsWith(\"projects/bitestar-search-g005-20261017/locations/us-central1/jobs/bs-postgis-g005-20261017-bootstrap-probe/executions/\") || resource.name.startsWith(\"projects/bitestar-search-g005-20261017/locations/us-central1/jobs/bs-postgis-g005-20261017-native/executions/\") || resource.name.startsWith(\"projects/bitestar-search-g005-20261017/locations/us-central1/jobs/bs-postgis-g005-20261017-cancel-probe/executions/\")",
+        "note": "Covers named parent jobs and their execution resources only; actual method evaluation checked during approved preflight."
+      },
+      "proposedCustomRoleId": "g005JobCleanup"
+    },
+    {
+      "principals": [
+        "g005-controller@bitestar-search-g005-20261017.iam.gserviceaccount.com",
+        "g005-watchdog@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "run.operations.get"
+      ],
+      "scope": "projects/bitestar-search-g005-20261017",
+      "purpose": "Bounded polling of validated Run LRO names.",
+      "proposedCustomRoleId": "g005RunOperations"
+    },
+    {
+      "principals": [
+        "g005-controller@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "iam.serviceAccounts.actAs"
+      ],
+      "scope": "projects/bitestar-search-g005-20261017/serviceAccounts/bs-postgis-g005-20261017-diag@bitestar-search-g005-20261017.iam.gserviceaccount.com",
+      "purpose": "Attach only exact diagnostic principal to workload jobs. No actAs watchdog/controller.",
+      "predefinedRole": "roles/iam.serviceAccountUser"
+    },
+    {
+      "principals": [
+        "g005-controller@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "artifactregistry.repositories.downloadArtifacts"
+      ],
+      "scope": "projects/bitestar-search-g005-20261017/locations/us-central1/repositories/bs-postgis-g005-20261017",
+      "purpose": "Read approved immutable workload image. Use the documented Artifact Registry Reader role on only this repository; its ancillary read permissions are supplied by the predefined role.",
+      "predefinedRole": "roles/artifactregistry.reader"
+    },
+    {
+      "principals": [
+        "g005-controller@bitestar-search-g005-20261017.iam.gserviceaccount.com",
+        "g005-watchdog@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "storage.buckets.get"
+      ],
+      "scope": "projects/_/buckets/bitestar-search-g005-20261017-control",
+      "purpose": "Verify actual control bucket project metadata.",
+      "proposedCustomRoleId": "g005ControlMetadata"
+    },
+    {
+      "principals": [
+        "g005-controller@bitestar-search-g005-20261017.iam.gserviceaccount.com",
+        "g005-watchdog@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "storage.objects.get",
+        "storage.objects.create",
+        "storage.objects.delete"
+      ],
+      "scope": "projects/_/buckets/bitestar-search-g005-20261017-control",
+      "purpose": "Generation-CAS read/replacement of exact ledger.",
+      "proposedCondition": {
+        "expression": "resource.name == 'projects/_/buckets/bitestar-search-g005-20261017-control/objects/runs/bs-postgis-g005-20261017/control.json'"
+      },
+      "proposedCustomRoleId": "g005ControlObject"
+    },
+    {
+      "principals": [
+        "g005-controller@bitestar-search-g005-20261017.iam.gserviceaccount.com",
+        "g005-watchdog@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "storage.objects.get",
+        "storage.objects.list"
+      ],
+      "scope": "projects/_/buckets/bitestar-search-g005-20261017-config",
+      "purpose": "Read-only GCS FUSE configuration/trust mounts. Dedicated buckets contain only this run inputs.",
+      "predefinedRole": "roles/storage.objectViewer"
+    },
+    {
+      "principals": [
+        "g005-controller@bitestar-search-g005-20261017.iam.gserviceaccount.com",
+        "g005-watchdog@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "storage.objects.get",
+        "storage.objects.list"
+      ],
+      "scope": "projects/_/buckets/bitestar-search-g005-20261017-trust",
+      "purpose": "Read-only GCS FUSE configuration/trust mounts. Dedicated buckets contain only this run inputs.",
+      "predefinedRole": "roles/storage.objectViewer"
+    },
+    {
+      "principals": [
+        "g005-controller@bitestar-search-g005-20261017.iam.gserviceaccount.com",
+        "g005-watchdog@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "pubsub.topics.publish"
+      ],
+      "scope": "projects/bitestar-search-g005-20261017/topics/bs-postgis-g005-20261017-alerts",
+      "purpose": "Publish bounded safety event; publish acceptance is not human notification delivery.",
+      "predefinedRole": "roles/pubsub.publisher"
+    },
+    {
+      "principals": [
+        "g005-workflow@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "run.jobs.run"
+      ],
+      "scope": "projects/bitestar-search-g005-20261017/locations/us-central1/jobs/bs-postgis-g005-20261017-watchdog",
+      "purpose": "Invoke only independent watchdog job; custom permission avoids route invoke grant.",
+      "proposedCustomRoleId": "g005WatchdogInvoke"
+    },
+    {
+      "principals": [
+        "g005-scheduler@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "workflows.executions.create"
+      ],
+      "scope": "projects/bitestar-search-g005-20261017",
+      "purpose": "Start the sole approved guardian workflow; fixed Scheduler OAuth target, no inputs.",
+      "proposedCustomRoleId": "g005WorkflowStart"
+    },
+    {
+      "principals": [
+        "bs-postgis-g005-20261017-diag@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "cloudsql.instances.connect",
+        "cloudsql.instances.get",
+        "cloudsql.instances.login"
+      ],
+      "scope": "projects/bitestar-search-g005-20261017",
+      "purpose": "Exact private IAM connector permissions only; no Data API executeSql or diagnostic database administration.",
+      "proposedCustomRoleId": "g005DiagnosticSql"
+    },
+    {
+      "principals": [
+        "bs-postgis-g005-20261017-diag@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "secretmanager.versions.access"
+      ],
+      "scope": "projects/bitestar-search-g005-20261017/secrets/bs-postgis-g005-20261017-config",
+      "purpose": "Read immutable version pinned in descriptor; no signing/runtime private key.",
+      "predefinedRole": "roles/secretmanager.secretAccessor"
+    },
+    {
+      "principals": [
+        "bs-postgis-g005-20261017-diag@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "secretmanager.versions.access"
+      ],
+      "scope": "projects/bitestar-search-g005-20261017/secrets/bs-postgis-g005-20261017-approval",
+      "purpose": "Read immutable version pinned in descriptor; no signing/runtime private key.",
+      "predefinedRole": "roles/secretmanager.secretAccessor"
+    },
+    {
+      "principals": [
+        "bs-postgis-g005-20261017-diag@bitestar-search-g005-20261017.iam.gserviceaccount.com"
+      ],
+      "permissions": [
+        "secretmanager.versions.access"
+      ],
+      "scope": "projects/bitestar-search-g005-20261017/secrets/bs-postgis-g005-20261017-trust",
+      "purpose": "Read immutable version pinned in descriptor; no signing/runtime private key.",
+      "predefinedRole": "roles/secretmanager.secretAccessor"
+    }
+  ],
+  "importantScopeFacts": [
+    "Cloud SQL lifecycle REST permissions are project-level. Do not claim an instance-level IAM grant; isolated project plus signed exact-name/incarnation checks is the boundary.",
+    "Cloud Run job CREATE is checked on the parent location/project. Other workload job permissions can be constrained by a project IAM condition listing exact job resource names, subject to actual policy validation; operation GET needs project scope because provider LRO names are not known in advance.",
+    "Workflows roles reference lists Project as the lowest grant level. Scheduler gets only workflows.executions.create on the isolated project, which contains one approved workflow; its rendered URI is fixed. Do not claim a nonexistent exact-workflow grant.",
+    "GCS ledger CAS replacement requires objects.delete as well as objects.create. The object-name condition is separate from unconditional metadata get on the dedicated control bucket.",
+    "Cancellation permission is run.executions.cancel, per current cancellation guide (changed September 16, 2024). A stale REST cancel reference says run.jobs.run; do not grant watchdog execution authority to accommodate that stale text.",
+    "No runtime principal gets project/billing/IAM/network mutation, service-account keys, token creator, Cloud SQL data-plane administration, Firestore, ordinary serving, or restore privileges."
+  ],
+  "providerManagedServiceAgents": [
+    {
+      "identityTemplate": "service-${ACTUAL_PROJECT_NUMBER}@serverless-robot-prod.iam.gserviceaccount.com",
+      "role": "roles/run.serviceAgent",
+      "scope": "projects/bitestar-search-g005-20261017",
+      "purpose": "Cloud Run managed execution and same-project Direct VPC. Retain provider-managed grant only on its real service agent; not on user-managed accounts."
+    },
+    {
+      "identityTemplate": "service-${ACTUAL_PROJECT_NUMBER}@gcp-sa-cloudscheduler.iam.gserviceaccount.com",
+      "role": "roles/cloudscheduler.serviceAgent",
+      "scope": "projects/bitestar-search-g005-20261017",
+      "purpose": "Mint OAuth token for explicitly attached scheduler identity."
+    },
+    {
+      "identityTemplate": "service-${ACTUAL_PROJECT_NUMBER}@gcp-sa-workflows.iam.gserviceaccount.com",
+      "role": "roles/workflows.serviceAgent",
+      "scope": "projects/bitestar-search-g005-20261017",
+      "purpose": "Managed workflow execution using its exact user-managed identity."
+    },
+    {
+      "identityTemplate": "service-${ACTUAL_PROJECT_NUMBER}@gcp-sa-cloud-sql.iam.gserviceaccount.com",
+      "role": "roles/cloudsql.serviceAgent",
+      "scope": "projects/bitestar-search-g005-20261017",
+      "purpose": "Managed SQL service operations; verify actual provider identity, do not invent project number."
+    },
+    {
+      "identityTemplate": "service-${ACTUAL_PROJECT_NUMBER}@service-networking.iam.gserviceaccount.com",
+      "role": "roles/servicenetworking.serviceAgent",
+      "scope": "projects/bitestar-search-g005-20261017",
+      "purpose": "Private Service Access; provider-managed role on its service agent only."
+    }
+  ],
+  "directVpcCustomAlternativeNotAdditionalGrant": {
+    "scope": "isolated project plus exact subnet for subnetwork use",
+    "principal": "actual Cloud Run service agent",
+    "permissions": [
+      "compute.networks.get",
+      "compute.subnetworks.get",
+      "compute.subnetworks.use",
+      "compute.addresses.get",
+      "compute.addresses.list",
+      "compute.addresses.createInternal",
+      "compute.addresses.deleteInternal",
+      "compute.regionOperations.get"
+    ],
+    "note": "Default run.serviceAgent already includes required same-project permissions. Do not add a redundant broad Network User grant by default; no IPv6 addresses.create/delete needed for IPv4 subnet."
+  },
+  "bootstrapOperatorRoleProposal": {
+    "principal": "Owner-authorized human operator; identity/authority must be observed, not guessed from notification email.",
+    "parentScope": [
+      "roles/resourcemanager.projectCreator at actual permitted parent; no parent ID guessed"
+    ],
+    "billingScope": [
+      "roles/billing.user on billingAccounts/01A48F-0E48E0-1A5439; roles/billing.projectManager on new isolated project"
+    ],
+    "newProjectSetupRoles": [
+      "roles/serviceusage.serviceUsageAdmin",
+      "roles/iam.serviceAccountAdmin",
+      "roles/iam.roleAdmin",
+      "roles/resourcemanager.projectIamAdmin",
+      "roles/compute.networkAdmin",
+      "roles/servicenetworking.networksAdmin",
+      "roles/run.admin",
+      "roles/workflows.admin",
+      "roles/cloudscheduler.admin",
+      "roles/monitoring.editor",
+      "roles/pubsub.admin"
+    ],
+    "resourceCreationAndRetentionRoles": [
+      {
+        "role": "roles/storage.admin",
+        "scope": "new project for bucket creation, then four exact proposed buckets for policies and cleanup"
+      },
+      {
+        "role": "roles/artifactregistry.admin",
+        "scope": "new project for repository creation, then exact proposed repository for image push/cleanup"
+      },
+      {
+        "role": "roles/secretmanager.admin",
+        "scope": "new project for three input-secret creation, then only three exact input secrets for versions/cleanup"
+      }
+    ],
+    "sqlSetupCustomPermissions": [
+      "cloudsql.instances.get",
+      "cloudsql.instances.update",
+      "cloudsql.instances.login",
+      "cloudsql.instances.executeSql",
+      "cloudsql.databases.create",
+      "cloudsql.databases.get",
+      "cloudsql.users.create",
+      "cloudsql.users.list",
+      "cloudsql.users.update"
+    ],
+    "sqlSetupSeparateDatabaseAuthority": "Explicit temporary human IAM database cloudsqlsuperuser plus authenticated HTTPS Data API; see bootstrap-database.txt for fixed setup and privilege/API revocation. No notification email assumed to be authenticated identity. Automatic SQL deletion ineligible in this initial phase.",
+    "serviceAccountUse": "roles/iam.serviceAccountUser on exactly controller/watchdog/workflow/scheduler/diag identities while provisioning their approved resources; no service-account keys or token-creator grant.",
+    "endOfSetup": "Revoke temporary operator lifecycle mutation or prove it independently constrained before exclusive SQL automatic deletion eligibility is asserted. A recovery override revokes that eligibility. Broad Owner/Editor is not proposed.",
+    "status": "Exact predefined role names/scopes proposed, not applied or effective-IAM tested. These are setup authority, never runtime grants."
+  },
+  "supervisedHumanCleanup": {
+    "principal": "Actual owner-authorized human, independently verified; not inferred from alert email",
+    "scope": "projects/bitestar-search-g005-20261017 only",
+    "proposedCustomRoleId": "g005SupervisedSqlCleanup",
+    "permissions": [
+      "cloudsql.instances.get",
+      "cloudsql.instances.update",
+      "cloudsql.instances.delete",
+      "cloudsql.backupRuns.get",
+      "cloudsql.backupRuns.list",
+      "cloudsql.backupRuns.delete"
+    ],
+    "purpose": "Explicit supervised stop/delete of only bs-postgis-g005-20261017-db and its observed disposable backups, await actual operations, verify absence and remaining liabilities. Backup deletion only after evidence retention and separately recorded cleanup authorization. No production grants.",
+    "grantTiming": "Distinct approved cleanup grant, not an assumption that revoked setup grants persist; any such human lifecycle authority precludes automatic exclusivity assertions.",
+    "otherTaskCleanup": "Use the explicitly scoped setup resource-administration roles only for deletion of exact approved task control/jobs/workflow/scheduler/buckets/repository/input versions/network resources. Record retained resources and charges; do not grant or delete anything outside the new project."
+  }
+}

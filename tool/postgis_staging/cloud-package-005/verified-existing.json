@@ -1,0 +1,21 @@
+{
+  "status": "BOUNDED_READ_ONLY_METADATA_VERIFIED_NO_MUTATIONS",
+  "productionExcluded": {
+    "projectId": "coupon-app-29446",
+    "projectNumber": "253983587346"
+  },
+  "billingAssociationObserved": {
+    "billingAccountId": "01A48F-0E48E0-1A5439",
+    "displayName": "My Billing Account",
+    "open": true,
+    "existingBiteStarProjectLinked": true
+  },
+  "proposedNewProjectId": "bitestar-search-g005-20261017",
+  "newProjectAvailabilityVerified": false,
+  "newProjectNumber": null,
+  "newProjectCreatedAt": null,
+  "newBucketReceipts": null,
+  "permissionGrantsVerified": false,
+  "rawMetadataRetainedLocally": true,
+  "rawReceiptSha256": "f382a4b91b0606c26f974153405852a1d60de7979af4b287f2dbb5967bae6ab3"
+}

@@ -1,0 +1,38 @@
+{
+  "recordedAt": "2026-10-18T01:31:48.871Z",
+  "scope": "Offline initial compiled-validator probe only; no runtime construction, provider, keys persisted, credentials or cloud call. Ephemeral test-only signatures do not authorize execution.",
+  "results": [
+    {
+      "case": "absent",
+      "configDigest": "eb2b9961af27c01d8624ac344fa6805c9c4937878b9c7cc19f8cbb910ee8f439",
+      "accepted": true
+    },
+    {
+      "case": "false",
+      "configDigest": "95f55b27923effbcc1095400c0d6b0df7ee2c3018eb65012a7445fe064aba9c3",
+      "accepted": true
+    },
+    {
+      "case": "true",
+      "configDigest": "4ef2a216e235e7c063a51e5989ada5854c112cbeb9e77aa939dc13419656df6b",
+      "accepted": true
+    },
+    {
+      "case": "invalid-null",
+      "configDigest": "7fd06f1bfe2d6312e7b0f13a70b4f0661e10685773e0e7f4bc99a46939251be2",
+      "accepted": true
+    },
+    {
+      "case": "invalid-string",
+      "configDigest": "1a4abf9b3f3ab9457a3f54529a0155d1746c6bc40349476081cb7421999edd52",
+      "accepted": true
+    },
+    {
+      "case": "invalid-number",
+      "configDigest": "15d4a54a69e0850b8a5bb8a9c2a9760b4ebd88636f2f65b56eeea72b8606e73c",
+      "accepted": true
+    }
+  ],
+  "fullConfigurationDigestAlreadyBindsMode": true,
+  "changedConfigurationOldPermitRejected": true
+}

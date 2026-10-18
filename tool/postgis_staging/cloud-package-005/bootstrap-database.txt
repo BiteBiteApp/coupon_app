@@ -1,0 +1,40 @@
+Concrete proposed private SQL bootstrap: temporary IAM Data API
+
+Verdict: technically documented, no VM, proxy, new admin job, database password or service-account key required. This is an approval-package proposal, not a performed or cloud-tested operation. It supersedes the unspecified bootstrap database authority sentence in proposed-iam-permissions.v2.json.
+
+Use the existing owner-authorized human Google identity, confirmed from the actual authenticated account rather than inferred from notification email. Apply only to the proposed NEW bitestar-search-g005-20261017 and exact bs-postgis-g005-20261017-db instance. Keep ipv4Enabled=false and the private service connection. Temporarily enable settings.dataApiAccess=ALLOW_DATA_API, with settingsVersion for an update of an existing instance. Keep cloudsql.iam_authentication=on. This does NOT add a public SQL IP, but it DOES expose SQL through Google's authenticated public HTTPS Data API; the owner must approve that temporary route explicitly.
+
+Create the human as a CLOUD_IAM_USER through users.insert, with databaseRoles:["cloudsqlsuperuser"]. Official Data API documentation specifically permits this initial elevated role when lesser custom database roles do not yet exist. No password field is supplied. Create bs_postgis_diagnostic through databases.insert. Create the separate diagnostic IAM service-account database user with no elevated databaseRoles; its IAM database username omits .gserviceaccount.com.
+
+The human calls the exact instance executeSql endpoint with autoIamAuthn:true, database:"bs_postgis_diagnostic", partialResultMode:"FAIL_PARTIAL_RESULT" and only a reviewed fixed bootstrap script. The API uses the authenticated caller's database IAM identity; the user field is ignored with autoIamAuthn. The script creates the required supported extensions (postgis, pg_trgm, fuzzystrmatch), revokes PUBLIC CREATE/TEMP on this database and CREATE on public schema, and grants the exact diagnostic user CONNECT, public-schema USAGE and required fixed function EXECUTE only. No application tables, TEMP tables, source data, search runtime or customer grants are created. Database administration is separate from the diagnostic job. A request timeout or lost reply must be reconciled through actual extension/role metadata before rerunning DDL; no blind successful retry claim.
+
+Then remove the human's cloudsqlsuperuser membership using the documented IAM database-user update with revokeExistingRoles:true or explicit SQL REVOKE, verify actual membership, disable Data API (DISALLOW_DATA_API) using the observed current settingsVersion, await its operation and verify the setting. Remove temporary human Cloud SQL setup/API grants. Preserve object ownership/metadata evidence; do not casually delete an owner role that owns extensions. The diagnostic job subsequently uses the IAM connector over its private VPC route and BEGIN READ ONLY, not Data API.
+
+Exact proposed temporary human Cloud SQL permissions at the isolated-project level:
+- cloudsql.instances.get (metadata and operation polling)
+- cloudsql.instances.update (temporary Data API setting)
+- cloudsql.instances.login
+- cloudsql.instances.executeSql (canonical spelling from IAM/Studio reference; the Data API guide also contains an inconsistent lower-case spelling)
+- cloudsql.databases.create
+- cloudsql.databases.get
+- cloudsql.users.create
+- cloudsql.users.list
+- cloudsql.users.update
+
+Use REST to avoid Studio UI listing permissions; if the operator instead uses Studio, its documented databases.list permission is additionally needed. No cloudsql.instances.connect is needed for the Data API path itself. The operator still needs separately approved project/IAM setup authority described in the role proposal; none is inherited by runtime identities.
+
+For the diagnostic runtime, prefer the exact custom permission set cloudsql.instances.connect, cloudsql.instances.get, cloudsql.instances.login, plus access to its three exact input secrets. This supersedes the earlier shorthand of combining Cloud SQL Client and Instance User roles: current Instance User documentation can also include executeSql, which is unnecessary for this private connector-only job. The diagnostic database user never receives cloudsqlsuperuser.
+
+Ownership consequence: temporary human instances.update authority is real SQL lifecycle authority. The existing deletion preflight requires reviewedAt no later than the original firstBillableAt and is bound to the create intent/incarnation. A new post-bootstrap review cannot be silently inserted as if it were the original preflight. Keep this diagnostic phase attended and SQL deletion supervised unless a separately approved protocol/phase transition establishes valid current exclusive ownership. Disabling Data API and revoking grants is necessary evidence, not an automatic eligibility assertion. Overnight response is never a safety mechanism.
+
+If the Data API is unavailable due to an actual organization policy, instance/version restriction or unsupported request, stop this proposed setup path; do not add public SQL, a password secret, an admin job or new infrastructure as an unapproved fallback.
+
+Official sources checked by public read-only browsing:
+https://docs.cloud.google.com/sql/docs/postgres/executesql-instance
+https://docs.cloud.google.com/sql/docs/postgres/admin-api/rest/v1beta4/instances/executeSql
+https://docs.cloud.google.com/sql/docs/postgres/add-manage-iam-users
+https://docs.cloud.google.com/sql/docs/postgres/manage-data-using-studio
+https://docs.cloud.google.com/iam/docs/roles-permissions/cloudsql
+https://docs.cloud.google.com/sql/docs/postgres/create-instance
+
+No execution, credentials, project creation, privilege grant, Data API enablement, notification or spending occurred.

@@ -1,0 +1,47 @@
+✔ unapproved/changed configuration never initializes connector or driver (14.489625ms)
+✔ mandatory encrypted PRIVATE IAM connector, bounded pool and exact identity probe (2.678583ms)
+✔ initial connector rejection is safe and does not invoke problematic rejected-cache close (1.221667ms)
+✔ pool/identity failures close initialized connector without leaking provider errors (2.8725ms)
+✔ failed queries destroy the leased connection; close destroys active leases once (3.012375ms)
+✔ restore uses only the separately approved database and the same IAM transport (0.686833ms)
+✔ caller mutation while credentials initialize cannot change the approved login target (0.502958ms)
+✔ timed-out initialization closes a later successful connector without creating a pool (16.512459ms)
+✔ late acquired client is destroyed after the acquisition deadline (3.156125ms)
+✔ guest remains unauthenticated and caller body identity cannot become verified auth (47.227917ms)
+✔ valid Firebase token is bound to configured project; invalid and cross-project tokens reject (10.053125ms)
+✔ exact approved browser CORS works for preflight and request; forged origins/headers reject (6.024542ms)
+✔ malformed envelopes, compressed input, excessive body and unsafe long numbers reject (13.709833ms)
+✔ AppCheck is verified when supplied and enforced only by signed configuration (2.894375ms)
+✔ unexpected handler failures expose only safe callable error shape (1.67775ms)
+✔ four active handlers bound admission and over-limit request fails without invoking (6.718292ms)
+✔ response deadline retains late-work admission until settlement instead of allowing unlimited replacement work (3.242958ms)
+✔ import and dry-run do not initialize credentials, cloud clients or listeners (493.134375ms)
+✔ authentic permit performs only fixed synthetic and metadata SQL with bounded IAM pool (266.312667ms)
+✔ forged signature and unknown trust reject before connector I/O (1.34425ms)
+✔ configuration or candidate changed after signing rejects before I/O (0.659083ms)
+✔ wrong Gate2 rejects even when genuinely signed for Gate2 (0.311ms)
+✔ production, demo and wrong project allowlist reject before I/O (0.606584ms)
+✔ non-diagnostic database, wrong principal and wrong instance reject before I/O (0.761459ms)
+✔ wrong job, action, protocol or extra plan keys reject before I/O (0.753458ms)
+✔ syntheticOnly must be literal true (0.438583ms)
+✔ expired, future and insufficient full-task approvals reject before I/O (1.025834ms)
+✔ caller mutations across await cannot change validated identity or receipt job (227.144ms)
+✔ SQL error destroys diagnostic lease and closes pool/connector (206.331125ms)
+✔ approval expiry during SQL stops before next numerical operation and closes resources (203.039167ms)
+✔ work deadline stops the next SQL operation without late loop continuation (203.813291ms)
+✔ runtime NODE_OPTIONS cannot turn a diagnostic into a flag bypass (0.993ms)
+✔ unrecognized CLI mode or empty job cannot reach real connection setup (1.310458ms)
+✔ exact local Linux tuple is accepted and cached without granting hosted scope (4.587667ms)
+✔ Linux qualification refuses other binary, V8, Node, architecture, kernel and CPU tuples (3.072792ms)
+✔ scope and flags are checked again after cached local qualification (0.532375ms)
+✔ previous exact Darwin qualification remains unchanged (0.613542ms)
+✔ both hosted entry paths explicitly require hosted numerical qualification (0.321792ms)
+✔ actual qualified local process cannot unlock Linux hosted scope (195.970459ms)
+ℹ tests 39
+ℹ suites 0
+ℹ pass 39
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2255.440876

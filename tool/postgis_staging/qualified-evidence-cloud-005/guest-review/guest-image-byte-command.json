@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "/Applications/Docker.app/Contents/Resources/bin/docker",
+    "run",
+    "--rm",
+    "--name",
+    "bs-postgis-005-guest-byte-review",
+    "--platform=linux/amd64",
+    "--network=none",
+    "--memory=768m",
+    "--cpus=1",
+    "--pids-limit=128",
+    "--workdir=/app/functions",
+    "sha256:490d11883372dd938254efca22c13f35f4e9bb56e4c44934b1f55257130774d1",
+    "node",
+    "-e",
+    "const fs=require('node:fs'),crypto=require('node:crypto');const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');const paths=[\"functions/src/postgis_hosted_runtime.ts\", \"functions/lib/postgis_hosted_runtime.js\", \"functions/test/postgis_hosted_guest_setting.test.cjs\", \"functions/src/customer_bitesaver_search_session.ts\", \"functions/lib/customer_bitesaver_search_session.js\", \"functions/src/postgis_runtime.ts\", \"functions/lib/postgis_runtime.js\", \"functions/src/postgis_hosted_entrypoint.ts\", \"functions/lib/postgis_hosted_entrypoint.js\", \"functions/src/postgis_handlers.ts\", \"functions/lib/postgis_handlers.js\", \"functions/src/customer_bitesaver_guest_offer_checks.ts\", \"functions/lib/customer_bitesaver_guest_offer_checks.js\", \"functions/src/customer_bitesaver_search_contract.ts\", \"functions/lib/customer_bitesaver_search_contract.js\", \"functions/src/customer_search_callable_context.ts\", \"functions/lib/customer_search_callable_context.js\", \"functions/src/index.ts\", \"functions/test/customer_bitesaver_search_handlers.test.js\", \"functions/src/postgis_execution_approval.ts\", \"functions/lib/postgis_execution_approval.js\", \"functions/src/postgis_cloudsql.ts\", \"functions/lib/postgis_cloudsql.js\", \"functions/src/postgis_staging_runtime.ts\", \"functions/lib/postgis_staging_runtime.js\", \"tool/postgis_staging/hosted/hosted.example.json\", \"tool/postgis_staging/linux/Dockerfile\"];console.log(JSON.stringify({at:new Date().toISOString(),node:process.version,v8:process.versions.v8,platform:process.platform,architecture:process.arch,uid:process.getuid(),binarySha256:hash(process.execPath),sha256:Object.fromEntries(paths.map(p=>[p,hash('/app/'+p)]))},null,2));"
+  ],
+  "exitCode": 0,
+  "purpose": "Read exact image source/compiled/test hashes only; no runtime qualification or serving invoked.",
+  "mounts": [],
+  "autoRemoved": true
+}

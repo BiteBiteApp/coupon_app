@@ -1,0 +1,373 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005",
+  "recordedAt": "2026-10-18T01:48:43.412738+00:00",
+  "reviewer": "/root/query_client",
+  "scope": "Independent final guest image byte-identity and explicit eligibility addendum; no repository writes, cloud calls or normal serving.",
+  "verdict": "PASS: reviewed guest propagation source and portable test are present in exact new image; native guest algorithm and closed hosted Linux guard match004. No hosted Linux composition/serving qualification claimed.",
+  "newImage": {
+    "id": "sha256:490d11883372dd938254efca22c13f35f4e9bb56e4c44934b1f55257130774d1",
+    "tags": [
+      "bitestar-postgis-cloud-005:qualified-local"
+    ],
+    "created": "2026-10-18T01:44:58.134837506Z",
+    "os": "linux",
+    "architecture": "amd64",
+    "user": "node",
+    "entrypoint": [
+      "docker-entrypoint.sh"
+    ],
+    "cmd": [
+      "node",
+      "functions/lib/postgis_hosted_entrypoint.js",
+      "--dry-run",
+      "/app/tool/postgis_staging/hosted/hosted.example.json"
+    ]
+  },
+  "retained004Image": {
+    "id": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+    "tags": [
+      "bitestar-postgis-linux-004:qualified-local"
+    ],
+    "created": "2026-10-17T23:59:14.067229177Z",
+    "os": "linux",
+    "architecture": "amd64",
+    "user": "node",
+    "entrypoint": [
+      "docker-entrypoint.sh"
+    ],
+    "cmd": [
+      "node",
+      "functions/lib/postgis_hosted_entrypoint.js",
+      "--dry-run",
+      "/app/tool/postgis_staging/hosted/hosted.example.json"
+    ]
+  },
+  "priorSourceReview": {
+    "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/guest-review/propagation-source-review.json",
+    "sha256": "d1910d7482dd2d2c17a01e27f144d4a7d0db095694376d3d75014634ae642419",
+    "executedDarwinComposition": "Independent and portable suites each12/12 with identical substantive assertions/observations; same12 cases, not24 unique."
+  },
+  "independentImageChecks": {
+    "readOnlyByteProbe": {
+      "image": "sha256:490d11883372dd938254efca22c13f35f4e9bb56e4c44934b1f55257130774d1",
+      "pathsCompared": 27,
+      "mismatches": [],
+      "node": "v24.21.0",
+      "v8": "13.6.233.17-node.53",
+      "platform": "linux",
+      "architecture": "x64",
+      "uid": 1000,
+      "binarySha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c",
+      "binaryMatches004": true
+    },
+    "linuxCompositionEligibility": {
+      "tests": 12,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 12,
+      "durationMs": 585.369751,
+      "reason": "Actual unchanged guard explicitly refuses Linux hosted scope. No mock guard, serving or credentials.",
+      "command": "docker run --rm --platform=linux/amd64 --network=none --memory=768m --cpus=1 --pids-limit=128 --workdir=/app/functions sha256:490d11883372dd938254efca22c13f35f4e9bb56e4c44934b1f55257130774d1 node --test --test-isolation=none test/postgis_hosted_guest_setting.test.cjs"
+    },
+    "isolation": "Both reviewer containers networknone/768MiB/1CPU/pids128, no mounts. Both exited0 and auto-removed. Images retained."
+  },
+  "sourceAndCompiledComparison": [
+    {
+      "path": "functions/src/postgis_hosted_runtime.ts",
+      "imageSha256": "252d82c68218cb54c49754449eca271c076b224d9d86c574c2cc2a6a9bd52f91",
+      "selectedSha256": "252d82c68218cb54c49754449eca271c076b224d9d86c574c2cc2a6a9bd52f91",
+      "imageEqualsSelected": true,
+      "matchesIndependentReviewedSource": true,
+      "matches004Image": false
+    },
+    {
+      "path": "functions/lib/postgis_hosted_runtime.js",
+      "imageSha256": "799b56697fef4f983af7439190a85ae1a35106bc344cd69fa6856d4cd1c304e4",
+      "selectedSha256": "799b56697fef4f983af7439190a85ae1a35106bc344cd69fa6856d4cd1c304e4",
+      "imageEqualsSelected": true,
+      "matchesIndependentReviewedSource": true,
+      "matches004Image": false
+    },
+    {
+      "path": "functions/test/postgis_hosted_guest_setting.test.cjs",
+      "imageSha256": "6fac9b6a7c90802993e6248afdb4151edbf8fc4f187640bd92a4d2ed41d91e93",
+      "selectedSha256": "6fac9b6a7c90802993e6248afdb4151edbf8fc4f187640bd92a4d2ed41d91e93",
+      "imageEqualsSelected": true,
+      "matchesIndependentReviewedSource": true
+    },
+    {
+      "path": "functions/src/customer_bitesaver_search_session.ts",
+      "imageSha256": "eed290895555fd171365179d729b070f211c94a79404be5e766e1df50866018e",
+      "selectedSha256": "eed290895555fd171365179d729b070f211c94a79404be5e766e1df50866018e",
+      "imageEqualsSelected": true,
+      "matchesIndependentReviewedSource": true,
+      "matches004Image": true
+    },
+    {
+      "path": "functions/lib/customer_bitesaver_search_session.js",
+      "imageSha256": "6a5f9920ff1fa731b76472001687d8adb9c744cb14b746e4752ccf48ae274be6",
+      "selectedSha256": "6a5f9920ff1fa731b76472001687d8adb9c744cb14b746e4752ccf48ae274be6",
+      "imageEqualsSelected": true,
+      "matches004Image": true
+    },
+    {
+      "path": "functions/src/postgis_runtime.ts",
+      "imageSha256": "74887f3e8af5546a59402e79b4f18557c340db6c371aa9d2fd7ccb374cdeae85",
+      "selectedSha256": "74887f3e8af5546a59402e79b4f18557c340db6c371aa9d2fd7ccb374cdeae85",
+      "imageEqualsSelected": true,
+      "matchesIndependentReviewedSource": true,
+      "matches004Image": true
+    },
+    {
+      "path": "functions/lib/postgis_runtime.js",
+      "imageSha256": "5d8eb096c39ab7712c97872fb95dac41cdf76e8fd81b6cab855711cd476ce02e",
+      "selectedSha256": "5d8eb096c39ab7712c97872fb95dac41cdf76e8fd81b6cab855711cd476ce02e",
+      "imageEqualsSelected": true,
+      "matchesIndependentReviewedSource": true,
+      "matches004Image": true
+    },
+    {
+      "path": "functions/src/postgis_hosted_entrypoint.ts",
+      "imageSha256": "78f55eee2f4ad2d5989c76ff26c0ccbb8fb29c233a248f3f7b5dcfff7c9abac7",
+      "selectedSha256": "78f55eee2f4ad2d5989c76ff26c0ccbb8fb29c233a248f3f7b5dcfff7c9abac7",
+      "imageEqualsSelected": true,
+      "matchesIndependentReviewedSource": true,
+      "matches004Image": true
+    },
+    {
+      "path": "functions/lib/postgis_hosted_entrypoint.js",
+      "imageSha256": "df68f3775f3c0f7481ddbee8a97dccc7273b7a86034cb090e664ee09c9301e1f",
+      "selectedSha256": "df68f3775f3c0f7481ddbee8a97dccc7273b7a86034cb090e664ee09c9301e1f",
+      "imageEqualsSelected": true,
+      "matches004Image": true
+    },
+    {
+      "path": "functions/src/postgis_handlers.ts",
+      "imageSha256": "94eb93a362b84132d886c60827a6c797b57884d1f4830bf9343fdf70a5a37021",
+      "selectedSha256": "94eb93a362b84132d886c60827a6c797b57884d1f4830bf9343fdf70a5a37021",
+      "imageEqualsSelected": true,
+      "matchesIndependentReviewedSource": true,
+      "matches004Image": true
+    },
+    {
+      "path": "functions/lib/postgis_handlers.js",
+      "imageSha256": "1e3c679dad532a0003886714510b7fa9b1b127db538797fcfa228493426cbd4b",
+      "selectedSha256": "1e3c679dad532a0003886714510b7fa9b1b127db538797fcfa228493426cbd4b",
+      "imageEqualsSelected": true
+    },
+    {
+      "path": "functions/src/customer_bitesaver_guest_offer_checks.ts",
+      "imageSha256": "4892ffa7db34c4999d02290b8a8ebaf3100031db1b374732ff35d481c84fb34a",
+      "selectedSha256": "4892ffa7db34c4999d02290b8a8ebaf3100031db1b374732ff35d481c84fb34a",
+      "imageEqualsSelected": true,
+      "matches004Image": true
+    },
+    {
+      "path": "functions/lib/customer_bitesaver_guest_offer_checks.js",
+      "imageSha256": "41c22752b49a0928a4a953e3bdbfe2bb696b476fe178f05b07046c1f09f65897",
+      "selectedSha256": "41c22752b49a0928a4a953e3bdbfe2bb696b476fe178f05b07046c1f09f65897",
+      "imageEqualsSelected": true
+    },
+    {
+      "path": "functions/src/customer_bitesaver_search_contract.ts",
+      "imageSha256": "7757d797f2c3de386c80a9052d3331f50ba79bb6f831344d309296f83c1b0331",
+      "selectedSha256": "7757d797f2c3de386c80a9052d3331f50ba79bb6f831344d309296f83c1b0331",
+      "imageEqualsSelected": true,
+      "matches004Image": true
+    },
+    {
+      "path": "functions/lib/customer_bitesaver_search_contract.js",
+      "imageSha256": "5fdc3a24a76373b2934509e9b9ea9b2302d41b8f4ec21b3ca81c66bcf7f3351f",
+      "selectedSha256": "5fdc3a24a76373b2934509e9b9ea9b2302d41b8f4ec21b3ca81c66bcf7f3351f",
+      "imageEqualsSelected": true
+    },
+    {
+      "path": "functions/src/customer_search_callable_context.ts",
+      "imageSha256": "4d69aaa73281f1a8fba91658e81d231e0d1ff1352db92e161b9d32c5727d147e",
+      "selectedSha256": "4d69aaa73281f1a8fba91658e81d231e0d1ff1352db92e161b9d32c5727d147e",
+      "imageEqualsSelected": true,
+      "matchesIndependentReviewedSource": true
+    },
+    {
+      "path": "functions/lib/customer_search_callable_context.js",
+      "imageSha256": "d6d68718ffbe4018f8d651a321873638f34c75bd5c1c2ed51c72f59bbd66a0ed",
+      "selectedSha256": "d6d68718ffbe4018f8d651a321873638f34c75bd5c1c2ed51c72f59bbd66a0ed",
+      "imageEqualsSelected": true
+    },
+    {
+      "path": "functions/src/index.ts",
+      "imageSha256": "d224af2552479b6c9a65e094e05583f1feaf5cb521807dfcc8d357234bad3012",
+      "selectedSha256": "d224af2552479b6c9a65e094e05583f1feaf5cb521807dfcc8d357234bad3012",
+      "imageEqualsSelected": true,
+      "matchesIndependentReviewedSource": true,
+      "matches004Image": true
+    },
+    {
+      "path": "functions/test/customer_bitesaver_search_handlers.test.js",
+      "imageSha256": "1e3afcc4e6979b3e601f8250adfa22e4f93e6dd9c2832c52863e4350c552f042",
+      "selectedSha256": "1e3afcc4e6979b3e601f8250adfa22e4f93e6dd9c2832c52863e4350c552f042",
+      "imageEqualsSelected": true,
+      "matchesIndependentReviewedSource": true,
+      "matches004Image": true
+    },
+    {
+      "path": "functions/src/postgis_execution_approval.ts",
+      "imageSha256": "3efec64518f5a89799e0ed1aa283ded06aed66b021e4690bfe4a0fdd0ea4cb9f",
+      "selectedSha256": "3efec64518f5a89799e0ed1aa283ded06aed66b021e4690bfe4a0fdd0ea4cb9f",
+      "imageEqualsSelected": true,
+      "matchesIndependentReviewedSource": true
+    },
+    {
+      "path": "functions/lib/postgis_execution_approval.js",
+      "imageSha256": "33ed71e19126f321b061fd266450b621c94e162f7448ccc7cf03137016b1a12e",
+      "selectedSha256": "33ed71e19126f321b061fd266450b621c94e162f7448ccc7cf03137016b1a12e",
+      "imageEqualsSelected": true
+    },
+    {
+      "path": "functions/src/postgis_cloudsql.ts",
+      "imageSha256": "299c6645ef5beaddc682adae9197cc647b8309dbabdfc9455e72517cf50273fa",
+      "selectedSha256": "299c6645ef5beaddc682adae9197cc647b8309dbabdfc9455e72517cf50273fa",
+      "imageEqualsSelected": true,
+      "matchesIndependentReviewedSource": true
+    },
+    {
+      "path": "functions/lib/postgis_cloudsql.js",
+      "imageSha256": "78a404b4af0a08ade3728c5e8f936f14c0a8910511bf9959115dfdfd88fed360",
+      "selectedSha256": "78a404b4af0a08ade3728c5e8f936f14c0a8910511bf9959115dfdfd88fed360",
+      "imageEqualsSelected": true
+    },
+    {
+      "path": "functions/src/postgis_staging_runtime.ts",
+      "imageSha256": "05762b562defa673fb9d0e7d2b7e7b371db312079c75a6143c826a3034694925",
+      "selectedSha256": "05762b562defa673fb9d0e7d2b7e7b371db312079c75a6143c826a3034694925",
+      "imageEqualsSelected": true,
+      "matches004Image": true
+    },
+    {
+      "path": "functions/lib/postgis_staging_runtime.js",
+      "imageSha256": "00191ca1be125798a2c7507c79bdd997bf4e2de7921d5a8caf339b9e428c75c6",
+      "selectedSha256": "00191ca1be125798a2c7507c79bdd997bf4e2de7921d5a8caf339b9e428c75c6",
+      "imageEqualsSelected": true,
+      "matches004Image": true
+    },
+    {
+      "path": "tool/postgis_staging/hosted/hosted.example.json",
+      "imageSha256": "37d1d4358fd70613d415afb35c4813af48ebbe93577a174403d27aed6074d2f4",
+      "selectedSha256": "37d1d4358fd70613d415afb35c4813af48ebbe93577a174403d27aed6074d2f4",
+      "imageEqualsSelected": true
+    },
+    {
+      "path": "tool/postgis_staging/linux/Dockerfile",
+      "imageSha256": "770e24db3bcbd3a21f3a12d0060e1dec05990b7714633fc2cef31e8714c1c279",
+      "selectedSha256": "770e24db3bcbd3a21f3a12d0060e1dec05990b7714633fc2cef31e8714c1c279",
+      "imageEqualsSelected": true
+    }
+  ],
+  "unchanged004GuestAndGuardPaths": [
+    "functions/src/customer_bitesaver_search_session.ts",
+    "functions/lib/customer_bitesaver_search_session.js",
+    "functions/src/postgis_staging_runtime.ts",
+    "functions/lib/postgis_staging_runtime.js",
+    "functions/src/postgis_runtime.ts",
+    "functions/lib/postgis_runtime.js",
+    "functions/src/postgis_handlers.ts",
+    "functions/src/customer_bitesaver_guest_offer_checks.ts",
+    "functions/src/customer_bitesaver_search_contract.ts",
+    "functions/src/index.ts",
+    "functions/test/customer_bitesaver_search_handlers.test.js"
+  ],
+  "rootEvidenceReviewed": [
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/affected-tests.mac.log",
+      "sha256": "fddc5b69c5ada3cf263b543c6d81ab743aceaaa4efed9bf0401ecd8dd5e8e563",
+      "passed": 67,
+      "failed": 0,
+      "reviewedNotIndependentlyRerun": true
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/affected-tests.image.final.log",
+      "sha256": "27f1d23cf40d67146ee8b47535c19835615a989ce6f0e8e57c37f10048b1a20a",
+      "passed": 39,
+      "failed": 0,
+      "reviewedNotIndependentlyRerun": true
+    }
+  ],
+  "defaultDryRun": {
+    "status": "SOURCE_ONLY_NO_CLOUD_EXECUTION",
+    "configured": false,
+    "credentialsInitialized": false,
+    "listenerStarted": false,
+    "runtimeQualifiedForLinux": false
+  },
+  "dockerfileAmendment": {
+    "path": "tool/postgis_staging/linux/Dockerfile",
+    "finalSha256": "770e24db3bcbd3a21f3a12d0060e1dec05990b7714633fc2cef31e8714c1c279",
+    "matchesImage": true,
+    "change": "Adds native diagnostic/descriptor test RUN using --test-isolation=none. This keeps tests in main process; no runtime flag whitelist or executable bytes changed. Diagnostic behavior reviewed by separate assigned reviewer.",
+    "priorPropagationReceipt": "Retains its earlier Docker test-runner hash as dated evidence; this addendum binds final isolation spelling and final image."
+  },
+  "preservation": {
+    "startupInventoryPaths": 489,
+    "unchangedPaths": 488,
+    "authorizedCurrentSourceAmendments": [
+      "tool/postgis_staging/linux/Dockerfile"
+    ],
+    "unauthorizedMismatches": [],
+    "original004ImageExistsUnchanged": true,
+    "original004ManifestNotOverwritten": true,
+    "primaryOwnerIndexAndOtherBytes": "All protected owner files match005 startup; selected index remains committed candidate version."
+  },
+  "findings": [
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "finding": "12Linux skips accurately preserve hosted ineligibility. Darwin12/12 is actual composition evidence; new image byte equality supports packaging only. No skip counted asPASS."
+    }
+  ],
+  "limitations": [
+    "No actual native cloud CPU/managedSQL proof or Linux hosted normal serving.",
+    "No new guest performance or nationwide load claim.",
+    "No source guard relaxation, live signature/clock, resources, activation or spending approval."
+  ],
+  "evidence": [
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/guest-review/guest-image-identities.final.json",
+      "sha256": "3174532bf24629defe416f387ff8a9ee783612590cc40cb019840984eecfe54c"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/guest-review/guest-image-bytes.final.json",
+      "sha256": "9ce09685dd4db32ea9c17653a1f2d14b46528a36e20599411800401f0c99d4ac"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/guest-review/guest-image-byte-command.json",
+      "sha256": "85d8958ee2a44eb9212240bb3badc37166bbb8c8494bc2b38b084977c6e6314f"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/guest-review/portable-composition.linux-ineligible.log",
+      "sha256": "bef72b871385510e0a85f721c2bdd0fc052059f26c7a85d68f2ffb78ab2c8d1e"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/guest-review/propagation-source-review.json",
+      "sha256": "d1910d7482dd2d2c17a01e27f144d4a7d0db095694376d3d75014634ae642419"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/guest-review/portable-composition.final.log",
+      "sha256": "4516fde29586d066f5d406721cfe35981413073441dea6a7e7cbda5fe88bd694"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/guest-review/portable-composition.final-observations.json",
+      "sha256": "5757ddc482bb0ee43a4dc552b935cb179bba86d0c39ac8b50d85437b07e2ec63"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/search-image-build.final.log",
+      "sha256": "ca9cfa08856e339ab8918754fa39a824864a49ce009ed8fa9e4d7a4943bc2239"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/image-default-dry-run.json",
+      "sha256": "a4c971f17b50db8502db6dbba42c001099d0318ae7ecbcd5a421b61fece9fb76"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/search-image.identity.txt",
+      "sha256": "6f1ff4751e5b8aae18a5001533c3909960bd210b5fa3b9f503b8c2311095c2bc"
+    }
+  ]
+}

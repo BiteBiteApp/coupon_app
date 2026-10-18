@@ -1,0 +1,89 @@
+✔ unapproved/changed configuration never initializes connector or driver (23.164459ms)
+✔ mandatory encrypted PRIVATE IAM connector, bounded pool and exact identity probe (3.947417ms)
+✔ initial connector rejection is safe and does not invoke problematic rejected-cache close (3.783ms)
+✔ pool/identity failures close initialized connector without leaking provider errors (2.339375ms)
+✔ failed queries destroy the leased connection; close destroys active leases once (2.213583ms)
+✔ restore uses only the separately approved database and the same IAM transport (0.890292ms)
+✔ caller mutation while credentials initialize cannot change the approved login target (1.026917ms)
+✔ timed-out initialization closes a later successful connector without creating a pool (20.054959ms)
+✔ late acquired client is destroyed after the acquisition deadline (21.242875ms)
+✔ authentic canonical Ed25519 approval creates a non-forgeable immutable permit (2.244833ms)
+✔ signature, key, canonical bytes and exact schemas fail closed (1.609041ms)
+✔ project, run, exact candidate/config digest, gates and lifetime bind the permit (3.136334ms)
+✔ expired execution can only retain signed bounded gate5 cleanup authority (0.492459ms)
+✔ optional early cost checkpoint requires exactly signed literal100 (0.484959ms)
+✖ offline CLI uses a separate trusted file; tampered approvals emit only a safe error (235.6635ms)
+✖ full configuration canonicalization includes lexically sorted numeric-looking keys (4.870333ms)
+✔ guest remains unauthenticated and caller body identity cannot become verified auth (29.830667ms)
+✔ valid Firebase token is bound to configured project; invalid and cross-project tokens reject (9.049917ms)
+✔ exact approved browser CORS works for preflight and request; forged origins/headers reject (6.545042ms)
+✔ malformed envelopes, compressed input, excessive body and unsafe long numbers reject (12.866791ms)
+✔ AppCheck is verified when supplied and enforced only by signed configuration (4.945166ms)
+✔ unexpected handler failures expose only safe callable error shape (2.768542ms)
+✔ four active handlers bound admission and over-limit request fails without invoking (8.319625ms)
+✔ response deadline retains late-work admission until settlement instead of allowing unlimited replacement work (4.20675ms)
+✔ import and dry-run do not initialize credentials, cloud clients or listeners (513.968876ms)
+✔ authentic permit performs only fixed synthetic and metadata SQL with bounded IAM pool (325.917667ms)
+✔ forged signature and unknown trust reject before connector I/O (3.895875ms)
+✔ configuration or candidate changed after signing rejects before I/O (1.762416ms)
+✔ wrong Gate2 rejects even when genuinely signed for Gate2 (3.488167ms)
+✔ production, demo and wrong project allowlist reject before I/O (3.056458ms)
+✔ non-diagnostic database, wrong principal and wrong instance reject before I/O (2.637209ms)
+✔ wrong job, action, protocol or extra plan keys reject before I/O (0.996625ms)
+✔ syntheticOnly must be literal true (1.826917ms)
+✔ expired, future and insufficient full-task approvals reject before I/O (2.285333ms)
+✔ caller mutations across await cannot change validated identity or receipt job (533.918917ms)
+✔ SQL error destroys diagnostic lease and closes pool/connector (258.634667ms)
+✔ approval expiry during SQL stops before next numerical operation and closes resources (223.386084ms)
+✔ work deadline stops the next SQL operation without late loop continuation (326.191209ms)
+✔ runtime NODE_OPTIONS cannot turn a diagnostic into a flag bypass (2.507459ms)
+✔ unrecognized CLI mode or empty job cannot reach real connection setup (2.142791ms)
+✔ exact local Linux tuple is accepted and cached without granting hosted scope (7.16375ms)
+✔ Linux qualification refuses other binary, V8, Node, architecture, kernel and CPU tuples (4.426541ms)
+✔ scope and flags are checked again after cached local qualification (1.024959ms)
+✔ previous exact Darwin qualification remains unchanged (0.985792ms)
+✔ both hosted entry paths explicitly require hosted numerical qualification (0.485625ms)
+✔ actual qualified local process cannot unlock Linux hosted scope (264.494209ms)
+ℹ tests 46
+ℹ suites 0
+ℹ pass 44
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3319.546585
+
+✖ failing tests:
+
+test at functions/test/postgis_execution_approval.test.cjs:42:1
+✖ offline CLI uses a separate trusted file; tampered approvals emit only a safe error (235.6635ms)
+  SyntaxError: Unexpected end of JSON input
+      at JSON.parse (<anonymous>)
+      at TestContext.<anonymous> (/app/functions/test/postgis_execution_approval.test.cjs:47:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at functions/test/postgis_execution_approval.test.cjs:51:1
+✖ full configuration canonicalization includes lexically sorted numeric-looking keys (4.870333ms)
+  AssertionError [ERR_ASSERTION]: Error: spawnSync python3 ENOENT
+  
+  null !== 0
+  
+      at TestContext.<anonymous> (/app/functions/test/postgis_execution_approval.test.cjs:57:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

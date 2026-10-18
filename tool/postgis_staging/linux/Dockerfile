@@ -22,6 +22,7 @@ COPY tool/postgis_staging/hosted /app/tool/postgis_staging/hosted
 COPY tool/postgis_staging/scripts/guard.py tool/postgis_staging/scripts/cloud_provider.py /app/tool/postgis_staging/scripts/
 RUN npm run build
 RUN node --test test/postgis_execution_approval.test.cjs test/postgis_cloudsql.test.cjs test/postgis_hosted_transport.test.cjs test/postgis_hosted_entrypoint.test.cjs
+RUN node --test-isolation=none --test test/postgis_native_diagnostic.test.cjs test/postgis_native_diagnostic_descriptor.test.cjs
 
 FROM --platform=linux/amd64 node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd
 WORKDIR /app

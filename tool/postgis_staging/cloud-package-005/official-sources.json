@@ -1,0 +1,122 @@
+{
+  "checkedAt": "2026-10-18T01:46:47.802504+00:00",
+  "readOnlyPublicBrowsingOnly": true,
+  "sources": [
+    {
+      "url": "https://docs.cloud.google.com/sql/docs/postgres/create-instance",
+      "use": "Creation is a long-running operation taking minutes; no15-minute end-to-end setup/control-proof guarantee."
+    },
+    {
+      "url": "https://docs.cloud.google.com/run/docs/configuring/vpc-direct-vpc",
+      "use": "Direct VPC startup may take a minute or more; /26 minimum; subnet deletion can require1-2hours after workloads removed."
+    },
+    {
+      "url": "https://cloud.google.com/run/pricing",
+      "use": "Current instance/job rates .000018/vCPU-s and .000002/GiB-s; one-minute job minimum."
+    },
+    {
+      "url": "https://cloud.google.com/sql/pricing",
+      "use": "Reuse dated2026-10-17 worksheet. Direct English retrieval returned tool error; official indexed pricing corroborated CPU.0413 and memory.007. No claim all rates freshly reverified or account-specific."
+    },
+    {
+      "url": "https://docs.cloud.google.com/sql/docs/postgres/start-stop-restart-instance",
+      "use": "Stopping suspends compute charges; storage/IP charges continue."
+    },
+    {
+      "url": "https://docs.cloud.google.com/sql/docs/postgres/backup-recovery/backups",
+      "use": "Retained/on-demand/final backups are separate deletion/charge concerns."
+    },
+    {
+      "url": "https://docs.cloud.google.com/monitoring/alerts/metric-absence",
+      "use": "Must observe a data point after policy creation/change; absence is not failure-count monitoring."
+    },
+    {
+      "url": "https://docs.cloud.google.com/monitoring/api/metrics_gcp_p_z",
+      "use": "Cloud Run completed_execution_count sampled60s; visibility delay up to120s."
+    },
+    {
+      "url": "https://docs.cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.alertPolicies",
+      "use": "All selected channels receive notifications; strategy has renotification interval, no email-to-SMS failover."
+    },
+    {
+      "url": "https://docs.cloud.google.com/monitoring/support/notification-options",
+      "use": "Use multiple channel types; SMS is not completely reliable; email as second independent type; recipients require real verification."
+    },
+    {
+      "url": "https://docs.cloud.google.com/sql/docs/postgres/admin-api/rest/v1beta4/operations/get",
+      "use": "Read provider operation identity/state; acceptance alone is not completion."
+    },
+    {
+      "url": "https://docs.cloud.google.com/run/docs/reference/rest/v2/projects.locations.jobs.executions/cancel",
+      "use": "Cancellation applies to exact execution, with etag; completion must be observed."
+    },
+    {
+      "url": "https://docs.cloud.google.com/sql/docs/postgres/storage-options-overview",
+      "use": "Specific storage documentation confirms SSD for general-purpose dedicated-core Cloud SQL."
+    },
+    {
+      "url": "https://docs.cloud.google.com/sql/docs/postgres/machine-series-overview?hl=en",
+      "use": "Specific machine documentation confirms db-custom-CPUs-Memory general-purpose dedicated-core shape and SSD/HDD support."
+    },
+    {
+      "url": "https://docs.cloud.google.com/monitoring/alerts/troubleshoot-missing-notifications",
+      "use": "Notification failure logs are diagnostic evidence, not affirmative inbox delivery receipts."
+    },
+    {
+      "url": "https://cloud.google.com/products/observability/pricing",
+      "use": "No separate native SMS line item; alert pricing starts no sooner than September 1, 2027; other telemetry/API costs remain."
+    },
+    {
+      "url": "https://docs.cloud.google.com/sql/docs/postgres/iam-permissions?hl=en",
+      "use": "Exact SQL REST permission mapping; lifecycle permissions project scoped; operation get uses instances.get."
+    },
+    {
+      "url": "https://docs.cloud.google.com/run/docs/reference/iam/permissions",
+      "use": "Exact current Run permissions; cancellation uses run.executions.cancel."
+    },
+    {
+      "url": "https://docs.cloud.google.com/run/docs/execute/jobs",
+      "use": "Explicit cancellation permission change September 16, 2024; use current guide over stale REST permission note."
+    },
+    {
+      "url": "https://docs.cloud.google.com/iam/docs/roles-permissions/run",
+      "use": "run.operations.get and job/execution roles; supports current cancellation permission."
+    },
+    {
+      "url": "https://docs.cloud.google.com/storage/docs/access-control/iam-json",
+      "use": "GCS REST permissions; replacement requires objects.create and objects.delete."
+    },
+    {
+      "url": "https://docs.cloud.google.com/run/docs/configuring/jobs/cloud-storage-volume-mounts",
+      "use": "GCS FUSE read-only mount requires Storage Object Viewer on service identity."
+    },
+    {
+      "url": "https://docs.cloud.google.com/iam/docs/roles-permissions/workflows",
+      "use": "Workflow role minimum grant scope Project; custom executions.create sufficient for fixed scheduler target."
+    },
+    {
+      "url": "https://docs.cloud.google.com/run/docs/create-jobs",
+      "use": "Deployer needs service-account actAs and repository image-read access."
+    },
+    {
+      "url": "https://docs.cloud.google.com/run/docs/configuring/jobs/secrets?hl=en",
+      "use": "Job identity needs accessor on exact input secrets."
+    },
+    {
+      "url": "https://cloud.google.com/secret-manager/pricing",
+      "use": "Active-version/hour and access-operation rates; billing shared free allowances not assumed."
+    },
+    {
+      "url": "https://docs.cloud.google.com/iam/docs/roles-permissions/cloudsql",
+      "use": "Client/login permissions distinct from database object grants."
+    }
+  ],
+  "revision": "v2",
+  "additionalBootstrapSources": [
+    "https://docs.cloud.google.com/sql/docs/postgres/executesql-instance",
+    "https://docs.cloud.google.com/sql/docs/postgres/admin-api/rest/v1beta4/instances/executeSql",
+    "https://docs.cloud.google.com/sql/docs/postgres/add-manage-iam-users",
+    "https://docs.cloud.google.com/sql/docs/postgres/manage-data-using-studio",
+    "https://docs.cloud.google.com/iam/docs/roles-permissions/cloudsql"
+  ]
+}

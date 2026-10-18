@@ -1,0 +1,101 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005",
+  "promptTimestamp": "2026-10-17T20:51:00-04:00",
+  "expectedStartingMain": "76281bddc4a76b6e6ed899560eb8d7227024a156",
+  "reviewer": "/root/source_ingestion",
+  "completedAt": "2026-10-18T01:32:32.705451+00:00",
+  "status": "PRELIMINARY_REVIEW_ONLY_AWAIT_FINAL_BYTES",
+  "scope": "Native diagnostic isolation; external report writes only",
+  "recommendation": "Separate permit-bound fixed numerical diagnostic reusing existing PRIVATE/IAM pool, with no hosted serving capability or guard change",
+  "sourceInventoryAtPreliminaryReview": [
+    {
+      "path": "tool/postgis_staging/linux/numerical-diagnostics.cjs",
+      "sha256": "21e2465db0ae227126c4864180ebeed8dc495ddccebe5c68de7e8319c17f8147"
+    },
+    {
+      "path": "functions/src/postgis_execution_approval.ts",
+      "sha256": "3efec64518f5a89799e0ed1aa283ded06aed66b021e4690bfe4a0fdd0ea4cb9f"
+    },
+    {
+      "path": "functions/src/postgis_cloudsql.ts",
+      "sha256": "299c6645ef5beaddc682adae9197cc647b8309dbabdfc9455e72517cf50273fa"
+    },
+    {
+      "path": "functions/src/postgis_hosted_job_entrypoint.ts",
+      "sha256": "1ad37ffa64d8687843c5b921ee425c750cf49c5502b4f3ab9686bc4735f84c8a"
+    },
+    {
+      "path": "functions/src/postgis_hosted_entrypoint.ts",
+      "sha256": "78f55eee2f4ad2d5989c76ff26c0ccbb8fb29c233a248f3f7b5dcfff7c9abac7"
+    },
+    {
+      "path": "functions/src/postgis_hosted_jobs.ts",
+      "sha256": "0cf285d55a60d24982e635f56abd7ec036e0b78e752e7b4eb4526131c3aee245"
+    },
+    {
+      "path": "functions/src/postgis_hosted_runtime.ts",
+      "sha256": "6aa32d0d23b502a8d91eb57850ebc967e2bc81f50300a95cfa76a9b98104b3ac"
+    },
+    {
+      "path": "functions/src/postgis_runtime.ts",
+      "sha256": "74887f3e8af5546a59402e79b4f18557c340db6c371aa9d2fd7ccb374cdeae85"
+    },
+    {
+      "path": "functions/src/postgis_query.ts",
+      "sha256": "309e27651e330a1fd04fd3c9063605c59b2bce83d8364e98bd85c6b8803dacdf"
+    },
+    {
+      "path": "tool/postgis_staging/hosted/render-job.cjs",
+      "sha256": "5c536e9d0aa72becc7425d5a0061baf4dd2484a25fe89e6d3e7f2e27d4a44193"
+    },
+    {
+      "path": "tool/postgis_staging/linux/Dockerfile",
+      "sha256": "bb569df458e399960202c932ee2099e3c14c6d4adab011cd26544d253d8f4bd3"
+    },
+    {
+      "path": "tool/postgis_staging/PROVIDER-GATE1.md",
+      "sha256": "1b6abaa8de202b0cbe5363de65caf4eed2a230d8ab4639ddd19e130f5d5e663e"
+    },
+    {
+      "path": "tool/postgis_staging/HOSTED-ADAPTER.md",
+      "sha256": "ee6264e77c198e70be6684dcdf1ebb09f61f789c9dd267e3870b24a7ed2cdb5b"
+    },
+    {
+      "path": "tool/postgis_staging/LINUX-QUALIFICATION-004.md",
+      "sha256": "8cfea780ef736b3bd14409bec5e82431375e053284ccfbeb70812ee5771d6ae9"
+    },
+    {
+      "path": "tool/postgis_staging/DURABLE-SNAPSHOTS.md",
+      "sha256": "0071b3e5c4850e8a03ee649d124f2f8e731f96da047921776af6ad7d87256ebd"
+    },
+    {
+      "path": "tool/postgis_staging/PRESPEND-LOCAL-003.md",
+      "sha256": "e77706e75b1574da3e89e62494bb2ed89922e0f696c272e852fc1255ebe69440"
+    },
+    {
+      "path": "tool/postgis_staging/combined-source.linux-004.json",
+      "sha256": "a9bb21f9c2674ad5b079513be963d23be18c505791290a41078acb1ee920cdb8"
+    },
+    {
+      "path": "tool/safety_release_prep/README.md",
+      "sha256": "32e2a9a98da8b8cfe379c92acda1787903a01d65e699ae5d003a0e6369d162f1"
+    }
+  ],
+  "testsExecuted": [],
+  "cloudActions": false,
+  "repositoryEdits": false,
+  "sourceFreezeClaim": false,
+  "report": {
+    "path": "preliminary-review.txt",
+    "sha256": "78eac2b5b3de48eafc91c33b2667a23743d2d808b29270f3c11984f6726a4d90"
+  },
+  "priorEvidenceReused": [
+    "tool/postgis_staging/combined-source.linux-004.json",
+    "tool/postgis_staging/qualified-evidence-linux-004/linux-review/numerical-runtime-review.json",
+    "tool/postgis_staging/qualified-evidence-linux-004/linux-review/final-guard-review.json"
+  ],
+  "sources": [
+    "https://docs.cloud.google.com/sql/docs/postgres/iam-authentication",
+    "https://www.postgresql.org/docs/current/sql-set-transaction.html"
+  ]
+}

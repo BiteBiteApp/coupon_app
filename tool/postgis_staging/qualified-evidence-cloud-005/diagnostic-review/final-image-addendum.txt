@@ -1,0 +1,9 @@
+Final independent diagnostic/image addendum — PASS
+
+The immutable005 image490d11883372dd938254efca22c13f35f4e9bb56e4c44934b1f55257130774d1 contains the reviewed diagnostic, approval, private SQL adapter and unchanged serving guard. All17 sampled source/compiled/test/lock inputs match selected-source; Node matches the previously inspected004 ELF.
+
+Reviewed actual local SQL evidence records318 lower-bound cases (257 positive),1512 radius edges (730 accepted, zero missed),34 numeric bridge cases (maximum coordinate error2.842170943040401e-14),13 arithmetic checks and3 restricted-role denials. The signature and SQL transport were explicitly local test fixtures, not cloud credentials or owner approval.
+
+Independent selected-source contracts passed19/19. The image build combines30 cached passing prior contracts and19 passing new contracts. The applicable final runtime batch passed39/39. Initial14/19 build and44/46 runtime attempts remain preserved with their test-runner flags and build-tool availability explanations. Counts overlap and are not additive.
+
+No unresolved material finding. This qualifies the isolated source and exact local image only. Native managed runtime/SQL/IAM evidence, independent proof review, a narrow hosted allowance and new approved rebuilt image/config remain required. Hosted serving is still blocked.

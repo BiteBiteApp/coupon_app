@@ -1,0 +1,56 @@
+{
+  "status": "PROPOSED_USD_PLANNING_NOT_AUTHORIZATION_OR_HARD_PROVIDER_CAP",
+  "existingWorksheetDate": "2026-10-17",
+  "accountCurrencyTaxDiscountsUnverified": true,
+  "noFreeTierCreditsAssumed": true,
+  "unitCalculations": {
+    "zonal4Cpu16GiB100GiBSsdPerHour": "0.300487700",
+    "sqlSixHours": "1.802926200",
+    "sqlSeventyTwoHours": "21.635114400",
+    "watchdog1CpuHalfGiB600SecondInvocation": "0.0114000",
+    "watchdogEveryMinuteSixHoursWorst600SecondsEach": "4.1040000",
+    "watchdogEveryMinuteTwoHourCleanupWorst600SecondsEach": "1.3680000",
+    "watchdogEveryMinuteSeventyTwoHoursWorst600SecondsEach": "49.2480000",
+    "watchdogSeventyTwoHoursMinimum60SecondEach": "4.9248000",
+    "full72HourSqlAndWatchdogPlusFiveBootstrapAndThirtyReserveBeforeBackups": "105.883114400",
+    "conservativeThreeFull100GiBBackupsSixHourRunPlus72HourRetention": "2.564382600"
+  },
+  "recommendedPhaseAllocationUsd": {
+    "bootstrapAndControlIncludingSixHourWatchdog": 5,
+    "sixHourSqlIncludingSmallProvisioningStorageMargin": 3,
+    "twoBoundedDiagnosticCancellationExecutions": 1,
+    "alertsLogsApisRetainedMetadataUncertainty": 3,
+    "additionalPhaseContingency": 3
+  },
+  "initialGateAllowanceUsd": 15,
+  "bootstrapIsSubsetOfInitialAllowanceUsd": 5,
+  "cleanupReserveAdditionalToPhaseButWithinOverallCeilingUsd": 30,
+  "initialPhasePlusCleanupReservedExposureUsd": 45,
+  "overallPlanningCeilingUsd": 300,
+  "separateForecastCheckpointUsd": 100,
+  "limits": [
+    "The$15 phase limit is not$15 inclusive of the already mandated$30 cleanup reserve. Request$15 work/setup plus reserve$30 within$300, initially$45 total reserved exposure.",
+    "The$5 bootstrap/control allocation is one allocation, not a second$5 added to$15. Conservative reservations and external setup/control liabilities must be recorded together.",
+    "Worst-case control runtime costs use the existing600-second platform limit and once-per-minute schedule, not assumed near-instant success. Cloud Run jobs have a one-minute minimum. Runtime overlap and queued starts must be reconciled.",
+    "Two-hour cleanup watchdog, retained SQL storage/backups, partial GCS objects, registry images, logging, API/control resources, delayed postings and human cleanup use the$30 reserve; absence is not a refund.",
+    "Do not reserve only six hours while leaving the real resource/control clock at72 hours. The proposed six-hour signed lifetime needs to be explicit; otherwise recompute full72-hour liabilities and cross the$100 approval boundary if necessary.",
+    "The per-gate pure guard counts costUpper against$15 but holding/delayed forecasts separately against the whole budget. Therefore the operator must not describe$15 as all-in while hiding known phase spend in remainingHoldUpper.",
+    "Account taxes/fees and live calibrated behavior remain unknown. Any forecast above the stated allocation stops admission and requires approval; no dollar cap is guaranteed.",
+    "No human overnight response is credited as a cost control. Unknown cleanup outcome retains all liabilities and blocks unattended operation.",
+    "Native alert policy fees currently scheduled no sooner than September 1, 2027; no separate SMS fee published. A new relay/escalation service is not selected or priced."
+  ],
+  "revision": "v2",
+  "billingAccountId": "01A48F-0E48E0-1A5439",
+  "notifications": {
+    "nativeSmsLineItemUsd": 0,
+    "interpretation": "No separately published Google SMS line item, not an assertion of guaranteed free carrier delivery. Existing $3 alerts/logs/API uncertainty allocation retained.",
+    "additionalRelayOrEscalationUsd": null,
+    "relayCostStatus": "Unselected and unapproved; cannot quote zero."
+  },
+  "secretManager": {
+    "threeInputVersionsOneReplicationLocation": "3 x $0.000082192 per hour; six hours $0.001479456; ten-day retained maximum $0.05917824 before accesses.",
+    "accessOperations": "$0.03 per 10,000 accesses; no free tier assumed.",
+    "rotation": "No scheduled rotation notification.",
+    "allocation": "Included in existing $3 uncertainty allocation; not added to phase ceiling."
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "reviewedAt": "2026-10-18T01:52:57.115199+00:00",
+  "verdict": "CORRECTIONS_REQUIRED_BEFORE_FINAL_RECEIPT",
+  "scope": "Independent final proposal commands/schema and cross-file consistency. No source edits, execution, messages, cloud actions or new test suites.",
+  "files": [
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/bootstrap-database.txt",
+      "sha256": "146abe1f11b812f84c2852e47c99d442ad51cc74d3c5d0d2e97c1ce9b1aad87e"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/commands.txt",
+      "sha256": "b5d0d2f7fa72ea9b7a5284a59505252ebd08bbff294439bfac7c2a05437c2839"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/costs.json",
+      "sha256": "1a9e8d7b9cbcff7dd3461d531ae6375492d54ebb07e2775f07e8d58c02b03a77"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/iam.json",
+      "sha256": "892d061b2cd234261347a4e29474d1a0faa82150c570e3ac9c5ae0f03846868c"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/monitoring.json",
+      "sha256": "787c1e82a09742bb3e046a2551b5a2ad9170a86e2541913cee42c880b95621dd"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/notifications.json",
+      "sha256": "98db325c97ad94cc663460dc13898bd87016362bf57165882970495033734a3b"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/official-sources.json",
+      "sha256": "4f7a90b716aa080d268e829412259b03e07b0cd9c0fd8c6ee1a65de24e0328b5"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/proposal.json",
+      "sha256": "149af080440aa5214924e955d0e9c93e43a8b3d24f97f9790584dc61d59e923a"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/resources.json",
+      "sha256": "f32a909de3f614503fd4d745364d503f5abd7ca78bdefdb8f8b55d16e7e5056e"
+    },
+    {
+      "path": "/Users/colesmart/dev/coupon_app/tool/postgis_staging/cloud-package-005/verified-existing.json",
+      "sha256": "c3fa8cce6d98332382c67bf668aba7f652ec23c84a6c17e2ce4ecb4d5b4e2b71"
+    }
+  ],
+  "findings": [
+    {
+      "id": "P005-C1",
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "file": "commands.txt",
+      "issue": "executeSql uses sqlStatements array; documented v1beta4 field is sqlStatement string, accepting semicolon-separated statements.",
+      "source": "https://docs.cloud.google.com/sql/docs/postgres/admin-api/rest/v1beta4/instances/executeSql"
+    },
+    {
+      "id": "P005-C2",
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "file": "iam.json",
+      "issue": "Attended human cleanup in commands step9 lacks proposed cloudsql.instances.delete and backupRuns.get/list authority; add exact temporary cleanup set, with backupRuns.delete only for explicitly approved retained-backup deletion. Runtime automatic deletion is ineligible."
+    },
+    {
+      "id": "P005-C3",
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "file": "commands.txt",
+      "issue": "State bootstrap sequence explicitly: start ledger at original T0; prepaid create of unrun bootstrap probe; independent removal and owned absence; real confirm-controls then begin-work before expensive SQL/native/cancel work."
+    },
+    {
+      "id": "P005-C4",
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "file": "resources.json",
+      "issue": "Replace package references to unshipped proposed-iam-permissions.v2.json and notification-feasibility.v2.json with iam.json and notifications.json."
+    }
+  ],
+  "consistentAreas": [
+    "Exact new project, region, run names, diagnostic database and service account align.",
+    "Diagnostic permissions limited to connect/get/login plus exact input secrets.",
+    "Email-only attended exception requested, not assumed; conditional SMS fallback explicitly unimplemented.",
+    "Six-hour proposed phase and original 72-hour outer clock, $15 including $5 bootstrap plus $30 reserve within $300 and separate $100 forecast checkpoint are distinct.",
+    "Temporary authenticated public HTTPS Data API route disclosed; normal private diagnostic route distinct.",
+    "Automatic SQL deletion ineligible; full source/snapshot Gates1/5 and immutable transition deferred; no cloud action/spending/completion claim."
+  ]
+}

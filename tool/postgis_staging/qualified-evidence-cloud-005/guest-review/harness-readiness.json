@@ -1,0 +1,45 @@
+{
+  "at": "2026-10-18T01:36:55.949685+00:00",
+  "status": "Harness prepared; full change matrix pending final compiled source notification.",
+  "harness": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/guest-review/hosted-guest-composition.cjs",
+  "sha256": "7e61c1a255b3f6261c9c5260a7ff418d9322d13bcca1b499d3a9c1a11347beb6",
+  "cases": 12,
+  "realComponents": [
+    "canonical Ed25519 verifier and immutable permit",
+    "full configuration digest",
+    "Cloud SQL branded pool wrapper with injected connector and driver",
+    "unmodified exact Darwin hosted runtime guard",
+    "createHostedPostgisRuntime clone and invoke",
+    "native callable actor context",
+    "PostGIS handler bridge",
+    "native Saver guest/session/authority handlers",
+    "native Score/Finder result builder and handlers"
+  ],
+  "injectedBoundaries": [
+    "in-memory Firestore authority adapter and inert source/maintenance/pruner construction",
+    "membership provider candidate query via existing native in-memory fixture",
+    "fake Cloud SQL connector/driver returns only expected database/user health row"
+  ],
+  "networkForbidden": true,
+  "noRepositoryEdits": true,
+  "completedSmokeTests": [
+    {
+      "log": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/guest-review/hosted-guest-composition.baseline.log",
+      "sha256": "69c2fd67cdf426f1b5bee0839bb0f577cf6d7b7e9acec6d068946453ee204bdd",
+      "pass": 3,
+      "scope": "absent/false serial actualcomposition and legacyV1 serial"
+    },
+    {
+      "log": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-CLOUD-PACKAGE-005-20261017/guest-review/hosted-guest-composition.preserved-paths.log",
+      "sha256": "2f11508d19bb8eb2584162e995aaa694e5861c4fb626499c33799864bb781bc8",
+      "pass": 2,
+      "scope": "signedSaver25card and nativeScore/Finder1result both modes"
+    }
+  ],
+  "limits": [
+    "No actual SQL/Firebase/cloud transport or serving claim.",
+    "Unit-test ephemeral signatures are generated only in memory and expired at real current clock; private keys/envelopes are not saved.",
+    "Existing fixture date uses test fakeDate; no source clock/guard bypass.",
+    "Full304+24 native regression evidence reused for unchanged guest algorithm; new matrix targets hosted composition boundary."
+  ]
+}

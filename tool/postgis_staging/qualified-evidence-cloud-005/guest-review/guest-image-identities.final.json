@@ -1,0 +1,40 @@
+[
+  {
+    "id": "sha256:490d11883372dd938254efca22c13f35f4e9bb56e4c44934b1f55257130774d1",
+    "tags": [
+      "bitestar-postgis-cloud-005:qualified-local"
+    ],
+    "created": "2026-10-18T01:44:58.134837506Z",
+    "os": "linux",
+    "architecture": "amd64",
+    "user": "node",
+    "entrypoint": [
+      "docker-entrypoint.sh"
+    ],
+    "cmd": [
+      "node",
+      "functions/lib/postgis_hosted_entrypoint.js",
+      "--dry-run",
+      "/app/tool/postgis_staging/hosted/hosted.example.json"
+    ]
+  },
+  {
+    "id": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+    "tags": [
+      "bitestar-postgis-linux-004:qualified-local"
+    ],
+    "created": "2026-10-17T23:59:14.067229177Z",
+    "os": "linux",
+    "architecture": "amd64",
+    "user": "node",
+    "entrypoint": [
+      "docker-entrypoint.sh"
+    ],
+    "cmd": [
+      "node",
+      "functions/lib/postgis_hosted_entrypoint.js",
+      "--dry-run",
+      "/app/tool/postgis_staging/hosted/hosted.example.json"
+    ]
+  }
+]

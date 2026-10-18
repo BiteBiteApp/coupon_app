@@ -1,0 +1,141 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.51kB done
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 3)
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 6)
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 27)
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12.13-slim-bookworm@sha256:6e13e65c55e33adf203d77ee371cf8bf5d81bd4902ef07565721f46bf44917af
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [node 1/1] FROM docker.io/library/node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd
+#5 resolve docker.io/library/node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd done
+#5 DONE 0.0s
+
+#6 [build  1/20] FROM docker.io/library/python:3.12.13-slim-bookworm@sha256:6e13e65c55e33adf203d77ee371cf8bf5d81bd4902ef07565721f46bf44917af
+#6 resolve docker.io/library/python:3.12.13-slim-bookworm@sha256:6e13e65c55e33adf203d77ee371cf8bf5d81bd4902ef07565721f46bf44917af done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 25.95kB done
+#7 DONE 0.0s
+
+#8 [build 17/20] COPY tool/postgis_staging/scripts/guard.py tool/postgis_staging/scripts/cloud_provider.py /app/tool/postgis_staging/scripts/
+#8 CACHED
+
+#9 [build 18/20] RUN npm run build
+#9 CACHED
+
+#10 [build 15/20] COPY tool/postgis_staging/verify-approval.cjs /app/tool/postgis_staging/verify-approval.cjs
+#10 CACHED
+
+#11 [build 12/20] COPY functions/src ./src
+#11 CACHED
+
+#12 [build 13/20] COPY functions/search_candidate ./search_candidate
+#12 CACHED
+
+#13 [build 10/20] RUN npm ci --ignore-scripts --no-audit --no-fund
+#13 CACHED
+
+#14 [build  5/20] COPY --from=node /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/libgcc_s.so.1
+#14 CACHED
+
+#15 [build  9/20] COPY functions/package.json functions/package-lock.json ./
+#15 CACHED
+
+#16 [build 16/20] COPY tool/postgis_staging/hosted /app/tool/postgis_staging/hosted
+#16 CACHED
+
+#17 [build  7/20] RUN node --version && npm --version && python3 --version && python3 -c "import ssl, sqlite3"
+#17 CACHED
+
+#18 [build 11/20] COPY functions/tsconfig.json ./
+#18 CACHED
+
+#19 [build  8/20] WORKDIR /app/functions
+#19 CACHED
+
+#20 [build  2/20] COPY --from=node /usr/local/bin/node /usr/local/bin/node
+#20 CACHED
+
+#21 [build  3/20] COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+#21 CACHED
+
+#22 [build  4/20] COPY --from=node /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+#22 CACHED
+
+#23 [build  6/20] RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
+#23 CACHED
+
+#24 [build 14/20] COPY functions/test ./test
+#24 CACHED
+
+#25 [build 19/20] RUN node --test test/postgis_execution_approval.test.cjs test/postgis_cloudsql.test.cjs test/postgis_hosted_transport.test.cjs test/postgis_hosted_entrypoint.test.cjs
+#25 CACHED
+
+#26 [build 20/20] RUN node --test-isolation=none --test test/postgis_native_diagnostic.test.cjs test/postgis_native_diagnostic_descriptor.test.cjs
+#26 2.473 ✔ import and dry-run do not initialize credentials, cloud clients or listeners (586.41625ms)
+#26 2.473 ✔ authentic permit performs only fixed synthetic and metadata SQL with bounded IAM pool (346.769084ms)
+#26 2.473 ✔ forged signature and unknown trust reject before connector I/O (2.510667ms)
+#26 2.473 ✔ configuration or candidate changed after signing rejects before I/O (1.74725ms)
+#26 2.473 ✔ wrong Gate2 rejects even when genuinely signed for Gate2 (0.6365ms)
+#26 2.473 ✔ production, demo and wrong project allowlist reject before I/O (1.148791ms)
+#26 2.473 ✔ non-diagnostic database, wrong principal and wrong instance reject before I/O (2.046167ms)
+#26 2.473 ✔ wrong job, action, protocol or extra plan keys reject before I/O (1.281833ms)
+#26 2.473 ✔ syntheticOnly must be literal true (1.809666ms)
+#26 2.473 ✔ expired, future and insufficient full-task approvals reject before I/O (1.868542ms)
+#26 2.473 ✔ caller mutations across await cannot change validated identity or receipt job (226.311292ms)
+#26 2.473 ✔ SQL error destroys diagnostic lease and closes pool/connector (207.792666ms)
+#26 2.473 ✔ approval expiry during SQL stops before next numerical operation and closes resources (200.088667ms)
+#26 2.473 ✔ work deadline stops the next SQL operation without late loop continuation (203.031042ms)
+#26 2.473 ✔ runtime NODE_OPTIONS cannot turn a diagnostic into a flag bypass (1.331166ms)
+#26 2.473 ✔ unrecognized CLI mode or empty job cannot reach real connection setup (1.487875ms)
+#26 2.473 ✔ diagnostic descriptor has only three signed inputs, no server or runtime keys, fixed bounded command (0.703ms)
+#26 2.473 ✔ diagnostic descriptor refuses substituted targets, mutable images, missing or moving input versions (1.056958ms)
+#26 2.473 ✔ fixed diagnostic descriptor satisfies the existing provider exact-body contract without provider requests (119.136208ms)
+#26 2.476 ℹ tests 19
+#26 2.476 ℹ suites 0
+#26 2.476 ℹ pass 19
+#26 2.476 ℹ fail 0
+#26 2.476 ℹ cancelled 0
+#26 2.476 ℹ skipped 0
+#26 2.476 ℹ todo 0
+#26 2.476 ℹ duration_ms 2176.265334
+#26 DONE 2.5s
+
+#27 [stage-2 2/5] WORKDIR /app
+#27 CACHED
+
+#28 [stage-2 3/5] COPY --from=build /app/functions /app/functions
+#28 DONE 1.0s
+
+#29 [stage-2 4/5] COPY tool/postgis_staging/hosted /app/tool/postgis_staging/hosted
+#29 DONE 0.0s
+
+#30 [stage-2 5/5] COPY tool/postgis_staging/linux /app/tool/postgis_staging/linux
+#30 DONE 0.0s
+
+#31 exporting to image
+#31 exporting layers
+#31 exporting layers 2.4s done
+#31 exporting manifest sha256:48920ae3b6defdf47d9e0653af8b0d987b5b72914916ec325e72898a98a566b9 done
+#31 exporting config sha256:17ad16cf3d2130310d4212c6ffb84664da7bb1f1edbdbfd48de5a186f730dda1 done
+#31 exporting attestation manifest sha256:e48c4e07b062e9eb7bfaa458966fa18ec5fa0dfbd5e16963e77dc53312b12aa8 done
+#31 exporting manifest list sha256:490d11883372dd938254efca22c13f35f4e9bb56e4c44934b1f55257130774d1 done
+#31 naming to docker.io/library/bitestar-postgis-cloud-005:qualified-local done
+#31 DONE 2.5s
+
+ [33m3 warnings found (use docker --debug to expand):
+[0m - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 3)
+ - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 6)
+ - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 27)
