@@ -1,0 +1,55 @@
+[
+  {
+    "label": "dryrun",
+    "command": [
+      "/Applications/Docker.app/Contents/Resources/bin/docker",
+      "create",
+      "--network=none",
+      "--platform=linux/amd64",
+      "--memory=768m",
+      "--cpus=1",
+      "--pids-limit=128",
+      "--read-only",
+      "--tmpfs",
+      "/tmp:rw,nosuid,nodev,size=128m",
+      "--mount",
+      "type=bind,src=/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/controller-review/fixtures,dst=/fixtures,readonly",
+      "--name",
+      "bs004-controller-review-dryrun",
+      "bitestar-postgis-controller-004:initial",
+      "--config",
+      "/fixtures/tool/postgis_staging/config/staging.json"
+    ],
+    "containerId": "22acebd4935cea50edd07f4f05998f62193a5edb7f9ada112275f82503ca65af",
+    "dockerAttachExit": 0,
+    "containerExitCode": 0,
+    "elapsedSeconds": 0.409792667
+  },
+  {
+    "label": "tests",
+    "command": [
+      "/Applications/Docker.app/Contents/Resources/bin/docker",
+      "create",
+      "--network=none",
+      "--platform=linux/amd64",
+      "--memory=768m",
+      "--cpus=1",
+      "--pids-limit=128",
+      "--read-only",
+      "--tmpfs",
+      "/tmp:rw,nosuid,nodev,size=128m",
+      "--mount",
+      "type=bind,src=/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/controller-review/fixtures,dst=/fixtures,readonly",
+      "--name",
+      "bs004-controller-review-tests",
+      "--entrypoint",
+      "python3",
+      "bitestar-postgis-controller-004:initial",
+      "/fixtures/run_image_review.py"
+    ],
+    "containerId": "3b27a978f584910295dc19c31b5015ed99416bfa56099ea9fbdc962c0484420a",
+    "dockerAttachExit": 0,
+    "containerExitCode": 0,
+    "elapsedSeconds": 3.803937459
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-18T00:18:32.601295+00:00",
+  "names": [
+    "bs-postgis-004-final-guest-handlers",
+    "bs-postgis-004-final-guest-diagnostics",
+    "bs-postgis-004-final-guest-supplement"
+  ],
+  "exitCode": 0,
+  "stdout": "bs-postgis-004-final-guest-handlers\nbs-postgis-004-final-guest-diagnostics\nbs-postgis-004-final-guest-supplement\n",
+  "stderr": "",
+  "imagesRetained": true
+}

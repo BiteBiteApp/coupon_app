@@ -1,0 +1,67 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Controller.Dockerfile
+#1 transferring dockerfile: 1.61kB done
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 4)
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 5)
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12.13-slim-bookworm@sha256:6e13e65c55e33adf203d77ee371cf8bf5d81bd4902ef07565721f46bf44917af
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [stage-1 1/9] FROM docker.io/library/python:3.12.13-slim-bookworm@sha256:6e13e65c55e33adf203d77ee371cf8bf5d81bd4902ef07565721f46bf44917af
+#5 resolve docker.io/library/python:3.12.13-slim-bookworm@sha256:6e13e65c55e33adf203d77ee371cf8bf5d81bd4902ef07565721f46bf44917af done
+#5 DONE 0.0s
+
+#6 [node 1/1] FROM docker.io/library/node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd
+#6 resolve docker.io/library/node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd done
+#6 CACHED
+
+#7 [stage-1 2/9] COPY --from=node /usr/local/bin/node /usr/local/bin/node
+#7 CACHED
+
+#8 [internal] load build context
+#8 transferring context: 51.33kB 0.0s done
+#8 DONE 0.0s
+
+#9 [stage-1 3/9] COPY --from=node /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+#9 DONE 0.0s
+
+#10 [stage-1 4/9] COPY --from=node /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/libgcc_s.so.1
+#10 DONE 0.0s
+
+#11 [stage-1 5/9] WORKDIR /app
+#11 DONE 0.0s
+
+#12 [stage-1 6/9] COPY tool/postgis_staging/scripts/guard.py tool/postgis_staging/scripts/cloud_provider.py tool/postgis_staging/scripts/cloud_controller.py tool/postgis_staging/scripts/provider_entrypoint.py /app/tool/postgis_staging/scripts/
+#12 DONE 0.0s
+
+#13 [stage-1 7/9] COPY tool/postgis_staging/verify-approval.cjs /app/tool/postgis_staging/verify-approval.cjs
+#13 DONE 0.0s
+
+#14 [stage-1 8/9] COPY functions/lib/postgis_execution_approval.js /app/functions/lib/postgis_execution_approval.js
+#14 DONE 0.0s
+
+#15 [stage-1 9/9] RUN node --version && python3 --version && python3 -c "import ssl, sqlite3"
+#15 0.121 v24.21.0
+#15 0.138 Python 3.12.13
+#15 DONE 0.3s
+
+#16 exporting to image
+#16 exporting layers
+#16 exporting layers 2.4s done
+#16 exporting manifest sha256:d31f485673c4638bffc4b5d5dd4b87a711d6182e47f799c877912eb57a49cf2f done
+#16 exporting config sha256:6045d59fe7690a31730682f35db5cdaafe78a106997da8ee19eddc949d790b86 done
+#16 naming to docker.io/library/bitestar-postgis-controller-004:initial done
+#16 DONE 2.4s
+
+ [33m2 warnings found (use docker --debug to expand):
+[0m - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 4)
+ - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 5)

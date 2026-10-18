@@ -1,0 +1,1665 @@
+
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+0000000001b4ca40 <Builtins_MathAtan>:
+ 1b4ca40: 55                           	pushq	%rbp
+ 1b4ca41: 48 89 e5                     	movq	%rsp, %rbp
+ 1b4ca44: 56                           	pushq	%rsi
+ 1b4ca45: 57                           	pushq	%rdi
+ 1b4ca46: 50                           	pushq	%rax
+ 1b4ca47: 48 83 ec 08                  	subq	$0x8, %rsp
+ 1b4ca4b: 49 3b 65 a0                  	cmpq	-0x60(%r13), %rsp
+ 1b4ca4f: 0f 86 d9 00 00 00            	jbe	0x1b4cb2e <Builtins_MathAtan+0xee>
+ 1b4ca55: 48 8b 45 18                  	movq	0x18(%rbp), %rax
+ 1b4ca59: a8 01                        	testb	$0x1, %al
+ 1b4ca5b: 0f 85 e8 00 00 00            	jne	0x1b4cb49 <Builtins_MathAtan+0x109>
+ 1b4ca61: a8 01                        	testb	$0x1, %al
+ 1b4ca63: 75 10                        	jne	0x1b4ca75 <Builtins_MathAtan+0x35>
+ 1b4ca65: 48 c1 f8 20                  	sarq	$0x20, %rax
+ 1b4ca69: 8b c8                        	movl	%eax, %ecx
+ 1b4ca6b: 66 0f 57 c9                  	xorpd	%xmm1, %xmm1
+ 1b4ca6f: f2 0f 2a c9                  	cvtsi2sd	%ecx, %xmm1
+ 1b4ca73: eb 05                        	jmp	0x1b4ca7a <Builtins_MathAtan+0x3a>
+ 1b4ca75: f2 0f 10 48 07               	movsd	0x7(%rax), %xmm1
+ 1b4ca7a: 0f 28 c1                     	movaps	%xmm1, %xmm0
+ 1b4ca7d: 49 89 e2                     	movq	%rsp, %r10
+ 1b4ca80: 48 83 ec 08                  	subq	$0x8, %rsp
+ 1b4ca84: 48 83 e4 f0                  	andq	$-0x10, %rsp
+ 1b4ca88: 4c 89 14 24                  	movq	%r10, (%rsp)
+ 1b4ca8c: 49 8b 85 18 27 00 00         	movq	0x2718(%r13), %rax
+ 1b4ca93: 4c 8d 15 10 00 00 00         	leaq	0x10(%rip), %r10        # 0x1b4caaa <Builtins_MathAtan+0x6a>
+ 1b4ca9a: 4d 89 95 a0 00 00 00         	movq	%r10, 0xa0(%r13)
+ 1b4caa1: 49 89 ad a8 00 00 00         	movq	%rbp, 0xa8(%r13)
+ 1b4caa8: ff d0                        	callq	*%rax
+ 1b4caaa: 49 c7 85 a8 00 00 00 00 00 00 00     	movq	$0x0, 0xa8(%r13)
+ 1b4cab5: 48 8b 24 24                  	movq	(%rsp), %rsp
+ 1b4cab9: f2 0f 2c c8                  	cvttsd2si	%xmm0, %ecx
+ 1b4cabd: 66 0f 57 c9                  	xorpd	%xmm1, %xmm1
+ 1b4cac1: f2 0f 2a c9                  	cvtsi2sd	%ecx, %xmm1
+ 1b4cac5: 66 0f 2e c8                  	ucomisd	%xmm0, %xmm1
+ 1b4cac9: 7a 13                        	jp	0x1b4cade <Builtins_MathAtan+0x9e>
+ 1b4cacb: 75 11                        	jne	0x1b4cade <Builtins_MathAtan+0x9e>
+ 1b4cacd: 85 c9                        	testl	%ecx, %ecx
+ 1b4cacf: 75 54                        	jne	0x1b4cb25 <Builtins_MathAtan+0xe5>
+ 1b4cad1: 66 48 0f 7e c7               	movq	%xmm0, %rdi
+ 1b4cad6: 48 c1 ef 20                  	shrq	$0x20, %rdi
+ 1b4cada: 85 ff                        	testl	%edi, %edi
+ 1b4cadc: 7d 47                        	jge	0x1b4cb25 <Builtins_MathAtan+0xe5>
+ 1b4cade: 49 8b 4d 50                  	movq	0x50(%r13), %rcx
+ 1b4cae2: 48 8d 79 10                  	leaq	0x10(%rcx), %rdi
+ 1b4cae6: 49 39 7d 58                  	cmpq	%rdi, 0x58(%r13)
+ 1b4caea: 76 78                        	jbe	0x1b4cb64 <Builtins_MathAtan+0x124>
+ 1b4caec: 48 8d 79 10                  	leaq	0x10(%rcx), %rdi
+ 1b4caf0: 49 89 7d 50                  	movq	%rdi, 0x50(%r13)
+ 1b4caf4: 48 83 c1 01                  	addq	$0x1, %rcx
+ 1b4caf8: 49 8b bd c8 02 00 00         	movq	0x2c8(%r13), %rdi
+ 1b4caff: 48 89 79 ff                  	movq	%rdi, -0x1(%rcx)
+ 1b4cb03: f2 0f 11 41 07               	movsd	%xmm0, 0x7(%rcx)
+ 1b4cb08: 48 8b c1                     	movq	%rcx, %rax
+ 1b4cb0b: 48 8b 4d e8                  	movq	-0x18(%rbp), %rcx
+ 1b4cb0f: 48 8b e5                     	movq	%rbp, %rsp
+ 1b4cb12: 5d                           	popq	%rbp
+ 1b4cb13: 48 83 f9 02                  	cmpq	$0x2, %rcx
+ 1b4cb17: 7f 03                        	jg	0x1b4cb1c <Builtins_MathAtan+0xdc>
+ 1b4cb19: c2 10 00                     	retq	$0x10
+ 1b4cb1c: 41 5a                        	popq	%r10
+ 1b4cb1e: 48 8d 24 cc                  	leaq	(%rsp,%rcx,8), %rsp
+ 1b4cb22: 41 52                        	pushq	%r10
+ 1b4cb24: c3                           	retq
+ 1b4cb25: 48 c1 e1 20                  	shlq	$0x20, %rcx
+ 1b4cb29: 48 8b c1                     	movq	%rcx, %rax
+ 1b4cb2c: eb dd                        	jmp	0x1b4cb0b <Builtins_MathAtan+0xcb>
+ 1b4cb2e: 48 89 75 e0                  	movq	%rsi, -0x20(%rbp)
+ 1b4cb32: 49 8b 9d 00 49 00 00         	movq	0x4900(%r13), %rbx
+ 1b4cb39: 33 c0                        	xorl	%eax, %eax
+ 1b4cb3b: e8 40 0e f9 ff               	callq	0x1add980 <Builtins_CEntry_Return1_ArgvOnStack_NoBuiltinExit>
+ 1b4cb40: 48 8b 75 e0                  	movq	-0x20(%rbp), %rsi
+ 1b4cb44: e9 0c ff ff ff               	jmp	0x1b4ca55 <Builtins_MathAtan+0x15>
+ 1b4cb49: 48 8b 48 ff                  	movq	-0x1(%rax), %rcx
+ 1b4cb4d: 49 39 8d c8 02 00 00         	cmpq	%rcx, 0x2c8(%r13)
+ 1b4cb54: 0f 84 07 ff ff ff            	je	0x1b4ca61 <Builtins_MathAtan+0x21>
+ 1b4cb5a: e8 e1 98 fe ff               	callq	0x1b36440 <Builtins_NonNumberToNumber>
+ 1b4cb5f: e9 fd fe ff ff               	jmp	0x1b4ca61 <Builtins_MathAtan+0x21>
+ 1b4cb64: ba 10 00 00 00               	movl	$0x10, %edx
+ 1b4cb69: f2 0f 11 45 e0               	movsd	%xmm0, -0x20(%rbp)
+ 1b4cb6e: e8 0d 9a ee ff               	callq	0x1a36580 <Builtins_AllocateInYoungGeneration>
+ 1b4cb73: 48 8d 48 ff                  	leaq	-0x1(%rax), %rcx
+ 1b4cb77: f2 0f 10 45 e0               	movsd	-0x20(%rbp), %xmm0
+ 1b4cb7c: e9 6b ff ff ff               	jmp	0x1b4caec <Builtins_MathAtan+0xac>
+ 1b4cb81: 90                           	nop
+ 1b4cb82: 66 90                        	nop
+
+
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+0000000001b4cbc0 <Builtins_MathAtan2>:
+ 1b4cbc0: 55                           	pushq	%rbp
+ 1b4cbc1: 48 89 e5                     	movq	%rsp, %rbp
+ 1b4cbc4: 56                           	pushq	%rsi
+ 1b4cbc5: 57                           	pushq	%rdi
+ 1b4cbc6: 50                           	pushq	%rax
+ 1b4cbc7: 48 83 ec 10                  	subq	$0x10, %rsp
+ 1b4cbcb: 49 3b 65 a0                  	cmpq	-0x60(%r13), %rsp
+ 1b4cbcf: 0f 86 05 01 00 00            	jbe	0x1b4ccda <Builtins_MathAtan2+0x11a>
+ 1b4cbd5: 48 8b 45 18                  	movq	0x18(%rbp), %rax
+ 1b4cbd9: a8 01                        	testb	$0x1, %al
+ 1b4cbdb: 0f 85 14 01 00 00            	jne	0x1b4ccf5 <Builtins_MathAtan2+0x135>
+ 1b4cbe1: a8 01                        	testb	$0x1, %al
+ 1b4cbe3: 75 10                        	jne	0x1b4cbf5 <Builtins_MathAtan2+0x35>
+ 1b4cbe5: 48 c1 f8 20                  	sarq	$0x20, %rax
+ 1b4cbe9: 8b c8                        	movl	%eax, %ecx
+ 1b4cbeb: 66 0f 57 d2                  	xorpd	%xmm2, %xmm2
+ 1b4cbef: f2 0f 2a d1                  	cvtsi2sd	%ecx, %xmm2
+ 1b4cbf3: eb 05                        	jmp	0x1b4cbfa <Builtins_MathAtan2+0x3a>
+ 1b4cbf5: f2 0f 10 50 07               	movsd	0x7(%rax), %xmm2
+ 1b4cbfa: 48 8b 45 20                  	movq	0x20(%rbp), %rax
+ 1b4cbfe: a8 01                        	testb	$0x1, %al
+ 1b4cc00: 0f 85 12 01 00 00            	jne	0x1b4cd18 <Builtins_MathAtan2+0x158>
+ 1b4cc06: a8 01                        	testb	$0x1, %al
+ 1b4cc08: 75 10                        	jne	0x1b4cc1a <Builtins_MathAtan2+0x5a>
+ 1b4cc0a: 48 c1 f8 20                  	sarq	$0x20, %rax
+ 1b4cc0e: 8b c8                        	movl	%eax, %ecx
+ 1b4cc10: 66 0f 57 db                  	xorpd	%xmm3, %xmm3
+ 1b4cc14: f2 0f 2a d9                  	cvtsi2sd	%ecx, %xmm3
+ 1b4cc18: eb 05                        	jmp	0x1b4cc1f <Builtins_MathAtan2+0x5f>
+ 1b4cc1a: f2 0f 10 58 07               	movsd	0x7(%rax), %xmm3
+ 1b4cc1f: 0f 28 c2                     	movaps	%xmm2, %xmm0
+ 1b4cc22: 0f 28 cb                     	movaps	%xmm3, %xmm1
+ 1b4cc25: 49 89 e2                     	movq	%rsp, %r10
+ 1b4cc28: 48 83 ec 08                  	subq	$0x8, %rsp
+ 1b4cc2c: 48 83 e4 f0                  	andq	$-0x10, %rsp
+ 1b4cc30: 4c 89 14 24                  	movq	%r10, (%rsp)
+ 1b4cc34: 49 8b 85 20 27 00 00         	movq	0x2720(%r13), %rax
+ 1b4cc3b: 4c 8d 15 10 00 00 00         	leaq	0x10(%rip), %r10        # 0x1b4cc52 <Builtins_MathAtan2+0x92>
+ 1b4cc42: 4d 89 95 a0 00 00 00         	movq	%r10, 0xa0(%r13)
+ 1b4cc49: 49 89 ad a8 00 00 00         	movq	%rbp, 0xa8(%r13)
+ 1b4cc50: ff d0                        	callq	*%rax
+ 1b4cc52: 49 c7 85 a8 00 00 00 00 00 00 00     	movq	$0x0, 0xa8(%r13)
+ 1b4cc5d: 48 8b 24 24                  	movq	(%rsp), %rsp
+ 1b4cc61: f2 0f 2c c8                  	cvttsd2si	%xmm0, %ecx
+ 1b4cc65: 66 0f 57 d2                  	xorpd	%xmm2, %xmm2
+ 1b4cc69: f2 0f 2a d1                  	cvtsi2sd	%ecx, %xmm2
+ 1b4cc6d: 66 0f 2e d0                  	ucomisd	%xmm0, %xmm2
+ 1b4cc71: 7a 13                        	jp	0x1b4cc86 <Builtins_MathAtan2+0xc6>
+ 1b4cc73: 75 11                        	jne	0x1b4cc86 <Builtins_MathAtan2+0xc6>
+ 1b4cc75: 85 c9                        	testl	%ecx, %ecx
+ 1b4cc77: 75 58                        	jne	0x1b4ccd1 <Builtins_MathAtan2+0x111>
+ 1b4cc79: 66 48 0f 7e c7               	movq	%xmm0, %rdi
+ 1b4cc7e: 48 c1 ef 20                  	shrq	$0x20, %rdi
+ 1b4cc82: 85 ff                        	testl	%edi, %edi
+ 1b4cc84: 7d 4b                        	jge	0x1b4ccd1 <Builtins_MathAtan2+0x111>
+ 1b4cc86: 49 8b 4d 50                  	movq	0x50(%r13), %rcx
+ 1b4cc8a: 48 8d 79 10                  	leaq	0x10(%rcx), %rdi
+ 1b4cc8e: 49 39 7d 58                  	cmpq	%rdi, 0x58(%r13)
+ 1b4cc92: 0f 86 a5 00 00 00            	jbe	0x1b4cd3d <Builtins_MathAtan2+0x17d>
+ 1b4cc98: 48 8d 79 10                  	leaq	0x10(%rcx), %rdi
+ 1b4cc9c: 49 89 7d 50                  	movq	%rdi, 0x50(%r13)
+ 1b4cca0: 48 83 c1 01                  	addq	$0x1, %rcx
+ 1b4cca4: 49 8b bd c8 02 00 00         	movq	0x2c8(%r13), %rdi
+ 1b4ccab: 48 89 79 ff                  	movq	%rdi, -0x1(%rcx)
+ 1b4ccaf: f2 0f 11 41 07               	movsd	%xmm0, 0x7(%rcx)
+ 1b4ccb4: 48 8b c1                     	movq	%rcx, %rax
+ 1b4ccb7: 48 8b 4d e8                  	movq	-0x18(%rbp), %rcx
+ 1b4ccbb: 48 8b e5                     	movq	%rbp, %rsp
+ 1b4ccbe: 5d                           	popq	%rbp
+ 1b4ccbf: 48 83 f9 03                  	cmpq	$0x3, %rcx
+ 1b4ccc3: 7f 03                        	jg	0x1b4ccc8 <Builtins_MathAtan2+0x108>
+ 1b4ccc5: c2 18 00                     	retq	$0x18
+ 1b4ccc8: 41 5a                        	popq	%r10
+ 1b4ccca: 48 8d 24 cc                  	leaq	(%rsp,%rcx,8), %rsp
+ 1b4ccce: 41 52                        	pushq	%r10
+ 1b4ccd0: c3                           	retq
+ 1b4ccd1: 48 c1 e1 20                  	shlq	$0x20, %rcx
+ 1b4ccd5: 48 8b c1                     	movq	%rcx, %rax
+ 1b4ccd8: eb dd                        	jmp	0x1b4ccb7 <Builtins_MathAtan2+0xf7>
+ 1b4ccda: 48 89 75 d8                  	movq	%rsi, -0x28(%rbp)
+ 1b4ccde: 49 8b 9d 00 49 00 00         	movq	0x4900(%r13), %rbx
+ 1b4cce5: 33 c0                        	xorl	%eax, %eax
+ 1b4cce7: e8 94 0c f9 ff               	callq	0x1add980 <Builtins_CEntry_Return1_ArgvOnStack_NoBuiltinExit>
+ 1b4ccec: 48 8b 75 d8                  	movq	-0x28(%rbp), %rsi
+ 1b4ccf0: e9 e0 fe ff ff               	jmp	0x1b4cbd5 <Builtins_MathAtan2+0x15>
+ 1b4ccf5: 48 8b 48 ff                  	movq	-0x1(%rax), %rcx
+ 1b4ccf9: 48 89 75 d8                  	movq	%rsi, -0x28(%rbp)
+ 1b4ccfd: 49 39 8d c8 02 00 00         	cmpq	%rcx, 0x2c8(%r13)
+ 1b4cd04: 0f 84 d7 fe ff ff            	je	0x1b4cbe1 <Builtins_MathAtan2+0x21>
+ 1b4cd0a: e8 31 97 fe ff               	callq	0x1b36440 <Builtins_NonNumberToNumber>
+ 1b4cd0f: 48 8b 75 d8                  	movq	-0x28(%rbp), %rsi
+ 1b4cd13: e9 c9 fe ff ff               	jmp	0x1b4cbe1 <Builtins_MathAtan2+0x21>
+ 1b4cd18: 48 8b 48 ff                  	movq	-0x1(%rax), %rcx
+ 1b4cd1c: f2 0f 11 55 e0               	movsd	%xmm2, -0x20(%rbp)
+ 1b4cd21: 49 39 8d c8 02 00 00         	cmpq	%rcx, 0x2c8(%r13)
+ 1b4cd28: 0f 84 d8 fe ff ff            	je	0x1b4cc06 <Builtins_MathAtan2+0x46>
+ 1b4cd2e: e8 0d 97 fe ff               	callq	0x1b36440 <Builtins_NonNumberToNumber>
+ 1b4cd33: f2 0f 10 55 e0               	movsd	-0x20(%rbp), %xmm2
+ 1b4cd38: e9 c9 fe ff ff               	jmp	0x1b4cc06 <Builtins_MathAtan2+0x46>
+ 1b4cd3d: ba 10 00 00 00               	movl	$0x10, %edx
+ 1b4cd42: f2 0f 11 45 e0               	movsd	%xmm0, -0x20(%rbp)
+ 1b4cd47: e8 34 98 ee ff               	callq	0x1a36580 <Builtins_AllocateInYoungGeneration>
+ 1b4cd4c: 48 8d 48 ff                  	leaq	-0x1(%rax), %rcx
+ 1b4cd50: f2 0f 10 45 e0               	movsd	-0x20(%rbp), %xmm0
+ 1b4cd55: e9 3e ff ff ff               	jmp	0x1b4cc98 <Builtins_MathAtan2+0xd8>
+ 1b4cd5a: 90                           	nop
+ 1b4cd5b: 90                           	nop
+
+
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+0000000001b4d180 <Builtins_MathCos>:
+ 1b4d180: 55                           	pushq	%rbp
+ 1b4d181: 48 89 e5                     	movq	%rsp, %rbp
+ 1b4d184: 56                           	pushq	%rsi
+ 1b4d185: 57                           	pushq	%rdi
+ 1b4d186: 50                           	pushq	%rax
+ 1b4d187: 48 83 ec 08                  	subq	$0x8, %rsp
+ 1b4d18b: 49 3b 65 a0                  	cmpq	-0x60(%r13), %rsp
+ 1b4d18f: 0f 86 d9 00 00 00            	jbe	0x1b4d26e <Builtins_MathCos+0xee>
+ 1b4d195: 48 8b 45 18                  	movq	0x18(%rbp), %rax
+ 1b4d199: a8 01                        	testb	$0x1, %al
+ 1b4d19b: 0f 85 e8 00 00 00            	jne	0x1b4d289 <Builtins_MathCos+0x109>
+ 1b4d1a1: a8 01                        	testb	$0x1, %al
+ 1b4d1a3: 75 10                        	jne	0x1b4d1b5 <Builtins_MathCos+0x35>
+ 1b4d1a5: 48 c1 f8 20                  	sarq	$0x20, %rax
+ 1b4d1a9: 8b c8                        	movl	%eax, %ecx
+ 1b4d1ab: 66 0f 57 c9                  	xorpd	%xmm1, %xmm1
+ 1b4d1af: f2 0f 2a c9                  	cvtsi2sd	%ecx, %xmm1
+ 1b4d1b3: eb 05                        	jmp	0x1b4d1ba <Builtins_MathCos+0x3a>
+ 1b4d1b5: f2 0f 10 48 07               	movsd	0x7(%rax), %xmm1
+ 1b4d1ba: 0f 28 c1                     	movaps	%xmm1, %xmm0
+ 1b4d1bd: 49 89 e2                     	movq	%rsp, %r10
+ 1b4d1c0: 48 83 ec 08                  	subq	$0x8, %rsp
+ 1b4d1c4: 48 83 e4 f0                  	andq	$-0x10, %rsp
+ 1b4d1c8: 4c 89 14 24                  	movq	%r10, (%rsp)
+ 1b4d1cc: 49 8b 85 38 27 00 00         	movq	0x2738(%r13), %rax
+ 1b4d1d3: 4c 8d 15 10 00 00 00         	leaq	0x10(%rip), %r10        # 0x1b4d1ea <Builtins_MathCos+0x6a>
+ 1b4d1da: 4d 89 95 a0 00 00 00         	movq	%r10, 0xa0(%r13)
+ 1b4d1e1: 49 89 ad a8 00 00 00         	movq	%rbp, 0xa8(%r13)
+ 1b4d1e8: ff d0                        	callq	*%rax
+ 1b4d1ea: 49 c7 85 a8 00 00 00 00 00 00 00     	movq	$0x0, 0xa8(%r13)
+ 1b4d1f5: 48 8b 24 24                  	movq	(%rsp), %rsp
+ 1b4d1f9: f2 0f 2c c8                  	cvttsd2si	%xmm0, %ecx
+ 1b4d1fd: 66 0f 57 c9                  	xorpd	%xmm1, %xmm1
+ 1b4d201: f2 0f 2a c9                  	cvtsi2sd	%ecx, %xmm1
+ 1b4d205: 66 0f 2e c8                  	ucomisd	%xmm0, %xmm1
+ 1b4d209: 7a 13                        	jp	0x1b4d21e <Builtins_MathCos+0x9e>
+ 1b4d20b: 75 11                        	jne	0x1b4d21e <Builtins_MathCos+0x9e>
+ 1b4d20d: 85 c9                        	testl	%ecx, %ecx
+ 1b4d20f: 75 54                        	jne	0x1b4d265 <Builtins_MathCos+0xe5>
+ 1b4d211: 66 48 0f 7e c7               	movq	%xmm0, %rdi
+ 1b4d216: 48 c1 ef 20                  	shrq	$0x20, %rdi
+ 1b4d21a: 85 ff                        	testl	%edi, %edi
+ 1b4d21c: 7d 47                        	jge	0x1b4d265 <Builtins_MathCos+0xe5>
+ 1b4d21e: 49 8b 4d 50                  	movq	0x50(%r13), %rcx
+ 1b4d222: 48 8d 79 10                  	leaq	0x10(%rcx), %rdi
+ 1b4d226: 49 39 7d 58                  	cmpq	%rdi, 0x58(%r13)
+ 1b4d22a: 76 78                        	jbe	0x1b4d2a4 <Builtins_MathCos+0x124>
+ 1b4d22c: 48 8d 79 10                  	leaq	0x10(%rcx), %rdi
+ 1b4d230: 49 89 7d 50                  	movq	%rdi, 0x50(%r13)
+ 1b4d234: 48 83 c1 01                  	addq	$0x1, %rcx
+ 1b4d238: 49 8b bd c8 02 00 00         	movq	0x2c8(%r13), %rdi
+ 1b4d23f: 48 89 79 ff                  	movq	%rdi, -0x1(%rcx)
+ 1b4d243: f2 0f 11 41 07               	movsd	%xmm0, 0x7(%rcx)
+ 1b4d248: 48 8b c1                     	movq	%rcx, %rax
+ 1b4d24b: 48 8b 4d e8                  	movq	-0x18(%rbp), %rcx
+ 1b4d24f: 48 8b e5                     	movq	%rbp, %rsp
+ 1b4d252: 5d                           	popq	%rbp
+ 1b4d253: 48 83 f9 02                  	cmpq	$0x2, %rcx
+ 1b4d257: 7f 03                        	jg	0x1b4d25c <Builtins_MathCos+0xdc>
+ 1b4d259: c2 10 00                     	retq	$0x10
+ 1b4d25c: 41 5a                        	popq	%r10
+ 1b4d25e: 48 8d 24 cc                  	leaq	(%rsp,%rcx,8), %rsp
+ 1b4d262: 41 52                        	pushq	%r10
+ 1b4d264: c3                           	retq
+ 1b4d265: 48 c1 e1 20                  	shlq	$0x20, %rcx
+ 1b4d269: 48 8b c1                     	movq	%rcx, %rax
+ 1b4d26c: eb dd                        	jmp	0x1b4d24b <Builtins_MathCos+0xcb>
+ 1b4d26e: 48 89 75 e0                  	movq	%rsi, -0x20(%rbp)
+ 1b4d272: 49 8b 9d 00 49 00 00         	movq	0x4900(%r13), %rbx
+ 1b4d279: 33 c0                        	xorl	%eax, %eax
+ 1b4d27b: e8 00 07 f9 ff               	callq	0x1add980 <Builtins_CEntry_Return1_ArgvOnStack_NoBuiltinExit>
+ 1b4d280: 48 8b 75 e0                  	movq	-0x20(%rbp), %rsi
+ 1b4d284: e9 0c ff ff ff               	jmp	0x1b4d195 <Builtins_MathCos+0x15>
+ 1b4d289: 48 8b 48 ff                  	movq	-0x1(%rax), %rcx
+ 1b4d28d: 49 39 8d c8 02 00 00         	cmpq	%rcx, 0x2c8(%r13)
+ 1b4d294: 0f 84 07 ff ff ff            	je	0x1b4d1a1 <Builtins_MathCos+0x21>
+ 1b4d29a: e8 a1 91 fe ff               	callq	0x1b36440 <Builtins_NonNumberToNumber>
+ 1b4d29f: e9 fd fe ff ff               	jmp	0x1b4d1a1 <Builtins_MathCos+0x21>
+ 1b4d2a4: ba 10 00 00 00               	movl	$0x10, %edx
+ 1b4d2a9: f2 0f 11 45 e0               	movsd	%xmm0, -0x20(%rbp)
+ 1b4d2ae: e8 cd 92 ee ff               	callq	0x1a36580 <Builtins_AllocateInYoungGeneration>
+ 1b4d2b3: 48 8d 48 ff                  	leaq	-0x1(%rax), %rcx
+ 1b4d2b7: f2 0f 10 45 e0               	movsd	-0x20(%rbp), %xmm0
+ 1b4d2bc: e9 6b ff ff ff               	jmp	0x1b4d22c <Builtins_MathCos+0xac>
+ 1b4d2c1: 90                           	nop
+ 1b4d2c2: 66 90                        	nop
+
+
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+0000000001b4e240 <Builtins_MathSin>:
+ 1b4e240: 55                           	pushq	%rbp
+ 1b4e241: 48 89 e5                     	movq	%rsp, %rbp
+ 1b4e244: 56                           	pushq	%rsi
+ 1b4e245: 57                           	pushq	%rdi
+ 1b4e246: 50                           	pushq	%rax
+ 1b4e247: 48 83 ec 08                  	subq	$0x8, %rsp
+ 1b4e24b: 49 3b 65 a0                  	cmpq	-0x60(%r13), %rsp
+ 1b4e24f: 0f 86 d9 00 00 00            	jbe	0x1b4e32e <Builtins_MathSin+0xee>
+ 1b4e255: 48 8b 45 18                  	movq	0x18(%rbp), %rax
+ 1b4e259: a8 01                        	testb	$0x1, %al
+ 1b4e25b: 0f 85 e8 00 00 00            	jne	0x1b4e349 <Builtins_MathSin+0x109>
+ 1b4e261: a8 01                        	testb	$0x1, %al
+ 1b4e263: 75 10                        	jne	0x1b4e275 <Builtins_MathSin+0x35>
+ 1b4e265: 48 c1 f8 20                  	sarq	$0x20, %rax
+ 1b4e269: 8b c8                        	movl	%eax, %ecx
+ 1b4e26b: 66 0f 57 c9                  	xorpd	%xmm1, %xmm1
+ 1b4e26f: f2 0f 2a c9                  	cvtsi2sd	%ecx, %xmm1
+ 1b4e273: eb 05                        	jmp	0x1b4e27a <Builtins_MathSin+0x3a>
+ 1b4e275: f2 0f 10 48 07               	movsd	0x7(%rax), %xmm1
+ 1b4e27a: 0f 28 c1                     	movaps	%xmm1, %xmm0
+ 1b4e27d: 49 89 e2                     	movq	%rsp, %r10
+ 1b4e280: 48 83 ec 08                  	subq	$0x8, %rsp
+ 1b4e284: 48 83 e4 f0                  	andq	$-0x10, %rsp
+ 1b4e288: 4c 89 14 24                  	movq	%r10, (%rsp)
+ 1b4e28c: 49 8b 85 80 27 00 00         	movq	0x2780(%r13), %rax
+ 1b4e293: 4c 8d 15 10 00 00 00         	leaq	0x10(%rip), %r10        # 0x1b4e2aa <Builtins_MathSin+0x6a>
+ 1b4e29a: 4d 89 95 a0 00 00 00         	movq	%r10, 0xa0(%r13)
+ 1b4e2a1: 49 89 ad a8 00 00 00         	movq	%rbp, 0xa8(%r13)
+ 1b4e2a8: ff d0                        	callq	*%rax
+ 1b4e2aa: 49 c7 85 a8 00 00 00 00 00 00 00     	movq	$0x0, 0xa8(%r13)
+ 1b4e2b5: 48 8b 24 24                  	movq	(%rsp), %rsp
+ 1b4e2b9: f2 0f 2c c8                  	cvttsd2si	%xmm0, %ecx
+ 1b4e2bd: 66 0f 57 c9                  	xorpd	%xmm1, %xmm1
+ 1b4e2c1: f2 0f 2a c9                  	cvtsi2sd	%ecx, %xmm1
+ 1b4e2c5: 66 0f 2e c8                  	ucomisd	%xmm0, %xmm1
+ 1b4e2c9: 7a 13                        	jp	0x1b4e2de <Builtins_MathSin+0x9e>
+ 1b4e2cb: 75 11                        	jne	0x1b4e2de <Builtins_MathSin+0x9e>
+ 1b4e2cd: 85 c9                        	testl	%ecx, %ecx
+ 1b4e2cf: 75 54                        	jne	0x1b4e325 <Builtins_MathSin+0xe5>
+ 1b4e2d1: 66 48 0f 7e c7               	movq	%xmm0, %rdi
+ 1b4e2d6: 48 c1 ef 20                  	shrq	$0x20, %rdi
+ 1b4e2da: 85 ff                        	testl	%edi, %edi
+ 1b4e2dc: 7d 47                        	jge	0x1b4e325 <Builtins_MathSin+0xe5>
+ 1b4e2de: 49 8b 4d 50                  	movq	0x50(%r13), %rcx
+ 1b4e2e2: 48 8d 79 10                  	leaq	0x10(%rcx), %rdi
+ 1b4e2e6: 49 39 7d 58                  	cmpq	%rdi, 0x58(%r13)
+ 1b4e2ea: 76 78                        	jbe	0x1b4e364 <Builtins_MathSin+0x124>
+ 1b4e2ec: 48 8d 79 10                  	leaq	0x10(%rcx), %rdi
+ 1b4e2f0: 49 89 7d 50                  	movq	%rdi, 0x50(%r13)
+ 1b4e2f4: 48 83 c1 01                  	addq	$0x1, %rcx
+ 1b4e2f8: 49 8b bd c8 02 00 00         	movq	0x2c8(%r13), %rdi
+ 1b4e2ff: 48 89 79 ff                  	movq	%rdi, -0x1(%rcx)
+ 1b4e303: f2 0f 11 41 07               	movsd	%xmm0, 0x7(%rcx)
+ 1b4e308: 48 8b c1                     	movq	%rcx, %rax
+ 1b4e30b: 48 8b 4d e8                  	movq	-0x18(%rbp), %rcx
+ 1b4e30f: 48 8b e5                     	movq	%rbp, %rsp
+ 1b4e312: 5d                           	popq	%rbp
+ 1b4e313: 48 83 f9 02                  	cmpq	$0x2, %rcx
+ 1b4e317: 7f 03                        	jg	0x1b4e31c <Builtins_MathSin+0xdc>
+ 1b4e319: c2 10 00                     	retq	$0x10
+ 1b4e31c: 41 5a                        	popq	%r10
+ 1b4e31e: 48 8d 24 cc                  	leaq	(%rsp,%rcx,8), %rsp
+ 1b4e322: 41 52                        	pushq	%r10
+ 1b4e324: c3                           	retq
+ 1b4e325: 48 c1 e1 20                  	shlq	$0x20, %rcx
+ 1b4e329: 48 8b c1                     	movq	%rcx, %rax
+ 1b4e32c: eb dd                        	jmp	0x1b4e30b <Builtins_MathSin+0xcb>
+ 1b4e32e: 48 89 75 e0                  	movq	%rsi, -0x20(%rbp)
+ 1b4e332: 49 8b 9d 00 49 00 00         	movq	0x4900(%r13), %rbx
+ 1b4e339: 33 c0                        	xorl	%eax, %eax
+ 1b4e33b: e8 40 f6 f8 ff               	callq	0x1add980 <Builtins_CEntry_Return1_ArgvOnStack_NoBuiltinExit>
+ 1b4e340: 48 8b 75 e0                  	movq	-0x20(%rbp), %rsi
+ 1b4e344: e9 0c ff ff ff               	jmp	0x1b4e255 <Builtins_MathSin+0x15>
+ 1b4e349: 48 8b 48 ff                  	movq	-0x1(%rax), %rcx
+ 1b4e34d: 49 39 8d c8 02 00 00         	cmpq	%rcx, 0x2c8(%r13)
+ 1b4e354: 0f 84 07 ff ff ff            	je	0x1b4e261 <Builtins_MathSin+0x21>
+ 1b4e35a: e8 e1 80 fe ff               	callq	0x1b36440 <Builtins_NonNumberToNumber>
+ 1b4e35f: e9 fd fe ff ff               	jmp	0x1b4e261 <Builtins_MathSin+0x21>
+ 1b4e364: ba 10 00 00 00               	movl	$0x10, %edx
+ 1b4e369: f2 0f 11 45 e0               	movsd	%xmm0, -0x20(%rbp)
+ 1b4e36e: e8 0d 82 ee ff               	callq	0x1a36580 <Builtins_AllocateInYoungGeneration>
+ 1b4e373: 48 8d 48 ff                  	leaq	-0x1(%rax), %rcx
+ 1b4e377: f2 0f 10 45 e0               	movsd	-0x20(%rbp), %xmm0
+ 1b4e37c: e9 6b ff ff ff               	jmp	0x1b4e2ec <Builtins_MathSin+0xac>
+ 1b4e381: 90                           	nop
+ 1b4e382: 66 90                        	nop
+
+
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+0000000001b4e600 <Builtins_MathSqrt>:
+ 1b4e600: 55                           	pushq	%rbp
+ 1b4e601: 48 89 e5                     	movq	%rsp, %rbp
+ 1b4e604: 56                           	pushq	%rsi
+ 1b4e605: 57                           	pushq	%rdi
+ 1b4e606: 50                           	pushq	%rax
+ 1b4e607: 48 83 ec 08                  	subq	$0x8, %rsp
+ 1b4e60b: 49 3b 65 a0                  	cmpq	-0x60(%r13), %rsp
+ 1b4e60f: 0f 86 9e 00 00 00            	jbe	0x1b4e6b3 <Builtins_MathSqrt+0xb3>
+ 1b4e615: 48 8b 45 18                  	movq	0x18(%rbp), %rax
+ 1b4e619: a8 01                        	testb	$0x1, %al
+ 1b4e61b: 0f 85 ad 00 00 00            	jne	0x1b4e6ce <Builtins_MathSqrt+0xce>
+ 1b4e621: a8 01                        	testb	$0x1, %al
+ 1b4e623: 75 10                        	jne	0x1b4e635 <Builtins_MathSqrt+0x35>
+ 1b4e625: 48 c1 f8 20                  	sarq	$0x20, %rax
+ 1b4e629: 8b c8                        	movl	%eax, %ecx
+ 1b4e62b: 66 0f 57 c0                  	xorpd	%xmm0, %xmm0
+ 1b4e62f: f2 0f 2a c1                  	cvtsi2sd	%ecx, %xmm0
+ 1b4e633: eb 05                        	jmp	0x1b4e63a <Builtins_MathSqrt+0x3a>
+ 1b4e635: f2 0f 10 40 07               	movsd	0x7(%rax), %xmm0
+ 1b4e63a: f2 0f 51 c0                  	sqrtsd	%xmm0, %xmm0
+ 1b4e63e: f2 0f 2c c8                  	cvttsd2si	%xmm0, %ecx
+ 1b4e642: 66 0f 57 c9                  	xorpd	%xmm1, %xmm1
+ 1b4e646: f2 0f 2a c9                  	cvtsi2sd	%ecx, %xmm1
+ 1b4e64a: 66 0f 2e c8                  	ucomisd	%xmm0, %xmm1
+ 1b4e64e: 7a 13                        	jp	0x1b4e663 <Builtins_MathSqrt+0x63>
+ 1b4e650: 75 11                        	jne	0x1b4e663 <Builtins_MathSqrt+0x63>
+ 1b4e652: 85 c9                        	testl	%ecx, %ecx
+ 1b4e654: 75 54                        	jne	0x1b4e6aa <Builtins_MathSqrt+0xaa>
+ 1b4e656: 66 48 0f 7e c7               	movq	%xmm0, %rdi
+ 1b4e65b: 48 c1 ef 20                  	shrq	$0x20, %rdi
+ 1b4e65f: 85 ff                        	testl	%edi, %edi
+ 1b4e661: 7d 47                        	jge	0x1b4e6aa <Builtins_MathSqrt+0xaa>
+ 1b4e663: 49 8b 4d 50                  	movq	0x50(%r13), %rcx
+ 1b4e667: 48 8d 79 10                  	leaq	0x10(%rcx), %rdi
+ 1b4e66b: 49 39 7d 58                  	cmpq	%rdi, 0x58(%r13)
+ 1b4e66f: 76 78                        	jbe	0x1b4e6e9 <Builtins_MathSqrt+0xe9>
+ 1b4e671: 48 8d 79 10                  	leaq	0x10(%rcx), %rdi
+ 1b4e675: 49 89 7d 50                  	movq	%rdi, 0x50(%r13)
+ 1b4e679: 48 83 c1 01                  	addq	$0x1, %rcx
+ 1b4e67d: 49 8b bd c8 02 00 00         	movq	0x2c8(%r13), %rdi
+ 1b4e684: 48 89 79 ff                  	movq	%rdi, -0x1(%rcx)
+ 1b4e688: f2 0f 11 41 07               	movsd	%xmm0, 0x7(%rcx)
+ 1b4e68d: 48 8b c1                     	movq	%rcx, %rax
+ 1b4e690: 48 8b 4d e8                  	movq	-0x18(%rbp), %rcx
+ 1b4e694: 48 8b e5                     	movq	%rbp, %rsp
+ 1b4e697: 5d                           	popq	%rbp
+ 1b4e698: 48 83 f9 02                  	cmpq	$0x2, %rcx
+ 1b4e69c: 7f 03                        	jg	0x1b4e6a1 <Builtins_MathSqrt+0xa1>
+ 1b4e69e: c2 10 00                     	retq	$0x10
+ 1b4e6a1: 41 5a                        	popq	%r10
+ 1b4e6a3: 48 8d 24 cc                  	leaq	(%rsp,%rcx,8), %rsp
+ 1b4e6a7: 41 52                        	pushq	%r10
+ 1b4e6a9: c3                           	retq
+ 1b4e6aa: 48 c1 e1 20                  	shlq	$0x20, %rcx
+ 1b4e6ae: 48 8b c1                     	movq	%rcx, %rax
+ 1b4e6b1: eb dd                        	jmp	0x1b4e690 <Builtins_MathSqrt+0x90>
+ 1b4e6b3: 48 89 75 e0                  	movq	%rsi, -0x20(%rbp)
+ 1b4e6b7: 49 8b 9d 00 49 00 00         	movq	0x4900(%r13), %rbx
+ 1b4e6be: 33 c0                        	xorl	%eax, %eax
+ 1b4e6c0: e8 bb f2 f8 ff               	callq	0x1add980 <Builtins_CEntry_Return1_ArgvOnStack_NoBuiltinExit>
+ 1b4e6c5: 48 8b 75 e0                  	movq	-0x20(%rbp), %rsi
+ 1b4e6c9: e9 47 ff ff ff               	jmp	0x1b4e615 <Builtins_MathSqrt+0x15>
+ 1b4e6ce: 48 8b 48 ff                  	movq	-0x1(%rax), %rcx
+ 1b4e6d2: 49 39 8d c8 02 00 00         	cmpq	%rcx, 0x2c8(%r13)
+ 1b4e6d9: 0f 84 42 ff ff ff            	je	0x1b4e621 <Builtins_MathSqrt+0x21>
+ 1b4e6df: e8 5c 7d fe ff               	callq	0x1b36440 <Builtins_NonNumberToNumber>
+ 1b4e6e4: e9 38 ff ff ff               	jmp	0x1b4e621 <Builtins_MathSqrt+0x21>
+ 1b4e6e9: ba 10 00 00 00               	movl	$0x10, %edx
+ 1b4e6ee: f2 0f 11 45 e0               	movsd	%xmm0, -0x20(%rbp)
+ 1b4e6f3: e8 88 7e ee ff               	callq	0x1a36580 <Builtins_AllocateInYoungGeneration>
+ 1b4e6f8: 48 8d 48 ff                  	leaq	-0x1(%rax), %rcx
+ 1b4e6fc: f2 0f 10 45 e0               	movsd	-0x20(%rbp), %xmm0
+ 1b4e701: e9 6b ff ff ff               	jmp	0x1b4e671 <Builtins_MathSqrt+0x71>
+ 1b4e706: 90                           	nop
+ 1b4e707: 90                           	nop
+
+
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+00000000027a6300 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)>:
+ 27a6300: 55                           	pushq	%rbp
+ 27a6301: 66 48 0f 7e c2               	movq	%xmm0, %rdx
+ 27a6306: 48 89 e5                     	movq	%rsp, %rbp
+ 27a6309: 41 54                        	pushq	%r12
+ 27a630b: 49 89 d4                     	movq	%rdx, %r12
+ 27a630e: 53                           	pushq	%rbx
+ 27a630f: 49 c1 ec 20                  	shrq	$0x20, %r12
+ 27a6313: 48 89 fb                     	movq	%rdi, %rbx
+ 27a6316: 44 89 e0                     	movl	%r12d, %eax
+ 27a6319: 25 ff ff ff 7f               	andl	$0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a631e: 48 83 ec 20                  	subq	$0x20, %rsp
+ 27a6322: 3d fb 21 e9 3f               	cmpl	$0x3fe921fb, %eax       # imm = 0x3FE921FB
+ 27a6327: 0f 8e f3 00 00 00            	jle	0x27a6420 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x120>
+ 27a632d: 3d 7b d9 02 40               	cmpl	$0x4002d97b, %eax       # imm = 0x4002D97B
+ 27a6332: 7f 54                        	jg	0x27a6388 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x88>
+ 27a6334: 45 85 e4                     	testl	%r12d, %r12d
+ 27a6337: 0f 8e e5 02 00 00            	jle	0x27a6622 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x322>
+ 27a633d: f2 0f 5c 05 bb b0 ea 03      	subsd	0x3eab0bb(%rip), %xmm0  # 0x6651400 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x140>
+ 27a6345: 3d fb 21 f9 3f               	cmpl	$0x3ff921fb, %eax       # imm = 0x3FF921FB
+ 27a634a: 0f 84 b0 01 00 00            	je	0x27a6500 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x200>
+ 27a6350: f2 0f 10 15 b0 b0 ea 03      	movsd	0x3eab0b0(%rip), %xmm2  # 0x6651408 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x148>
+ 27a6358: 66 0f 28 c8                  	movapd	%xmm0, %xmm1
+ 27a635c: f2 0f 5c ca                  	subsd	%xmm2, %xmm1
+ 27a6360: f2 0f 5c c1                  	subsd	%xmm1, %xmm0
+ 27a6364: f2 0f 5c c2                  	subsd	%xmm2, %xmm0
+ 27a6368: f2 0f 11 0b                  	movsd	%xmm1, (%rbx)
+ 27a636c: ba 01 00 00 00               	movl	$0x1, %edx
+ 27a6371: f2 0f 11 43 08               	movsd	%xmm0, 0x8(%rbx)
+ 27a6376: 48 83 c4 20                  	addq	$0x20, %rsp
+ 27a637a: 89 d0                        	movl	%edx, %eax
+ 27a637c: 5b                           	popq	%rbx
+ 27a637d: 41 5c                        	popq	%r12
+ 27a637f: 5d                           	popq	%rbp
+ 27a6380: c3                           	retq
+ 27a6381: 0f 1f 80 00 00 00 00         	nopl	(%rax)
+ 27a6388: 3d fb 21 39 41               	cmpl	$0x413921fb, %eax       # imm = 0x413921FB
+ 27a638d: 0f 8f a5 00 00 00            	jg	0x27a6438 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x138>
+ 27a6393: 66 0f 54 05 55 b2 a5 00      	andpd	0xa5b255(%rip), %xmm0   # 0x32015f0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x130>
+ 27a639b: f2 0f 10 0d 7d b0 ea 03      	movsd	0x3eab07d(%rip), %xmm1  # 0x6651420 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x160>
+ 27a63a3: 66 0f ef db                  	pxor	%xmm3, %xmm3
+ 27a63a7: f2 0f 10 15 59 b0 ea 03      	movsd	0x3eab059(%rip), %xmm2  # 0x6651408 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x148>
+ 27a63af: f2 0f 59 c8                  	mulsd	%xmm0, %xmm1
+ 27a63b3: f2 0f 58 0d 9d 40 a8 00      	addsd	0xa8409d(%rip), %xmm1   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a63bb: f2 0f 2c d1                  	cvttsd2si	%xmm1, %edx
+ 27a63bf: f2 0f 10 0d 39 b0 ea 03      	movsd	0x3eab039(%rip), %xmm1  # 0x6651400 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x140>
+ 27a63c7: f2 0f 2a da                  	cvtsi2sd	%edx, %xmm3
+ 27a63cb: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a63cf: f2 0f 59 d3                  	mulsd	%xmm3, %xmm2
+ 27a63d3: f2 0f 5c c1                  	subsd	%xmm1, %xmm0
+ 27a63d7: 66 0f 28 c8                  	movapd	%xmm0, %xmm1
+ 27a63db: f2 0f 5c ca                  	subsd	%xmm2, %xmm1
+ 27a63df: 83 fa 1f                     	cmpl	$0x1f, %edx
+ 27a63e2: 0f 8f 40 01 00 00            	jg	0x27a6528 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x228>
+ 27a63e8: 8d 4a ff                     	leal	-0x1(%rdx), %ecx
+ 27a63eb: 48 63 c9                     	movslq	%ecx, %rcx
+ 27a63ee: 39 04 8d 40 12 65 06         	cmpl	%eax, 0x6651240(,%rcx,4)
+ 27a63f5: 0f 84 2d 01 00 00            	je	0x27a6528 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x228>
+ 27a63fb: f2 0f 11 0b                  	movsd	%xmm1, (%rbx)
+ 27a63ff: f2 0f 5c c1                  	subsd	%xmm1, %xmm0
+ 27a6403: f2 0f 5c c2                  	subsd	%xmm2, %xmm0
+ 27a6407: 45 85 e4                     	testl	%r12d, %r12d
+ 27a640a: 0f 88 c0 01 00 00            	js	0x27a65d0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x2d0>
+ 27a6410: f2 0f 11 43 08               	movsd	%xmm0, 0x8(%rbx)
+ 27a6415: e9 5c ff ff ff               	jmp	0x27a6376 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x76>
+ 27a641a: 66 0f 1f 44 00 00            	nopw	(%rax,%rax)
+ 27a6420: 48 c7 47 08 00 00 00 00      	movq	$0x0, 0x8(%rdi)
+ 27a6428: 31 d2                        	xorl	%edx, %edx
+ 27a642a: f2 0f 11 07                  	movsd	%xmm0, (%rdi)
+ 27a642e: e9 43 ff ff ff               	jmp	0x27a6376 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x76>
+ 27a6433: 0f 1f 44 00 00               	nopl	(%rax,%rax)
+ 27a6438: 3d ff ff ef 7f               	cmpl	$0x7fefffff, %eax       # imm = 0x7FEFFFFF
+ 27a643d: 0f 8f ad 01 00 00            	jg	0x27a65f0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x2f0>
+ 27a6443: 89 c6                        	movl	%eax, %esi
+ 27a6445: 66 0f ef c9                  	pxor	%xmm1, %xmm1
+ 27a6449: 66 0f ef d2                  	pxor	%xmm2, %xmm2
+ 27a644d: 89 d2                        	movl	%edx, %edx
+ 27a644f: c1 fe 14                     	sarl	$0x14, %esi
+ 27a6452: 81 ee 16 04 00 00            	subl	$0x416, %esi            # imm = 0x416
+ 27a6458: 89 f1                        	movl	%esi, %ecx
+ 27a645a: c1 e1 14                     	shll	$0x14, %ecx
+ 27a645d: 29 c8                        	subl	%ecx, %eax
+ 27a645f: 48 c1 e0 20                  	shlq	$0x20, %rax
+ 27a6463: 48 09 d0                     	orq	%rdx, %rax
+ 27a6466: 66 48 0f 6e c0               	movq	%rax, %xmm0
+ 27a646b: f2 0f 2c c0                  	cvttsd2si	%xmm0, %eax
+ 27a646f: f2 0f 2a c8                  	cvtsi2sd	%eax, %xmm1
+ 27a6473: f2 0f 5c c1                  	subsd	%xmm1, %xmm0
+ 27a6477: f2 0f 11 4d d0               	movsd	%xmm1, -0x30(%rbp)
+ 27a647c: f2 0f 10 0d 4c af ea 03      	movsd	0x3eaaf4c(%rip), %xmm1  # 0x66513d0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x110>
+ 27a6484: f2 0f 59 c1                  	mulsd	%xmm1, %xmm0
+ 27a6488: f2 0f 2c c0                  	cvttsd2si	%xmm0, %eax
+ 27a648c: f2 0f 2a d0                  	cvtsi2sd	%eax, %xmm2
+ 27a6490: f2 0f 5c c2                  	subsd	%xmm2, %xmm0
+ 27a6494: f2 0f 11 55 d8               	movsd	%xmm2, -0x28(%rbp)
+ 27a6499: f2 0f 59 c1                  	mulsd	%xmm1, %xmm0
+ 27a649d: 66 0f ef c9                  	pxor	%xmm1, %xmm1
+ 27a64a1: 66 0f 2e c1                  	ucomisd	%xmm1, %xmm0
+ 27a64a5: f2 0f 11 45 e0               	movsd	%xmm0, -0x20(%rbp)
+ 27a64aa: 0f 8a 68 01 00 00            	jp	0x27a6618 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x318>
+ 27a64b0: 0f 85 62 01 00 00            	jne	0x27a6618 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x318>
+ 27a64b6: 83 f8 01                     	cmpl	$0x1, %eax
+ 27a64b9: b9 01 00 00 00               	movl	$0x1, %ecx
+ 27a64be: 83 d9 ff                     	sbbl	$-0x1, %ecx
+ 27a64c1: 89 f2                        	movl	%esi, %edx
+ 27a64c3: 48 8d 7d d0                  	leaq	-0x30(%rbp), %rdi
+ 27a64c7: 48 89 de                     	movq	%rbx, %rsi
+ 27a64ca: e8 61 f2 ff ff               	callq	0x27a5730 <v8::base::ieee754::(anonymous namespace)::__kernel_rem_pio2(double*, double*, int, int, int, int const*) (.constprop.0)>
+ 27a64cf: 89 c2                        	movl	%eax, %edx
+ 27a64d1: 45 85 e4                     	testl	%r12d, %r12d
+ 27a64d4: 0f 89 9c fe ff ff            	jns	0x27a6376 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x76>
+ 27a64da: f2 0f 10 05 ce 3f a8 00      	movsd	0xa83fce(%rip), %xmm0   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a64e2: 66 0f 10 2b                  	movupd	(%rbx), %xmm5
+ 27a64e6: f7 da                        	negl	%edx
+ 27a64e8: 66 0f 14 c0                  	unpcklpd	%xmm0, %xmm0            # xmm0 = xmm0[0,0]
+ 27a64ec: 66 0f 57 c5                  	xorpd	%xmm5, %xmm0
+ 27a64f0: 0f 11 03                     	movups	%xmm0, (%rbx)
+ 27a64f3: e9 7e fe ff ff               	jmp	0x27a6376 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x76>
+ 27a64f8: 0f 1f 84 00 00 00 00 00      	nopl	(%rax,%rax)
+ 27a6500: f2 0f 5c 05 08 af ea 03      	subsd	0x3eaaf08(%rip), %xmm0  # 0x6651410 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x150>
+ 27a6508: f2 0f 10 15 08 af ea 03      	movsd	0x3eaaf08(%rip), %xmm2  # 0x6651418 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x158>
+ 27a6510: 66 0f 28 c8                  	movapd	%xmm0, %xmm1
+ 27a6514: f2 0f 5c ca                  	subsd	%xmm2, %xmm1
+ 27a6518: f2 0f 5c c1                  	subsd	%xmm1, %xmm0
+ 27a651c: f2 0f 5c c2                  	subsd	%xmm2, %xmm0
+ 27a6520: e9 43 fe ff ff               	jmp	0x27a6368 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x68>
+ 27a6525: 0f 1f 00                     	nopl	(%rax)
+ 27a6528: 66 48 0f 7e ce               	movq	%xmm1, %rsi
+ 27a652d: c1 f8 14                     	sarl	$0x14, %eax
+ 27a6530: 48 c1 ee 34                  	shrq	$0x34, %rsi
+ 27a6534: 48 89 f1                     	movq	%rsi, %rcx
+ 27a6537: 89 c6                        	movl	%eax, %esi
+ 27a6539: 81 e1 ff 07 00 00            	andl	$0x7ff, %ecx            # imm = 0x7FF
+ 27a653f: 29 ce                        	subl	%ecx, %esi
+ 27a6541: 83 fe 10                     	cmpl	$0x10, %esi
+ 27a6544: 0f 8e b1 fe ff ff            	jle	0x27a63fb <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0xfb>
+ 27a654a: f2 0f 10 0d be ae ea 03      	movsd	0x3eaaebe(%rip), %xmm1  # 0x6651410 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x150>
+ 27a6552: 66 0f 28 e0                  	movapd	%xmm0, %xmm4
+ 27a6556: f2 0f 10 15 ba ae ea 03      	movsd	0x3eaaeba(%rip), %xmm2  # 0x6651418 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x158>
+ 27a655e: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a6562: f2 0f 59 d3                  	mulsd	%xmm3, %xmm2
+ 27a6566: f2 0f 5c e1                  	subsd	%xmm1, %xmm4
+ 27a656a: f2 0f 5c c4                  	subsd	%xmm4, %xmm0
+ 27a656e: f2 0f 5c c1                  	subsd	%xmm1, %xmm0
+ 27a6572: 66 0f 28 cc                  	movapd	%xmm4, %xmm1
+ 27a6576: f2 0f 5c d0                  	subsd	%xmm0, %xmm2
+ 27a657a: f2 0f 5c ca                  	subsd	%xmm2, %xmm1
+ 27a657e: 66 48 0f 7e ce               	movq	%xmm1, %rsi
+ 27a6583: 48 c1 ee 34                  	shrq	$0x34, %rsi
+ 27a6587: 48 89 f1                     	movq	%rsi, %rcx
+ 27a658a: 81 e1 ff 07 00 00            	andl	$0x7ff, %ecx            # imm = 0x7FF
+ 27a6590: 29 c8                        	subl	%ecx, %eax
+ 27a6592: 83 f8 31                     	cmpl	$0x31, %eax
+ 27a6595: 7e 71                        	jle	0x27a6608 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x308>
+ 27a6597: f2 0f 10 0d 89 ae ea 03      	movsd	0x3eaae89(%rip), %xmm1  # 0x6651428 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x168>
+ 27a659f: 66 0f 28 c4                  	movapd	%xmm4, %xmm0
+ 27a65a3: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a65a7: f2 0f 59 1d 81 ae ea 03      	mulsd	0x3eaae81(%rip), %xmm3  # 0x6651430 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x170>
+ 27a65af: f2 0f 5c c1                  	subsd	%xmm1, %xmm0
+ 27a65b3: f2 0f 5c e0                  	subsd	%xmm0, %xmm4
+ 27a65b7: f2 0f 5c e1                  	subsd	%xmm1, %xmm4
+ 27a65bb: 66 0f 28 c8                  	movapd	%xmm0, %xmm1
+ 27a65bf: f2 0f 5c dc                  	subsd	%xmm4, %xmm3
+ 27a65c3: f2 0f 5c cb                  	subsd	%xmm3, %xmm1
+ 27a65c7: 66 0f 28 d3                  	movapd	%xmm3, %xmm2
+ 27a65cb: e9 2b fe ff ff               	jmp	0x27a63fb <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0xfb>
+ 27a65d0: 66 0f 14 c8                  	unpcklpd	%xmm0, %xmm1            # xmm1 = xmm1[0],xmm0[0]
+ 27a65d4: f2 0f 10 05 d4 3e a8 00      	movsd	0xa83ed4(%rip), %xmm0   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a65dc: f7 da                        	negl	%edx
+ 27a65de: 66 0f 14 c0                  	unpcklpd	%xmm0, %xmm0            # xmm0 = xmm0[0,0]
+ 27a65e2: 66 0f 57 c8                  	xorpd	%xmm0, %xmm1
+ 27a65e6: 0f 11 0b                     	movups	%xmm1, (%rbx)
+ 27a65e9: e9 88 fd ff ff               	jmp	0x27a6376 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x76>
+ 27a65ee: 66 90                        	nop
+ 27a65f0: f2 0f 5c c0                  	subsd	%xmm0, %xmm0
+ 27a65f4: 31 d2                        	xorl	%edx, %edx
+ 27a65f6: 66 0f 14 c0                  	unpcklpd	%xmm0, %xmm0            # xmm0 = xmm0[0,0]
+ 27a65fa: 0f 11 07                     	movups	%xmm0, (%rdi)
+ 27a65fd: e9 74 fd ff ff               	jmp	0x27a6376 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x76>
+ 27a6602: 66 0f 1f 44 00 00            	nopw	(%rax,%rax)
+ 27a6608: f2 0f 11 0b                  	movsd	%xmm1, (%rbx)
+ 27a660c: 66 0f 28 c4                  	movapd	%xmm4, %xmm0
+ 27a6610: e9 ea fd ff ff               	jmp	0x27a63ff <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0xff>
+ 27a6615: 0f 1f 00                     	nopl	(%rax)
+ 27a6618: b9 03 00 00 00               	movl	$0x3, %ecx
+ 27a661d: e9 9f fe ff ff               	jmp	0x27a64c1 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x1c1>
+ 27a6622: f2 0f 58 05 d6 ad ea 03      	addsd	0x3eaadd6(%rip), %xmm0  # 0x6651400 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x140>
+ 27a662a: 3d fb 21 f9 3f               	cmpl	$0x3ff921fb, %eax       # imm = 0x3FF921FB
+ 27a662f: 74 2b                        	je	0x27a665c <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x35c>
+ 27a6631: f2 0f 10 15 cf ad ea 03      	movsd	0x3eaadcf(%rip), %xmm2  # 0x6651408 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x148>
+ 27a6639: 66 0f 28 c8                  	movapd	%xmm0, %xmm1
+ 27a663d: f2 0f 58 ca                  	addsd	%xmm2, %xmm1
+ 27a6641: f2 0f 5c c1                  	subsd	%xmm1, %xmm0
+ 27a6645: f2 0f 58 c2                  	addsd	%xmm2, %xmm0
+ 27a6649: f2 0f 11 0b                  	movsd	%xmm1, (%rbx)
+ 27a664d: ba ff ff ff ff               	movl	$0xffffffff, %edx       # imm = 0xFFFFFFFF
+ 27a6652: f2 0f 11 43 08               	movsd	%xmm0, 0x8(%rbx)
+ 27a6657: e9 1a fd ff ff               	jmp	0x27a6376 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x76>
+ 27a665c: f2 0f 58 05 ac ad ea 03      	addsd	0x3eaadac(%rip), %xmm0  # 0x6651410 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x150>
+ 27a6664: f2 0f 10 15 ac ad ea 03      	movsd	0x3eaadac(%rip), %xmm2  # 0x6651418 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x158>
+ 27a666c: 66 0f 28 c8                  	movapd	%xmm0, %xmm1
+ 27a6670: f2 0f 58 ca                  	addsd	%xmm2, %xmm1
+ 27a6674: f2 0f 5c c1                  	subsd	%xmm1, %xmm0
+ 27a6678: f2 0f 58 c2                  	addsd	%xmm2, %xmm0
+ 27a667c: eb cb                        	jmp	0x27a6649 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x349>
+
+
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+0000000000d465f0 <v8::internal::ExternalReference::ieee754_cos_function()>:
+  d465f0: b8 0f 72 7a 02               	movl	$0x27a720f, %eax        # imm = 0x27A720F
+  d465f5: 48 83 f8 20                  	cmpq	$0x20, %rax
+  d465f9: 76 0d                        	jbe	0xd46608 <v8::internal::ExternalReference::ieee754_cos_function()+0x18>
+  d465fb: b8 10 72 7a 02               	movl	$0x27a7210, %eax        # imm = 0x27A7210
+  d46600: c3                           	retq
+  d46601: 0f 1f 80 00 00 00 00         	nopl	(%rax)
+  d46608: 55                           	pushq	%rbp
+  d46609: be ab e8 cf 03               	movl	$0x3cfe8ab, %esi        # imm = 0x3CFE8AB
+  d4660e: bf 33 0d cc 03               	movl	$0x3cc0d33, %edi        # imm = 0x3CC0D33
+  d46613: 31 c0                        	xorl	%eax, %eax
+  d46615: 48 89 e5                     	movq	%rsp, %rbp
+  d46618: e8 73 b9 a6 01               	callq	0x27b1f90 <V8_Fatal(char const*, ...)>
+
+
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+0000000000d462f0 <v8::internal::ExternalReference::ieee754_atan_function()>:
+  d462f0: b8 8f 6c 7a 02               	movl	$0x27a6c8f, %eax        # imm = 0x27A6C8F
+  d462f5: 48 83 f8 20                  	cmpq	$0x20, %rax
+  d462f9: 76 0d                        	jbe	0xd46308 <v8::internal::ExternalReference::ieee754_atan_function()+0x18>
+  d462fb: b8 90 6c 7a 02               	movl	$0x27a6c90, %eax        # imm = 0x27A6C90
+  d46300: c3                           	retq
+  d46301: 0f 1f 80 00 00 00 00         	nopl	(%rax)
+  d46308: 55                           	pushq	%rbp
+  d46309: be ab e8 cf 03               	movl	$0x3cfe8ab, %esi        # imm = 0x3CFE8AB
+  d4630e: bf 33 0d cc 03               	movl	$0x3cc0d33, %edi        # imm = 0x3CC0D33
+  d46313: 31 c0                        	xorl	%eax, %eax
+  d46315: 48 89 e5                     	movq	%rsp, %rbp
+  d46318: e8 73 bc a6 01               	callq	0x27b1f90 <V8_Fatal(char const*, ...)>
+
+
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+0000000000d46350 <v8::internal::ExternalReference::ieee754_atan2_function()>:
+  d46350: b8 1f 6f 7a 02               	movl	$0x27a6f1f, %eax        # imm = 0x27A6F1F
+  d46355: 48 83 f8 20                  	cmpq	$0x20, %rax
+  d46359: 76 0d                        	jbe	0xd46368 <v8::internal::ExternalReference::ieee754_atan2_function()+0x18>
+  d4635b: b8 20 6f 7a 02               	movl	$0x27a6f20, %eax        # imm = 0x27A6F20
+  d46360: c3                           	retq
+  d46361: 0f 1f 80 00 00 00 00         	nopl	(%rax)
+  d46368: 55                           	pushq	%rbp
+  d46369: be ab e8 cf 03               	movl	$0x3cfe8ab, %esi        # imm = 0x3CFE8AB
+  d4636e: bf 33 0d cc 03               	movl	$0x3cc0d33, %edi        # imm = 0x3CC0D33
+  d46373: 31 c0                        	xorl	%eax, %eax
+  d46375: 48 89 e5                     	movq	%rsp, %rbp
+  d46378: e8 13 bc a6 01               	callq	0x27b1f90 <V8_Fatal(char const*, ...)>
+
+
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+0000000000d465c0 <v8::internal::ExternalReference::ieee754_sin_function()>:
+  d465c0: b8 5f 8e 7a 02               	movl	$0x27a8e5f, %eax        # imm = 0x27A8E5F
+  d465c5: 48 83 f8 20                  	cmpq	$0x20, %rax
+  d465c9: 76 0d                        	jbe	0xd465d8 <v8::internal::ExternalReference::ieee754_sin_function()+0x18>
+  d465cb: b8 60 8e 7a 02               	movl	$0x27a8e60, %eax        # imm = 0x27A8E60
+  d465d0: c3                           	retq
+  d465d1: 0f 1f 80 00 00 00 00         	nopl	(%rax)
+  d465d8: 55                           	pushq	%rbp
+  d465d9: be ab e8 cf 03               	movl	$0x3cfe8ab, %esi        # imm = 0x3CFE8AB
+  d465de: bf 33 0d cc 03               	movl	$0x3cc0d33, %edi        # imm = 0x3CC0D33
+  d465e3: 31 c0                        	xorl	%eax, %eax
+  d465e5: 48 89 e5                     	movq	%rsp, %rbp
+  d465e8: e8 a3 b9 a6 01               	callq	0x27b1f90 <V8_Fatal(char const*, ...)>
+
+
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+00000000027a8e60 <v8::base::ieee754::sin(double)>:
+ 27a8e60: 66 48 0f 7e c0               	movq	%xmm0, %rax
+ 27a8e65: 48 c1 e8 20                  	shrq	$0x20, %rax
+ 27a8e69: 25 ff ff ff 7f               	andl	$0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a8e6e: 3d fb 21 e9 3f               	cmpl	$0x3fe921fb, %eax       # imm = 0x3FE921FB
+ 27a8e73: 7f 73                        	jg	0x27a8ee8 <v8::base::ieee754::sin(double)+0x88>
+ 27a8e75: 3d ff ff 3f 3e               	cmpl	$0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a8e7a: 7f 0c                        	jg	0x27a8e88 <v8::base::ieee754::sin(double)+0x28>
+ 27a8e7c: f2 0f 2c c0                  	cvttsd2si	%xmm0, %eax
+ 27a8e80: 66 0f 28 c8                  	movapd	%xmm0, %xmm1
+ 27a8e84: 85 c0                        	testl	%eax, %eax
+ 27a8e86: 74 6f                        	je	0x27a8ef7 <v8::base::ieee754::sin(double)+0x97>
+ 27a8e88: 66 0f 28 d0                  	movapd	%xmm0, %xmm2
+ 27a8e8c: f2 0f 10 0d 04 87 ea 03      	movsd	0x3ea8704(%rip), %xmm1  # 0x6651598 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d8>
+ 27a8e94: f2 0f 59 d0                  	mulsd	%xmm0, %xmm2
+ 27a8e98: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a8e9c: f2 0f 5c 0d fc 86 ea 03      	subsd	0x3ea86fc(%rip), %xmm1  # 0x66515a0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e0>
+ 27a8ea4: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a8ea8: f2 0f 58 0d f8 86 ea 03      	addsd	0x3ea86f8(%rip), %xmm1  # 0x66515a8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e8>
+ 27a8eb0: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a8eb4: f2 0f 5c 0d f4 86 ea 03      	subsd	0x3ea86f4(%rip), %xmm1  # 0x66515b0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f0>
+ 27a8ebc: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a8ec0: f2 0f 58 0d f0 86 ea 03      	addsd	0x3ea86f0(%rip), %xmm1  # 0x66515b8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f8>
+ 27a8ec8: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a8ecc: f2 0f 59 d0                  	mulsd	%xmm0, %xmm2
+ 27a8ed0: f2 0f 5c 0d e8 86 ea 03      	subsd	0x3ea86e8(%rip), %xmm1  # 0x66515c0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x300>
+ 27a8ed8: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a8edc: f2 0f 58 c8                  	addsd	%xmm0, %xmm1
+ 27a8ee0: 66 0f 28 c1                  	movapd	%xmm1, %xmm0
+ 27a8ee4: c3                           	retq
+ 27a8ee5: 0f 1f 00                     	nopl	(%rax)
+ 27a8ee8: 3d ff ff ef 7f               	cmpl	$0x7fefffff, %eax       # imm = 0x7FEFFFFF
+ 27a8eed: 7e 11                        	jle	0x27a8f00 <v8::base::ieee754::sin(double)+0xa0>
+ 27a8eef: 66 0f 28 c8                  	movapd	%xmm0, %xmm1
+ 27a8ef3: f2 0f 5c c8                  	subsd	%xmm0, %xmm1
+ 27a8ef7: 66 0f 28 c1                  	movapd	%xmm1, %xmm0
+ 27a8efb: c3                           	retq
+ 27a8efc: 0f 1f 40 00                  	nopl	(%rax)
+ 27a8f00: 55                           	pushq	%rbp
+ 27a8f01: 48 89 e5                     	movq	%rsp, %rbp
+ 27a8f04: 48 83 ec 10                  	subq	$0x10, %rsp
+ 27a8f08: 48 8d 7d f0                  	leaq	-0x10(%rbp), %rdi
+ 27a8f0c: e8 ef d3 ff ff               	callq	0x27a6300 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)>
+ 27a8f11: 83 e0 03                     	andl	$0x3, %eax
+ 27a8f14: 83 f8 01                     	cmpl	$0x1, %eax
+ 27a8f17: 0f 84 3b 02 00 00            	je	0x27a9158 <v8::base::ieee754::sin(double)+0x2f8>
+ 27a8f1d: 83 f8 02                     	cmpl	$0x2, %eax
+ 27a8f20: 0f 84 da 00 00 00            	je	0x27a9000 <v8::base::ieee754::sin(double)+0x1a0>
+ 27a8f26: 85 c0                        	testl	%eax, %eax
+ 27a8f28: 0f 84 82 01 00 00            	je	0x27a90b0 <v8::base::ieee754::sin(double)+0x250>
+ 27a8f2e: f2 0f 10 65 f0               	movsd	-0x10(%rbp), %xmm4
+ 27a8f33: f2 0f 10 55 f8               	movsd	-0x8(%rbp), %xmm2
+ 27a8f38: 66 48 0f 7e e0               	movq	%xmm4, %rax
+ 27a8f3d: 48 c1 e8 20                  	shrq	$0x20, %rax
+ 27a8f41: 25 ff ff ff 7f               	andl	$0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a8f46: 3d ff ff 3f 3e               	cmpl	$0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a8f4b: 0f 8e 87 03 00 00            	jle	0x27a92d8 <v8::base::ieee754::sin(double)+0x478>
+ 27a8f51: 66 0f 28 dc                  	movapd	%xmm4, %xmm3
+ 27a8f55: f2 0f 10 05 0b 86 ea 03      	movsd	0x3ea860b(%rip), %xmm0  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a8f5d: f2 0f 59 dc                  	mulsd	%xmm4, %xmm3
+ 27a8f61: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a8f65: f2 0f 58 05 03 86 ea 03      	addsd	0x3ea8603(%rip), %xmm0  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a8f6d: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a8f71: f2 0f 5c 05 ff 85 ea 03      	subsd	0x3ea85ff(%rip), %xmm0  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a8f79: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a8f7d: f2 0f 58 05 fb 85 ea 03      	addsd	0x3ea85fb(%rip), %xmm0  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a8f85: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a8f89: f2 0f 5c 05 f7 85 ea 03      	subsd	0x3ea85f7(%rip), %xmm0  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a8f91: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a8f95: f2 0f 58 05 f3 85 ea 03      	addsd	0x3ea85f3(%rip), %xmm0  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a8f9d: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a8fa1: 3d 32 33 d3 3f               	cmpl	$0x3fd33332, %eax       # imm = 0x3FD33332
+ 27a8fa6: 0f 8e 90 03 00 00            	jle	0x27a933c <v8::base::ieee754::sin(double)+0x4dc>
+ 27a8fac: 3d 00 00 e9 3f               	cmpl	$0x3fe90000, %eax       # imm = 0x3FE90000
+ 27a8fb1: 0f 8f d9 03 00 00            	jg	0x27a9390 <v8::base::ieee754::sin(double)+0x530>
+ 27a8fb7: 2d 00 00 20 00               	subl	$0x200000, %eax         # imm = 0x200000
+ 27a8fbc: f2 0f 10 0d fc 85 a5 00      	movsd	0xa585fc(%rip), %xmm1   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a8fc4: 48 c1 e0 20                  	shlq	$0x20, %rax
+ 27a8fc8: 66 48 0f 6e e8               	movq	%rax, %xmm5
+ 27a8fcd: f2 0f 5c cd                  	subsd	%xmm5, %xmm1
+ 27a8fd1: f2 0f 10 35 7f 14 a8 00      	movsd	0xa8147f(%rip), %xmm6   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a8fd9: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a8fdd: f2 0f 59 e2                  	mulsd	%xmm2, %xmm4
+ 27a8fe1: f2 0f 59 f3                  	mulsd	%xmm3, %xmm6
+ 27a8fe5: f2 0f 5c c4                  	subsd	%xmm4, %xmm0
+ 27a8fe9: f2 0f 5c f5                  	subsd	%xmm5, %xmm6
+ 27a8fed: f2 0f 5c f0                  	subsd	%xmm0, %xmm6
+ 27a8ff1: f2 0f 5c ce                  	subsd	%xmm6, %xmm1
+ 27a8ff5: e9 a1 00 00 00               	jmp	0x27a909b <v8::base::ieee754::sin(double)+0x23b>
+ 27a8ffa: 66 0f 1f 44 00 00            	nopw	(%rax,%rax)
+ 27a9000: f2 0f 10 4d f0               	movsd	-0x10(%rbp), %xmm1
+ 27a9005: f2 0f 10 65 f8               	movsd	-0x8(%rbp), %xmm4
+ 27a900a: 66 48 0f 7e c8               	movq	%xmm1, %rax
+ 27a900f: 48 c1 e8 20                  	shrq	$0x20, %rax
+ 27a9013: 25 ff ff ff 7f               	andl	$0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a9018: 3d ff ff 3f 3e               	cmpl	$0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a901d: 0f 8e 9d 02 00 00            	jle	0x27a92c0 <v8::base::ieee754::sin(double)+0x460>
+ 27a9023: 66 0f 28 e9                  	movapd	%xmm1, %xmm5
+ 27a9027: f2 0f 10 05 69 85 ea 03      	movsd	0x3ea8569(%rip), %xmm0  # 0x6651598 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d8>
+ 27a902f: 66 0f 28 d9                  	movapd	%xmm1, %xmm3
+ 27a9033: f2 0f 10 15 1d 14 a8 00      	movsd	0xa8141d(%rip), %xmm2   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a903b: f2 0f 59 e9                  	mulsd	%xmm1, %xmm5
+ 27a903f: f2 0f 59 d4                  	mulsd	%xmm4, %xmm2
+ 27a9043: f2 0f 59 c5                  	mulsd	%xmm5, %xmm0
+ 27a9047: f2 0f 5c 05 51 85 ea 03      	subsd	0x3ea8551(%rip), %xmm0  # 0x66515a0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e0>
+ 27a904f: f2 0f 59 dd                  	mulsd	%xmm5, %xmm3
+ 27a9053: f2 0f 59 c5                  	mulsd	%xmm5, %xmm0
+ 27a9057: f2 0f 58 05 49 85 ea 03      	addsd	0x3ea8549(%rip), %xmm0  # 0x66515a8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e8>
+ 27a905f: f2 0f 59 c5                  	mulsd	%xmm5, %xmm0
+ 27a9063: f2 0f 5c 05 45 85 ea 03      	subsd	0x3ea8545(%rip), %xmm0  # 0x66515b0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f0>
+ 27a906b: f2 0f 59 c5                  	mulsd	%xmm5, %xmm0
+ 27a906f: f2 0f 58 05 41 85 ea 03      	addsd	0x3ea8541(%rip), %xmm0  # 0x66515b8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f8>
+ 27a9077: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a907b: f2 0f 59 1d 3d 85 ea 03      	mulsd	0x3ea853d(%rip), %xmm3  # 0x66515c0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x300>
+ 27a9083: f2 0f 5c d0                  	subsd	%xmm0, %xmm2
+ 27a9087: f2 0f 59 d5                  	mulsd	%xmm5, %xmm2
+ 27a908b: 66 0f 28 c2                  	movapd	%xmm2, %xmm0
+ 27a908f: f2 0f 5c c4                  	subsd	%xmm4, %xmm0
+ 27a9093: f2 0f 58 c3                  	addsd	%xmm3, %xmm0
+ 27a9097: f2 0f 5c c8                  	subsd	%xmm0, %xmm1
+ 27a909b: 66 0f 57 0d 0d 14 a8 00      	xorpd	0xa8140d(%rip), %xmm1   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a90a3: c9                           	leave
+ 27a90a4: 66 0f 28 c1                  	movapd	%xmm1, %xmm0
+ 27a90a8: c3                           	retq
+ 27a90a9: 0f 1f 80 00 00 00 00         	nopl	(%rax)
+ 27a90b0: f2 0f 10 4d f0               	movsd	-0x10(%rbp), %xmm1
+ 27a90b5: f2 0f 10 65 f8               	movsd	-0x8(%rbp), %xmm4
+ 27a90ba: 66 48 0f 7e c8               	movq	%xmm1, %rax
+ 27a90bf: 48 c1 e8 20                  	shrq	$0x20, %rax
+ 27a90c3: 25 ff ff ff 7f               	andl	$0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a90c8: 3d ff ff 3f 3e               	cmpl	$0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a90cd: 7f 08                        	jg	0x27a90d7 <v8::base::ieee754::sin(double)+0x277>
+ 27a90cf: f2 0f 2c c1                  	cvttsd2si	%xmm1, %eax
+ 27a90d3: 85 c0                        	testl	%eax, %eax
+ 27a90d5: 74 cc                        	je	0x27a90a3 <v8::base::ieee754::sin(double)+0x243>
+ 27a90d7: 66 0f 28 e9                  	movapd	%xmm1, %xmm5
+ 27a90db: f2 0f 10 05 b5 84 ea 03      	movsd	0x3ea84b5(%rip), %xmm0  # 0x6651598 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d8>
+ 27a90e3: 66 0f 28 d9                  	movapd	%xmm1, %xmm3
+ 27a90e7: f2 0f 10 15 69 13 a8 00      	movsd	0xa81369(%rip), %xmm2   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a90ef: f2 0f 59 e9                  	mulsd	%xmm1, %xmm5
+ 27a90f3: f2 0f 59 d4                  	mulsd	%xmm4, %xmm2
+ 27a90f7: f2 0f 59 c5                  	mulsd	%xmm5, %xmm0
+ 27a90fb: f2 0f 5c 05 9d 84 ea 03      	subsd	0x3ea849d(%rip), %xmm0  # 0x66515a0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e0>
+ 27a9103: f2 0f 59 dd                  	mulsd	%xmm5, %xmm3
+ 27a9107: f2 0f 59 c5                  	mulsd	%xmm5, %xmm0
+ 27a910b: f2 0f 58 05 95 84 ea 03      	addsd	0x3ea8495(%rip), %xmm0  # 0x66515a8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e8>
+ 27a9113: f2 0f 59 c5                  	mulsd	%xmm5, %xmm0
+ 27a9117: f2 0f 5c 05 91 84 ea 03      	subsd	0x3ea8491(%rip), %xmm0  # 0x66515b0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f0>
+ 27a911f: f2 0f 59 c5                  	mulsd	%xmm5, %xmm0
+ 27a9123: f2 0f 58 05 8d 84 ea 03      	addsd	0x3ea848d(%rip), %xmm0  # 0x66515b8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f8>
+ 27a912b: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a912f: f2 0f 59 1d 89 84 ea 03      	mulsd	0x3ea8489(%rip), %xmm3  # 0x66515c0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x300>
+ 27a9137: f2 0f 5c d0                  	subsd	%xmm0, %xmm2
+ 27a913b: f2 0f 59 d5                  	mulsd	%xmm5, %xmm2
+ 27a913f: 66 0f 28 c2                  	movapd	%xmm2, %xmm0
+ 27a9143: f2 0f 5c c4                  	subsd	%xmm4, %xmm0
+ 27a9147: f2 0f 58 c3                  	addsd	%xmm3, %xmm0
+ 27a914b: f2 0f 5c c8                  	subsd	%xmm0, %xmm1
+ 27a914f: e9 4f ff ff ff               	jmp	0x27a90a3 <v8::base::ieee754::sin(double)+0x243>
+ 27a9154: 0f 1f 40 00                  	nopl	(%rax)
+ 27a9158: f2 0f 10 65 f0               	movsd	-0x10(%rbp), %xmm4
+ 27a915d: f2 0f 10 55 f8               	movsd	-0x8(%rbp), %xmm2
+ 27a9162: 66 48 0f 7e e0               	movq	%xmm4, %rax
+ 27a9167: 48 c1 e8 20                  	shrq	$0x20, %rax
+ 27a916b: 25 ff ff ff 7f               	andl	$0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a9170: 3d ff ff 3f 3e               	cmpl	$0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a9175: 0f 8e ad 00 00 00            	jle	0x27a9228 <v8::base::ieee754::sin(double)+0x3c8>
+ 27a917b: 66 0f 28 dc                  	movapd	%xmm4, %xmm3
+ 27a917f: f2 0f 10 05 e1 83 ea 03      	movsd	0x3ea83e1(%rip), %xmm0  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a9187: f2 0f 59 dc                  	mulsd	%xmm4, %xmm3
+ 27a918b: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a918f: f2 0f 58 05 d9 83 ea 03      	addsd	0x3ea83d9(%rip), %xmm0  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a9197: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a919b: f2 0f 5c 05 d5 83 ea 03      	subsd	0x3ea83d5(%rip), %xmm0  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a91a3: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a91a7: f2 0f 58 05 d1 83 ea 03      	addsd	0x3ea83d1(%rip), %xmm0  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a91af: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a91b3: f2 0f 5c 05 cd 83 ea 03      	subsd	0x3ea83cd(%rip), %xmm0  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a91bb: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a91bf: f2 0f 58 05 c9 83 ea 03      	addsd	0x3ea83c9(%rip), %xmm0  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a91c7: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a91cb: 3d 32 33 d3 3f               	cmpl	$0x3fd33332, %eax       # imm = 0x3FD33332
+ 27a91d0: 0f 8e b6 00 00 00            	jle	0x27a928c <v8::base::ieee754::sin(double)+0x42c>
+ 27a91d6: 3d 00 00 e9 3f               	cmpl	$0x3fe90000, %eax       # imm = 0x3FE90000
+ 27a91db: 0f 8f 97 01 00 00            	jg	0x27a9378 <v8::base::ieee754::sin(double)+0x518>
+ 27a91e1: 2d 00 00 20 00               	subl	$0x200000, %eax         # imm = 0x200000
+ 27a91e6: f2 0f 10 0d d2 83 a5 00      	movsd	0xa583d2(%rip), %xmm1   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a91ee: 48 c1 e0 20                  	shlq	$0x20, %rax
+ 27a91f2: 66 48 0f 6e e8               	movq	%rax, %xmm5
+ 27a91f7: f2 0f 5c cd                  	subsd	%xmm5, %xmm1
+ 27a91fb: f2 0f 10 35 55 12 a8 00      	movsd	0xa81255(%rip), %xmm6   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a9203: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a9207: f2 0f 59 e2                  	mulsd	%xmm2, %xmm4
+ 27a920b: f2 0f 59 f3                  	mulsd	%xmm3, %xmm6
+ 27a920f: f2 0f 5c c4                  	subsd	%xmm4, %xmm0
+ 27a9213: f2 0f 5c f5                  	subsd	%xmm5, %xmm6
+ 27a9217: f2 0f 5c f0                  	subsd	%xmm0, %xmm6
+ 27a921b: f2 0f 5c ce                  	subsd	%xmm6, %xmm1
+ 27a921f: e9 7f fe ff ff               	jmp	0x27a90a3 <v8::base::ieee754::sin(double)+0x243>
+ 27a9224: 0f 1f 40 00                  	nopl	(%rax)
+ 27a9228: f2 0f 2c c4                  	cvttsd2si	%xmm4, %eax
+ 27a922c: f2 0f 10 0d 8c 83 a5 00      	movsd	0xa5838c(%rip), %xmm1   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a9234: 85 c0                        	testl	%eax, %eax
+ 27a9236: 0f 84 67 fe ff ff            	je	0x27a90a3 <v8::base::ieee754::sin(double)+0x243>
+ 27a923c: 66 0f 28 dc                  	movapd	%xmm4, %xmm3
+ 27a9240: f2 0f 10 05 20 83 ea 03      	movsd	0x3ea8320(%rip), %xmm0  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a9248: f2 0f 59 dc                  	mulsd	%xmm4, %xmm3
+ 27a924c: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a9250: f2 0f 58 05 18 83 ea 03      	addsd	0x3ea8318(%rip), %xmm0  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a9258: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a925c: f2 0f 5c 05 14 83 ea 03      	subsd	0x3ea8314(%rip), %xmm0  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a9264: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a9268: f2 0f 58 05 10 83 ea 03      	addsd	0x3ea8310(%rip), %xmm0  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a9270: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a9274: f2 0f 5c 05 0c 83 ea 03      	subsd	0x3ea830c(%rip), %xmm0  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a927c: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a9280: f2 0f 58 05 08 83 ea 03      	addsd	0x3ea8308(%rip), %xmm0  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a9288: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a928c: f2 0f 59 e2                  	mulsd	%xmm2, %xmm4
+ 27a9290: f2 0f 10 0d c0 11 a8 00      	movsd	0xa811c0(%rip), %xmm1   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a9298: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a929c: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a92a0: f2 0f 5c c4                  	subsd	%xmm4, %xmm0
+ 27a92a4: 66 0f 28 d1                  	movapd	%xmm1, %xmm2
+ 27a92a8: f2 0f 10 0d 10 83 a5 00      	movsd	0xa58310(%rip), %xmm1   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a92b0: f2 0f 5c d0                  	subsd	%xmm0, %xmm2
+ 27a92b4: f2 0f 5c ca                  	subsd	%xmm2, %xmm1
+ 27a92b8: e9 e6 fd ff ff               	jmp	0x27a90a3 <v8::base::ieee754::sin(double)+0x243>
+ 27a92bd: 0f 1f 00                     	nopl	(%rax)
+ 27a92c0: f2 0f 2c c1                  	cvttsd2si	%xmm1, %eax
+ 27a92c4: 85 c0                        	testl	%eax, %eax
+ 27a92c6: 0f 85 57 fd ff ff            	jne	0x27a9023 <v8::base::ieee754::sin(double)+0x1c3>
+ 27a92cc: e9 ca fd ff ff               	jmp	0x27a909b <v8::base::ieee754::sin(double)+0x23b>
+ 27a92d1: 0f 1f 80 00 00 00 00         	nopl	(%rax)
+ 27a92d8: f2 0f 2c c4                  	cvttsd2si	%xmm4, %eax
+ 27a92dc: f2 0f 10 0d 64 bb a5 00      	movsd	0xa5bb64(%rip), %xmm1   # 0x3204e48 <std::_Sp_make_shared_tag::_S_ti()::__tag+0x10>
+ 27a92e4: 85 c0                        	testl	%eax, %eax
+ 27a92e6: 0f 84 b7 fd ff ff            	je	0x27a90a3 <v8::base::ieee754::sin(double)+0x243>
+ 27a92ec: 66 0f 28 dc                  	movapd	%xmm4, %xmm3
+ 27a92f0: f2 0f 10 05 70 82 ea 03      	movsd	0x3ea8270(%rip), %xmm0  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a92f8: f2 0f 59 dc                  	mulsd	%xmm4, %xmm3
+ 27a92fc: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a9300: f2 0f 58 05 68 82 ea 03      	addsd	0x3ea8268(%rip), %xmm0  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a9308: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a930c: f2 0f 5c 05 64 82 ea 03      	subsd	0x3ea8264(%rip), %xmm0  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a9314: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a9318: f2 0f 58 05 60 82 ea 03      	addsd	0x3ea8260(%rip), %xmm0  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a9320: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a9324: f2 0f 5c 05 5c 82 ea 03      	subsd	0x3ea825c(%rip), %xmm0  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a932c: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a9330: f2 0f 58 05 58 82 ea 03      	addsd	0x3ea8258(%rip), %xmm0  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a9338: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a933c: f2 0f 59 e2                  	mulsd	%xmm2, %xmm4
+ 27a9340: f2 0f 10 0d 10 11 a8 00      	movsd	0xa81110(%rip), %xmm1   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a9348: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a934c: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a9350: f2 0f 5c c4                  	subsd	%xmm4, %xmm0
+ 27a9354: 66 0f 28 d1                  	movapd	%xmm1, %xmm2
+ 27a9358: f2 0f 10 0d 60 82 a5 00      	movsd	0xa58260(%rip), %xmm1   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a9360: f2 0f 5c d0                  	subsd	%xmm0, %xmm2
+ 27a9364: f2 0f 5c ca                  	subsd	%xmm2, %xmm1
+ 27a9368: 66 0f 57 0d 40 11 a8 00      	xorpd	0xa81140(%rip), %xmm1   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a9370: e9 2e fd ff ff               	jmp	0x27a90a3 <v8::base::ieee754::sin(double)+0x243>
+ 27a9375: 0f 1f 00                     	nopl	(%rax)
+ 27a9378: f2 0f 10 0d d8 81 ea 03      	movsd	0x3ea81d8(%rip), %xmm1  # 0x6651558 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x298>
+ 27a9380: f2 0f 10 2d d8 81 ea 03      	movsd	0x3ea81d8(%rip), %xmm5  # 0x6651560 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a0>
+ 27a9388: e9 6e fe ff ff               	jmp	0x27a91fb <v8::base::ieee754::sin(double)+0x39b>
+ 27a938d: 0f 1f 00                     	nopl	(%rax)
+ 27a9390: f2 0f 10 0d c0 81 ea 03      	movsd	0x3ea81c0(%rip), %xmm1  # 0x6651558 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x298>
+ 27a9398: f2 0f 10 2d c0 81 ea 03      	movsd	0x3ea81c0(%rip), %xmm5  # 0x6651560 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a0>
+ 27a93a0: e9 2c fc ff ff               	jmp	0x27a8fd1 <v8::base::ieee754::sin(double)+0x171>
+
+
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+00000000027a6f20 <v8::base::ieee754::atan2(double, double)>:
+ 27a6f20: 66 48 0f 7e ca               	movq	%xmm1, %rdx
+ 27a6f25: 48 89 d6                     	movq	%rdx, %rsi
+ 27a6f28: 48 c1 ee 20                  	shrq	$0x20, %rsi
+ 27a6f2c: 89 f7                        	movl	%esi, %edi
+ 27a6f2e: 81 e7 ff ff ff 7f            	andl	$0x7fffffff, %edi       # imm = 0x7FFFFFFF
+ 27a6f34: 81 fa 00 00 00 80            	cmpl	$0x80000000, %edx       # imm = 0x80000000
+ 27a6f3a: 0f 84 43 02 00 00            	je	0x27a7183 <v8::base::ieee754::atan2(double, double)+0x263>
+ 27a6f40: 89 d0                        	movl	%edx, %eax
+ 27a6f42: f7 d8                        	negl	%eax
+ 27a6f44: 09 d0                        	orl	%edx, %eax
+ 27a6f46: c1 e8 1f                     	shrl	$0x1f, %eax
+ 27a6f49: 09 f8                        	orl	%edi, %eax
+ 27a6f4b: 3d 00 00 f0 7f               	cmpl	$0x7ff00000, %eax       # imm = 0x7FF00000
+ 27a6f50: 0f 87 8a 00 00 00            	ja	0x27a6fe0 <v8::base::ieee754::atan2(double, double)+0xc0>
+ 27a6f56: 66 48 0f 7e c1               	movq	%xmm0, %rcx
+ 27a6f5b: 81 f9 00 00 00 80            	cmpl	$0x80000000, %ecx       # imm = 0x80000000
+ 27a6f61: 0f 84 4a 02 00 00            	je	0x27a71b1 <v8::base::ieee754::atan2(double, double)+0x291>
+ 27a6f67: 89 c8                        	movl	%ecx, %eax
+ 27a6f69: f7 d8                        	negl	%eax
+ 27a6f6b: 49 89 ca                     	movq	%rcx, %r10
+ 27a6f6e: 09 c8                        	orl	%ecx, %eax
+ 27a6f70: 49 c1 ea 20                  	shrq	$0x20, %r10
+ 27a6f74: c1 e8 1f                     	shrl	$0x1f, %eax
+ 27a6f77: 45 89 d1                     	movl	%r10d, %r9d
+ 27a6f7a: 41 81 e1 ff ff ff 7f         	andl	$0x7fffffff, %r9d       # imm = 0x7FFFFFFF
+ 27a6f81: 44 09 c8                     	orl	%r9d, %eax
+ 27a6f84: 3d 00 00 f0 7f               	cmpl	$0x7ff00000, %eax       # imm = 0x7FF00000
+ 27a6f89: 77 55                        	ja	0x27a6fe0 <v8::base::ieee754::atan2(double, double)+0xc0>
+ 27a6f8b: 8d 86 00 00 10 c0            	leal	-0x3ff00000(%rsi), %eax
+ 27a6f91: 09 d0                        	orl	%edx, %eax
+ 27a6f93: 0f 84 b7 00 00 00            	je	0x27a7050 <v8::base::ieee754::atan2(double, double)+0x130>
+ 27a6f99: 41 89 f0                     	movl	%esi, %r8d
+ 27a6f9c: 44 89 d0                     	movl	%r10d, %eax
+ 27a6f9f: 41 c1 f8 1e                  	sarl	$0x1e, %r8d
+ 27a6fa3: c1 e8 1f                     	shrl	$0x1f, %eax
+ 27a6fa6: 41 83 e0 02                  	andl	$0x2, %r8d
+ 27a6faa: 41 09 c0                     	orl	%eax, %r8d
+ 27a6fad: 44 09 c9                     	orl	%r9d, %ecx
+ 27a6fb0: 75 3e                        	jne	0x27a6ff0 <v8::base::ieee754::atan2(double, double)+0xd0>
+ 27a6fb2: 41 83 f8 02                  	cmpl	$0x2, %r8d
+ 27a6fb6: 0f 84 bc 00 00 00            	je	0x27a7078 <v8::base::ieee754::atan2(double, double)+0x158>
+ 27a6fbc: 66 0f 28 d0                  	movapd	%xmm0, %xmm2
+ 27a6fc0: 41 83 f8 03                  	cmpl	$0x3, %r8d
+ 27a6fc4: 75 22                        	jne	0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a6fc6: f2 0f 10 05 e2 54 3d 04      	movsd	0x43d54e2(%rip), %xmm0  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a6fce: f2 0f 10 15 62 a5 ea 03      	movsd	0x3eaa562(%rip), %xmm2  # 0x6651538 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x278>
+ 27a6fd6: f2 0f 5c d0                  	subsd	%xmm0, %xmm2
+ 27a6fda: eb 0c                        	jmp	0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a6fdc: 0f 1f 40 00                  	nopl	(%rax)
+ 27a6fe0: 66 0f 28 d1                  	movapd	%xmm1, %xmm2
+ 27a6fe4: f2 0f 58 d0                  	addsd	%xmm0, %xmm2
+ 27a6fe8: 66 0f 28 c2                  	movapd	%xmm2, %xmm0
+ 27a6fec: c3                           	retq
+ 27a6fed: 0f 1f 00                     	nopl	(%rax)
+ 27a6ff0: 09 fa                        	orl	%edi, %edx
+ 27a6ff2: 74 64                        	je	0x27a7058 <v8::base::ieee754::atan2(double, double)+0x138>
+ 27a6ff4: 81 ff 00 00 f0 7f            	cmpl	$0x7ff00000, %edi       # imm = 0x7FF00000
+ 27a6ffa: 0f 84 90 00 00 00            	je	0x27a7090 <v8::base::ieee754::atan2(double, double)+0x170>
+ 27a7000: 41 81 f9 00 00 f0 7f         	cmpl	$0x7ff00000, %r9d       # imm = 0x7FF00000
+ 27a7007: 74 4f                        	je	0x27a7058 <v8::base::ieee754::atan2(double, double)+0x138>
+ 27a7009: 41 29 f9                     	subl	%edi, %r9d
+ 27a700c: 44 89 c8                     	movl	%r9d, %eax
+ 27a700f: c1 f8 14                     	sarl	$0x14, %eax
+ 27a7012: 41 81 f9 ff ff cf 03         	cmpl	$0x3cfffff, %r9d        # imm = 0x3CFFFFF
+ 27a7019: 0f 8e d1 00 00 00            	jle	0x27a70f0 <v8::base::ieee754::atan2(double, double)+0x1d0>
+ 27a701f: f2 0f 10 15 81 54 3d 04      	movsd	0x43d5481(%rip), %xmm2  # 0x6b7c4a8 <v8::base::ieee754::atan2(double, double)::pi_lo>
+ 27a7027: 41 83 e0 01                  	andl	$0x1, %r8d
+ 27a702b: f2 0f 59 15 25 34 a8 00      	mulsd	0xa83425(%rip), %xmm2   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a7033: f2 0f 58 15 05 a4 ea 03      	addsd	0x3eaa405(%rip), %xmm2  # 0x6651440 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x180>
+ 27a703b: 74 ab                        	je	0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a703d: 66 0f 57 15 6b 34 a8 00      	xorpd	0xa8346b(%rip), %xmm2   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a7045: eb a1                        	jmp	0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a7047: 66 0f 1f 84 00 00 00 00 00   	nopw	(%rax,%rax)
+ 27a7050: e9 3b fc ff ff               	jmp	0x27a6c90 <v8::base::ieee754::atan(double)>
+ 27a7055: 0f 1f 00                     	nopl	(%rax)
+ 27a7058: 45 85 d2                     	testl	%r10d, %r10d
+ 27a705b: 78 73                        	js	0x27a70d0 <v8::base::ieee754::atan2(double, double)+0x1b0>
+ 27a705d: f2 0f 10 15 4b 54 3d 04      	movsd	0x43d544b(%rip), %xmm2  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a7065: f2 0f 58 15 d3 a3 ea 03      	addsd	0x3eaa3d3(%rip), %xmm2  # 0x6651440 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x180>
+ 27a706d: e9 76 ff ff ff               	jmp	0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a7072: 66 0f 1f 44 00 00            	nopw	(%rax,%rax)
+ 27a7078: f2 0f 10 15 30 54 3d 04      	movsd	0x43d5430(%rip), %xmm2  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a7080: f2 0f 58 15 18 07 63 01      	addsd	0x1630718(%rip), %xmm2  # 0x3dd77a0 <v8::internal::AsmJs::kSingleFunctionName+0x30>
+ 27a7088: e9 5b ff ff ff               	jmp	0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a708d: 0f 1f 00                     	nopl	(%rax)
+ 27a7090: 41 81 f9 00 00 f0 7f         	cmpl	$0x7ff00000, %r9d       # imm = 0x7FF00000
+ 27a7097: 0f 84 bb 00 00 00            	je	0x27a7158 <v8::base::ieee754::atan2(double, double)+0x238>
+ 27a709d: 41 83 f8 02                  	cmpl	$0x2, %r8d
+ 27a70a1: 74 d5                        	je	0x27a7078 <v8::base::ieee754::atan2(double, double)+0x158>
+ 27a70a3: 41 83 f8 03                  	cmpl	$0x3, %r8d
+ 27a70a7: 0f 84 19 ff ff ff            	je	0x27a6fc6 <v8::base::ieee754::atan2(double, double)+0xa6>
+ 27a70ad: f2 0f 10 15 fb 33 a8 00      	movsd	0xa833fb(%rip), %xmm2   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a70b5: 41 83 f8 01                  	cmpl	$0x1, %r8d
+ 27a70b9: 0f 84 29 ff ff ff            	je	0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a70bf: 66 0f ef d2                  	pxor	%xmm2, %xmm2
+ 27a70c3: e9 20 ff ff ff               	jmp	0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a70c8: 0f 1f 84 00 00 00 00 00      	nopl	(%rax,%rax)
+ 27a70d0: f2 0f 10 05 d8 53 3d 04      	movsd	0x43d53d8(%rip), %xmm0  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a70d8: f2 0f 10 15 f8 a3 ea 03      	movsd	0x3eaa3f8(%rip), %xmm2  # 0x66514d8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x218>
+ 27a70e0: f2 0f 5c d0                  	subsd	%xmm0, %xmm2
+ 27a70e4: e9 ff fe ff ff               	jmp	0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a70e9: 0f 1f 80 00 00 00 00         	nopl	(%rax)
+ 27a70f0: 55                           	pushq	%rbp
+ 27a70f1: 48 c1 ee 1f                  	shrq	$0x1f, %rsi
+ 27a70f5: 48 89 e5                     	movq	%rsp, %rbp
+ 27a70f8: 0f 84 8f 00 00 00            	je	0x27a718d <v8::base::ieee754::atan2(double, double)+0x26d>
+ 27a70fe: 66 0f ef d2                  	pxor	%xmm2, %xmm2
+ 27a7102: 83 f8 c4                     	cmpl	$-0x3c, %eax
+ 27a7105: 0f 8d 82 00 00 00            	jge	0x27a718d <v8::base::ieee754::atan2(double, double)+0x26d>
+ 27a710b: 41 83 f8 01                  	cmpl	$0x1, %r8d
+ 27a710f: 0f 84 92 00 00 00            	je	0x27a71a7 <v8::base::ieee754::atan2(double, double)+0x287>
+ 27a7115: 41 83 f8 02                  	cmpl	$0x2, %r8d
+ 27a7119: 75 22                        	jne	0x27a713d <v8::base::ieee754::atan2(double, double)+0x21d>
+ 27a711b: f2 0f 10 0d 85 53 3d 04      	movsd	0x43d5385(%rip), %xmm1  # 0x6b7c4a8 <v8::base::ieee754::atan2(double, double)::pi_lo>
+ 27a7123: f2 0f 5c d1                  	subsd	%xmm1, %xmm2
+ 27a7127: 66 0f 28 c2                  	movapd	%xmm2, %xmm0
+ 27a712b: f2 0f 10 15 6d 06 63 01      	movsd	0x163066d(%rip), %xmm2  # 0x3dd77a0 <v8::internal::AsmJs::kSingleFunctionName+0x30>
+ 27a7133: f2 0f 5c d0                  	subsd	%xmm0, %xmm2
+ 27a7137: 66 0f 28 c2                  	movapd	%xmm2, %xmm0
+ 27a713b: 5d                           	popq	%rbp
+ 27a713c: c3                           	retq
+ 27a713d: 45 85 c0                     	testl	%r8d, %r8d
+ 27a7140: 74 f5                        	je	0x27a7137 <v8::base::ieee754::atan2(double, double)+0x217>
+ 27a7142: f2 0f 10 05 5e 53 3d 04      	movsd	0x43d535e(%rip), %xmm0  # 0x6b7c4a8 <v8::base::ieee754::atan2(double, double)::pi_lo>
+ 27a714a: f2 0f 5c d0                  	subsd	%xmm0, %xmm2
+ 27a714e: f2 0f 5c 15 4a 06 63 01      	subsd	0x163064a(%rip), %xmm2  # 0x3dd77a0 <v8::internal::AsmJs::kSingleFunctionName+0x30>
+ 27a7156: eb df                        	jmp	0x27a7137 <v8::base::ieee754::atan2(double, double)+0x217>
+ 27a7158: 41 83 f8 02                  	cmpl	$0x2, %r8d
+ 27a715c: 0f 84 8b 00 00 00            	je	0x27a71ed <v8::base::ieee754::atan2(double, double)+0x2cd>
+ 27a7162: 41 83 f8 03                  	cmpl	$0x3, %r8d
+ 27a7166: 74 6c                        	je	0x27a71d4 <v8::base::ieee754::atan2(double, double)+0x2b4>
+ 27a7168: 41 83 f8 01                  	cmpl	$0x1, %r8d
+ 27a716c: 74 4d                        	je	0x27a71bb <v8::base::ieee754::atan2(double, double)+0x29b>
+ 27a716e: f2 0f 10 15 3a 53 3d 04      	movsd	0x43d533a(%rip), %xmm2  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a7176: f2 0f 58 15 2a a3 ea 03      	addsd	0x3eaa32a(%rip), %xmm2  # 0x66514a8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x1e8>
+ 27a717e: e9 65 fe ff ff               	jmp	0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a7183: b8 00 00 00 80               	movl	$0x80000000, %eax       # imm = 0x80000000
+ 27a7188: e9 b7 fd ff ff               	jmp	0x27a6f44 <v8::base::ieee754::atan2(double, double)+0x24>
+ 27a718d: f2 0f 5e c1                  	divsd	%xmm1, %xmm0
+ 27a7191: 66 0f 54 05 57 a4 a5 00      	andpd	0xa5a457(%rip), %xmm0   # 0x32015f0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x130>
+ 27a7199: e8 f2 fa ff ff               	callq	0x27a6c90 <v8::base::ieee754::atan(double)>
+ 27a719e: 66 0f 28 d0                  	movapd	%xmm0, %xmm2
+ 27a71a2: e9 64 ff ff ff               	jmp	0x27a710b <v8::base::ieee754::atan2(double, double)+0x1eb>
+ 27a71a7: 66 0f 57 15 01 33 a8 00      	xorpd	0xa83301(%rip), %xmm2   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a71af: eb 86                        	jmp	0x27a7137 <v8::base::ieee754::atan2(double, double)+0x217>
+ 27a71b1: b8 00 00 00 80               	movl	$0x80000000, %eax       # imm = 0x80000000
+ 27a71b6: e9 b0 fd ff ff               	jmp	0x27a6f6b <v8::base::ieee754::atan2(double, double)+0x4b>
+ 27a71bb: f2 0f 10 05 ed 52 3d 04      	movsd	0x43d52ed(%rip), %xmm0  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a71c3: f2 0f 10 15 75 a3 ea 03      	movsd	0x3eaa375(%rip), %xmm2  # 0x6651540 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x280>
+ 27a71cb: f2 0f 5c d0                  	subsd	%xmm0, %xmm2
+ 27a71cf: e9 14 fe ff ff               	jmp	0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a71d4: f2 0f 10 05 d4 52 3d 04      	movsd	0x43d52d4(%rip), %xmm0  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a71dc: f2 0f 10 15 6c a3 ea 03      	movsd	0x3eaa36c(%rip), %xmm2  # 0x6651550 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x290>
+ 27a71e4: f2 0f 5c d0                  	subsd	%xmm0, %xmm2
+ 27a71e8: e9 fb fd ff ff               	jmp	0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a71ed: f2 0f 10 15 bb 52 3d 04      	movsd	0x43d52bb(%rip), %xmm2  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a71f5: f2 0f 58 15 4b a3 ea 03      	addsd	0x3eaa34b(%rip), %xmm2  # 0x6651548 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x288>
+ 27a71fd: e9 e6 fd ff ff               	jmp	0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+
+
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+00000000027a7210 <v8::base::ieee754::cos(double)>:
+ 27a7210: 66 48 0f 7e c0               	movq	%xmm0, %rax
+ 27a7215: 48 c1 e8 20                  	shrq	$0x20, %rax
+ 27a7219: 25 ff ff ff 7f               	andl	$0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a721e: 3d fb 21 e9 3f               	cmpl	$0x3fe921fb, %eax       # imm = 0x3FE921FB
+ 27a7223: 0f 8f bf 00 00 00            	jg	0x27a72e8 <v8::base::ieee754::cos(double)+0xd8>
+ 27a7229: 3d ff ff 3f 3e               	cmpl	$0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a722e: 0f 8e cc 00 00 00            	jle	0x27a7300 <v8::base::ieee754::cos(double)+0xf0>
+ 27a7234: 66 0f 28 d0                  	movapd	%xmm0, %xmm2
+ 27a7238: f2 0f 10 0d 28 a3 ea 03      	movsd	0x3eaa328(%rip), %xmm1  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a7240: f2 0f 59 d0                  	mulsd	%xmm0, %xmm2
+ 27a7244: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a7248: f2 0f 58 0d 20 a3 ea 03      	addsd	0x3eaa320(%rip), %xmm1  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a7250: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a7254: f2 0f 5c 0d 1c a3 ea 03      	subsd	0x3eaa31c(%rip), %xmm1  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a725c: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a7260: f2 0f 58 0d 18 a3 ea 03      	addsd	0x3eaa318(%rip), %xmm1  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a7268: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a726c: f2 0f 5c 0d 14 a3 ea 03      	subsd	0x3eaa314(%rip), %xmm1  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a7274: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a7278: f2 0f 58 0d 10 a3 ea 03      	addsd	0x3eaa310(%rip), %xmm1  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a7280: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a7284: 3d 32 33 d3 3f               	cmpl	$0x3fd33332, %eax       # imm = 0x3FD33332
+ 27a7289: 0f 8e cd 00 00 00            	jle	0x27a735c <v8::base::ieee754::cos(double)+0x14c>
+ 27a728f: 3d 00 00 e9 3f               	cmpl	$0x3fe90000, %eax       # imm = 0x3FE90000
+ 27a7294: 0f 8f c6 01 00 00            	jg	0x27a7460 <v8::base::ieee754::cos(double)+0x250>
+ 27a729a: 2d 00 00 20 00               	subl	$0x200000, %eax         # imm = 0x200000
+ 27a729f: f2 0f 10 2d 19 a3 a5 00      	movsd	0xa5a319(%rip), %xmm5   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a72a7: 48 c1 e0 20                  	shlq	$0x20, %rax
+ 27a72ab: 66 48 0f 6e d8               	movq	%rax, %xmm3
+ 27a72b0: f2 0f 5c eb                  	subsd	%xmm3, %xmm5
+ 27a72b4: f2 0f 10 25 9c 31 a8 00      	movsd	0xa8319c(%rip), %xmm4   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a72bc: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a72c0: f2 0f 59 e2                  	mulsd	%xmm2, %xmm4
+ 27a72c4: 66 0f ef d2                  	pxor	%xmm2, %xmm2
+ 27a72c8: f2 0f 59 d0                  	mulsd	%xmm0, %xmm2
+ 27a72cc: f2 0f 5c e3                  	subsd	%xmm3, %xmm4
+ 27a72d0: f2 0f 5c ca                  	subsd	%xmm2, %xmm1
+ 27a72d4: f2 0f 5c e1                  	subsd	%xmm1, %xmm4
+ 27a72d8: f2 0f 5c ec                  	subsd	%xmm4, %xmm5
+ 27a72dc: 66 0f 28 c5                  	movapd	%xmm5, %xmm0
+ 27a72e0: c3                           	retq
+ 27a72e1: 0f 1f 80 00 00 00 00         	nopl	(%rax)
+ 27a72e8: 3d ff ff ef 7f               	cmpl	$0x7fefffff, %eax       # imm = 0x7FEFFFFF
+ 27a72ed: 0f 8e 9d 00 00 00            	jle	0x27a7390 <v8::base::ieee754::cos(double)+0x180>
+ 27a72f3: f2 0f 5c c0                  	subsd	%xmm0, %xmm0
+ 27a72f7: c3                           	retq
+ 27a72f8: 0f 1f 84 00 00 00 00 00      	nopl	(%rax,%rax)
+ 27a7300: f2 0f 2c c0                  	cvttsd2si	%xmm0, %eax
+ 27a7304: 85 c0                        	testl	%eax, %eax
+ 27a7306: 0f 84 b4 03 00 00            	je	0x27a76c0 <v8::base::ieee754::cos(double)+0x4b0>
+ 27a730c: 66 0f 28 d0                  	movapd	%xmm0, %xmm2
+ 27a7310: f2 0f 10 0d 50 a2 ea 03      	movsd	0x3eaa250(%rip), %xmm1  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a7318: f2 0f 59 d0                  	mulsd	%xmm0, %xmm2
+ 27a731c: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a7320: f2 0f 58 0d 48 a2 ea 03      	addsd	0x3eaa248(%rip), %xmm1  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a7328: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a732c: f2 0f 5c 0d 44 a2 ea 03      	subsd	0x3eaa244(%rip), %xmm1  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a7334: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a7338: f2 0f 58 0d 40 a2 ea 03      	addsd	0x3eaa240(%rip), %xmm1  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a7340: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a7344: f2 0f 5c 0d 3c a2 ea 03      	subsd	0x3eaa23c(%rip), %xmm1  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a734c: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a7350: f2 0f 58 0d 38 a2 ea 03      	addsd	0x3eaa238(%rip), %xmm1  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a7358: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a735c: f2 0f 10 1d f4 30 a8 00      	movsd	0xa830f4(%rip), %xmm3   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a7364: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a7368: f2 0f 59 da                  	mulsd	%xmm2, %xmm3
+ 27a736c: 66 0f ef d2                  	pxor	%xmm2, %xmm2
+ 27a7370: f2 0f 59 d0                  	mulsd	%xmm0, %xmm2
+ 27a7374: f2 0f 10 05 44 a2 a5 00      	movsd	0xa5a244(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a737c: f2 0f 5c ca                  	subsd	%xmm2, %xmm1
+ 27a7380: f2 0f 5c d9                  	subsd	%xmm1, %xmm3
+ 27a7384: f2 0f 5c c3                  	subsd	%xmm3, %xmm0
+ 27a7388: c3                           	retq
+ 27a7389: 0f 1f 80 00 00 00 00         	nopl	(%rax)
+ 27a7390: 55                           	pushq	%rbp
+ 27a7391: 48 89 e5                     	movq	%rsp, %rbp
+ 27a7394: 48 83 ec 10                  	subq	$0x10, %rsp
+ 27a7398: 48 8d 7d f0                  	leaq	-0x10(%rbp), %rdi
+ 27a739c: e8 5f ef ff ff               	callq	0x27a6300 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)>
+ 27a73a1: 83 e0 03                     	andl	$0x3, %eax
+ 27a73a4: 83 f8 01                     	cmpl	$0x1, %eax
+ 27a73a7: 0f 84 6b 02 00 00            	je	0x27a7618 <v8::base::ieee754::cos(double)+0x408>
+ 27a73ad: 83 f8 02                     	cmpl	$0x2, %eax
+ 27a73b0: 0f 84 92 01 00 00            	je	0x27a7548 <v8::base::ieee754::cos(double)+0x338>
+ 27a73b6: 85 c0                        	testl	%eax, %eax
+ 27a73b8: 0f 84 ba 00 00 00            	je	0x27a7478 <v8::base::ieee754::cos(double)+0x268>
+ 27a73be: f2 0f 10 45 f0               	movsd	-0x10(%rbp), %xmm0
+ 27a73c3: f2 0f 10 65 f8               	movsd	-0x8(%rbp), %xmm4
+ 27a73c8: 66 48 0f 7e c0               	movq	%xmm0, %rax
+ 27a73cd: 48 c1 e8 20                  	shrq	$0x20, %rax
+ 27a73d1: 25 ff ff ff 7f               	andl	$0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a73d6: 3d ff ff 3f 3e               	cmpl	$0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a73db: 7f 08                        	jg	0x27a73e5 <v8::base::ieee754::cos(double)+0x1d5>
+ 27a73dd: f2 0f 2c c0                  	cvttsd2si	%xmm0, %eax
+ 27a73e1: 85 c0                        	testl	%eax, %eax
+ 27a73e3: 74 78                        	je	0x27a745d <v8::base::ieee754::cos(double)+0x24d>
+ 27a73e5: 66 0f 28 e8                  	movapd	%xmm0, %xmm5
+ 27a73e9: f2 0f 10 0d a7 a1 ea 03      	movsd	0x3eaa1a7(%rip), %xmm1  # 0x6651598 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d8>
+ 27a73f1: 66 0f 28 d8                  	movapd	%xmm0, %xmm3
+ 27a73f5: f2 0f 10 15 5b 30 a8 00      	movsd	0xa8305b(%rip), %xmm2   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a73fd: f2 0f 59 e8                  	mulsd	%xmm0, %xmm5
+ 27a7401: f2 0f 59 d4                  	mulsd	%xmm4, %xmm2
+ 27a7405: f2 0f 59 cd                  	mulsd	%xmm5, %xmm1
+ 27a7409: f2 0f 5c 0d 8f a1 ea 03      	subsd	0x3eaa18f(%rip), %xmm1  # 0x66515a0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e0>
+ 27a7411: f2 0f 59 dd                  	mulsd	%xmm5, %xmm3
+ 27a7415: f2 0f 59 cd                  	mulsd	%xmm5, %xmm1
+ 27a7419: f2 0f 58 0d 87 a1 ea 03      	addsd	0x3eaa187(%rip), %xmm1  # 0x66515a8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e8>
+ 27a7421: f2 0f 59 cd                  	mulsd	%xmm5, %xmm1
+ 27a7425: f2 0f 5c 0d 83 a1 ea 03      	subsd	0x3eaa183(%rip), %xmm1  # 0x66515b0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f0>
+ 27a742d: f2 0f 59 cd                  	mulsd	%xmm5, %xmm1
+ 27a7431: f2 0f 58 0d 7f a1 ea 03      	addsd	0x3eaa17f(%rip), %xmm1  # 0x66515b8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f8>
+ 27a7439: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a743d: f2 0f 59 1d 7b a1 ea 03      	mulsd	0x3eaa17b(%rip), %xmm3  # 0x66515c0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x300>
+ 27a7445: f2 0f 5c d1                  	subsd	%xmm1, %xmm2
+ 27a7449: f2 0f 59 d5                  	mulsd	%xmm5, %xmm2
+ 27a744d: 66 0f 28 ca                  	movapd	%xmm2, %xmm1
+ 27a7451: f2 0f 5c cc                  	subsd	%xmm4, %xmm1
+ 27a7455: f2 0f 58 cb                  	addsd	%xmm3, %xmm1
+ 27a7459: f2 0f 5c c1                  	subsd	%xmm1, %xmm0
+ 27a745d: c9                           	leave
+ 27a745e: c3                           	retq
+ 27a745f: 90                           	nop
+ 27a7460: f2 0f 10 2d f0 a0 ea 03      	movsd	0x3eaa0f0(%rip), %xmm5  # 0x6651558 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x298>
+ 27a7468: f2 0f 10 1d f0 a0 ea 03      	movsd	0x3eaa0f0(%rip), %xmm3  # 0x6651560 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a0>
+ 27a7470: e9 3f fe ff ff               	jmp	0x27a72b4 <v8::base::ieee754::cos(double)+0xa4>
+ 27a7475: 0f 1f 00                     	nopl	(%rax)
+ 27a7478: f2 0f 10 65 f0               	movsd	-0x10(%rbp), %xmm4
+ 27a747d: f2 0f 10 55 f8               	movsd	-0x8(%rbp), %xmm2
+ 27a7482: 66 48 0f 7e e0               	movq	%xmm4, %rax
+ 27a7487: 48 c1 e8 20                  	shrq	$0x20, %rax
+ 27a748b: 25 ff ff ff 7f               	andl	$0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a7490: 3d ff ff 3f 3e               	cmpl	$0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a7495: 0f 8e e5 02 00 00            	jle	0x27a7780 <v8::base::ieee754::cos(double)+0x570>
+ 27a749b: 66 0f 28 dc                  	movapd	%xmm4, %xmm3
+ 27a749f: f2 0f 10 0d c1 a0 ea 03      	movsd	0x3eaa0c1(%rip), %xmm1  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a74a7: f2 0f 59 dc                  	mulsd	%xmm4, %xmm3
+ 27a74ab: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a74af: f2 0f 58 0d b9 a0 ea 03      	addsd	0x3eaa0b9(%rip), %xmm1  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a74b7: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a74bb: f2 0f 5c 0d b5 a0 ea 03      	subsd	0x3eaa0b5(%rip), %xmm1  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a74c3: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a74c7: f2 0f 58 0d b1 a0 ea 03      	addsd	0x3eaa0b1(%rip), %xmm1  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a74cf: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a74d3: f2 0f 5c 0d ad a0 ea 03      	subsd	0x3eaa0ad(%rip), %xmm1  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a74db: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a74df: f2 0f 58 0d a9 a0 ea 03      	addsd	0x3eaa0a9(%rip), %xmm1  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a74e7: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a74eb: 3d 32 33 d3 3f               	cmpl	$0x3fd33332, %eax       # imm = 0x3FD33332
+ 27a74f0: 0f 8e e6 02 00 00            	jle	0x27a77dc <v8::base::ieee754::cos(double)+0x5cc>
+ 27a74f6: 3d 00 00 e9 3f               	cmpl	$0x3fe90000, %eax       # imm = 0x3FE90000
+ 27a74fb: 0f 8f 37 03 00 00            	jg	0x27a7838 <v8::base::ieee754::cos(double)+0x628>
+ 27a7501: 2d 00 00 20 00               	subl	$0x200000, %eax         # imm = 0x200000
+ 27a7506: f2 0f 10 05 b2 a0 a5 00      	movsd	0xa5a0b2(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a750e: 48 c1 e0 20                  	shlq	$0x20, %rax
+ 27a7512: 66 48 0f 6e e8               	movq	%rax, %xmm5
+ 27a7517: f2 0f 5c c5                  	subsd	%xmm5, %xmm0
+ 27a751b: f2 0f 10 35 35 2f a8 00      	movsd	0xa82f35(%rip), %xmm6   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a7523: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a7527: f2 0f 59 e2                  	mulsd	%xmm2, %xmm4
+ 27a752b: f2 0f 59 f3                  	mulsd	%xmm3, %xmm6
+ 27a752f: c9                           	leave
+ 27a7530: f2 0f 5c cc                  	subsd	%xmm4, %xmm1
+ 27a7534: f2 0f 5c f5                  	subsd	%xmm5, %xmm6
+ 27a7538: f2 0f 5c f1                  	subsd	%xmm1, %xmm6
+ 27a753c: f2 0f 5c c6                  	subsd	%xmm6, %xmm0
+ 27a7540: c3                           	retq
+ 27a7541: 0f 1f 80 00 00 00 00         	nopl	(%rax)
+ 27a7548: f2 0f 10 65 f0               	movsd	-0x10(%rbp), %xmm4
+ 27a754d: f2 0f 10 55 f8               	movsd	-0x8(%rbp), %xmm2
+ 27a7552: 66 48 0f 7e e0               	movq	%xmm4, %rax
+ 27a7557: 48 c1 e8 20                  	shrq	$0x20, %rax
+ 27a755b: 25 ff ff ff 7f               	andl	$0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a7560: 3d ff ff 3f 3e               	cmpl	$0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a7565: 0f 8e 75 01 00 00            	jle	0x27a76e0 <v8::base::ieee754::cos(double)+0x4d0>
+ 27a756b: 66 0f 28 dc                  	movapd	%xmm4, %xmm3
+ 27a756f: f2 0f 10 0d f1 9f ea 03      	movsd	0x3ea9ff1(%rip), %xmm1  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a7577: f2 0f 59 dc                  	mulsd	%xmm4, %xmm3
+ 27a757b: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a757f: f2 0f 58 0d e9 9f ea 03      	addsd	0x3ea9fe9(%rip), %xmm1  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a7587: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a758b: f2 0f 5c 0d e5 9f ea 03      	subsd	0x3ea9fe5(%rip), %xmm1  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a7593: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a7597: f2 0f 58 0d e1 9f ea 03      	addsd	0x3ea9fe1(%rip), %xmm1  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a759f: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a75a3: f2 0f 5c 0d dd 9f ea 03      	subsd	0x3ea9fdd(%rip), %xmm1  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a75ab: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a75af: f2 0f 58 0d d9 9f ea 03      	addsd	0x3ea9fd9(%rip), %xmm1  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a75b7: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a75bb: 3d 32 33 d3 3f               	cmpl	$0x3fd33332, %eax       # imm = 0x3FD33332
+ 27a75c0: 0f 8e 7e 01 00 00            	jle	0x27a7744 <v8::base::ieee754::cos(double)+0x534>
+ 27a75c6: 3d 00 00 e9 3f               	cmpl	$0x3fe90000, %eax       # imm = 0x3FE90000
+ 27a75cb: 0f 8f 4f 02 00 00            	jg	0x27a7820 <v8::base::ieee754::cos(double)+0x610>
+ 27a75d1: 2d 00 00 20 00               	subl	$0x200000, %eax         # imm = 0x200000
+ 27a75d6: f2 0f 10 05 e2 9f a5 00      	movsd	0xa59fe2(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a75de: 48 c1 e0 20                  	shlq	$0x20, %rax
+ 27a75e2: 66 48 0f 6e e8               	movq	%rax, %xmm5
+ 27a75e7: f2 0f 5c c5                  	subsd	%xmm5, %xmm0
+ 27a75eb: f2 0f 10 35 65 2e a8 00      	movsd	0xa82e65(%rip), %xmm6   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a75f3: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a75f7: f2 0f 59 e2                  	mulsd	%xmm2, %xmm4
+ 27a75fb: f2 0f 59 f3                  	mulsd	%xmm3, %xmm6
+ 27a75ff: f2 0f 5c cc                  	subsd	%xmm4, %xmm1
+ 27a7603: f2 0f 5c f5                  	subsd	%xmm5, %xmm6
+ 27a7607: f2 0f 5c f1                  	subsd	%xmm1, %xmm6
+ 27a760b: f2 0f 5c c6                  	subsd	%xmm6, %xmm0
+ 27a760f: e9 9f 00 00 00               	jmp	0x27a76b3 <v8::base::ieee754::cos(double)+0x4a3>
+ 27a7614: 0f 1f 40 00                  	nopl	(%rax)
+ 27a7618: f2 0f 10 45 f0               	movsd	-0x10(%rbp), %xmm0
+ 27a761d: f2 0f 10 65 f8               	movsd	-0x8(%rbp), %xmm4
+ 27a7622: 66 48 0f 7e c0               	movq	%xmm0, %rax
+ 27a7627: 48 c1 e8 20                  	shrq	$0x20, %rax
+ 27a762b: 25 ff ff ff 7f               	andl	$0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a7630: 3d ff ff 3f 3e               	cmpl	$0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a7635: 0f 8e 95 00 00 00            	jle	0x27a76d0 <v8::base::ieee754::cos(double)+0x4c0>
+ 27a763b: 66 0f 28 e8                  	movapd	%xmm0, %xmm5
+ 27a763f: f2 0f 10 0d 51 9f ea 03      	movsd	0x3ea9f51(%rip), %xmm1  # 0x6651598 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d8>
+ 27a7647: 66 0f 28 d8                  	movapd	%xmm0, %xmm3
+ 27a764b: f2 0f 10 15 05 2e a8 00      	movsd	0xa82e05(%rip), %xmm2   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a7653: f2 0f 59 e8                  	mulsd	%xmm0, %xmm5
+ 27a7657: f2 0f 59 d4                  	mulsd	%xmm4, %xmm2
+ 27a765b: f2 0f 59 cd                  	mulsd	%xmm5, %xmm1
+ 27a765f: f2 0f 5c 0d 39 9f ea 03      	subsd	0x3ea9f39(%rip), %xmm1  # 0x66515a0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e0>
+ 27a7667: f2 0f 59 dd                  	mulsd	%xmm5, %xmm3
+ 27a766b: f2 0f 59 cd                  	mulsd	%xmm5, %xmm1
+ 27a766f: f2 0f 58 0d 31 9f ea 03      	addsd	0x3ea9f31(%rip), %xmm1  # 0x66515a8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e8>
+ 27a7677: f2 0f 59 cd                  	mulsd	%xmm5, %xmm1
+ 27a767b: f2 0f 5c 0d 2d 9f ea 03      	subsd	0x3ea9f2d(%rip), %xmm1  # 0x66515b0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f0>
+ 27a7683: f2 0f 59 cd                  	mulsd	%xmm5, %xmm1
+ 27a7687: f2 0f 58 0d 29 9f ea 03      	addsd	0x3ea9f29(%rip), %xmm1  # 0x66515b8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f8>
+ 27a768f: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a7693: f2 0f 59 1d 25 9f ea 03      	mulsd	0x3ea9f25(%rip), %xmm3  # 0x66515c0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x300>
+ 27a769b: f2 0f 5c d1                  	subsd	%xmm1, %xmm2
+ 27a769f: f2 0f 59 d5                  	mulsd	%xmm5, %xmm2
+ 27a76a3: 66 0f 28 ca                  	movapd	%xmm2, %xmm1
+ 27a76a7: f2 0f 5c cc                  	subsd	%xmm4, %xmm1
+ 27a76ab: f2 0f 58 cb                  	addsd	%xmm3, %xmm1
+ 27a76af: f2 0f 5c c1                  	subsd	%xmm1, %xmm0
+ 27a76b3: 66 0f 57 05 f5 2d a8 00      	xorpd	0xa82df5(%rip), %xmm0   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a76bb: c9                           	leave
+ 27a76bc: c3                           	retq
+ 27a76bd: 0f 1f 00                     	nopl	(%rax)
+ 27a76c0: f2 0f 10 05 f8 9e a5 00      	movsd	0xa59ef8(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a76c8: c3                           	retq
+ 27a76c9: 0f 1f 80 00 00 00 00         	nopl	(%rax)
+ 27a76d0: f2 0f 2c c0                  	cvttsd2si	%xmm0, %eax
+ 27a76d4: 85 c0                        	testl	%eax, %eax
+ 27a76d6: 0f 85 5f ff ff ff            	jne	0x27a763b <v8::base::ieee754::cos(double)+0x42b>
+ 27a76dc: eb d5                        	jmp	0x27a76b3 <v8::base::ieee754::cos(double)+0x4a3>
+ 27a76de: 66 90                        	nop
+ 27a76e0: f2 0f 2c c4                  	cvttsd2si	%xmm4, %eax
+ 27a76e4: f2 0f 10 05 5c d7 a5 00      	movsd	0xa5d75c(%rip), %xmm0   # 0x3204e48 <std::_Sp_make_shared_tag::_S_ti()::__tag+0x10>
+ 27a76ec: 85 c0                        	testl	%eax, %eax
+ 27a76ee: 0f 84 69 fd ff ff            	je	0x27a745d <v8::base::ieee754::cos(double)+0x24d>
+ 27a76f4: 66 0f 28 dc                  	movapd	%xmm4, %xmm3
+ 27a76f8: f2 0f 10 0d 68 9e ea 03      	movsd	0x3ea9e68(%rip), %xmm1  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a7700: f2 0f 59 dc                  	mulsd	%xmm4, %xmm3
+ 27a7704: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a7708: f2 0f 58 0d 60 9e ea 03      	addsd	0x3ea9e60(%rip), %xmm1  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a7710: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a7714: f2 0f 5c 0d 5c 9e ea 03      	subsd	0x3ea9e5c(%rip), %xmm1  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a771c: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a7720: f2 0f 58 0d 58 9e ea 03      	addsd	0x3ea9e58(%rip), %xmm1  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a7728: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a772c: f2 0f 5c 0d 54 9e ea 03      	subsd	0x3ea9e54(%rip), %xmm1  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a7734: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a7738: f2 0f 58 0d 50 9e ea 03      	addsd	0x3ea9e50(%rip), %xmm1  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a7740: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a7744: f2 0f 59 e2                  	mulsd	%xmm2, %xmm4
+ 27a7748: f2 0f 10 05 08 2d a8 00      	movsd	0xa82d08(%rip), %xmm0   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a7750: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a7754: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a7758: f2 0f 5c cc                  	subsd	%xmm4, %xmm1
+ 27a775c: 66 0f 28 d0                  	movapd	%xmm0, %xmm2
+ 27a7760: f2 0f 10 05 58 9e a5 00      	movsd	0xa59e58(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a7768: f2 0f 5c d1                  	subsd	%xmm1, %xmm2
+ 27a776c: f2 0f 5c c2                  	subsd	%xmm2, %xmm0
+ 27a7770: 66 0f 57 05 38 2d a8 00      	xorpd	0xa82d38(%rip), %xmm0   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a7778: c9                           	leave
+ 27a7779: c3                           	retq
+ 27a777a: 66 0f 1f 44 00 00            	nopw	(%rax,%rax)
+ 27a7780: f2 0f 2c c4                  	cvttsd2si	%xmm4, %eax
+ 27a7784: 85 c0                        	testl	%eax, %eax
+ 27a7786: 0f 84 84 00 00 00            	je	0x27a7810 <v8::base::ieee754::cos(double)+0x600>
+ 27a778c: 66 0f 28 dc                  	movapd	%xmm4, %xmm3
+ 27a7790: f2 0f 10 0d d0 9d ea 03      	movsd	0x3ea9dd0(%rip), %xmm1  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a7798: f2 0f 59 dc                  	mulsd	%xmm4, %xmm3
+ 27a779c: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a77a0: f2 0f 58 0d c8 9d ea 03      	addsd	0x3ea9dc8(%rip), %xmm1  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a77a8: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a77ac: f2 0f 5c 0d c4 9d ea 03      	subsd	0x3ea9dc4(%rip), %xmm1  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a77b4: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a77b8: f2 0f 58 0d c0 9d ea 03      	addsd	0x3ea9dc0(%rip), %xmm1  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a77c0: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a77c4: f2 0f 5c 0d bc 9d ea 03      	subsd	0x3ea9dbc(%rip), %xmm1  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a77cc: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a77d0: f2 0f 58 0d b8 9d ea 03      	addsd	0x3ea9db8(%rip), %xmm1  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a77d8: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a77dc: f2 0f 59 e2                  	mulsd	%xmm2, %xmm4
+ 27a77e0: f2 0f 10 05 70 2c a8 00      	movsd	0xa82c70(%rip), %xmm0   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a77e8: f2 0f 59 cb                  	mulsd	%xmm3, %xmm1
+ 27a77ec: f2 0f 59 c3                  	mulsd	%xmm3, %xmm0
+ 27a77f0: f2 0f 5c cc                  	subsd	%xmm4, %xmm1
+ 27a77f4: 66 0f 28 d0                  	movapd	%xmm0, %xmm2
+ 27a77f8: f2 0f 10 05 c0 9d a5 00      	movsd	0xa59dc0(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a7800: c9                           	leave
+ 27a7801: f2 0f 5c d1                  	subsd	%xmm1, %xmm2
+ 27a7805: f2 0f 5c c2                  	subsd	%xmm2, %xmm0
+ 27a7809: c3                           	retq
+ 27a780a: 66 0f 1f 44 00 00            	nopw	(%rax,%rax)
+ 27a7810: f2 0f 10 05 a8 9d a5 00      	movsd	0xa59da8(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a7818: c9                           	leave
+ 27a7819: c3                           	retq
+ 27a781a: 66 0f 1f 44 00 00            	nopw	(%rax,%rax)
+ 27a7820: f2 0f 10 05 30 9d ea 03      	movsd	0x3ea9d30(%rip), %xmm0  # 0x6651558 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x298>
+ 27a7828: f2 0f 10 2d 30 9d ea 03      	movsd	0x3ea9d30(%rip), %xmm5  # 0x6651560 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a0>
+ 27a7830: e9 b6 fd ff ff               	jmp	0x27a75eb <v8::base::ieee754::cos(double)+0x3db>
+ 27a7835: 0f 1f 00                     	nopl	(%rax)
+ 27a7838: f2 0f 10 05 18 9d ea 03      	movsd	0x3ea9d18(%rip), %xmm0  # 0x6651558 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x298>
+ 27a7840: f2 0f 10 2d 18 9d ea 03      	movsd	0x3ea9d18(%rip), %xmm5  # 0x6651560 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a0>
+ 27a7848: e9 ce fc ff ff               	jmp	0x27a751b <v8::base::ieee754::cos(double)+0x30b>
+
+
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+00000000027a6c90 <v8::base::ieee754::atan(double)>:
+ 27a6c90: 66 48 0f 7e c1               	movq	%xmm0, %rcx
+ 27a6c95: 66 0f 28 e8                  	movapd	%xmm0, %xmm5
+ 27a6c99: 48 89 c8                     	movq	%rcx, %rax
+ 27a6c9c: 48 c1 e8 20                  	shrq	$0x20, %rax
+ 27a6ca0: 89 c2                        	movl	%eax, %edx
+ 27a6ca2: 81 e2 ff ff ff 7f            	andl	$0x7fffffff, %edx       # imm = 0x7FFFFFFF
+ 27a6ca8: 81 fa ff ff 0f 44            	cmpl	$0x440fffff, %edx       # imm = 0x440FFFFF
+ 27a6cae: 7e 40                        	jle	0x27a6cf0 <v8::base::ieee754::atan(double)+0x60>
+ 27a6cb0: 81 fa 00 00 f0 7f            	cmpl	$0x7ff00000, %edx       # imm = 0x7FF00000
+ 27a6cb6: 7f 06                        	jg	0x27a6cbe <v8::base::ieee754::atan(double)+0x2e>
+ 27a6cb8: 75 16                        	jne	0x27a6cd0 <v8::base::ieee754::atan(double)+0x40>
+ 27a6cba: 85 c9                        	testl	%ecx, %ecx
+ 27a6cbc: 74 12                        	je	0x27a6cd0 <v8::base::ieee754::atan(double)+0x40>
+ 27a6cbe: f2 0f 58 ed                  	addsd	%xmm5, %xmm5
+ 27a6cc2: 66 0f 28 c5                  	movapd	%xmm5, %xmm0
+ 27a6cc6: c3                           	retq
+ 27a6cc7: 66 0f 1f 84 00 00 00 00 00   	nopw	(%rax,%rax)
+ 27a6cd0: 85 c0                        	testl	%eax, %eax
+ 27a6cd2: 0f 8e c0 01 00 00            	jle	0x27a6e98 <v8::base::ieee754::atan(double)+0x208>
+ 27a6cd8: f2 0f 10 05 58 a5 ea 03      	movsd	0x3eaa558(%rip), %xmm0  # 0x6651238 <v8::base::ieee754::atan(double)::atanlo+0x18>
+ 27a6ce0: f2 0f 58 05 58 a7 ea 03      	addsd	0x3eaa758(%rip), %xmm0  # 0x6651440 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x180>
+ 27a6ce8: c3                           	retq
+ 27a6ce9: 0f 1f 80 00 00 00 00         	nopl	(%rax)
+ 27a6cf0: 81 fa ff ff db 3f            	cmpl	$0x3fdbffff, %edx       # imm = 0x3FDBFFFF
+ 27a6cf6: 0f 8f d4 00 00 00            	jg	0x27a6dd0 <v8::base::ieee754::atan(double)+0x140>
+ 27a6cfc: 81 fa ff ff 3f 3e            	cmpl	$0x3e3fffff, %edx       # imm = 0x3E3FFFFF
+ 27a6d02: 0f 8e 60 01 00 00            	jle	0x27a6e68 <v8::base::ieee754::atan(double)+0x1d8>
+ 27a6d08: 66 0f ef db                  	pxor	%xmm3, %xmm3
+ 27a6d0c: ba ff ff ff ff               	movl	$0xffffffff, %edx       # imm = 0xFFFFFFFF
+ 27a6d11: 66 0f 28 c3                  	movapd	%xmm3, %xmm0
+ 27a6d15: 66 0f 28 d5                  	movapd	%xmm5, %xmm2
+ 27a6d19: f2 0f 10 0d bf a7 ea 03      	movsd	0x3eaa7bf(%rip), %xmm1  # 0x66514e0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x220>
+ 27a6d21: f2 0f 59 d5                  	mulsd	%xmm5, %xmm2
+ 27a6d25: 66 0f 28 e2                  	movapd	%xmm2, %xmm4
+ 27a6d29: f2 0f 59 e2                  	mulsd	%xmm2, %xmm4
+ 27a6d2d: f2 0f 59 cc                  	mulsd	%xmm4, %xmm1
+ 27a6d31: f2 0f 58 0d af a7 ea 03      	addsd	0x3eaa7af(%rip), %xmm1  # 0x66514e8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x228>
+ 27a6d39: f2 0f 59 cc                  	mulsd	%xmm4, %xmm1
+ 27a6d3d: f2 0f 58 0d ab a7 ea 03      	addsd	0x3eaa7ab(%rip), %xmm1  # 0x66514f0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x230>
+ 27a6d45: f2 0f 59 cc                  	mulsd	%xmm4, %xmm1
+ 27a6d49: f2 0f 58 0d a7 a7 ea 03      	addsd	0x3eaa7a7(%rip), %xmm1  # 0x66514f8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x238>
+ 27a6d51: f2 0f 59 cc                  	mulsd	%xmm4, %xmm1
+ 27a6d55: f2 0f 58 0d a3 a7 ea 03      	addsd	0x3eaa7a3(%rip), %xmm1  # 0x6651500 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x240>
+ 27a6d5d: f2 0f 59 cc                  	mulsd	%xmm4, %xmm1
+ 27a6d61: f2 0f 58 0d 9f a7 ea 03      	addsd	0x3eaa79f(%rip), %xmm1  # 0x6651508 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x248>
+ 27a6d69: f2 0f 59 ca                  	mulsd	%xmm2, %xmm1
+ 27a6d6d: f2 0f 10 15 9b a7 ea 03      	movsd	0x3eaa79b(%rip), %xmm2  # 0x6651510 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x250>
+ 27a6d75: f2 0f 59 d4                  	mulsd	%xmm4, %xmm2
+ 27a6d79: f2 0f 5c 15 97 a7 ea 03      	subsd	0x3eaa797(%rip), %xmm2  # 0x6651518 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x258>
+ 27a6d81: f2 0f 59 d4                  	mulsd	%xmm4, %xmm2
+ 27a6d85: f2 0f 5c 15 93 a7 ea 03      	subsd	0x3eaa793(%rip), %xmm2  # 0x6651520 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x260>
+ 27a6d8d: f2 0f 59 d4                  	mulsd	%xmm4, %xmm2
+ 27a6d91: f2 0f 5c 15 8f a7 ea 03      	subsd	0x3eaa78f(%rip), %xmm2  # 0x6651528 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x268>
+ 27a6d99: f2 0f 59 d4                  	mulsd	%xmm4, %xmm2
+ 27a6d9d: f2 0f 5c 15 8b a7 ea 03      	subsd	0x3eaa78b(%rip), %xmm2  # 0x6651530 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x270>
+ 27a6da5: f2 0f 59 d4                  	mulsd	%xmm4, %xmm2
+ 27a6da9: f2 0f 58 ca                  	addsd	%xmm2, %xmm1
+ 27a6dad: f2 0f 59 cd                  	mulsd	%xmm5, %xmm1
+ 27a6db1: 83 fa ff                     	cmpl	$-0x1, %edx
+ 27a6db4: 0f 84 f6 00 00 00            	je	0x27a6eb0 <v8::base::ieee754::atan(double)+0x220>
+ 27a6dba: f2 0f 5c cb                  	subsd	%xmm3, %xmm1
+ 27a6dbe: f2 0f 5c cd                  	subsd	%xmm5, %xmm1
+ 27a6dc2: f2 0f 5c c1                  	subsd	%xmm1, %xmm0
+ 27a6dc6: 85 c0                        	testl	%eax, %eax
+ 27a6dc8: 0f 88 ba 00 00 00            	js	0x27a6e88 <v8::base::ieee754::atan(double)+0x1f8>
+ 27a6dce: c3                           	retq
+ 27a6dcf: 90                           	nop
+ 27a6dd0: 66 0f 54 2d 18 a8 a5 00      	andpd	0xa5a818(%rip), %xmm5   # 0x32015f0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x130>
+ 27a6dd8: 66 0f 28 c5                  	movapd	%xmm5, %xmm0
+ 27a6ddc: 81 fa ff ff f2 3f            	cmpl	$0x3ff2ffff, %edx       # imm = 0x3FF2FFFF
+ 27a6de2: 7f 3c                        	jg	0x27a6e20 <v8::base::ieee754::atan(double)+0x190>
+ 27a6de4: 81 fa ff ff e5 3f            	cmpl	$0x3fe5ffff, %edx       # imm = 0x3FE5FFFF
+ 27a6dea: 0f 8f d0 00 00 00            	jg	0x27a6ec0 <v8::base::ieee754::atan(double)+0x230>
+ 27a6df0: f2 0f 58 05 58 36 a8 00      	addsd	0xa83658(%rip), %xmm0   # 0x322a450 <node::Histogram::Percentile(double) const::error_and_abort_args+0x30>
+ 27a6df8: f2 0f 58 ed                  	addsd	%xmm5, %xmm5
+ 27a6dfc: f2 0f 10 1d c4 a6 ea 03      	movsd	0x3eaa6c4(%rip), %xmm3  # 0x66514c8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x208>
+ 27a6e04: 31 d2                        	xorl	%edx, %edx
+ 27a6e06: f2 0f 5c 2d b2 a7 a5 00      	subsd	0xa5a7b2(%rip), %xmm5   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a6e0e: f2 0f 5e e8                  	divsd	%xmm0, %xmm5
+ 27a6e12: f2 0f 10 05 b6 a6 ea 03      	movsd	0x3eaa6b6(%rip), %xmm0  # 0x66514d0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x210>
+ 27a6e1a: e9 f6 fe ff ff               	jmp	0x27a6d15 <v8::base::ieee754::atan(double)+0x85>
+ 27a6e1f: 90                           	nop
+ 27a6e20: 81 fa ff 7f 03 40            	cmpl	$0x40037fff, %edx       # imm = 0x40037FFF
+ 27a6e26: 0f 8f c4 00 00 00            	jg	0x27a6ef0 <v8::base::ieee754::atan(double)+0x260>
+ 27a6e2c: f2 0f 10 0d f4 46 66 01      	movsd	0x16646f4(%rip), %xmm1  # 0x3e0b528 <cppgc::internal::HeapGrowing::kGrowingFactor+0x8>
+ 27a6e34: f2 0f 10 1d 7c a6 ea 03      	movsd	0x3eaa67c(%rip), %xmm3  # 0x66514b8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x1f8>
+ 27a6e3c: ba 02 00 00 00               	movl	$0x2, %edx
+ 27a6e41: f2 0f 59 c1                  	mulsd	%xmm1, %xmm0
+ 27a6e45: f2 0f 5c e9                  	subsd	%xmm1, %xmm5
+ 27a6e49: f2 0f 58 05 6f a7 a5 00      	addsd	0xa5a76f(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a6e51: f2 0f 5e e8                  	divsd	%xmm0, %xmm5
+ 27a6e55: f2 0f 10 05 63 a6 ea 03      	movsd	0x3eaa663(%rip), %xmm0  # 0x66514c0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x200>
+ 27a6e5d: e9 b3 fe ff ff               	jmp	0x27a6d15 <v8::base::ieee754::atan(double)+0x85>
+ 27a6e62: 66 0f 1f 44 00 00            	nopw	(%rax,%rax)
+ 27a6e68: f2 0f 10 0d 30 a6 ea 03      	movsd	0x3eaa630(%rip), %xmm1  # 0x66514a0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x1e0>
+ 27a6e70: f2 0f 58 c8                  	addsd	%xmm0, %xmm1
+ 27a6e74: 66 0f 2f 0d 44 a7 a5 00      	comisd	0xa5a744(%rip), %xmm1   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a6e7c: 0f 86 86 fe ff ff            	jbe	0x27a6d08 <v8::base::ieee754::atan(double)+0x78>
+ 27a6e82: c3                           	retq
+ 27a6e83: 0f 1f 44 00 00               	nopl	(%rax,%rax)
+ 27a6e88: 66 0f 57 05 20 36 a8 00      	xorpd	0xa83620(%rip), %xmm0   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a6e90: c3                           	retq
+ 27a6e91: 0f 1f 80 00 00 00 00         	nopl	(%rax)
+ 27a6e98: f2 0f 10 0d 98 a3 ea 03      	movsd	0x3eaa398(%rip), %xmm1  # 0x6651238 <v8::base::ieee754::atan(double)::atanlo+0x18>
+ 27a6ea0: f2 0f 10 05 30 a6 ea 03      	movsd	0x3eaa630(%rip), %xmm0  # 0x66514d8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x218>
+ 27a6ea8: f2 0f 5c c1                  	subsd	%xmm1, %xmm0
+ 27a6eac: c3                           	retq
+ 27a6ead: 0f 1f 00                     	nopl	(%rax)
+ 27a6eb0: f2 0f 5c e9                  	subsd	%xmm1, %xmm5
+ 27a6eb4: 66 0f 28 c5                  	movapd	%xmm5, %xmm0
+ 27a6eb8: c3                           	retq
+ 27a6eb9: 0f 1f 80 00 00 00 00         	nopl	(%rax)
+ 27a6ec0: f2 0f 10 0d f8 a6 a5 00      	movsd	0xa5a6f8(%rip), %xmm1   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a6ec8: f2 0f 10 1d e0 a5 ea 03      	movsd	0x3eaa5e0(%rip), %xmm3  # 0x66514b0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x1f0>
+ 27a6ed0: ba 01 00 00 00               	movl	$0x1, %edx
+ 27a6ed5: f2 0f 58 c1                  	addsd	%xmm1, %xmm0
+ 27a6ed9: f2 0f 5c e9                  	subsd	%xmm1, %xmm5
+ 27a6edd: f2 0f 5e e8                  	divsd	%xmm0, %xmm5
+ 27a6ee1: f2 0f 10 05 bf a5 ea 03      	movsd	0x3eaa5bf(%rip), %xmm0  # 0x66514a8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x1e8>
+ 27a6ee9: e9 27 fe ff ff               	jmp	0x27a6d15 <v8::base::ieee754::atan(double)+0x85>
+ 27a6eee: 66 90                        	nop
+ 27a6ef0: f2 0f 10 2d 50 df a5 00      	movsd	0xa5df50(%rip), %xmm5   # 0x3204e48 <std::_Sp_make_shared_tag::_S_ti()::__tag+0x10>
+ 27a6ef8: f2 0f 10 1d 98 a5 ea 03      	movsd	0x3eaa598(%rip), %xmm3  # 0x6651498 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x1d8>
+ 27a6f00: ba 03 00 00 00               	movl	$0x3, %edx
+ 27a6f05: f2 0f 5e e8                  	divsd	%xmm0, %xmm5
+ 27a6f09: f2 0f 10 05 2f a5 ea 03      	movsd	0x3eaa52f(%rip), %xmm0  # 0x6651440 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x180>
+ 27a6f11: e9 ff fd ff ff               	jmp	0x27a6d15 <v8::base::ieee754::atan(double)+0x85>

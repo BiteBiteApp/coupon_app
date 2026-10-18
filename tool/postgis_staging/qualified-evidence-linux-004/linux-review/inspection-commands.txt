@@ -1,0 +1,36 @@
+PLANNED INSPECTION ONLY — NOT EXECUTED BY THIS REVIEWER
+
+Use actual immutable local image IDs and the root-owned disposable shared network namespace. No credentials/home/Docker socket mounts. The run004 owner has resolved Docker eligibility; root alone installs/builds.
+
+# Record actual image/runtime; diagnostic flags are not serving flags.
+docker image inspect "$BS_SEARCH_IMAGE"
+docker image inspect "$BS_CONTROLLER_IMAGE"
+docker run --rm --platform=linux/amd64 --network=none --mount type=bind,src="$BS_LINUX_REVIEW",dst=/review,readonly --entrypoint=node "$BS_SEARCH_IMAGE" /review/runtime-metadata-probe.cjs
+docker run --rm --platform=linux/amd64 --network=none --entrypoint=node "$BS_SEARCH_IMAGE" --v8-options
+docker run --rm --platform=linux/amd64 --network=none --entrypoint=sh "$BS_SEARCH_IMAGE" -c 'ldd --version; ldd /usr/local/bin/node'
+docker run --rm --platform=linux/amd64 --network=none --entrypoint=python3 "$BS_CONTROLLER_IMAGE" -c 'import sys,platform,ssl,sqlite3;print(sys.version,platform.machine(),ssl.OPENSSL_VERSION,sqlite3.sqlite_version)'
+
+# Root can copy /usr/local/bin/node from a stopped task-owned container into this
+# report, retaining container/image IDs and copied hash, without executing it on Mac.
+# Inspect with available ELF-capable tools, recording their versions. If absent,
+# do not install another host tool without root coordination; a report-only ELF
+# parser can recover symbols and dispatch bytes for narrow independent inspection.
+readelf -h -d -Ws "$BS_NODE_ELF"
+objdump -d --demangle "$BS_NODE_ELF"
+# Retain only relevant bounded disassembly in the review, not a giant raw dump.
+
+# Execute unchanged nonserving diagnostic only after disposableSQL exists in same
+# namespace at127.0.0.1:55441, database bsgate0_linux, role bsgate0.
+docker run --rm --platform=linux/amd64 --network="container:$BS_LOCAL_NET" --entrypoint=node "$BS_SEARCH_IMAGE" /app/tool/postgis_staging/linux/numerical-diagnostics.cjs
+
+# Retained proof directory must contain the exact script and expected evidence/math
+# source subtree; copy into new report files, never alter the historical originals.
+docker run --rm --platform=linux/amd64 --network=none --mount type=bind,src="$BS_PROOF_INPUT",dst=/proof,readonly --entrypoint=python3 "$BS_CONTROLLER_IMAGE" /proof/distance-bound-arithmetic-audit.py
+
+# Query through actual serving pool/session as well as server defaults:
+SELECT version(), current_setting('server_version_num'), current_setting('extra_float_digits');
+SELECT postgis_full_version();
+SELECT extname,extversion FROM pg_extension ORDER BY extname;
+# Final conversion vectors and guarded suites depend on the actual version/math
+# review; root should preserve source tests and opt-in flags exactly and record all
+# TAP counts/skips. These commands do not authorize a guard change.

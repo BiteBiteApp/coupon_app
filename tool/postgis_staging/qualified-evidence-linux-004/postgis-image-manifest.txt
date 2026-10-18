@@ -1,0 +1,15 @@
+Name:      docker.io/postgis/postgis:18-3.6
+MediaType: application/vnd.oci.image.index.v1+json
+Digest:    sha256:60f6ad1d21ea86a67d47780b9a0d1e1d200500f62b19293fa834d0dea80b8677
+           
+Manifests: 
+  Name:        docker.io/postgis/postgis:18-3.6@sha256:7e00e8c3539fdd43f513b98806c8204714dcd09dea683c259e333d7690317119
+  MediaType:   application/vnd.oci.image.manifest.v1+json
+  Platform:    linux/amd64
+               
+  Name:        docker.io/postgis/postgis:18-3.6@sha256:20b5c7130ab4d93b77c8f88d835268c64c3a9303d708a55b2eebd54872825cc3
+  MediaType:   application/vnd.oci.image.manifest.v1+json
+  Platform:    unknown/unknown
+  Annotations: 
+    vnd.docker.reference.digest: sha256:7e00e8c3539fdd43f513b98806c8204714dcd09dea683c259e333d7690317119
+    vnd.docker.reference.type:   attestation-manifest

@@ -1,0 +1,34 @@
+{
+  "firestore": {
+    "rules": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/storage-review/fixture-source/firestore.rules"
+  },
+  "storage": {
+    "rules": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/storage-review/fixture-source/storage.rules"
+  },
+  "emulators": {
+    "singleProjectMode": true,
+    "firestore": {
+      "host": "127.0.0.1",
+      "port": 8792
+    },
+    "auth": {
+      "host": "127.0.0.1",
+      "port": 9198
+    },
+    "storage": {
+      "host": "127.0.0.1",
+      "port": 9298
+    },
+    "hub": {
+      "host": "127.0.0.1",
+      "port": 4498
+    },
+    "logging": {
+      "host": "127.0.0.1",
+      "port": 4598
+    },
+    "ui": {
+      "enabled": false
+    }
+  }
+}

@@ -1,0 +1,126 @@
+[
+  {
+    "id": "d5778064be5359a16f723a149af29d3567297c34e6f4e1833063635f60ccdd32",
+    "name": "/bs-postgis-004-final-guest-handlers",
+    "image": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+    "created": "2026-10-18T00:13:58.203682253Z",
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-10-18T00:13:58.253125711Z",
+      "FinishedAt": "2026-10-18T00:14:11.888657176Z"
+    },
+    "cmd": [
+      "node",
+      "--test",
+      "--test-isolation=none",
+      "test/customer_bitesaver_search_handlers.test.js"
+    ],
+    "entrypoint": [
+      "docker-entrypoint.sh"
+    ],
+    "user": "node",
+    "workingDirectory": "/app/functions",
+    "networkMode": "none",
+    "memory": 805306368,
+    "nanoCpus": 1000000000,
+    "pidsLimit": 128,
+    "mounts": []
+  },
+  {
+    "id": "15fe9afd57ae3dd64675711968b56b930a0bca018b58f54278713dafda73b2eb",
+    "name": "/bs-postgis-004-final-guest-diagnostics",
+    "image": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+    "created": "2026-10-18T00:14:34.636231214Z",
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-10-18T00:14:34.675682965Z",
+      "FinishedAt": "2026-10-18T00:15:00.964474088Z"
+    },
+    "cmd": [
+      "node",
+      "--test",
+      "--test-isolation=none",
+      "/review/independent-window-diagnostics.v3.cjs"
+    ],
+    "entrypoint": [
+      "docker-entrypoint.sh"
+    ],
+    "user": "node",
+    "workingDirectory": "/app/functions",
+    "networkMode": "none",
+    "memory": 805306368,
+    "nanoCpus": 1000000000,
+    "pidsLimit": 128,
+    "mounts": [
+      {
+        "Type": "bind",
+        "Source": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-inputs",
+        "Destination": "/review",
+        "Mode": "",
+        "RW": false,
+        "Propagation": "rprivate"
+      }
+    ]
+  },
+  {
+    "id": "6f7276ac4ebaf170d229d930e7f8ff45038523c8c6c0d27e363b85204a637285",
+    "name": "/bs-postgis-004-final-guest-supplement",
+    "image": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+    "created": "2026-10-18T00:15:31.180493671Z",
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-10-18T00:15:31.220342505Z",
+      "FinishedAt": "2026-10-18T00:15:33.085176172Z"
+    },
+    "cmd": [
+      "node",
+      "--test",
+      "--test-isolation=none",
+      "--test-name-pattern=review maximum|review concurrent",
+      "/review/independent-window-diagnostics.supplement.cjs"
+    ],
+    "entrypoint": [
+      "docker-entrypoint.sh"
+    ],
+    "user": "node",
+    "workingDirectory": "/app/functions",
+    "networkMode": "none",
+    "memory": 805306368,
+    "nanoCpus": 1000000000,
+    "pidsLimit": 128,
+    "mounts": [
+      {
+        "Type": "bind",
+        "Source": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-inputs",
+        "Destination": "/review",
+        "Mode": "",
+        "RW": false,
+        "Propagation": "rprivate"
+      }
+    ]
+  }
+]

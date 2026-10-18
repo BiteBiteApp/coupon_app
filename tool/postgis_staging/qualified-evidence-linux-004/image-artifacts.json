@@ -1,0 +1,76 @@
+{
+  "recordedAt": "2026-10-18T00:18:28.593474+00:00",
+  "archive": {
+    "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/qualified-search-controller.images.tar",
+    "sizeBytes": 204947456,
+    "sha256": "4d443b360d1643230421f58021b681b3ea4d992191171460128f16e31bd346ca",
+    "kind": "docker image save of exact final search and controller; local only; no upload",
+    "dockerSaveManifest": [
+      {
+        "Config": "blobs/sha256/0f16f7b7edeed6288f69ae665b8c689422664f04aaacb9dab14ddcbdcb070a32",
+        "RepoTags": [
+          "bitestar-postgis-linux-004:qualified-local"
+        ],
+        "Layers": [
+          "blobs/sha256/7fd1ebe418b5079d4aa36f416af9b143d127bc75b0155d71cb5fd559b5e04d39",
+          "blobs/sha256/517d640e32835287653c4b15eb5d9f6bcf48e103baea4f7e29bac937002f649b",
+          "blobs/sha256/11ffcabe0f772f0f1a9c80b4b290b5ec0de54f11c671f0fa10e5844f9b52d17a",
+          "blobs/sha256/1a0cf4b1ffc8dd659bb8c6e90471bc8fec24620e4fdb68bb2b6faa56154ae146",
+          "blobs/sha256/08489011619dfda982191cb9cc0418dc48ea3b1341588aeef534e4db0ab4d3d0",
+          "blobs/sha256/2166200423bf6f7c3bbafb33f8cf3406cb50610bfd06da6828c302c6d26d795e",
+          "blobs/sha256/fa4810ab436995991637495e42d7b4918b0f56d5ab35846d62704eb8a625b213",
+          "blobs/sha256/7d91c8caba90c5fc8c86b5f9f95d9fbb0531f9a1c7dc2a4d98f319796de44c57",
+          "blobs/sha256/8c1d425edbccd68464331f0f7219c65a9b0a5ee578beb69366a343b69e3189f5"
+        ]
+      },
+      {
+        "Config": "blobs/sha256/6045d59fe7690a31730682f35db5cdaafe78a106997da8ee19eddc949d790b86",
+        "RepoTags": [
+          "bitestar-postgis-controller-004:initial"
+        ],
+        "Layers": [
+          "blobs/sha256/039e6f9f9752f74a3ff4a6a224f64c7c864da16ed98f882107704328f41b9c42",
+          "blobs/sha256/e8e392f3681c10ad9c2b19ab6614fd158f6d5a03e0f71694aea9429d38813dbd",
+          "blobs/sha256/8e0b0d5a4a0425bc991b95b78af125c6005a0a82a89011f076802a0265d8ff32",
+          "blobs/sha256/1634f3c69c84a41815c187086e80cf5fdec289c6ce620014ef3ca9b54c019279",
+          "blobs/sha256/1b3a2cbe90e3b387b4274630c774e9e0f47e561c72335784ac69623aac42d2d8",
+          "blobs/sha256/4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "blobs/sha256/4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "blobs/sha256/30fe3284588359a7cc57c9d822db002dbb3b94c279183db927aedc6f42022086",
+          "blobs/sha256/6eba0eaefeea81a9f4f560c7736f5c31393655d207269fbcd97f16a5cff6b142",
+          "blobs/sha256/c8da996455da29e81ee9845d9d7f17ea0d7c03368d76fcfcf6ac8123a4d79318",
+          "blobs/sha256/298cbeac09f7ffc9592df5ffabeec2c1684385291c5385ff597d71c79a9c17f6",
+          "blobs/sha256/a66df9bb9c667d09c27516b619f791b55fc6236f81b44ee6733de8dacdecf20c"
+        ]
+      }
+    ]
+  },
+  "images": {
+    "search": {
+      "id": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+      "tags": [
+        "bitestar-postgis-linux-004:qualified-local"
+      ],
+      "os": "linux",
+      "architecture": "amd64",
+      "inspectEvidence": "search-image.final.inspect.json",
+      "inspectSha256": "a1f2658a7a360c23c245d5dadf7546132e2da4107cdd7772b39700cbde23810a",
+      "configDigest": "sha256:0f16f7b7edeed6288f69ae665b8c689422664f04aaacb9dab14ddcbdcb070a32",
+      "savedManifestAndConfigVerified": true,
+      "layers": 9
+    },
+    "controller": {
+      "id": "sha256:d31f485673c4638bffc4b5d5dd4b87a711d6182e47f799c877912eb57a49cf2f",
+      "tags": [
+        "bitestar-postgis-controller-004:initial"
+      ],
+      "os": "linux",
+      "architecture": "amd64",
+      "inspectEvidence": "controller-review/image-inspect.json",
+      "inspectSha256": "f929788b559e2ddcab0a9a13e961635fb4a8771cf72927f016ac6222f8a2253d",
+      "configDigest": "sha256:6045d59fe7690a31730682f35db5cdaafe78a106997da8ee19eddc949d790b86",
+      "savedManifestAndConfigVerified": true,
+      "layers": 12
+    }
+  }
+}

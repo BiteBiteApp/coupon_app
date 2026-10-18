@@ -1,0 +1,5 @@
+{
+  "completedAt": "2026-10-18T00:11:26.170194+00:00",
+  "command": "docker exec --user postgres bs-linux004-pg pg_ctl -D /var/lib/postgresql/18/docker -l /tmp/bs-postgres.log -m fast -w -t30 restart",
+  "output": "waiting for server to shut down.... done\nserver stopped\nwaiting for server to start.... done\nserver started"
+}

@@ -1,0 +1,87 @@
+{
+  "paths": 652,
+  "finalInventoryMatchesRoot": true,
+  "changed": {
+    "functions/lib/postgis_hosted_entrypoint.js": {
+      "initial": "d872aa05fcec72b5ac89dcc6ae6a114894deb1a5b0074726d097546ec39d74fd",
+      "final": "df68f3775f3c0f7481ddbee8a97dccc7273b7a86034cb090e664ee09c9301e1f"
+    },
+    "functions/lib/postgis_hosted_entrypoint.js.map": {
+      "initial": "f4bbf0c73cd37520ea5e034dedbc5b0401957d909966530432e96949eb8b032c",
+      "final": "7185c864a0d413273a31a64c2ba64454c5d556084bb6b27bff0bc8bab948a907"
+    },
+    "functions/lib/postgis_hosted_runtime.js": {
+      "initial": "6ae2d85d2a4e46c005f889f81355c1f331e7223a6a684440d8b2b913bfe1e8d5",
+      "final": "6bd53af48764e8b69e97d63db04a39422ab89c9d711dd1b73a932ab0392789cc"
+    },
+    "functions/lib/postgis_hosted_runtime.js.map": {
+      "initial": "37c93916ff05aefb494079dd5a908dd9ef7d20a20041102604ce29d051a01425",
+      "final": "5dfbd0efafce76e34be76165aa6379566f0aa2f95bcb5baddedb5c072b41e772"
+    },
+    "functions/lib/postgis_runtime.js": {
+      "initial": "ec141b7d0491caebd15acdd190f1d521b3748b8c6e0045dc682220d952d2d15d",
+      "final": "5d8eb096c39ab7712c97872fb95dac41cdf76e8fd81b6cab855711cd476ce02e"
+    },
+    "functions/lib/postgis_runtime.js.map": {
+      "initial": "7656200b47f5cd7f8c61e1e67c32c4f4f35f9e55971b653bb0d6d40c43cdb5c4",
+      "final": "b767e874579cd0384fdbf24c269ae87764a1ec6219fed22794dc6f03893d9210"
+    },
+    "functions/src/postgis_hosted_entrypoint.ts": {
+      "initial": "210755b379629372ddf93a063a1eb8e1ee315bf56fdee8d0f8604e0d62e4a0a4",
+      "final": "78f55eee2f4ad2d5989c76ff26c0ccbb8fb29c233a248f3f7b5dcfff7c9abac7"
+    },
+    "functions/src/postgis_hosted_runtime.ts": {
+      "initial": "161c6b0ba7bd78cf5df18c0560cd7295870849274b140250a6bd8e00c7b728d3",
+      "final": "6aa32d0d23b502a8d91eb57850ebc967e2bc81f50300a95cfa76a9b98104b3ac"
+    },
+    "functions/src/postgis_runtime.ts": {
+      "initial": "c020f3dc8e253571d5efd2c4e907508e5cf9c956a26508cdb2346375f021c920",
+      "final": "74887f3e8af5546a59402e79b4f18557c340db6c371aa9d2fd7ccb374cdeae85"
+    },
+    "functions/test/postgis_runtime.test.cjs": {
+      "initial": null,
+      "final": "adb0a1d616d89e3c2fee9cb878829f4518be465c2d9bf3bd2125f40ec8499613"
+    }
+  },
+  "commands": [
+    [
+      "/Applications/Docker.app/Contents/Resources/bin/docker",
+      "run",
+      "--rm",
+      "-i",
+      "--name",
+      "bs004-final-review-initial",
+      "--network=none",
+      "--platform=linux/amd64",
+      "--memory=768m",
+      "--cpus=1",
+      "--pids-limit=128",
+      "--read-only",
+      "--entrypoint",
+      "node",
+      "bitestar-postgis-linux-004:initial",
+      "-e",
+      "const fs=require('node:fs'),c=require('node:crypto');let p=JSON.parse(fs.readFileSync(0,'utf8'));let out={};for(const x of p){try{out[x]=c.createHash('sha256').update(fs.readFileSync('/app/'+x)).digest('hex')}catch(e){if(e.code!=='ENOENT')throw e;out[x]=null}}console.log(JSON.stringify(out,null,2));"
+    ],
+    [
+      "/Applications/Docker.app/Contents/Resources/bin/docker",
+      "run",
+      "--rm",
+      "-i",
+      "--name",
+      "bs004-final-review-final",
+      "--network=none",
+      "--platform=linux/amd64",
+      "--memory=768m",
+      "--cpus=1",
+      "--pids-limit=128",
+      "--read-only",
+      "--entrypoint",
+      "node",
+      "bitestar-postgis-linux-004:qualified-local",
+      "-e",
+      "const fs=require('node:fs'),c=require('node:crypto');let p=JSON.parse(fs.readFileSync(0,'utf8'));let out={};for(const x of p){try{out[x]=c.createHash('sha256').update(fs.readFileSync('/app/'+x)).digest('hex')}catch(e){if(e.code!=='ENOENT')throw e;out[x]=null}}console.log(JSON.stringify(out,null,2));"
+    ]
+  ],
+  "firstAttempt": "Inventory probe assumed all final paths existed initially; retained ENOENT. Corrected only report probe to record absent paths as null; actual source and tests unchanged."
+}

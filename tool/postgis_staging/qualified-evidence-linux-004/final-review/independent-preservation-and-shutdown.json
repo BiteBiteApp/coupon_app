@@ -1,0 +1,81 @@
+{
+  "taskContainers": [
+    {
+      "name": "/bs-linux004-flutter-host",
+      "id": "6464dd358d08b8ff5204a4d71f87ab8e1c9dd0419dfca9b2fb7498d43e24806f",
+      "image": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+      "state": {
+        "Status": "exited",
+        "Running": false,
+        "ExitCode": 0,
+        "OOMKilled": false,
+        "FinishedAt": "2026-10-18T00:14:21.870634Z"
+      },
+      "volumeNames": []
+    },
+    {
+      "name": "/bs-linux004-mac-relay",
+      "id": "c5b3eb92a8cdc9b7be72a8d2807612cdaa8d5c10502e8d2f57fdf9c8ded34363",
+      "image": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+      "state": {
+        "Status": "exited",
+        "Running": false,
+        "ExitCode": 137,
+        "OOMKilled": false,
+        "FinishedAt": "2026-10-18T00:14:51.953349792Z"
+      },
+      "volumeNames": []
+    },
+    {
+      "name": "/bs-linux004-emulators",
+      "id": "9785395c3b0f60db88c869fc542054e5a7cd1241095b2e5b508ee33d2f7db85e",
+      "image": "sha256:5c022006853f723ca2353c37c0f4f69ffcfbe201406ecc775bc30ce7c156e75c",
+      "state": {
+        "Status": "exited",
+        "Running": false,
+        "ExitCode": 0,
+        "OOMKilled": false,
+        "FinishedAt": "2026-10-18T00:14:53.132547334Z"
+      },
+      "volumeNames": []
+    },
+    {
+      "name": "/bs-linux004-pg",
+      "id": "3c2fe6ab8dee085903d9b4aa1e54ddfba42a5e84804b2af86b685267c465fba4",
+      "image": "sha256:7e00e8c3539fdd43f513b98806c8204714dcd09dea683c259e333d7690317119",
+      "state": {
+        "Status": "exited",
+        "Running": false,
+        "ExitCode": 0,
+        "OOMKilled": false,
+        "FinishedAt": "2026-10-18T00:14:59.383824712Z"
+      },
+      "volumeNames": [
+        "bs-linux004-pg"
+      ]
+    }
+  ],
+  "ports": {
+    "8088": "closed",
+    "9099": "closed",
+    "55441": "closed",
+    "8188": "closed",
+    "8792": "closed",
+    "9198": "closed",
+    "9298": "closed",
+    "4498": "closed",
+    "4598": "closed",
+    "9150": "closed"
+  },
+  "retainedVolume": {
+    "Name": "bs-linux004-pg",
+    "Driver": "local",
+    "CreatedAt": "2026-10-17T23:53:20Z"
+  },
+  "retainedImages": {
+    "bitestar-postgis-linux-004:initial": "sha256:2b449598cf09490b7c3d4699031d26783a94c46d450176ad696c96909c28d12c",
+    "bitestar-postgis-linux-004:qualified-local": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+    "bitestar-postgis-controller-004:initial": "sha256:d31f485673c4638bffc4b5d5dd4b87a711d6182e47f799c877912eb57a49cf2f"
+  },
+  "archiveExists": true
+}

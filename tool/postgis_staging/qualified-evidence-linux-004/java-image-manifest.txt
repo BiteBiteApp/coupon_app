@@ -1,0 +1,88 @@
+Name:      docker.io/library/eclipse-temurin:21-jre-jammy
+MediaType: application/vnd.oci.image.index.v1+json
+Digest:    sha256:affcab5356e1270ac35d2361ee83135af2f03e8d580eca78a6d5d6fdbf048db0
+           
+Manifests: 
+  Name:        docker.io/library/eclipse-temurin:21-jre-jammy@sha256:8ecbec1f32912979c15b86aaf98f7082a77d318a7f92af3d9fe2c0fd2723df10
+  MediaType:   application/vnd.oci.image.manifest.v1+json
+  Platform:    linux/amd64
+  Annotations: 
+    org.opencontainers.image.base.name:       ubuntu:22.04
+    org.opencontainers.image.created:         2026-10-17T00:19:25Z
+    org.opencontainers.image.revision:        511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07
+    org.opencontainers.image.source:          https://github.com/adoptium/containers.git#511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07:21/jre/ubuntu/jammy
+    org.opencontainers.image.url:             https://hub.docker.com/_/eclipse-temurin
+    org.opencontainers.image.version:         21.0.12.1_1-jre-jammy
+    com.docker.official-images.bashbrew.arch: amd64
+    org.opencontainers.image.base.digest:     sha256:98510ac07bb4545e389be502a8918b385c018bfe4ceeb5ac7e0375c782268b04
+               
+  Name:        docker.io/library/eclipse-temurin:21-jre-jammy@sha256:dc6548ed90d8ca1114b6232b9fd49900fcf720c537997b5147df83d01d5e802a
+  MediaType:   application/vnd.oci.image.manifest.v1+json
+  Platform:    unknown/unknown
+  Annotations: 
+    com.docker.official-images.bashbrew.arch: amd64
+    vnd.docker.reference.digest:              sha256:8ecbec1f32912979c15b86aaf98f7082a77d318a7f92af3d9fe2c0fd2723df10
+    vnd.docker.reference.type:                attestation-manifest
+               
+  Name:        docker.io/library/eclipse-temurin:21-jre-jammy@sha256:900b7ac325b25c3a7b67351d6595403eba379e7d35babed3cebbb0a9fdc54112
+  MediaType:   application/vnd.oci.image.manifest.v1+json
+  Platform:    linux/arm64/v8
+  Annotations: 
+    org.opencontainers.image.revision:        511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07
+    org.opencontainers.image.source:          https://github.com/adoptium/containers.git#511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07:21/jre/ubuntu/jammy
+    org.opencontainers.image.url:             https://hub.docker.com/_/eclipse-temurin
+    org.opencontainers.image.version:         21.0.12.1_1-jre-jammy
+    com.docker.official-images.bashbrew.arch: arm64v8
+    org.opencontainers.image.base.digest:     sha256:88881eb36da489f9ff8746ece8048ca16cc94f80e8cd3ae7e8335d8822631591
+    org.opencontainers.image.base.name:       ubuntu:22.04
+    org.opencontainers.image.created:         2026-10-17T00:19:24Z
+               
+  Name:        docker.io/library/eclipse-temurin:21-jre-jammy@sha256:04a53cc11fd7ca0fbe10c8c5d731e1e6fdfc431f9601192c0b87b62f5ef1c5b3
+  MediaType:   application/vnd.oci.image.manifest.v1+json
+  Platform:    unknown/unknown
+  Annotations: 
+    com.docker.official-images.bashbrew.arch: arm64v8
+    vnd.docker.reference.digest:              sha256:900b7ac325b25c3a7b67351d6595403eba379e7d35babed3cebbb0a9fdc54112
+    vnd.docker.reference.type:                attestation-manifest
+               
+  Name:        docker.io/library/eclipse-temurin:21-jre-jammy@sha256:e431cb3a3d841e8b598d96f4e3bb34d5225a3ef498232f7c22484f89fcb1d201
+  MediaType:   application/vnd.oci.image.manifest.v1+json
+  Platform:    linux/ppc64le
+  Annotations: 
+    com.docker.official-images.bashbrew.arch: ppc64le
+    org.opencontainers.image.base.digest:     sha256:bbdfcd2f52e59e4ae38b0bfd9cd9629185be34be5a9a6905ef6b078f6212836c
+    org.opencontainers.image.base.name:       ubuntu:22.04
+    org.opencontainers.image.created:         2026-10-17T00:34:19Z
+    org.opencontainers.image.revision:        511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07
+    org.opencontainers.image.source:          https://github.com/adoptium/containers.git#511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07:21/jre/ubuntu/jammy
+    org.opencontainers.image.url:             https://hub.docker.com/_/eclipse-temurin
+    org.opencontainers.image.version:         21.0.12.1_1-jre-jammy
+               
+  Name:        docker.io/library/eclipse-temurin:21-jre-jammy@sha256:446792e84044d38120b1d5c5bff00deb421430ee28f37ff48df34dd646e50904
+  MediaType:   application/vnd.oci.image.manifest.v1+json
+  Platform:    unknown/unknown
+  Annotations: 
+    com.docker.official-images.bashbrew.arch: ppc64le
+    vnd.docker.reference.digest:              sha256:e431cb3a3d841e8b598d96f4e3bb34d5225a3ef498232f7c22484f89fcb1d201
+    vnd.docker.reference.type:                attestation-manifest
+               
+  Name:        docker.io/library/eclipse-temurin:21-jre-jammy@sha256:9185e90686b6fda36fdb1f4eee8b6a28aa5eebb7c2993b2836726567184915bd
+  MediaType:   application/vnd.oci.image.manifest.v1+json
+  Platform:    linux/s390x
+  Annotations: 
+    org.opencontainers.image.revision:        511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07
+    org.opencontainers.image.source:          https://github.com/adoptium/containers.git#511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07:21/jre/ubuntu/jammy
+    org.opencontainers.image.url:             https://hub.docker.com/_/eclipse-temurin
+    org.opencontainers.image.version:         21.0.12.1_1-jre-jammy
+    com.docker.official-images.bashbrew.arch: s390x
+    org.opencontainers.image.base.digest:     sha256:294228125b482f652f84de81408e1d6ac5555ac25b5fc1fb4e85f166369dfe04
+    org.opencontainers.image.base.name:       ubuntu:22.04
+    org.opencontainers.image.created:         2026-10-17T00:15:32Z
+               
+  Name:        docker.io/library/eclipse-temurin:21-jre-jammy@sha256:5c584068f049a49463c11acbbee9d7ef179ebfc904f311c84448a7187c2d7ef5
+  MediaType:   application/vnd.oci.image.manifest.v1+json
+  Platform:    unknown/unknown
+  Annotations: 
+    vnd.docker.reference.type:                attestation-manifest
+    com.docker.official-images.bashbrew.arch: s390x
+    vnd.docker.reference.digest:              sha256:9185e90686b6fda36fdb1f4eee8b6a28aa5eebb7c2993b2836726567184915bd

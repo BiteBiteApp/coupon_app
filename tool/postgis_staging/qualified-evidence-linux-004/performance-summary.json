@@ -1,0 +1,230 @@
+{
+  "environment": "Mac Flutter3.44.1/Dart3.12.1 -> fixed Mac loopback relays -> Linux/amd64 Rosetta Node24.21.0, Firestore/Auth emulators and PostgreSQL18.6/PostGIS3.6.4",
+  "imageId": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+  "fixtureTimestamp": "2026-10-18T00:00:00Z",
+  "modes": {
+    "serial": {
+      "flows": {
+        "bitesaver-guest": {
+          "samples": 20,
+          "passed": 20,
+          "warmSamples": 19,
+          "warmMedianMs": 3059.196,
+          "warmMinMs": 2918.038,
+          "warmMaxMs": 3365.318,
+          "empiricalNearestRankP95Ms": 3365.318,
+          "warmAtMost2Seconds": 0,
+          "firstObservationMs": 4230.706,
+          "searchHttpCallsPerSample": [
+            28
+          ],
+          "errors": 0,
+          "transportRetries": 0,
+          "cardsPerSample": [
+            25
+          ],
+          "orderedMembershipDigests": [
+            "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+          ]
+        },
+        "bitesaver-signed": {
+          "samples": 20,
+          "passed": 20,
+          "warmSamples": 19,
+          "warmMedianMs": 415.965,
+          "warmMinMs": 354.757,
+          "warmMaxMs": 795.394,
+          "empiricalNearestRankP95Ms": 795.394,
+          "warmAtMost2Seconds": 19,
+          "firstObservationMs": 460.899,
+          "searchHttpCallsPerSample": [
+            3
+          ],
+          "errors": 0,
+          "transportRetries": 0,
+          "cardsPerSample": [
+            25
+          ],
+          "orderedMembershipDigests": [
+            "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+          ]
+        },
+        "bitescore-dish-home": {
+          "samples": 3,
+          "passed": 3,
+          "warmSamples": 2,
+          "warmMedianMs": 161.312,
+          "warmMinMs": 147.978,
+          "warmMaxMs": 174.646,
+          "empiricalNearestRankP95Ms": 174.646,
+          "warmAtMost2Seconds": 2,
+          "firstObservationMs": 226.352,
+          "searchHttpCallsPerSample": [
+            2
+          ],
+          "errors": 0,
+          "transportRetries": 0,
+          "cardsPerSample": [],
+          "orderedMembershipDigests": []
+        },
+        "create-rate-finder": {
+          "samples": 3,
+          "passed": 3,
+          "warmSamples": 2,
+          "warmMedianMs": 485.14750000000004,
+          "warmMinMs": 467.384,
+          "warmMaxMs": 502.911,
+          "empiricalNearestRankP95Ms": 502.911,
+          "warmAtMost2Seconds": 2,
+          "firstObservationMs": 587.798,
+          "searchHttpCallsPerSample": [
+            2
+          ],
+          "errors": 0,
+          "transportRetries": 0,
+          "cardsPerSample": [],
+          "orderedMembershipDigests": []
+        }
+      },
+      "guestPerPageCounts": {
+        "searchHttpCalls": 28,
+        "guestContinuations": 26,
+        "requestedFirestoreDocuments": 754,
+        "operations": {
+          "firestore.transaction": 138,
+          "firestore.transactionRead.getDocuments": 138,
+          "firestore.transactionRead.getDocument": 88,
+          "firestore.getDocuments": 106,
+          "membership.pinRevision": 1,
+          "firestore.getDocument": 108,
+          "firestore.commitWrites": 55,
+          "membership.queryResults": 26,
+          "sql.membershipQuery": 191,
+          "firestore.queryDocuments": 26
+        }
+      },
+      "authorityCallsObserved": 632,
+      "guestSwitch": false,
+      "activeProjections": 185
+    },
+    "window": {
+      "flows": {
+        "bitesaver-guest": {
+          "samples": 20,
+          "passed": 20,
+          "warmSamples": 19,
+          "warmMedianMs": 1392.252,
+          "warmMinMs": 1270.881,
+          "warmMaxMs": 2225.986,
+          "empiricalNearestRankP95Ms": 2225.986,
+          "warmAtMost2Seconds": 18,
+          "firstObservationMs": 2289.407,
+          "searchHttpCallsPerSample": [
+            3
+          ],
+          "errors": 0,
+          "transportRetries": 0,
+          "cardsPerSample": [
+            25
+          ],
+          "orderedMembershipDigests": [
+            "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+          ]
+        },
+        "bitesaver-signed": {
+          "samples": 20,
+          "passed": 20,
+          "warmSamples": 19,
+          "warmMedianMs": 443.49,
+          "warmMinMs": 379.696,
+          "warmMaxMs": 798.021,
+          "empiricalNearestRankP95Ms": 798.021,
+          "warmAtMost2Seconds": 19,
+          "firstObservationMs": 469.736,
+          "searchHttpCallsPerSample": [
+            3
+          ],
+          "errors": 0,
+          "transportRetries": 0,
+          "cardsPerSample": [
+            25
+          ],
+          "orderedMembershipDigests": [
+            "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+          ]
+        },
+        "bitescore-dish-home": {
+          "samples": 3,
+          "passed": 3,
+          "warmSamples": 2,
+          "warmMedianMs": 174.6825,
+          "warmMinMs": 172.748,
+          "warmMaxMs": 176.617,
+          "empiricalNearestRankP95Ms": 176.617,
+          "warmAtMost2Seconds": 2,
+          "firstObservationMs": 248.509,
+          "searchHttpCallsPerSample": [
+            2
+          ],
+          "errors": 0,
+          "transportRetries": 0,
+          "cardsPerSample": [],
+          "orderedMembershipDigests": []
+        },
+        "create-rate-finder": {
+          "samples": 3,
+          "passed": 3,
+          "warmSamples": 2,
+          "warmMedianMs": 518.586,
+          "warmMinMs": 508.937,
+          "warmMaxMs": 528.235,
+          "empiricalNearestRankP95Ms": 528.235,
+          "warmAtMost2Seconds": 2,
+          "firstObservationMs": 579.862,
+          "searchHttpCallsPerSample": [
+            2
+          ],
+          "errors": 0,
+          "transportRetries": 0,
+          "cardsPerSample": [],
+          "orderedMembershipDigests": []
+        }
+      },
+      "guestPerPageCounts": {
+        "searchHttpCalls": 3,
+        "guestContinuations": 1,
+        "requestedFirestoreDocuments": 658,
+        "operations": {
+          "firestore.transaction": 89,
+          "firestore.transactionRead.getDocuments": 165,
+          "firestore.transactionRead.getDocument": 13,
+          "firestore.getDocuments": 82,
+          "membership.pinRevision": 1,
+          "firestore.getDocument": 33,
+          "firestore.commitWrites": 30,
+          "membership.queryResults": 26,
+          "sql.membershipQuery": 191,
+          "firestore.queryDocuments": 26
+        }
+      },
+      "authorityCallsObserved": 132,
+      "guestSwitch": true,
+      "activeProjections": 185
+    }
+  },
+  "hostedPerformanceEvidence": false,
+  "samplesDoNotSupportHostedP95P99OrNationalScale": true,
+  "priorMacWindowWarmMedianMs": 754.386,
+  "identicalFixtureFullSourceFenceRevisionAndMembership": true,
+  "guestWarmMedianReductionPercent": 54.489610995830276,
+  "initialFixtureFailures": [
+    {
+      "attempt": "serial-render.network-startup.log",
+      "result": "interrupted; no backend requests; Docker internal network did not publish Mac loopback port"
+    },
+    {
+      "attempt": "serial-render.auth-relay-missing.log",
+      "result": "2passed/2failed; missing Mac loopback Auth9099relay caused initialize failure;19/20guest samples had succeeded, signed setup failed; not hidden or counted as final PASS"
+    }
+  ]
+}

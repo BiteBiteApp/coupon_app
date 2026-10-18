@@ -1,0 +1,9 @@
+Independent final local Linux guard review: PASS
+
+The exact immutable search image a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4 passed all six guard tests, with zero failures or skips, using network none and bounded CPU/memory. Its executed Node binary matches the inspected ELF and retained numerical review. The four reviewed source hashes match the image, selected-source, and primary workspace.
+
+The guard checks scope and flags on every call and rejects hosted Linux before returning any cached local success. Both hosted entry points request hosted scope explicitly. The old exact Darwin tuple remains unchanged. No unresolved material finding was identified.
+
+This qualifies only the exact observed local emulated runtime tuple under the documented numerical assumptions. It does not qualify native/hosted Linux or substitute for the parent's functional tests. No repository edits or cloud actions were performed.
+
+Exact commands, hashes, and limits are in final-guard-review.json.

@@ -1,0 +1,83 @@
+[
+    {
+        "Id": "sha256:7e00e8c3539fdd43f513b98806c8204714dcd09dea683c259e333d7690317119",
+        "RepoTags": [
+            "postgis/postgis@sha256:7e00e8c3539fdd43f513b98806c8204714dcd09dea683c259e333d7690317119"
+        ],
+        "RepoDigests": [
+            "postgis/postgis@sha256:7e00e8c3539fdd43f513b98806c8204714dcd09dea683c259e333d7690317119"
+        ],
+        "Comment": "buildkit.dockerfile.v0",
+        "Created": "2026-08-31T11:33:54.076962224Z",
+        "Config": {
+            "ExposedPorts": {
+                "5432/tcp": {}
+            },
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/18/bin",
+                "GOSU_VERSION=1.19",
+                "LANG=en_US.utf8",
+                "PG_MAJOR=18",
+                "PG_VERSION=18.6-1.pgdg13+2",
+                "PGDATA=/var/lib/postgresql/18/docker",
+                "POSTGIS_MAJOR=3",
+                "POSTGIS_VERSION=3.6.4+dfsg-2.pgdg13+1"
+            ],
+            "Entrypoint": [
+                "docker-entrypoint.sh"
+            ],
+            "Cmd": [
+                "postgres"
+            ],
+            "Volumes": {
+                "/var/lib/postgresql": {}
+            },
+            "Labels": {
+                "maintainer": "PostGIS Project - https://postgis.net",
+                "org.opencontainers.image.description": "PostGIS 3.6.4+dfsg-2.pgdg13+1 spatial database extension with PostgreSQL 18 trixie",
+                "org.opencontainers.image.source": "https://github.com/postgis/docker-postgis"
+            },
+            "StopSignal": "SIGINT"
+        },
+        "Architecture": "amd64",
+        "Os": "linux",
+        "Size": 956832187,
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:411a86676185cb54d695a805b238194a64e9b77e0c723f3802fbb87d333ea0b3",
+                "sha256:057b95407e6ef3d2a36fe9842762fad2ccaf4e110ff92b74fee42f148027a07a",
+                "sha256:7f2c0f88578a81555725968fc8b9c6f67248f5496dda4c15efa7be395cac9953",
+                "sha256:705feaa6976169682fd2e6e87aa3a9189b83165761e5f5c6ee5ec83a77b83bc5",
+                "sha256:0a13633af0a626347aa71296aa0c4cebe3f836439318716696caeb2762e0801f",
+                "sha256:e933b3c77d2b9d94a1f3730d7692ed39250bcb26fa603c03cc4ba4366bc7bfbe",
+                "sha256:4770728d2d1589739faaf00d9ca3b0e8cdf840b828198c8767468940879f95b1",
+                "sha256:90e71c7bb2d6fbe52c7de8fe6277ad35502df27f1cd808c7cbdcca40821e0d24",
+                "sha256:2faf9b09266f083b395fd7c8d82ae7e2c079a95ac1d2929dcf8fffcc26604fc8",
+                "sha256:40f254190f92cd359c37b597343520632c2bce38698b41fca35c2e99e0937455",
+                "sha256:ec3792d25182008f1b0aa7e702e64534ae97fe8876eff11e7be3929b6e78d4fa",
+                "sha256:2648e536062b624c9206e899729d7ba8742bcc9043076a9ec62588c65651ca84",
+                "sha256:e1538743df51f586f7cc7ef1cb6fba65505aa6fb8ab5853532cc16c48a842e38",
+                "sha256:d2f4ff814d390073dc85871e46af12580449e34fd43dcdcab641a7873bf6f38a",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                "sha256:3c266008d33f517249632a128e11fc608e440a8ae21328f1afaf18234b2fc5a1",
+                "sha256:82857d8970751141a3b4e25e97c57a1e80a93b8191d69ab4296b9963ff62693d"
+            ]
+        },
+        "Metadata": {
+            "LastTagTime": "2026-10-17T23:51:36.976116507Z"
+        },
+        "Descriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:7e00e8c3539fdd43f513b98806c8204714dcd09dea683c259e333d7690317119",
+            "size": 3522
+        },
+        "Identity": {
+            "Pull": [
+                {
+                    "Repository": "docker.io/postgis/postgis"
+                }
+            ]
+        }
+    }
+]

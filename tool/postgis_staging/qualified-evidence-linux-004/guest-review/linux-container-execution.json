@@ -1,0 +1,117 @@
+[
+  {
+    "name": "bs-postgis-004-guest-handlers",
+    "containerId": "a366f75ab2b77941527f848763d94c39da279f0c68d3ceec2276e40b50f6eca5",
+    "imageReference": "sha256:2b449598cf09490b7c3d4699031d26783a94c46d450176ad696c96909c28d12c",
+    "containerImageId": "sha256:2b449598cf09490b7c3d4699031d26783a94c46d450176ad696c96909c28d12c",
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-10-17T23:56:04.077878589Z",
+      "FinishedAt": "2026-10-17T23:56:17.938594763Z"
+    },
+    "command": [
+      "node",
+      "--test",
+      "--test-isolation=none",
+      "test/customer_bitesaver_search_handlers.test.js"
+    ],
+    "user": "node",
+    "workingDirectory": "/app/functions",
+    "network": "none",
+    "memoryBytes": 805306368,
+    "nanoCpus": 1000000000,
+    "pidsLimit": 128,
+    "mounts": []
+  },
+  {
+    "name": "bs-postgis-004-guest-diagnostics",
+    "containerId": "b9724e0ece779281c276376e26b4fd4e96fede8e8b1f79318a2aaf4e3575ce5f",
+    "imageReference": "sha256:2b449598cf09490b7c3d4699031d26783a94c46d450176ad696c96909c28d12c",
+    "containerImageId": "sha256:2b449598cf09490b7c3d4699031d26783a94c46d450176ad696c96909c28d12c",
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-10-17T23:56:28.145077878Z",
+      "FinishedAt": "2026-10-17T23:56:53.443127918Z"
+    },
+    "command": [
+      "node",
+      "--test",
+      "--test-isolation=none",
+      "/review/independent-window-diagnostics.v3.cjs"
+    ],
+    "user": "node",
+    "workingDirectory": "/app/functions",
+    "network": "none",
+    "memoryBytes": 805306368,
+    "nanoCpus": 1000000000,
+    "pidsLimit": 128,
+    "mounts": [
+      {
+        "Type": "bind",
+        "Source": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-inputs",
+        "Destination": "/review",
+        "Mode": "",
+        "RW": false,
+        "Propagation": "rprivate"
+      }
+    ]
+  },
+  {
+    "name": "bs-postgis-004-guest-supplement",
+    "containerId": "0b619dce23ec128a9142bdca48b397682026d8bc55d30a7479a03e9826661f44",
+    "imageReference": "sha256:2b449598cf09490b7c3d4699031d26783a94c46d450176ad696c96909c28d12c",
+    "containerImageId": "sha256:2b449598cf09490b7c3d4699031d26783a94c46d450176ad696c96909c28d12c",
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-10-17T23:57:07.209019549Z",
+      "FinishedAt": "2026-10-17T23:57:10.807025551Z"
+    },
+    "command": [
+      "node",
+      "--test",
+      "--test-isolation=none",
+      "--test-name-pattern=review maximum|review concurrent",
+      "/review/independent-window-diagnostics.supplement.cjs"
+    ],
+    "user": "node",
+    "workingDirectory": "/app/functions",
+    "network": "none",
+    "memoryBytes": 805306368,
+    "nanoCpus": 1000000000,
+    "pidsLimit": 128,
+    "mounts": [
+      {
+        "Type": "bind",
+        "Source": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-inputs",
+        "Destination": "/review",
+        "Mode": "",
+        "RW": false,
+        "Propagation": "rprivate"
+      }
+    ]
+  }
+]

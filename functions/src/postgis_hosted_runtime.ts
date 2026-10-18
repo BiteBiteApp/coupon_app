@@ -73,7 +73,7 @@ export function createHostedPostgisRuntime(configuration: HostedPostgisConfigura
         [resources.discoveryKey, resources.identityKeyV1, resources.scoreCursorRootKey].some(key => key.byteLength !== 32)) {
       throw new Error("The hosted candidate resource identity does not match its approval.");
     }
-    requireQualifiedPostgisRuntime();
+    requireQualifiedPostgisRuntime("hosted");
   }
   requireHosted();
   const sourceConfig = {projectId: options.projectId, allowedProjectIds: options.allowedProjectIds, epoch: options.epoch};

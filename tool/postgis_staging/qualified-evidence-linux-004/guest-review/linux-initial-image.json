@@ -1,0 +1,20 @@
+{
+  "Id": "sha256:2b449598cf09490b7c3d4699031d26783a94c46d450176ad696c96909c28d12c",
+  "RepoTags": [
+    "bitestar-postgis-linux-004:initial"
+  ],
+  "RepoDigests": [
+    "bitestar-postgis-linux-004@sha256:2b449598cf09490b7c3d4699031d26783a94c46d450176ad696c96909c28d12c"
+  ],
+  "Created": "2026-10-17T23:51:34.669948548Z",
+  "Architecture": "amd64",
+  "Os": "linux",
+  "Size": 600175123,
+  "user": "node",
+  "defaultCommand": [
+    "node",
+    "functions/lib/postgis_hosted_entrypoint.js",
+    "--dry-run",
+    "/app/tool/postgis_staging/hosted/hosted.example.json"
+  ]
+}

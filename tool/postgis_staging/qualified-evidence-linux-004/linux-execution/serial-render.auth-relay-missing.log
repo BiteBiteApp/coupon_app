@@ -1,0 +1,95 @@
+00:00 +0: loading /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/selected-source/test/services/postgis_flutter_integration_test.dart
+00:00 +0: real local guest BiteSaver renders useful native offer cards
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: empty
+  Actual: [0]
+Every attempted sample is retained in evidence.
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/selected-source/test/services/postgis_flutter_integration_test.dart:350:9)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1952:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/selected-source/test/services/postgis_flutter_integration_test.dart line 350
+The test description was:
+  real local guest BiteSaver renders useful native offer cards
+════════════════════════════════════════════════════════════════════════════════════════════════════
+01:02 +0 -1: real local guest BiteSaver renders useful native offer cards [E]
+  Test failed. See exception logs above.
+  The test description was: real local guest BiteSaver renders useful native offer cards
+  
+01:02 +0 -1: real local signed BiteSaver renders useful native offer cards
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following SocketException was thrown while running async test code:
+Connection refused (OS Error: Connection refused, errno = 61), address = 127.0.0.1, port = 55226
+
+When the exception was thrown, this was the stack:
+#0      _NativeSocket.startConnect (dart:io-patch/socket_patch.dart:817:35)
+#1      _RawSocket.startConnect (dart:io-patch/socket_patch.dart:2281:26)
+#2      RawSocket.startConnect (dart:io-patch/socket_patch.dart:41:23)
+#3      Socket._startConnect (dart:io-patch/socket_patch.dart:2542:22)
+#4      Socket.startConnect (dart:io/socket.dart:897:21)
+#5      _ConnectionTarget.connect (dart:_http/http_impl.dart:2699:20)
+#6      _HttpClient._getConnection.connect (dart:_http/http_impl.dart:3197:12)
+#7      _HttpClient._getConnection (dart:_http/http_impl.dart:3202:12)
+#8      _HttpClient._openUrl (dart:_http/http_impl.dart:3021:12)
+#9      _HttpClient.postUrl (dart:_http/http_impl.dart:2873:49)
+#10     main.post.<anonymous closure> (file:///Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/selected-source/test/services/postgis_flutter_integration_test.dart:55:33)
+#13     main.post (file:///Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/selected-source/test/services/postgis_flutter_integration_test.dart:54:22)
+#14     main.initialize.<anonymous closure> (file:///Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/selected-source/test/services/postgis_flutter_integration_test.dart:153:13)
+#15     AutomatedTestWidgetsFlutterBinding.runAsync.<anonymous closure> (package:flutter_test/src/binding.dart:2307:17)
+#18     AutomatedTestWidgetsFlutterBinding.runAsync (package:flutter_test/src/binding.dart:2303:26)
+#19     WidgetTester.runAsync (package:flutter_test/src/widget_tester.dart:838:17)
+#20     main.initialize (file:///Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/selected-source/test/services/postgis_flutter_integration_test.dart:140:18)
+#21     main.<anonymous closure> (file:///Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/selected-source/test/services/postgis_flutter_integration_test.dart:257:29)
+<asynchronous suspension>
+#22     testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#23     TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1952:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 5 frames from dart:async and package:stack_trace)
+
+The exception was caught asynchronously.
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following _TypeError was thrown running a test:
+Null check operator used on a null value
+
+When the exception was thrown, this was the stack:
+#0      main.<anonymous closure> (file:///Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/selected-source/test/services/postgis_flutter_integration_test.dart:262:60)
+<asynchronous suspension>
+#1      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#2      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1952:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+The test description was:
+  real local signed BiteSaver renders useful native offer cards
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following message was thrown:
+Multiple exceptions (2) were detected during the running of the current test, and at least one was
+unexpected.
+════════════════════════════════════════════════════════════════════════════════════════════════════
+01:02 +0 -2: real local signed BiteSaver renders useful native offer cards [E]
+  Test failed. See exception logs above.
+  The test description was: real local signed BiteSaver renders useful native offer cards
+  
+01:02 +0 -2: real local BiteScore Home renders useful dish cards
+01:03 +1 -2: real local Create and Rate Finder displays native restaurant suggestions
+01:05 +2 -2: (tearDownAll)
+01:05 +2 -2: Some tests failed.
+
+Failing tests:
+  /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/selected-source/test/services/postgis_flutter_integration_test.dart: real local guest BiteSaver renders useful native offer cards
+  /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/selected-source/test/services/postgis_flutter_integration_test.dart: real local signed BiteSaver renders useful native offer cards

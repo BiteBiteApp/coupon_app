@@ -1,0 +1,26 @@
+{
+  "checkedAt": "2026-10-17T23:45:53.612047+00:00",
+  "signalledPid": 82960,
+  "signal": "SIGINT",
+  "verifiedTaskCommand": "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node /opt/homebrew/Cellar/firebase-cli/15.19.1/libexec/lib/node_modules/firebase-tools/lib/bin/firebase.js emulators:start --only firestore,auth,storage --project demo-coupon-app-rules --config /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/storage-review/runtime/firebase.json",
+  "verifiedChildCommands": {
+    "82976": "82960 java -Dgoogle.cloud_firestore.debug_log_level=FINE -Duser.language=en -jar /Users/colesmart/.cache/firebase/emulators/cloud-firestore-emulator-v1.21.0.jar --host 127.0.0.1 --port 8792 --websocket_port 9150 --database-edition standard --project_id demo-coupon-app-rules --rules /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/storage-review/fixture-source/firestore.rules --single_project_mode true",
+    "82981": "82960 java -Duser.language=en -jar /Users/colesmart/.cache/firebase/emulators/cloud-storage-rules-runtime-v1.1.3.jar serve"
+  },
+  "pidExited": {
+    "82960": true,
+    "82976": true,
+    "82981": true
+  },
+  "portsAbsent": {
+    "8792": true,
+    "9198": true,
+    "9298": true,
+    "4498": true,
+    "4598": true,
+    "9150": true
+  },
+  "onlyTaskOwnedServicesStopped": true,
+  "dataAndLogsPreserved": true,
+  "rootReservedPortsTouched": false
+}

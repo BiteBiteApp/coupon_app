@@ -1,0 +1,47 @@
+Independent numerical/runtime review — BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004
+
+Verdict: APPROVE A NARROW LOCAL RUNTIME TUPLE for the exact Node binary and observed emulated Linux environment below. The existing retained lower-bound proof applies to this binary's inspected math route. This permits root to implement the explicitly authorized local-only guard addition, followed by fresh guard review, rebuild and actual guarded functional qualification. No source or guard was changed by this reviewer. Hosted/native managed qualification is NOT granted.
+
+Exact reviewed runtime
+- Search image manifest/Docker inspected Id: sha256:2b449598cf09490b7c3d4699031d26783a94c46d450176ad696c96909c28d12c.
+- OCI config digest: sha256:c55c72b6202cc74c99194a35a16778931d253940f45eaa760d3449540eac757f. These are different identities and are retained separately.
+- Executed Node v24.21.0, V8 13.6.233.17-node.53, linux/x64, SHA2567fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c.
+- Debian12, glibc2.36-9+deb12u14; Linuxkit7.0.14, VirtualApple x86 CPU. Root recorded Apple Virtualization/Rosetta, Docker4.95.0,4CPU/8GiB VM. Reviewer probes used1CPU/768MiB, with network disabled except the specifically authorized read-only local SQL bridge.
+- Controller image inspected Id: sha256:d31f485673c4638bffc4b5d5dd4b87a711d6182e47f799c877912eb57a49cf2f; root-built Python3.12.13 ran the retained rational audit.
+
+Why this is more than finite sampling
+
+The copied ELF hash equals the hash measured in the executed search container. Apple LLVM objdump recognizes elf64-x86-64. I inspected the external-reference dispatch, native function instructions, reducer and compiled builtin sqrt. Dispatch functions return the exact addresses of v8::base::ieee754::sin0x27a8e60, cos0x27a7210, atan0x27a6c90 and atan2 0x27a6f20. Sin/cos call the internal __ieee754_rem_pio2 at0x27a6300; atan2 divides and calls the internal atan. Neither an alternate glibc route nor a use_libm_trig_functions option appears. Linked libm presence by itself is not the dispatch claim.
+
+Thirty-five constants actually referenced by these instructions match the pinned proof source: sine/cosine coefficients, four near-pi/2 reducer constants, four atan heads/four tails and eleven atan coefficients. Where the compiler stores the positive magnitude of a negative coefficient, the associated instruction subtracts it. Native code uses separate SSE addsd/subsd/mulsd/divsd, with no FMA or x87 arithmetic in the reviewed functions/reducer. This falls within the proof's permitted separate-rounding case; equal last bits with the prior ARM FMA build are not required.
+
+Reachable branch thresholds and calculations match the proof: direct/tiny sine and cosine branches; near-pi/2 reduction including the special high-word0x3ff921fb branch and leading/tail reconstruction; cosine's quadrant negation and tiny negative-remainder return; split odd/even atan polynomial, its dyadic reductions and positive atan2 ratio/x=0 handling. MathSqrt's actual builtin contains sqrtsd, matching the pinned x64 generator. Standard IEEE binary64 nearest-even, gradual underflow and instruction semantics remain explicit platform assumptions as in the original proof; this review is not a formal proof of Rosetta's implementation. Default-runtime checks corroborate those assumptions and showed no contrary behavior.
+
+I ran the byte-identical retained exact-rational audit under the actual controller image, with network none and bounded resources. Scriptb0445dca0915ceb2938085cdf7bd0bd0702bc967a9e45ede71364ea247d0d94d and source1bf999809d4c4c1d31ad5ff3578d32614796f159e08b9e7782560d017721a0c2 both match the historical latitude+longitude correction. All assertions passed, including polynomial intervals, positive pole-cosine sign, expanded60/4 guard domain, small/large/clamped cases, decimal bridge allowances and saturation above the30-mile maximum. This reuses the existing proof rather than deriving a new distance rule.
+
+Actual local SQL bridge
+
+PostgreSQL18.6 Debian18.6-1.pgdg13+2 x86_64 and PostGIS3.6.4 are recorded. The prior proof used PostgreSQL18.6. I checked the exact REL_18_6 numeric.c release source: float8_numeric formats with DBL_DIG; numeric_float8 parses numeric text through float8in. Lossy decimal conversion is therefore the existing budgeted bridge, not an assumed exact float-to-decimal operation. Source https://raw.githubusercontent.com/postgres/postgres/REL_18_6/src/backend/utils/adt/numeric.c .
+
+I independently executed34 read-only edge conversions through the actual createLocalPostgisPool against bsgate0_linux, inside BEGIN READ ONLY followed by ROLLBACK. Actual session extra_float_digits is1. Adjacent representable values at±4/60/90/180, independent zero/subnormal inputs, minimum normals and lower-bound thresholds preserved transport and remained below1e-12degree conversion error; observed maximum2.842170943040401e-14degree. Negative zero is normalized by the existing JavaScript/pg text path, with no effect on the nonnegative geometric bound. Final capped mile conversions remain within the retained allowance. These cases corroborate the release-source bound; they do not replace it.
+
+Observed diagnostics
+
+- Retained exact-rational interval audit: all assertions passed.
+- ELF source-constant checks:35/35.
+- Default no-extra-flags nearest-even/subnormal/sqrt/pole checks:13/13.
+- Actual-pool read-only conversion cases:34/34.
+- Root's unchanged actual SQL diagnostic:318 branch/boundary pairs,257 positive bounds;1512 radius-edge vectors,730 accepted,0 missed. Its servingRuntimeQualified:false field is correct because it does not exercise the guard.
+- An initial --print-opt-code probe emitted no optimized function disassembly; it is retained as finite-check evidence only. No JIT-disassembly pass is claimed from that log. The inspected static native dispatch/builtin instructions and pinned V8 compiler source provide the implementation mapping above.
+
+Narrow guard recommendation
+
+Use an explicit local/hosted scope and validate scope plus existing flags on every invocation, before any successful cache return. Both existing hosted opener/runtime call sites must explicitly use hosted. For linux, hosted must reject even after local qualification was cached. The local branch must require exact version/V8/platform/arch/binary identity and the observed kernel/VirtualApple boundary; unknown or changed environments remain closed. Preserve the existing Darwin tuple. Do not introduce environment bypasses or allow metadata/request payloads to choose scope. This is a compatibility guard for trusted application composition, not a sandbox against a trusted module deliberately replacing built-ins or spoofing process metadata.
+
+Test actual local acceptance, hosted-after-local rejection, scope/flags after cache, wrong hashes/versions/kernel/CPU refusal, and unchanged Darwin acceptance. Rebuild final image and run actual select/native HTTP/source/recovery/guest tests. Only final changed hashes inherit the later combined qualification. This receipt approves numerical transfer and the narrowly scoped next implementation step; it does not claim those downstream checks already passed.
+
+Limits and Bug Filter
+
+The exact reviewed emulated-local runtime is qualified for the retained conservative lower-bound proof under its stated arithmetic assumptions. Native hosted CPU/JIT, managed SQL patch/service, IAM/private routing, real durable object permissions, independent watchdog/alerts and billing safety still need the separately approved supervised provider gate. No paid resource, cloud action, deployment, activation or real72-hour clock occurred in this review.
+
+FIX NOW / DIRECTLY REQUIRED: local acceptance must never leak through the cached guard into hosted scope, because otherwise unqualified hosted search could rely on this local proof. Root is implementing the minimal explicit-scope boundary. ACCEPT AND CLOSE: finite diagnostics with explicit limitations are useful corroboration, not universal proof; no source defect was demonstrated in the inspected numerical path. No new architecture or product behavior is proposed.

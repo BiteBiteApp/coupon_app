@@ -1,0 +1,227 @@
+[
+  {
+    "Id": "22acebd4935cea50edd07f4f05998f62193a5edb7f9ada112275f82503ca65af",
+    "Created": "2026-10-17T23:57:01.168646546Z",
+    "Path": "python3",
+    "Args": [
+      "/app/tool/postgis_staging/scripts/provider_entrypoint.py",
+      "--config",
+      "/fixtures/tool/postgis_staging/config/staging.json"
+    ],
+    "State": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-10-17T23:57:01.252230963Z",
+      "FinishedAt": "2026-10-17T23:57:01.589303796Z"
+    },
+    "Image": "sha256:d31f485673c4638bffc4b5d5dd4b87a711d6182e47f799c877912eb57a49cf2f",
+    "ResolvConfPath": "/var/lib/docker/containers/22acebd4935cea50edd07f4f05998f62193a5edb7f9ada112275f82503ca65af/resolv.conf",
+    "HostnamePath": "/var/lib/docker/containers/22acebd4935cea50edd07f4f05998f62193a5edb7f9ada112275f82503ca65af/hostname",
+    "HostsPath": "/var/lib/docker/containers/22acebd4935cea50edd07f4f05998f62193a5edb7f9ada112275f82503ca65af/hosts",
+    "LogPath": "",
+    "Name": "/bs004-controller-review-dryrun",
+    "RestartCount": 0,
+    "Driver": "overlayfs",
+    "Platform": "linux",
+    "MountLabel": "",
+    "ProcessLabel": "",
+    "AppArmorProfile": "",
+    "ExecIDs": null,
+    "HostConfig": {
+      "Binds": null,
+      "ContainerIDFile": "",
+      "LogConfig": {
+        "Type": "local",
+        "Config": {}
+      },
+      "NetworkMode": "none",
+      "PortBindings": {},
+      "RestartPolicy": {
+        "Name": "no",
+        "MaximumRetryCount": 0
+      },
+      "AutoRemove": false,
+      "VolumeDriver": "",
+      "VolumesFrom": null,
+      "ConsoleSize": [
+        0,
+        0
+      ],
+      "CapAdd": null,
+      "CapDrop": null,
+      "CgroupnsMode": "private",
+      "Dns": null,
+      "DnsOptions": [],
+      "DnsSearch": [],
+      "ExtraHosts": null,
+      "GroupAdd": null,
+      "IpcMode": "private",
+      "Cgroup": "",
+      "Links": null,
+      "OomScoreAdj": 0,
+      "PidMode": "",
+      "Privileged": false,
+      "PublishAllPorts": false,
+      "ReadonlyRootfs": true,
+      "SecurityOpt": null,
+      "Tmpfs": {
+        "/tmp": "rw,nosuid,nodev,size=128m"
+      },
+      "UTSMode": "",
+      "UsernsMode": "",
+      "ShmSize": 67108864,
+      "Runtime": "runc",
+      "Isolation": "",
+      "CpuShares": 0,
+      "Memory": 805306368,
+      "NanoCpus": 1000000000,
+      "CgroupParent": "",
+      "BlkioWeight": 0,
+      "BlkioWeightDevice": [],
+      "BlkioDeviceReadBps": [],
+      "BlkioDeviceWriteBps": [],
+      "BlkioDeviceReadIOps": [],
+      "BlkioDeviceWriteIOps": [],
+      "CpuPeriod": 0,
+      "CpuQuota": 0,
+      "CpuRealtimePeriod": 0,
+      "CpuRealtimeRuntime": 0,
+      "CpusetCpus": "",
+      "CpusetMems": "",
+      "Devices": [],
+      "DeviceCgroupRules": null,
+      "DeviceRequests": null,
+      "MemoryReservation": 0,
+      "MemorySwap": 1610612736,
+      "MemorySwappiness": null,
+      "OomKillDisable": null,
+      "PidsLimit": 128,
+      "Ulimits": null,
+      "CpuCount": 0,
+      "CpuPercent": 0,
+      "IOMaximumIOps": 0,
+      "IOMaximumBandwidth": 0,
+      "Mounts": [
+        {
+          "Type": "bind",
+          "Source": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/controller-review/fixtures",
+          "Target": "/fixtures",
+          "ReadOnly": true
+        }
+      ],
+      "MaskedPaths": [
+        "/proc/acpi",
+        "/proc/asound",
+        "/proc/interrupts",
+        "/proc/kcore",
+        "/proc/keys",
+        "/proc/latency_stats",
+        "/proc/sched_debug",
+        "/proc/scsi",
+        "/proc/timer_list",
+        "/proc/timer_stats",
+        "/sys/devices/virtual/powercap",
+        "/sys/firmware"
+      ],
+      "ReadonlyPaths": [
+        "/proc/bus",
+        "/proc/fs",
+        "/proc/irq",
+        "/proc/sys",
+        "/proc/sysrq-trigger"
+      ]
+    },
+    "Storage": {
+      "RootFS": {
+        "Snapshot": {
+          "Name": "overlayfs"
+        }
+      }
+    },
+    "Mounts": [
+      {
+        "Type": "bind",
+        "Source": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/controller-review/fixtures",
+        "Destination": "/fixtures",
+        "Mode": "",
+        "RW": false,
+        "Propagation": "rprivate"
+      }
+    ],
+    "Config": {
+      "Hostname": "22acebd4935c",
+      "Domainname": "",
+      "User": "65532:65532",
+      "AttachStdin": false,
+      "AttachStdout": true,
+      "AttachStderr": true,
+      "Tty": false,
+      "OpenStdin": false,
+      "StdinOnce": false,
+      "Env": [
+        "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "LANG=C.UTF-8",
+        "GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305",
+        "PYTHON_VERSION=3.12.13",
+        "PYTHON_SHA256=c08bc65a81971c1dd5783182826503369466c7e67374d1646519adf05207b684",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "PYTHONUNBUFFERED=1"
+      ],
+      "Cmd": [
+        "--config",
+        "/fixtures/tool/postgis_staging/config/staging.json"
+      ],
+      "Image": "bitestar-postgis-controller-004:initial",
+      "Volumes": null,
+      "WorkingDir": "/app",
+      "Entrypoint": [
+        "python3",
+        "/app/tool/postgis_staging/scripts/provider_entrypoint.py"
+      ],
+      "Labels": {}
+    },
+    "NetworkSettings": {
+      "SandboxID": "",
+      "SandboxKey": "",
+      "Ports": {},
+      "Networks": {
+        "none": {
+          "IPAMConfig": null,
+          "Links": null,
+          "Aliases": null,
+          "DriverOpts": null,
+          "GwPriority": 0,
+          "NetworkID": "0e410e9b95374f980909e7c4e70da9506d938f79728040fa9029c1d7744d1ff1",
+          "EndpointID": "",
+          "Gateway": "",
+          "IPAddress": "",
+          "MacAddress": "",
+          "IPPrefixLen": 0,
+          "IPv6Gateway": "",
+          "GlobalIPv6Address": "",
+          "GlobalIPv6PrefixLen": 0,
+          "DNSNames": null
+        }
+      }
+    },
+    "ImageManifestDescriptor": {
+      "mediaType": "application/vnd.oci.image.manifest.v1+json",
+      "digest": "sha256:d31f485673c4638bffc4b5d5dd4b87a711d6182e47f799c877912eb57a49cf2f",
+      "size": 2564,
+      "annotations": {
+        "config.digest": "sha256:6045d59fe7690a31730682f35db5cdaafe78a106997da8ee19eddc949d790b86"
+      },
+      "platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      }
+    }
+  }
+]

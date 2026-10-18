@@ -1,0 +1,33 @@
+0000000002a2ccc0 l     F .text	00000000000000e6 v8::internal::compiler::turboshaft::TurboshaftAssemblerOpInterface<v8::internal::compiler::turboshaft::Assembler<v8::base::tmp::list1<v8::internal::compiler::turboshaft::ExplicitTruncationReducer, v8::internal::compiler::turboshaft::VariableReducer, v8::internal::compiler::turboshaft::TSReducerBase>>>::Float64Sqrt(v8::internal::compiler::turboshaft::ConstOrV<v8::internal::compiler::turboshaft::FloatWithBits<64ul>, double>) (.isra.0)
+0000000001b4ca40 l     F .text	0000000000000144 Builtins_MathAtan
+0000000001b4cbc0 l     F .text	000000000000019c Builtins_MathAtan2
+0000000001b4cd80 l     F .text	0000000000000144 Builtins_MathAtanh
+0000000001b4d180 l     F .text	0000000000000144 Builtins_MathCos
+0000000001b4d300 l     F .text	0000000000000144 Builtins_MathCosh
+0000000001b4e240 l     F .text	0000000000000144 Builtins_MathSin
+0000000001b4e480 l     F .text	0000000000000144 Builtins_MathSinh
+0000000001b4e600 l     F .text	0000000000000108 Builtins_MathSqrt
+00000000027a5730 l     F .text	0000000000000bcb v8::base::ieee754::(anonymous namespace)::__kernel_rem_pio2(double*, double*, int, int, int, int const*) (.constprop.0)
+00000000066512c0 l     O .rodata	0000000000000108 v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi
+00000000027a6300 l     F .text	000000000000037e v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)
+0000000006651240 l     O .rodata	0000000000000080 v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::npio2_hw
+0000000006651220 l     O .rodata	0000000000000020 v8::base::ieee754::atan(double)::atanlo
+0000000006b7c4b0 l     O .data	0000000000000008 v8::base::ieee754::atan2(double, double)::tiny
+0000000006b7c4a8 l     O .data	0000000000000008 v8::base::ieee754::atan2(double, double)::pi_lo
+0000000000d465f0 l     F .text	000000000000002d v8::internal::ExternalReference::ieee754_cos_function()
+0000000000d462f0 l     F .text	000000000000002d v8::internal::ExternalReference::ieee754_atan_function()
+00000000028eefd0 l     F .text	000000000000000b v8::internal::compiler::MachineOperatorBuilder::Float64Sqrt()
+0000000000d46350 l     F .text	000000000000002d v8::internal::ExternalReference::ieee754_atan2_function()
+000000000285c0b0 l     F .text	000000000000000a v8::internal::compiler::InstructionSelectorT::VisitFloat64Sqrt(v8::internal::compiler::turboshaft::OpIndex)
+00000000028e6050 l     F .text	0000000000000042 v8::internal::compiler::MachineOperatorGlobalCache::Float64SqrtOperator::Float64SqrtOperator()
+00000000028d1560 l     F .text	0000000000000001 v8::internal::compiler::MachineOperatorGlobalCache::Float64SqrtOperator::~Float64SqrtOperator()
+0000000000d465c0 l     F .text	000000000000002d v8::internal::ExternalReference::ieee754_sin_function()
+00000000028d1560 l     F .text	0000000000000001 v8::internal::compiler::MachineOperatorGlobalCache::Float64SqrtOperator::~Float64SqrtOperator()
+0000000002e60c30 l     F .text	000000000000004c v8::internal::compiler::CodeAssembler::Float64Sqrt(v8::internal::TNode<v8::internal::Float64T>)
+00000000028d5f20 l     F .text	0000000000000010 v8::internal::compiler::MachineOperatorGlobalCache::Float64SqrtOperator::~Float64SqrtOperator()
+00000000028e6050 l     F .text	0000000000000042 v8::internal::compiler::MachineOperatorGlobalCache::Float64SqrtOperator::Float64SqrtOperator()
+00000000066762b0 l     O .rodata	0000000000000038 vtable for v8::internal::compiler::MachineOperatorGlobalCache::Float64SqrtOperator
+00000000027a8e60 g     F .text	0000000000000545 v8::base::ieee754::sin(double)
+00000000027a6f20 g     F .text	00000000000002e2 v8::base::ieee754::atan2(double, double)
+00000000027a7210 g     F .text	000000000000063d v8::base::ieee754::cos(double)
+00000000027a6c90 g     F .text	0000000000000286 v8::base::ieee754::atan(double)

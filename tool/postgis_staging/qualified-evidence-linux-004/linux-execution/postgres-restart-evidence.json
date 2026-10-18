@@ -1,0 +1,174 @@
+{
+  "pass": true,
+  "taskOwnedCluster": "/var/lib/postgresql/18/docker",
+  "sameSyntheticDatasetPreserved": true,
+  "activeQueryFailure": {
+    "code": "57P01",
+    "message": "terminating connection due to administrator command"
+  },
+  "oldConnectionError": "Connection terminated unexpectedly",
+  "oldConnectionRejected": true,
+  "boundedPoolReconnected": true,
+  "elapsedMs": 3536,
+  "before": {
+    "meta": {
+      "database": "bsgate0_flutter",
+      "owner": "bsgate0",
+      "address": "127.0.0.1/32",
+      "directory": "/var/lib/postgresql/18/docker",
+      "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+      "started_at": "2026-10-18T00:00:51.688Z"
+    },
+    "publication": {
+      "revision": "1",
+      "fence": [
+        8,
+        12,
+        11,
+        13,
+        9,
+        8,
+        9,
+        18,
+        15,
+        11,
+        10,
+        12,
+        14,
+        13,
+        9,
+        13
+      ]
+    },
+    "counts": {
+      "entities": 185,
+      "heads": 185,
+      "pins": 72
+    },
+    "sourceHeadsHash": "8046f1cbd426603fb5729f676a04370275edbd60fe66373d1615e5bf138e8cdd",
+    "entitiesHash": "9358297a4042d9ae66ade2c65e5b05c397cff9097dc8925248a28ef04ff129a8",
+    "pinsHash": "3b5548e04e3e0e35b4551c6eef20c90fb270bf3e10f91c68859bf278521f7572",
+    "activePin": {
+      "id": "01431ebeede44861bb86a38f2f95168fb0b4f0219a09d182ed990f457b64ff97",
+      "revision": "1",
+      "expires_ms": "1792285845896",
+      "lease_ms": "0"
+    },
+    "orderedIds": [
+      "gate0-score-0000000",
+      "gate0-score-0000001",
+      "gate0-score-0000002",
+      "gate0-score-0000003",
+      "gate0-score-0000004",
+      "gate0-score-0000005",
+      "gate0-score-0000006",
+      "gate0-score-0000007",
+      "gate0-score-0000008",
+      "gate0-score-0000009",
+      "gate0-score-0000010",
+      "gate0-score-0000011",
+      "gate0-score-0000012",
+      "gate0-score-0000013",
+      "gate0-score-0000014",
+      "gate0-score-0000015",
+      "gate0-score-0000016",
+      "gate0-score-0000017",
+      "gate0-score-0000018",
+      "gate0-score-0000019",
+      "gate0-score-0000020",
+      "gate0-score-0000021",
+      "gate0-score-0000022",
+      "gate0-score-0000023",
+      "gate0-score-0000024"
+    ],
+    "boundary": [
+      0.16600973931246565,
+      0,
+      0,
+      "00730079006e00740068006500740069006300200067006100740065003000200063006100740061006c006f006700200030003000300030003000320034",
+      "00670061007400650030002d00730063006f00720065002d0030003000300030003000320034"
+    ]
+  },
+  "after": {
+    "meta": {
+      "database": "bsgate0_flutter",
+      "owner": "bsgate0",
+      "address": "127.0.0.1/32",
+      "directory": "/var/lib/postgresql/18/docker",
+      "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+      "started_at": "2026-10-18T00:11:26.137Z"
+    },
+    "publication": {
+      "revision": "1",
+      "fence": [
+        8,
+        12,
+        11,
+        13,
+        9,
+        8,
+        9,
+        18,
+        15,
+        11,
+        10,
+        12,
+        14,
+        13,
+        9,
+        13
+      ]
+    },
+    "counts": {
+      "entities": 185,
+      "heads": 185,
+      "pins": 72
+    },
+    "sourceHeadsHash": "8046f1cbd426603fb5729f676a04370275edbd60fe66373d1615e5bf138e8cdd",
+    "entitiesHash": "9358297a4042d9ae66ade2c65e5b05c397cff9097dc8925248a28ef04ff129a8",
+    "pinsHash": "3b5548e04e3e0e35b4551c6eef20c90fb270bf3e10f91c68859bf278521f7572",
+    "activePin": {
+      "id": "01431ebeede44861bb86a38f2f95168fb0b4f0219a09d182ed990f457b64ff97",
+      "revision": "1",
+      "expires_ms": "1792285845896",
+      "lease_ms": "0"
+    },
+    "orderedIds": [
+      "gate0-score-0000000",
+      "gate0-score-0000001",
+      "gate0-score-0000002",
+      "gate0-score-0000003",
+      "gate0-score-0000004",
+      "gate0-score-0000005",
+      "gate0-score-0000006",
+      "gate0-score-0000007",
+      "gate0-score-0000008",
+      "gate0-score-0000009",
+      "gate0-score-0000010",
+      "gate0-score-0000011",
+      "gate0-score-0000012",
+      "gate0-score-0000013",
+      "gate0-score-0000014",
+      "gate0-score-0000015",
+      "gate0-score-0000016",
+      "gate0-score-0000017",
+      "gate0-score-0000018",
+      "gate0-score-0000019",
+      "gate0-score-0000020",
+      "gate0-score-0000021",
+      "gate0-score-0000022",
+      "gate0-score-0000023",
+      "gate0-score-0000024"
+    ],
+    "boundary": [
+      0.16600973931246565,
+      0,
+      0,
+      "00730079006e00740068006500740069006300200067006100740065003000200063006100740061006c006f006700200030003000300030003000320034",
+      "00670061007400650030002d00730063006f00720065002d0030003000300030003000320034"
+    ]
+  },
+  "pgCtlOutput": "{\n  \"completedAt\": \"2026-10-18T00:11:26.170194+00:00\",\n  \"command\": \"docker exec --user postgres bs-linux004-pg pg_ctl -D /var/lib/postgresql/18/docker -l /tmp/bs-postgres.log -m fast -w -t30 restart\",\n  \"output\": \"waiting for server to shut down.... done\\nserver stopped\\nwaiting for server to start.... done\\nserver started\"\n}",
+  "restartKind": "actual PostgreSQL server fast restart; no data reset",
+  "qualification": "local only; no hosted failover or crash/power-loss claim"
+}

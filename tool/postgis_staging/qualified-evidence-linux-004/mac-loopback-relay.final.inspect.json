@@ -1,0 +1,274 @@
+[
+    {
+        "Id": "c5b3eb92a8cdc9b7be72a8d2807612cdaa8d5c10502e8d2f57fdf9c8ded34363",
+        "Created": "2026-10-18T00:09:27.895263753Z",
+        "Path": "node",
+        "Args": [
+            "/relay.cjs"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 4528,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-10-18T00:09:27.958476711Z",
+            "FinishedAt": "0001-01-01T00:00:00Z"
+        },
+        "Image": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+        "ResolvConfPath": "/var/lib/docker/containers/c5b3eb92a8cdc9b7be72a8d2807612cdaa8d5c10502e8d2f57fdf9c8ded34363/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/c5b3eb92a8cdc9b7be72a8d2807612cdaa8d5c10502e8d2f57fdf9c8ded34363/hostname",
+        "HostsPath": "/var/lib/docker/containers/c5b3eb92a8cdc9b7be72a8d2807612cdaa8d5c10502e8d2f57fdf9c8ded34363/hosts",
+        "LogPath": "",
+        "Name": "/bs-linux004-mac-relay",
+        "RestartCount": 0,
+        "Driver": "overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "local",
+                "Config": {}
+            },
+            "NetworkMode": "bridge",
+            "PortBindings": {
+                "8189/tcp": [
+                    {
+                        "HostIp": "127.0.0.1",
+                        "HostPort": "8188"
+                    }
+                ],
+                "9099/tcp": [
+                    {
+                        "HostIp": "127.0.0.1",
+                        "HostPort": "9099"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": [
+                "ALL"
+            ],
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": true,
+            "SecurityOpt": [
+                "no-new-privileges"
+            ],
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 134217728,
+            "NanoCpus": 500000000,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": [],
+            "BlkioDeviceReadBps": [],
+            "BlkioDeviceWriteBps": [],
+            "BlkioDeviceReadIOps": [],
+            "BlkioDeviceWriteIOps": [],
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": [],
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 268435456,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": 64,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "Mounts": [
+                {
+                    "Type": "bind",
+                    "Source": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/mac-loopback-relay.cjs",
+                    "Target": "/relay.cjs",
+                    "ReadOnly": true
+                }
+            ],
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "Storage": {
+            "RootFS": {
+                "Snapshot": {
+                    "Name": "overlayfs"
+                }
+            }
+        },
+        "Mounts": [
+            {
+                "Type": "bind",
+                "Source": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/mac-loopback-relay.cjs",
+                "Destination": "/relay.cjs",
+                "Mode": "",
+                "RW": false,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "c5b3eb92a8cd",
+            "Domainname": "",
+            "User": "node",
+            "AttachStdin": false,
+            "AttachStdout": true,
+            "AttachStderr": true,
+            "ExposedPorts": {
+                "8080/tcp": {},
+                "8189/tcp": {},
+                "9099/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "NODE_VERSION=24.21.0",
+                "YARN_VERSION=1.22.22",
+                "PORT=8080"
+            ],
+            "Cmd": [
+                "/relay.cjs"
+            ],
+            "Image": "bitestar-postgis-linux-004:qualified-local",
+            "Volumes": null,
+            "WorkingDir": "/app",
+            "Entrypoint": [
+                "node"
+            ],
+            "Labels": {
+                "bitestar.run": "linux004"
+            }
+        },
+        "NetworkSettings": {
+            "SandboxID": "537cb54595d1a5b449269ed2e8a2f909a949cb5bdb238208d107f83a7cb272b6",
+            "SandboxKey": "/var/run/docker/netns/537cb54595d1",
+            "Ports": {
+                "8189/tcp": [
+                    {
+                        "HostIp": "127.0.0.1",
+                        "HostPort": "8188"
+                    }
+                ],
+                "9099/tcp": [
+                    {
+                        "HostIp": "127.0.0.1",
+                        "HostPort": "9099"
+                    }
+                ]
+            },
+            "Networks": {
+                "bridge": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "5a74d420ef2b4ead3025f973f711e975846913d9f77c4125ee6e9f3d0ac813bd",
+                    "EndpointID": "d268df5310c9175c5d06e05776649d525b8a0882fafbc15952c01678814e85bf",
+                    "Gateway": "172.17.0.1",
+                    "IPAddress": "172.17.0.2",
+                    "MacAddress": "c2:8c:10:72:08:ef",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": null
+                },
+                "bs-linux004": {
+                    "IPAMConfig": {},
+                    "Links": null,
+                    "Aliases": [],
+                    "DriverOpts": {},
+                    "GwPriority": 0,
+                    "NetworkID": "289d997236b5e34bd220280ebc59dcea0d6ffc69b693f011d4ddfdab83f13546",
+                    "EndpointID": "03b7a7703d17091924027bbad0d8a076e42ebc8351344779636d7b06d949265e",
+                    "Gateway": "",
+                    "IPAddress": "172.18.0.3",
+                    "MacAddress": "72:2c:26:ee:4f:32",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "bs-linux004-mac-relay",
+                        "c5b3eb92a8cd"
+                    ]
+                }
+            }
+        },
+        "ImageManifestDescriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+            "size": 2002,
+            "annotations": {
+                "config.digest": "sha256:0f16f7b7edeed6288f69ae665b8c689422664f04aaacb9dab14ddcbdcb070a32"
+            },
+            "platform": {
+                "architecture": "amd64",
+                "os": "linux"
+            }
+        }
+    }
+]

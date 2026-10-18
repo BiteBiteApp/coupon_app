@@ -1,0 +1,38 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004",
+  "reviewer": "Track C staging_recovery",
+  "recordedAt": "2026-10-18T00:25:51.858759+00:00",
+  "verdict": "PASS_ACCURACY_ONLY_REPORT_DELTA",
+  "originalReviewPreserved": true,
+  "originalReviewSha256": "a0be777e7b2b93eebfee5739fa66d0938c5ca4ceeaf30fde7cb97b4911fdbd2f",
+  "priorReportSha256": "59e2946a353259f16e34320797b3e9358024bb3833d8596bd93bcd7f84d00821",
+  "revisedReportSha256": "8cfea780ef736b3bd14409bec5e82431375e053284ccfbeb70812ee5771d6ae9",
+  "exactOnlyDeltaVerifiedByReversingReplacementAndMatchingPriorHash": true,
+  "oldText": "Each workload had bounded CPU,\nmemory/PIDs.",
+  "newText": "The long-running fixtures had\nper-container CPU, memory and PID limits.",
+  "verifiedLongRunningContainerLimits": {
+    "bs-linux004-pg": {
+      "NanoCpus": 1500000000,
+      "Memory": 1073741824,
+      "PidsLimit": 256
+    },
+    "bs-linux004-emulators": {
+      "NanoCpus": 2000000000,
+      "Memory": 2415919104,
+      "PidsLimit": 256
+    },
+    "bs-linux004-flutter-host": {
+      "NanoCpus": 2000000000,
+      "Memory": 1073741824,
+      "PidsLimit": 128
+    },
+    "bs-linux004-mac-relay": {
+      "NanoCpus": 500000000,
+      "Memory": 134217728,
+      "PidsLimit": 64
+    }
+  },
+  "indexReportHashMatches": true,
+  "assessment": "The narrowed statement accurately covers the long-running PG/emulator/host/relay fixtures without claiming every short probe had explicit PID limits. Original source/runtime/evidence review remains unchanged; no new suites or repository edits by reviewer.",
+  "materialCorrectionsRequired": []
+}

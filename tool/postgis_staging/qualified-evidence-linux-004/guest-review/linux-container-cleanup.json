@@ -1,0 +1,11 @@
+{
+  "at": "2026-10-17T23:57:38.513711+00:00",
+  "removedStoppedTaskContainers": [
+    "bs-postgis-004-guest-handlers",
+    "bs-postgis-004-guest-diagnostics",
+    "bs-postgis-004-guest-supplement"
+  ],
+  "imagesRemoved": false,
+  "unrelatedContainersChanged": false,
+  "logsAndObservationFilesRetained": true
+}

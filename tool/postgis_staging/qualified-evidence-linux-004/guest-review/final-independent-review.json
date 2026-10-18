@@ -1,0 +1,472 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004",
+  "promptTimestamp": "2026-10-17T19:34:00-04:00",
+  "role": "Independent guest/security/privacy/performance reviewer",
+  "reviewer": "/root/query_client",
+  "completedAt": "2026-10-18T00:20:41.902440+00:00",
+  "expectedStartingHead": "e14b74adeca5088883d7efe7ee208b233be6616d",
+  "observedHead": "e14b74adeca5088883d7efe7ee208b233be6616d",
+  "permittedChangeArea": "External report artifacts only; no repository edits, Git mutation, cloud or production action.",
+  "verdict": "PASS for this exact local emulated Linux guest/authority artifact with stated performance and hosted-mode limitations; no unresolved material guest defect found.",
+  "image": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+  "runtime": {
+    "measuredAt": "2026-10-18T00:18:17.285Z",
+    "platform": "linux",
+    "arch": "x64",
+    "node": "v24.21.0",
+    "v8": "13.6.233.17-node.53",
+    "executable": "/usr/local/bin/node",
+    "executableSha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c",
+    "uid": 1000,
+    "kernel": "7.0.14-linuxkit",
+    "cpuModels": [
+      "VirtualApple @ 2.50GHz"
+    ],
+    "osRelease": "PRETTY_NAME=\"Debian GNU/Linux 12 (bookworm)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"12\"\nVERSION=\"12 (bookworm)\"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\"\n"
+  },
+  "testsRunIndependentlyInFinalImage": [
+    {
+      "log": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-native-handlers.final.log",
+      "sha256": "baa3372af98db6d8eb7ec196460618a6a4a21ebde8d3affc2efeab636ead9801",
+      "tests": 304,
+      "passed": 304,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 13304.01859
+    },
+    {
+      "log": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-independent-diagnostics.final.log",
+      "sha256": "357694aabc64bb1f296b59f85007f252ab74ae83f51fc3b5b9044a5f36898574",
+      "tests": 22,
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 25994.699595
+    },
+    {
+      "log": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-independent-supplement.final.log",
+      "sha256": "52babb7be6b9e6649d9b994eb88e2f309d89e8faac5f76d149d4c40c5410f006",
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 1538.654459
+    }
+  ],
+  "diagnosticObservationParityWith003": [
+    {
+      "current": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-independent-observations.final.json",
+      "prior003": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-observations.v3.json",
+      "jsonEqual": true
+    },
+    {
+      "current": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-supplement-observations.final.json",
+      "prior003": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-observations.supplement.json",
+      "jsonEqual": true
+    }
+  ],
+  "execution": {
+    "platform": "linux/amd64 under Rosetta",
+    "network": "none",
+    "memoryBytes": 805306368,
+    "cpus": 1,
+    "pidsLimit": 128,
+    "nativeSuiteMounts": [],
+    "diagnosticMounts": "Report-owned adapter directory read-only; no repository, home, credentials or Docker socket mounts.",
+    "testIsolation": "--test-isolation=none",
+    "assertionBodies": "Retained003 diagnostics unchanged; only fixture root /app and /tmp observation output locations adapted."
+  },
+  "sourceAndCompiledHashes": [
+    {
+      "path": "functions/src/customer_bitesaver_search_session.ts",
+      "imageSha256": "eed290895555fd171365179d729b070f211c94a79404be5e766e1df50866018e",
+      "selectedSha256": "eed290895555fd171365179d729b070f211c94a79404be5e766e1df50866018e",
+      "primarySha256": "eed290895555fd171365179d729b070f211c94a79404be5e766e1df50866018e",
+      "sameAsInitialImage": true
+    },
+    {
+      "path": "functions/src/postgis_staging_runtime.ts",
+      "imageSha256": "05762b562defa673fb9d0e7d2b7e7b371db312079c75a6143c826a3034694925",
+      "selectedSha256": "05762b562defa673fb9d0e7d2b7e7b371db312079c75a6143c826a3034694925",
+      "primarySha256": "05762b562defa673fb9d0e7d2b7e7b371db312079c75a6143c826a3034694925",
+      "sameAsInitialImage": true
+    },
+    {
+      "path": "functions/src/postgis_hosted_runtime.ts",
+      "imageSha256": "6aa32d0d23b502a8d91eb57850ebc967e2bc81f50300a95cfa76a9b98104b3ac",
+      "selectedSha256": "6aa32d0d23b502a8d91eb57850ebc967e2bc81f50300a95cfa76a9b98104b3ac",
+      "primarySha256": "6aa32d0d23b502a8d91eb57850ebc967e2bc81f50300a95cfa76a9b98104b3ac",
+      "sameAsInitialImage": false
+    },
+    {
+      "path": "functions/src/postgis_hosted_entrypoint.ts",
+      "imageSha256": "78f55eee2f4ad2d5989c76ff26c0ccbb8fb29c233a248f3f7b5dcfff7c9abac7",
+      "selectedSha256": "78f55eee2f4ad2d5989c76ff26c0ccbb8fb29c233a248f3f7b5dcfff7c9abac7",
+      "primarySha256": "78f55eee2f4ad2d5989c76ff26c0ccbb8fb29c233a248f3f7b5dcfff7c9abac7",
+      "sameAsInitialImage": false
+    },
+    {
+      "path": "functions/src/postgis_handlers.ts",
+      "imageSha256": "94eb93a362b84132d886c60827a6c797b57884d1f4830bf9343fdf70a5a37021",
+      "selectedSha256": "94eb93a362b84132d886c60827a6c797b57884d1f4830bf9343fdf70a5a37021",
+      "primarySha256": "94eb93a362b84132d886c60827a6c797b57884d1f4830bf9343fdf70a5a37021",
+      "sameAsInitialImage": true
+    },
+    {
+      "path": "functions/src/customer_bitesaver_guest_offer_checks.ts",
+      "imageSha256": "4892ffa7db34c4999d02290b8a8ebaf3100031db1b374732ff35d481c84fb34a",
+      "selectedSha256": "4892ffa7db34c4999d02290b8a8ebaf3100031db1b374732ff35d481c84fb34a",
+      "primarySha256": "4892ffa7db34c4999d02290b8a8ebaf3100031db1b374732ff35d481c84fb34a",
+      "sameAsInitialImage": true
+    },
+    {
+      "path": "functions/src/customer_bitesaver_search_contract.ts",
+      "imageSha256": "7757d797f2c3de386c80a9052d3331f50ba79bb6f831344d309296f83c1b0331",
+      "selectedSha256": "7757d797f2c3de386c80a9052d3331f50ba79bb6f831344d309296f83c1b0331",
+      "primarySha256": "7757d797f2c3de386c80a9052d3331f50ba79bb6f831344d309296f83c1b0331",
+      "sameAsInitialImage": true
+    },
+    {
+      "path": "functions/src/index.ts",
+      "imageSha256": "d224af2552479b6c9a65e094e05583f1feaf5cb521807dfcc8d357234bad3012",
+      "selectedSha256": "d224af2552479b6c9a65e094e05583f1feaf5cb521807dfcc8d357234bad3012",
+      "primarySha256": "d224af2552479b6c9a65e094e05583f1feaf5cb521807dfcc8d357234bad3012",
+      "sameAsInitialImage": true
+    },
+    {
+      "path": "functions/lib/customer_bitesaver_search_session.js",
+      "imageSha256": "6a5f9920ff1fa731b76472001687d8adb9c744cb14b746e4752ccf48ae274be6",
+      "primarySha256": "6a5f9920ff1fa731b76472001687d8adb9c744cb14b746e4752ccf48ae274be6",
+      "sameAsInitialImage": true
+    },
+    {
+      "path": "functions/lib/postgis_staging_runtime.js",
+      "imageSha256": "00191ca1be125798a2c7507c79bdd997bf4e2de7921d5a8caf339b9e428c75c6",
+      "primarySha256": "00191ca1be125798a2c7507c79bdd997bf4e2de7921d5a8caf339b9e428c75c6",
+      "sameAsInitialImage": true
+    },
+    {
+      "path": "functions/test/customer_bitesaver_search_handlers.test.js",
+      "imageSha256": "1e3afcc4e6979b3e601f8250adfa22e4f93e6dd9c2832c52863e4350c552f042",
+      "selectedSha256": "1e3afcc4e6979b3e601f8250adfa22e4f93e6dd9c2832c52863e4350c552f042",
+      "primarySha256": "1e3afcc4e6979b3e601f8250adfa22e4f93e6dd9c2832c52863e4350c552f042",
+      "sameAsInitialImage": true
+    },
+    {
+      "path": "functions/test/support/postgis_flutter_host.cjs",
+      "imageSha256": "58298dcb9f2e8bf8818556491f58fd8b4ceb1bdf4890330d7d4e15039fd87827",
+      "selectedSha256": "58298dcb9f2e8bf8818556491f58fd8b4ceb1bdf4890330d7d4e15039fd87827",
+      "primarySha256": "58298dcb9f2e8bf8818556491f58fd8b4ceb1bdf4890330d7d4e15039fd87827",
+      "sameAsInitialImage": true
+    },
+    {
+      "path": "functions/src/postgis_runtime.ts",
+      "imageSha256": "74887f3e8af5546a59402e79b4f18557c340db6c371aa9d2fd7ccb374cdeae85",
+      "selectedSha256": "74887f3e8af5546a59402e79b4f18557c340db6c371aa9d2fd7ccb374cdeae85",
+      "primarySha256": "74887f3e8af5546a59402e79b4f18557c340db6c371aa9d2fd7ccb374cdeae85"
+    },
+    {
+      "path": "functions/lib/postgis_runtime.js",
+      "imageSha256": "5d8eb096c39ab7712c97872fb95dac41cdf76e8fd81b6cab855711cd476ce02e",
+      "selectedSha256": "5d8eb096c39ab7712c97872fb95dac41cdf76e8fd81b6cab855711cd476ce02e",
+      "primarySha256": "ec141b7d0491caebd15acdd190f1d521b3748b8c6e0045dc682220d952d2d15d"
+    },
+    {
+      "path": "functions/lib/postgis_hosted_runtime.js",
+      "imageSha256": "6bd53af48764e8b69e97d63db04a39422ab89c9d711dd1b73a932ab0392789cc",
+      "primarySha256": "6ae2d85d2a4e46c005f889f81355c1f331e7223a6a684440d8b2b913bfe1e8d5"
+    },
+    {
+      "path": "functions/lib/postgis_hosted_entrypoint.js",
+      "imageSha256": "df68f3775f3c0f7481ddbee8a97dccc7273b7a86034cb090e664ee09c9301e1f",
+      "primarySha256": "d872aa05fcec72b5ac89dcc6ae6a114894deb1a5b0074726d097546ec39d74fd"
+    }
+  ],
+  "otherReviewedSourceHashes": {
+    "test/services/postgis_flutter_integration_test.dart": {
+      "selectedSha256": "994cb9d13d661f55e0e39b4d4cc268b88e23196e1d22b3a8dd94df8bf98d940f",
+      "primarySha256": "994cb9d13d661f55e0e39b4d4cc268b88e23196e1d22b3a8dd94df8bf98d940f"
+    },
+    "lib/services/customer_bitesaver_search_coordinator.dart": {
+      "selectedSha256": "ac84b6a852ee7b8a7b303ca87ca0094ddf14eee220b3a92fdf4f9614830ebae6",
+      "primarySha256": "ac84b6a852ee7b8a7b303ca87ca0094ddf14eee220b3a92fdf4f9614830ebae6"
+    },
+    "lib/services/customer_bitesaver_guest_usage_store.dart": {
+      "selectedSha256": "79dfa8c731cccc77d13625febe171f107f4feaecfeb9ab6dda8580913bbb97da",
+      "primarySha256": "79dfa8c731cccc77d13625febe171f107f4feaecfeb9ab6dda8580913bbb97da"
+    },
+    "lib/models/customer_bitesaver_search.dart": {
+      "selectedSha256": "b9a0f919f93473e430453dfc28b9dfecebf5c9e391ad0d7c459eeda5235df5b1",
+      "primarySha256": "b9a0f919f93473e430453dfc28b9dfecebf5c9e391ad0d7c459eeda5235df5b1"
+    },
+    "tool/postgis_staging/hosted/render-service.cjs": {
+      "selectedSha256": "17fc441f4dc52c59426d08a8fe050ade64275fd256b8b2c4e4f5cfc0648d5f70",
+      "primarySha256": "17fc441f4dc52c59426d08a8fe050ade64275fd256b8b2c4e4f5cfc0648d5f70"
+    },
+    "tool/postgis_staging/hosted/hosted.example.json": {
+      "selectedSha256": "37d1d4358fd70613d415afb35c4813af48ebbe93577a174403d27aed6074d2f4",
+      "primarySha256": "37d1d4358fd70613d415afb35c4813af48ebbe93577a174403d27aed6074d2f4"
+    },
+    "tool/postgis_staging/linux/Dockerfile": {
+      "selectedSha256": "bb569df458e399960202c932ee2099e3c14c6d4adab011cd26544d253d8f4bd3",
+      "primarySha256": "bb569df458e399960202c932ee2099e3c14c6d4adab011cd26544d253d8f4bd3"
+    }
+  },
+  "switchPropagation": {
+    "local": "Report fixture reads BS_POSTGIS_GUEST_WINDOW === \"1\", local runtime passes options.guestRestaurantWindow === true; only PostGIS-backed private restaurant progress opts into windowVersion 1. Omitted/0 remains serial. No public request selector.",
+    "imageDefault": "Hosted entrypoint --dry-run, no listener or cloud connection.",
+    "hostedConfiguration": "No validated or forwarded window option in hosted configuration/runtime; adding local environment variable does not enable hosted window.",
+    "hostedExecution": "Final guard explicitly rejects Linux hosted scope before cached local qualification can succeed and before entrypoint credentials/resources open. This image cannot execute either hosted mode without separately qualified hosted runtime work.",
+    "futureDependency": "Before an authorized hosted window trial: strict optional boolean in cloned, digest/signature-bound hosted configuration; default false; explicitly forward into native Saver context and verify invalid/tampered/mutated configuration negatives. No such change was made in004.",
+    "guardEvidence": "Independent numerical/runtime reviewer final-guard-review.json reused; final image and binary hashes match. No additional mathematical qualification is inferred by this guest review."
+  },
+  "authorityPrivacyAndOrder": [
+    "Source/compiled guest implementation, guest wire codec, search contract, coordinator/history and public identity handling retain003 reviewed bytes. SQL supplies candidate membership; native current Firestore source/parent/offer/usage evidence determines returned authority and grants.",
+    "Private window holds ordered pending parents. Results drain only through resolved head, not past an unresolved restaurant; strict parser bounds, candidate-count/boundary/exhaustion slices and transaction replay protection remain intact.",
+    "Global challenge bound75 IDs, pending parent window26-minus-ready including head, existing100-item work and bounded private checkpoint limits retained. Independent maximum-domain case checkpoint444772 bytes and token6573 bytes remain under existing limits.",
+    "Exact same-ID edit versus replaced occurrence distinction, per-parent source validation, expired check reissue, accepted-answer interruption/replay, conflicting concurrent answer single winner, withdrawn parent failure, once-per-day boundary and invalid old snapshot were exercised in final-image diagnostics/native suite.",
+    "No device history inventory added to telemetry. Actual timing artifact records ordered public result IDs only as SHA256; bounded candidate challenge sizes and aggregate counters remain visible. Batched challenge may expose up to75 already-needed candidate IDs in one round, under the authorized existing global bound.",
+    "Final real SQL/native integration30/30 reviewed from parent evidence: malformed actor/client, signed and guest same-ID edits, usage revocation, account switching, hidden/private canaries, Menu and guest redemption preparation preserved. This is reviewed evidence, not an additional independently rerun SQL suite."
+  ],
+  "performanceEvidence": {
+    "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-performance-review.final.json",
+    "sha256": "4818e38f98ba170692d261dd76ac67fd6fe5b9bdae901905b9ede030a8afa98e",
+    "finalFlutterSuites": "4/4 per mode, 20 guest +20 signed +3Score +3Finder per mode; all46 observations and every instrumented request succeeded.",
+    "sameFixtureAndFence": "Entire host JSON equals between modes:185 synthetic source/projection documents, fixed2026-10-18T00:00:00Z, revision1, same full16-shard fence.",
+    "sameSaverResults": "All80 Saver observations have25 useful cards and equal ordered public-ID digest.",
+    "warmGuestMedianMs": {
+      "serial": 3059.196,
+      "window": 1392.252
+    },
+    "windowWarmAbove2s": 1,
+    "windowWarmSamples": 19,
+    "counterChange": "Per guest28\u21923 HTTP calls,26\u21921 challenge rounds,754\u2192658 requested documents;26 membership.queryResults and191 sql.membershipQuery calls retained in both modes.",
+    "limitations": [
+      "First observations are retained separately and are not proof of a cold-start distribution.",
+      "19 warm guest samples per mode: window 18/19 at or below 2 seconds; one 2225.986ms sample. No consistent sub-2-second or hosted-tail claim.",
+      "Linux x64 runs under Rosetta on this Mac; Flutter is on macOS. No native cloud CPU, network, mobile-device or nationwide load qualification.",
+      "Serial and window runs are sequential fixed-fixture runs; do not infer a general causal latency distribution from these samples.",
+      "Signed, Score and Finder remain functional; their timings are not claimed unchanged or improved."
+    ]
+  },
+  "relayAndRestart": {
+    "topology": "macOS Flutter uses fixed Mac127.0.0.1:8188/9099 publications; report-only byte relays reach actual image fixture host and Auth emulator in shared task network namespace. Backend host and emulator endpoints remain127.0.0.1 internally. No mock transport or fake token substitution.",
+    "relayPorts": {
+      "8189/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "8188"
+        }
+      ],
+      "9099/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "9099"
+        }
+      ]
+    },
+    "postgresRestart": "Actual task-owned PostgreSQL fast restart rejected active/old connections, bounded pool reconnected in3536ms. Publication,185heads/entities,72pins, active pin/expiry, ordered25 IDs and boundary unchanged; no data reset. This is not hosted failover or power-loss proof."
+  },
+  "retainedEarlierFailures": [
+    {
+      "log": "linux-execution/serial-render.network-startup.log",
+      "status": "Interrupted setup run; internal Docker relay port unavailable. Preserved as failed/incomplete evidence, excluded from final timing distribution."
+    },
+    {
+      "log": "linux-execution/serial-render.auth-relay-missing.log",
+      "json": "linux-execution/serial-render.auth-relay-missing.json",
+      "status": "2/4 failed before report-only Auth relay was added. Guest first sample tester initialization exception; signed Auth connection refused/null UID; Score/Finder succeeded. Initial relay inspect lacks9099. Final relay publishes it on Macloopback. Flutter test source unchanged; no assertion weakening."
+    }
+  ],
+  "findings": [
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "finding": "One truthful count metadata difference remains in dense in-memory fixture: serial count3/current versus window null/unknown at page0row21. Existing100-item work bound may leave exhaustion unproven. Exact eligible IDs/order/hasMore unchanged; supported unknown DTO retained. No claim of byte-identical responses.",
+      "evidence": "linux-independent-observations.final.json"
+    },
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "finding": "Final local window improves measured median but18/19 warm samples meet2 seconds; maximum/p95 by nearest rank2225.986ms. Keep explicit limitation; no architecture/product change is justified within this qualification task."
+    },
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "finding": "Current hosted configuration does not forward guest window and final image hosted runtime is deliberately refused. Current task authorizes identifying the missing future dependency, not implementing/activating it. Localwindow qualification remains valid."
+    }
+  ],
+  "preservation": {
+    "baseline": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/starting-state.json",
+    "protectedPaths": 291,
+    "mismatches": [],
+    "ownerModifiedPaths": 16,
+    "selectedOwnerPathsNotCommittedVersion": [],
+    "guestClientAndFlutterSourceUnchanged": true,
+    "primaryWorkingTree": "Existing owner work preserved; root authorized runtime guard changes are separate. Reviewer performed read-only git rev-parse/show only."
+  },
+  "cleanup": {
+    "onlyReviewerTestContainersRemoved": [
+      "bs-postgis-004-final-guest-handlers",
+      "bs-postgis-004-final-guest-diagnostics",
+      "bs-postgis-004-final-guest-supplement"
+    ],
+    "imagesRetained": true,
+    "rootServiceContainersTouched": false
+  },
+  "qualificationBoundary": [
+    "Source reviewed, actual Linux image tests passed and local macOS-Flutter/Linux-backend integration reviewed. Not cloud-deployed, customer-active, hosted-approved, nationally load-tested or production-qualified.",
+    "Local emulated numerical qualification is exactly bounded by independent final guard receipt; unsupported runtime flags, CPUs/kernels and hosted scope remain refused."
+  ],
+  "evidence": [
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-performance-review.final.json",
+      "sha256": "4818e38f98ba170692d261dd76ac67fd6fe5b9bdae901905b9ede030a8afa98e"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-image-guest-identity.final.json",
+      "sha256": "037f927cb1c3ef716eff0968c18cfca26966294009efc972ec83d50420bb4cd1"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-container-execution.final.json",
+      "sha256": "ab1f469f293b7e30212ffcee33aa83dcdbc1ab02e005ccc0a254365d632f4479"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-container-cleanup.final.json",
+      "sha256": "c7f5f1eb5e8d7930f01b63bb282c855254ceeb6775326105af4e5579a078e317"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-independent-observations.final.json",
+      "sha256": "ec40eadd3d62ef3fc2381a803fd8dfbadae23c16da3f77ba1fa3f205df5f1d60"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-supplement-observations.final.json",
+      "sha256": "0c3e6875f2372f3c27c6fb42213be2f1140474983db4f4bbe8f430dd1490866e"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-diagnostic-adaptation.json",
+      "sha256": "c7647f345b27de0017275607e8db0f244c8e57880daabf91ff07fde97cc1c2a2"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-inputs/independent-window-diagnostics.v3.cjs",
+      "sha256": "63d1c419cd90fc8cffbc627aaef1776c1c7ae7a2446a730920869cd9b03a80ac"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-inputs/independent-window-diagnostics.supplement.cjs",
+      "sha256": "26aa98d7624f8a1e472001f4d6fa89b67deff6fb2cfe46dae333e5fcd3f5b741"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-initial-guest-execution-review.json",
+      "sha256": "d4c3cc8e6d63df5c860ccc419e845095fd1ed505401f5d9c26610b255caa8e68"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/switch-propagation-review.json",
+      "sha256": "2b033a89c41562f8710ed78053cfd5820dcfe7126a631596173830348105c65b"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/final-guard-review.json",
+      "sha256": "bf3503ac8c9dd8c8590fa7a3f8fb8fdc6be593eebb974c9730d4460ab0499c4f"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/numerical-runtime-review.json",
+      "sha256": "5b92780a3eb5e5fbb0a0ddd1b7fbf5e9f9a0889018ca9122192e54b871f4d398"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/final-guard-tests.log",
+      "sha256": "5e2318823ff5eb4caf33a572f3b2a4320ff09d4e41a0a7e351a5518d739e8429"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/sql-native-integration.final.log",
+      "sha256": "b473ec95b4630409451d92d9eb7c90ebd0e68afe47d25f9350b5fc540b7492c1"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/native-integration.final.json",
+      "sha256": "10851e1b0cd6f67bd6f2d7cf2c444931c1de1bae434935a8555f9f94dabde49e"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/query.final.json",
+      "sha256": "3f5d089d1681cff9b98c63e380fb9df3f5b75dd4db5537e256377cc9e13fa830"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/postgres-restart-evidence.json",
+      "sha256": "b06417c88ae32bbf70aadfa024930173b90c0370b26350d15750dc3b9c3074e4"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/postgres-restart.final.log",
+      "sha256": "bf9b74fd5aa2db5388b800f65b36cd5832e0c38e677cde7911bc22257430c59e"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/linux-flutter-host.cjs",
+      "sha256": "09e99a84b4dd240d1565fc61e2e69f2ba56f1a2769c7b8332c03abdd29e24b5c"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/mac-loopback-relay.cjs",
+      "sha256": "503dad8d4ae14cd99b46ed88e2f517a7774e3816e92a221b8c3ac36677ff4ff3"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/mac-loopback-relay.final.inspect.json",
+      "sha256": "a74ed5e8f142683f1990b9890d87a69ca278de54ccbba785d180979738d351e9"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/mac-loopback-relay.inspect.json",
+      "sha256": "d85e431faedbebae02231e275647f98b76d304468c489690f2055b3cb727322b"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/serial-render.network-startup.log",
+      "sha256": "778582b4e7336e1c24cc3c776767fd2dd81f3144c43c68505bfed381906f4201"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/serial-render.auth-relay-missing.log",
+      "sha256": "c0dd1f27f345b2c9e77ae451fceb0f1a723b3eda24bd6fc1f275d9238e73c31b"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/serial-render.auth-relay-missing.json",
+      "sha256": "1143e9521fa7c9df82441397fc25b8e4fa7bfa22500981c7189a1844176cf5ac"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/starting-state.json",
+      "sha256": "a6ed79269cfa9549b5009f32d896dd4010b8efdae40a85e713ae84555269e80e"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/search-image.final.inspect.json",
+      "sha256": "a1f2658a7a360c23c245d5dadf7546132e2da4107cdd7772b39700cbde23810a"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/serial-render.final.json",
+      "sha256": "560abf9d42c9e8e417a0096b9e5fbf81fe46296d985829c854ecc197f5e7aa87"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/serial-render.final.log",
+      "sha256": "d12374d6106ace38a99d3e4dbb14e2da41a4078b18af54354bc878161f444ecc"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/serial-authority.final.jsonl",
+      "sha256": "2cfdd6d1defd5bc904645535e617076ff695195126b01fcde47a3749530d29fb"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/serial-host.final.json",
+      "sha256": "4ca3575300cd6e9e3a2ae84b82331eff17accb2c047db98646de23f797357d90"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/serial-container.inspect.json",
+      "sha256": "73436a6b9b1c10c31fbca31dbaca9912bb16055b3e49714ae06239281541d70d"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/window-render.final.json",
+      "sha256": "de71138516ace236f95ad2377bfad0f80a4d2b9f87119efe781719be5cc30deb"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/window-render.final.log",
+      "sha256": "1b700c660569625bcca7e28c3d67e0a044975bddff13993de2331e4c57b55f92"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/window-authority.final.jsonl",
+      "sha256": "b372555a70a87d6ec779181de45659ca26cf8106d94da3da481d5e7927b16576"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/window-host.final.json",
+      "sha256": "4ca3575300cd6e9e3a2ae84b82331eff17accb2c047db98646de23f797357d90"
+    },
+    {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution/window-container.inspect.json",
+      "sha256": "f9db8d952e7c9c40b978501a9d99fcce2bd98bcaf7b27f90c584d7a039970704"
+    }
+  ]
+}

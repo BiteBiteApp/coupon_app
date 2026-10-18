@@ -1,0 +1,248 @@
+{
+  "schemaVersion": 1,
+  "runId": "BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004",
+  "reviewer": "Track C staging_recovery",
+  "role": "Explicit independent Storage-dependent checks and focused safety composition verification",
+  "completedAt": "2026-10-17T23:46:45.067671+00:00",
+  "selectedCommit": "e14b74adeca5088883d7efe7ee208b233be6616d",
+  "selectedSource": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/selected-source",
+  "fixtureSource": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/storage-review/fixture-source",
+  "verdict": "PASS for the nine requested checks, plus the four connected cases separately repeated against proposed candidate policies",
+  "requestedChecks": {
+    "accountDeletionRules": {
+      "pass": 5,
+      "fail": 0,
+      "skip": 0
+    },
+    "connectedSourceSafetyWorkflow": {
+      "pass": 4,
+      "fail": 0,
+      "skip": 0
+    },
+    "uniqueRequestedChecks": 9
+  },
+  "additionalCandidatePolicyRepetition": {
+    "pass": 4,
+    "fail": 0,
+    "skip": 0,
+    "overlapsSourceWorkflow": true,
+    "notFourAdditionalUniqueWorkflowCases": true
+  },
+  "commands": [
+    {
+      "argv": [
+        "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node",
+        "--test",
+        "--test-concurrency=1",
+        "test/account_deletion_rules.test.js"
+      ],
+      "cwd": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/storage-review/fixture-source/firestore_rules_tests",
+      "environmentOverrides": {
+        "FIRESTORE_EMULATOR_HOST": "127.0.0.1:8792",
+        "FIREBASE_AUTH_EMULATOR_HOST": "127.0.0.1:9198",
+        "FIREBASE_STORAGE_EMULATOR_HOST": "127.0.0.1:9298",
+        "GCLOUD_PROJECT": "demo-coupon-app-rules"
+      },
+      "unsetEnvironment": [
+        "GOOGLE_APPLICATION_CREDENTIALS",
+        "FIREBASE_TOKEN",
+        "NODE_OPTIONS"
+      ],
+      "policy": "source",
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skip": 0,
+      "exitCode": 0,
+      "log": "account-deletion-rules.log",
+      "logSha256": "25c227aa5aec55c264d4928f4220334209aa7a4f242e5cd9f4e4c4cd8ed85cf5"
+    },
+    {
+      "argv": [
+        "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node",
+        "--test",
+        "--test-concurrency=1",
+        "test/safety_release_integration_emulator.test.js"
+      ],
+      "cwd": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/storage-review/fixture-source/functions",
+      "environmentOverrides": {
+        "FIRESTORE_EMULATOR_HOST": "127.0.0.1:8792",
+        "FIREBASE_AUTH_EMULATOR_HOST": "127.0.0.1:9198",
+        "FIREBASE_STORAGE_EMULATOR_HOST": "127.0.0.1:9298",
+        "GCLOUD_PROJECT": "demo-coupon-app-rules",
+        "RUN_SAFETY_RELEASE_EMULATOR": "1",
+        "SAFETY_RELEASE_RULES": "source"
+      },
+      "unsetEnvironment": [
+        "GOOGLE_APPLICATION_CREDENTIALS",
+        "FIREBASE_TOKEN",
+        "NODE_OPTIONS"
+      ],
+      "policy": "source",
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skip": 0,
+      "exitCode": 0,
+      "log": "safety-connected-source.log",
+      "logSha256": "a2aa99682dce12fd024fe7414b507494af629d6d7a6654d4725b40bc2b9e8fc9"
+    },
+    {
+      "argv": [
+        "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node",
+        "--test",
+        "--test-concurrency=1",
+        "test/safety_release_integration_emulator.test.js"
+      ],
+      "cwd": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/storage-review/fixture-source/functions",
+      "environmentOverrides": {
+        "FIRESTORE_EMULATOR_HOST": "127.0.0.1:8792",
+        "FIREBASE_AUTH_EMULATOR_HOST": "127.0.0.1:9198",
+        "FIREBASE_STORAGE_EMULATOR_HOST": "127.0.0.1:9298",
+        "GCLOUD_PROJECT": "demo-coupon-app-rules",
+        "RUN_SAFETY_RELEASE_EMULATOR": "1",
+        "SAFETY_RELEASE_RULES": "candidate"
+      },
+      "unsetEnvironment": [
+        "GOOGLE_APPLICATION_CREDENTIALS",
+        "FIREBASE_TOKEN",
+        "NODE_OPTIONS"
+      ],
+      "policy": "candidate",
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skip": 0,
+      "exitCode": 0,
+      "log": "safety-connected-candidate.log",
+      "logSha256": "b2f380691548f0b90b7aa4a2cb5fadb3ef304aef54438db5958f9fc241515cf8"
+    }
+  ],
+  "build": {
+    "method": "Fresh TypeScript5.9.3 compile into report-only fixture; byte-identical selected source inputs; exact matching existing package/lock dependencies linked only inside report fixture",
+    "exitCode": 0,
+    "log": "typescript-build.log",
+    "sourceFilesCopied": 356,
+    "allCopiedInputsMatchSelectedBeforeAndAfter": true,
+    "compiledJavascriptFiles": 160
+  },
+  "runtime": {
+    "kind": "Native macOS arm64 local Node/Java emulators, not Linux/Docker execution",
+    "node": {
+      "path": "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node",
+      "sha256": "e4b5a3af0e05c75de2eae013904145f40fe7fc2a6e6f17510128bf45cca4e79b",
+      "tuple": {
+        "node": "v24.21.0",
+        "v8": "13.6.233.17-node.53",
+        "platform": "darwin",
+        "arch": "arm64"
+      }
+    },
+    "java": {
+      "path": "/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java",
+      "sha256": "8597c2b31ac775ef604293283e4b11fa294d02e6cf3eecd1a3e43d1b8ace1a84",
+      "version": "openjdk 21.0.10 2026-01-20\nOpenJDK Runtime Environment (build 21.0.10+-117844308-b1163.108)\nOpenJDK 64-Bit Server VM (build 21.0.10+-117844308-b1163.108, mixed mode)"
+    },
+    "firebaseCliVersion": "15.19.1",
+    "emulatorJars": {
+      "cloud-storage-rules-runtime-v1.1.3.jar": {
+        "sha256": "0cd52db6f6271d62078f805220706377c849220b73bd68aa27078d977df9c900",
+        "size": 52892936
+      },
+      "cloud-firestore-emulator-v1.21.0.jar": {
+        "sha256": "c3d3680a89d946a90a027365ea14c26c6472a162bcf37f099bbb1ebd66d25e8e",
+        "size": 138093843
+      }
+    },
+    "dependencyVersions": {
+      "functions/firebase-admin": "13.7.0",
+      "functions/firebase-functions": "7.2.2",
+      "functions/typescript": "5.9.3",
+      "firestore_rules_tests/@firebase/rules-unit-testing": "5.0.1",
+      "firestore_rules_tests/firebase": "12.15.0"
+    }
+  },
+  "policyStatus": {
+    "source": "Selected repository root firestore.rules/storage.rules; source-corrected policy only, not a deployed-policy assertion",
+    "candidate": "Existing tool/safety_release_prep/candidate Rules built from recorded live baseline with proposed safety cutover; proposed and undeployed",
+    "runtimeMetadata": "Tests bind canonical published Terms plus exact disabled execution and isolated enabled/paused proposed runtime metadata; production defaults remain off",
+    "policyHashes": {
+      "firestore.rules": "5c85dc83ace3374a0d590e08287d5cd19e440234327798647077a387a984f5a8",
+      "storage.rules": "c305cb32c05ae956c1df1ca16606347d13f831203abbaaec09a05e8267affa19",
+      "tool/safety_release_prep/candidate/firestore.rules": "d6b852ffb8a3b313525d6a8692173fa8e5d0bae4b2370585f3dd55e26be4d913",
+      "tool/safety_release_prep/candidate/storage.rules": "d6c78226ac081972d53889bb7042a78ce47f505975f08d980a396f106f9ce269",
+      "tool/safety_release_prep/candidate/approved-terms.json": "3f1bb2296bc3036cfb2f83a786fd0562295c084621564ef3bd0b08c8af6ef243",
+      "tool/safety_release_prep/candidate/runtime-phases.json": "bb249aef487d6b3051e9fd5ac5f54865af8da8b27e3e7b3d2b965c70dc1d6ebc"
+    }
+  },
+  "observedCoverage": [
+    "Account-deletion marker privacy; actor/Admin target write fences; retained reads and unrelated account preservation",
+    "Review-feedback target/deletion constraints, orphan own-delete, favorites/anonymous fences and catalog bio authorship",
+    "Direct upload bypass denial and historical object reads across deletion fences",
+    "Exact Terms acceptance before provider work, saved rating/customer photo and explicit owner attachment authority",
+    "Simultaneous text/customer/owner provider-pause race, held private content and retry preserving original identities/timestamps/deadlines",
+    "Default-off versus enforced safe pause; malformed required policy rejects new screening lanes",
+    "Shared screened photo remains public after personal block; exact report remains actionable after review deletion; removal cannot resurrect"
+  ],
+  "providerBoundary": "Actual local Auth/Firestore/Storage, existing compiled handlers and native stores were used; photo/text providers are explicit deterministic injections without transport. No real OpenAI/Vision/Firebase/GCS provider call or production write.",
+  "limitations": [
+    "No rerun or resolution claim for the historical205/206 intermittent concurrent-photo emulator failure; this narrower four-case pass does not erase that evidence.",
+    "No broader historical harness-failure repair or whole-safety-suite pass claimed.",
+    "Storage emulator does not prove production GCS generation preconditions, IAM/ACL/download-token/cache behavior, soft deletion or permanent physical purge.",
+    "Native macOS fixture results do not establish Linux runtime or hosted qualification."
+  ],
+  "sourceAndOwnerPreservation": {
+    "selectedSourceEdits": false,
+    "repositorySourceEdits": false,
+    "testOrRulesEdits": false,
+    "ownerFilesTouched": false,
+    "gitMutations": false,
+    "inputIdentityManifest": "selected-source-inputs.json",
+    "runtimeAndCompiledIdentity": "runtime-and-hashes.json"
+  },
+  "fixtureNotes": [
+    "Matching demo-coupon-app-rules configured for every emulator avoids previous cross-service project mismatch.",
+    "Ports verified free before launch; all emulator listeners bound127.0.0.1 only; no Functions emulator or real provider activation.",
+    "CLI startup reported unavailable lsof under deliberately limited PATH; independent Python port checks and subsequent lsof listener verification succeeded. This produced no test failure or weakened assertion.",
+    "Expected Rules permission-denial diagnostics remain in raw account-deletion log; all positive/negative assertions passed."
+  ],
+  "failuresThisRun": [],
+  "shutdown": {
+    "checkedAt": "2026-10-17T23:45:53.612047+00:00",
+    "signalledPid": 82960,
+    "signal": "SIGINT",
+    "verifiedTaskCommand": "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/node /opt/homebrew/Cellar/firebase-cli/15.19.1/libexec/lib/node_modules/firebase-tools/lib/bin/firebase.js emulators:start --only firestore,auth,storage --project demo-coupon-app-rules --config /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/storage-review/runtime/firebase.json",
+    "verifiedChildCommands": {
+      "82976": "82960 java -Dgoogle.cloud_firestore.debug_log_level=FINE -Duser.language=en -jar /Users/colesmart/.cache/firebase/emulators/cloud-firestore-emulator-v1.21.0.jar --host 127.0.0.1 --port 8792 --websocket_port 9150 --database-edition standard --project_id demo-coupon-app-rules --rules /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/storage-review/fixture-source/firestore.rules --single_project_mode true",
+      "82981": "82960 java -Duser.language=en -jar /Users/colesmart/.cache/firebase/emulators/cloud-storage-rules-runtime-v1.1.3.jar serve"
+    },
+    "pidExited": {
+      "82960": true,
+      "82976": true,
+      "82981": true
+    },
+    "portsAbsent": {
+      "8792": true,
+      "9198": true,
+      "9298": true,
+      "4498": true,
+      "4598": true,
+      "9150": true
+    },
+    "onlyTaskOwnedServicesStopped": true,
+    "dataAndLogsPreserved": true,
+    "rootReservedPortsTouched": false
+  },
+  "evidenceSha256": {
+    "runtime/emulators.log": "271b60318b18bab06143f8b30132aa0cfe6d1518fc56304f6b4e29cda7238cf3",
+    "runtime/firestore-debug.log": "854b4ca10d1b191a16a0f42e1ef7ec51832415a311e0e62ea0cbf4cfb1f24975",
+    "runtime/firebase.json": "b09d14593ce525823d32cbf91b7788ec454c5116fde88b90990c6cf4bc615af4",
+    "selected-source-inputs.json": "2bb762b82358668dd063a39faf8fb664d48f0af1e58f1aa075cd7fdf5e9c0e83",
+    "runtime-and-hashes.json": "734781d4e31ef664d81e1b5fdde29e0d2b168c48b19c9cf2805d2e0abd581ccc",
+    "shutdown.json": "dc6bd240edb161f5a1bbcdf6000d87c915e82ddcf49695441518d015d46040c6",
+    "typescript-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "cloudSpending": false,
+  "hostedInvestigation": false,
+  "productionDeploymentOrActivation": false
+}

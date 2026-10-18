@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "runId": "BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004",
+  "recordedAtUtc": "2026-10-17T23:58:42.015528+00:00",
+  "role": "Independent numerical/actual-binary reviewer",
+  "verdict": "APPROVE_EXACT_LOCAL_NUMERICAL_TUPLE_PENDING_GUARD_DIFF_REBUILD_FUNCTIONAL_VERIFICATION",
+  "numericalTransferApproved": true,
+  "hostedQualified": false,
+  "linuxFunctionalQualifiedByThisReceipt": false,
+  "guardEditedByReviewer": false,
+  "repositoryEditedByReviewer": false,
+  "sourceCommitExpected": "e14b74adeca5088883d7efe7ee208b233be6616d",
+  "searchImageManifestId": "sha256:2b449598cf09490b7c3d4699031d26783a94c46d450176ad696c96909c28d12c",
+  "searchImageConfigDigest": "sha256:c55c72b6202cc74c99194a35a16778931d253940f45eaa760d3449540eac757f",
+  "controllerImageId": "sha256:d31f485673c4638bffc4b5d5dd4b87a711d6182e47f799c877912eb57a49cf2f",
+  "runtime": {
+    "kind": "actual-runtime-metadata-only",
+    "node": "v24.21.0",
+    "v8": "13.6.233.17-node.53",
+    "platform": "linux",
+    "arch": "x64",
+    "execPath": "/usr/local/bin/node",
+    "nodeSha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c",
+    "execArgv": [],
+    "nodeOptionsPresent": false,
+    "kernel": "7.0.14-linuxkit",
+    "machine": "x86_64",
+    "cpu": [
+      "vendor_id\t: VirtualApple",
+      "model name\t: VirtualApple @ 2.50GHz",
+      "flags\t\t: fpu tsc de cx8 apic sep cmov pat pse36 clflush mmx fxsr sse sse2 syscall nx lm rep_good nopl pni cpuid pclmulqdq ssse3 cx16 sse4_1 popcnt sse4_2 aes lahf_lm movbe fma avx f16c rdrand bmi1 avx2 bmi2"
+    ],
+    "distribution": "PRETTY_NAME=\"Debian GNU/Linux 12 (bookworm)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"12\"\nVERSION=\"12 (bookworm)\"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\"\n",
+    "buildVariables": {
+      "host_arch": "x64",
+      "target_arch": "x64",
+      "node_shared": false,
+      "node_shared_zlib": false,
+      "node_shared_http_parser": false,
+      "node_shared_libuv": false,
+      "node_shared_ada": false,
+      "node_shared_simdjson": false,
+      "node_shared_simdutf": false,
+      "node_shared_brotli": false,
+      "node_shared_cares": false,
+      "node_shared_gtest": false,
+      "node_shared_hdr_histogram": false,
+      "node_shared_merve": false,
+      "node_shared_nbytes": false,
+      "node_shared_nghttp2": false,
+      "node_shared_nghttp3": false,
+      "node_shared_ngtcp2": false,
+      "node_shared_sqlite": false,
+      "node_shared_uvwasi": false,
+      "node_shared_zstd": false,
+      "v8_enable_webassembly": 1,
+      "v8_enable_javascript_promise_hooks": 1,
+      "v8_enable_lite_mode": 0,
+      "v8_enable_gdbjit": 1,
+      "v8_enable_object_print": 1,
+      "v8_use_siphash": 1,
+      "v8_enable_maglev": 1,
+      "v8_enable_pointer_compression": 0,
+      "v8_enable_sandbox": 0,
+      "v8_enable_pointer_compression_shared_cage": 0,
+      "v8_enable_external_code_space": 0,
+      "v8_enable_31bit_smis_on_64bit_arch": 0,
+      "v8_enable_extensible_ro_snapshot": 0,
+      "v8_enable_hugepage": 0,
+      "v8_enable_short_builtin_calls": 1,
+      "v8_enable_wasm_simd256_revec": 1,
+      "node_shared_openssl": false,
+      "v8_enable_i18n_support": 1,
+      "v8_enable_inspector": 1
+    },
+    "servingQualified": false
+  },
+  "reviewedDispatch": {
+    "sin": "0x27a8e60",
+    "cos": "0x27a7210",
+    "atan": "0x27a6c90",
+    "atan2": "0x27a6f20",
+    "reducer": "0x27a6300",
+    "MathSqrtInstruction": "sqrtsd",
+    "nativeMathArithmetic": "separate SSE binary64, no FMA/x87 in reviewed functions/reducer",
+    "alternateLibmRoute": false
+  },
+  "proofAudit": {
+    "assertions": "all passed",
+    "sourceSha256": "1bf999809d4c4c1d31ad5ff3578d32614796f159e08b9e7782560d017721a0c2",
+    "scriptSha256": "b0445dca0915ceb2938085cdf7bd0bd0702bc967a9e45ede71364ea247d0d94d"
+  },
+  "corroboration": {
+    "sourceConstantChecks": 35,
+    "defaultArithmeticChecks": 13,
+    "sqlBridgeCases": 34,
+    "maxAbsoluteCoordinateError": 2.842170943040401e-14,
+    "sqlSession": {
+      "extra_float_digits": "1",
+      "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit"
+    },
+    "diagnostic": {
+      "kind": "Linux actual SQL expression/radius diagnostic; finite vectors are not runtime qualification",
+      "runtime": {
+        "node": "v24.21.0",
+        "v8": "13.6.233.17-node.53",
+        "platform": "linux",
+        "arch": "x64",
+        "nodeSha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
+      },
+      "server": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+      "querySha256": "309e27651e330a1fd04fd3c9063605c59b2bce83d8364e98bd85c6b8803dacdf",
+      "unchangedAuthoritativeGeometrySha256": "626346013693e751c92f3b070a7d8e8eac56d78a76cc1078b18a98fc37f64144",
+      "combinedBoundVectors": 318,
+      "positiveBounds": 257,
+      "radiusEdgeVectors": 1512,
+      "acceptedRadiusEdgeVectors": 730,
+      "missed": 0,
+      "finiteSamplesAreNotUniversalProof": true,
+      "proofArtifact": "Retained original exact-rational audit must be independently reconciled with this Linux V8 build",
+      "servingRuntimeQualified": false,
+      "linuxDiagnosticOnly": true
+    }
+  },
+  "limits": [
+    "Standard IEEE instruction/compiler correctness assumptions retained; not formal verification of Rosetta.",
+    "Initial print-opt-code probe emitted no optimized function disassembly; no such verification claimed.",
+    "Finite vectors alone are not the universal bound proof.",
+    "No native hosted/provider qualification.",
+    "Guard/source final diff, final image rebuild and guarded functional tests remain required."
+  ],
+  "artifactsSha256": {
+    "node-linux-x64": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c",
+    "runtime-metadata.json": "07b88add88bde5eef943a4c54b8760bada01921cab03ec0f6ff6678080f152f3",
+    "v8-options.txt": "586d602342533947953355bcf5679897139a68b5c4166ffe03124097c390dc45",
+    "ldd.txt": "35c350788f57d73ad284ded4c57b4c7f84aae2b61da7b8f9ba0220cf61f6808d",
+    "math-symbols.txt": "8af33c2a1f3b3af1b0e749c9a214acbac9796ed3f0fd5fbe5459e9e3861b5e6d",
+    "math-disassembly.txt": "847b5cb4f680dbc3f4329d3c75dbd339b9ff0c3f5f1bc09d2e31104a9ede172e",
+    "math-disassembly-compact.txt": "ebbca1c42aecc0a457389b02e3393c97079bc4af69ef48e7ebbb1591b77efbaa",
+    "llvm-objdump-version.txt": "4480136e4279bdce40f98483eacd8cf19d098fd32841187278297c745623b051",
+    "inspect-math-constants.py": "56744076dc1ccdc3ad4c16339a2133b582f4359317fc36a399c43ff3cf685dc0",
+    "math-constants.json": "47fae4c181715ffd9cc77b569a723e1f9cb15c0be2449e1337dd8606ff15cd07",
+    "default-arithmetic-probe.cjs": "bb3f72f63d745dfd413c2b726c2be4da37c17f25679ab5c11a0c09b84b0797a4",
+    "default-arithmetic-jit.log": "185ae8aca6fa8d022a0987e5e381dbb4cb936f55dd532040af3c2fd4bc5a9228",
+    "default-arithmetic.no-flags.json": "7ae4fbe49fb5303a095f2c2af480436df599dc6db87513b0b00b48f3ddeeed5e",
+    "sql-conversion-probe.cjs": "89447e4bba0472655e114ca1755eee1d5814c70cb67318f89d0d7ff744980ce7",
+    "sql-conversion-probe.json": "117a3ca369ec8bd23fbf77712ef2f4e2647048407111e6034ae8fe6f025c6ac7",
+    "exact-rational-audit.linux.json": "8b866cb66b2efe2cd7147a48f256e2787669eac8875370db56a2ae439e9bb081",
+    "proof-input/distance-bound-arithmetic-audit.py": "b0445dca0915ceb2938085cdf7bd0bd0702bc967a9e45ede71364ea247d0d94d",
+    "proof-input/evidence/math/node-v24.21.0-ieee754.cc": "1bf999809d4c4c1d31ad5ff3578d32614796f159e08b9e7782560d017721a0c2",
+    "primary-source/postgres-REL_18_6-numeric.c": "6cde7cd60b3330b83be35d1f014045f5fb5fe737f3c5db4c8ed4080b99f2b666",
+    "numerical-diagnostics.initial.json": "857866a0472473c22df2f378dcb82ace358f5258f2c7d8e6842ed0b12391d74c",
+    "postgresql-metadata.txt": "53cca2ecc6b77a433eb2b9b991637f746cff0776b19841c8088c352f9c380476",
+    "numerical-runtime-review.txt": "46fdd7311b536e9249a5d0faa1aaafc061596b6098609c67daba5020cd2ed3d8"
+  },
+  "reviewedSourceSha256": {
+    "functions/src/restaurant_geo_helpers.ts": "8fc56748c811d848b853be0912522b451e1e7c01c0cd1060be2f1cde7ffd9066",
+    "functions/src/postgis_query.ts": "309e27651e330a1fd04fd3c9063605c59b2bce83d8364e98bd85c6b8803dacdf",
+    "functions/src/postgis_store.ts": "3c7f49cc9d57acb4ad26d39448f9f2af26af5b6078dad5336269fcd9afa7469c"
+  },
+  "parentMetadataSha256": {
+    "search-image.initial.inspect.json": "79969c70f7995d190ecf372f2a9dee1c04dbf67ed5cf4ad7053b5c938ace5171",
+    "postgis-image.inspect.json": "a5a68081874408add8ebb4a1951cc0ad5e815aa5890a3184eeef51d9e519971e"
+  },
+  "reviewerCommands": [
+    {
+      "description": "bounded exact-rational audit",
+      "image": "sha256:d31f485673c4638bffc4b5d5dd4b87a711d6182e47f799c877912eb57a49cf2f",
+      "network": "none",
+      "memory": "768m",
+      "cpus": 1,
+      "entrypoint": "python3",
+      "argv": [
+        "/proof/distance-bound-arithmetic-audit.py"
+      ],
+      "exitCode": 0
+    },
+    {
+      "description": "bounded default arithmetic",
+      "image": "sha256:2b449598cf09490b7c3d4699031d26783a94c46d450176ad696c96909c28d12c",
+      "network": "none",
+      "memory": "768m",
+      "cpus": 1,
+      "entrypoint": "node",
+      "argv": [
+        "/review/default-arithmetic-probe.cjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "description": "read-only actual SQL conversion",
+      "image": "sha256:2b449598cf09490b7c3d4699031d26783a94c46d450176ad696c96909c28d12c",
+      "network": "container:bs-linux004-pg",
+      "memory": "768m",
+      "cpus": 1,
+      "entrypoint": "node",
+      "argv": [
+        "/review/sql-conversion-probe.cjs"
+      ],
+      "exitCode": 0,
+      "transaction": "BEGIN READ ONLY / ROLLBACK",
+      "dataMutations": false
+    }
+  ]
+}

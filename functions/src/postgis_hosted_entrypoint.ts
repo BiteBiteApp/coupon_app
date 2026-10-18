@@ -28,7 +28,7 @@ export async function openApprovedHostedPostgisResources(options: {
     identity = cloudSqlPostgisIdentity(config);
   const permit = verifyPostgisExecutionApproval(options.approval, options.trustedKeys, identity);
   requireHostedPostgisConfiguration(config, permit);
-  requireQualifiedPostgisRuntime();
+  requireQualifiedPostgisRuntime("hosted");
   const keys = readJson(options.keyFile, 4096) as Record<string, unknown>;
   if (Object.keys(keys).sort().join(",") !== "discoveryKeyBase64,identityKeyV1Base64,scoreCursorRootKeyBase64") throw new Error("Invalid isolated runtime keys.");
   const discoveryKey = key(keys.discoveryKeyBase64), identityKeyV1 = key(keys.identityKeyV1Base64) as CustomerBiteSaverIdentityKeyV1,

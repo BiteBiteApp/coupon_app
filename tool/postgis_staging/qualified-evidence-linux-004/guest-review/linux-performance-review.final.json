@@ -1,0 +1,3488 @@
+{
+  "recordedAt": "2026-10-18T00:20:41.902440+00:00",
+  "image": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+  "evidenceType": "Actual macOS Flutter rendering through fixed loopback relays to actual emulated Linux backend, PostgreSQL/PostGIS and Auth/Firestore emulators; synthetic local workload only.",
+  "modes": {
+    "serial": {
+      "observations": 46,
+      "allSuccess": true,
+      "allHttpCalls": 632,
+      "authorityOperationFailures": 0,
+      "flows": {
+        "bitesaver-guest": {
+          "samples": 20,
+          "successes": 20,
+          "errors": 0,
+          "firstObservationMs": [
+            4230.706
+          ],
+          "warm": {
+            "n": 19,
+            "medianMs": 3059.196,
+            "minimumMs": 2918.038,
+            "maximumMs": 3365.318,
+            "nearestRankP95Ms": 3365.318,
+            "atOrBelow2000Ms": 0,
+            "allMilliseconds": [
+              3096.843,
+              3156.993,
+              3365.318,
+              3048.258,
+              3059.196,
+              3308.827,
+              3029.524,
+              2962.477,
+              3244.191,
+              3071.632,
+              2955.996,
+              2972.325,
+              3343.989,
+              2950.31,
+              3122.947,
+              2918.038,
+              3293.07,
+              2939.105,
+              3039.083
+            ]
+          },
+          "httpCallsPerSample": [
+            28
+          ],
+          "usefulCardCounts": [
+            25
+          ],
+          "orderedMembershipDigests": [
+            "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+          ],
+          "challengeRoundsPerSample": [
+            26
+          ],
+          "challengeSizes": [
+            1
+          ],
+          "authorityCountsIdenticalAcrossSamples": true,
+          "authorityCounts": {
+            "httpCalls": 28,
+            "operationCalls": {
+              "firestore.commitWrites": 55,
+              "firestore.getDocument": 108,
+              "firestore.getDocuments": 106,
+              "firestore.queryDocuments": 26,
+              "firestore.transaction": 138,
+              "firestore.transactionRead.getDocument": 88,
+              "firestore.transactionRead.getDocuments": 138,
+              "membership.pinRevision": 1,
+              "membership.queryResults": 26,
+              "sql.membershipQuery": 191
+            },
+            "requestedDocuments": 754
+          },
+          "authorityTimingSamples": [
+            {
+              "run": 0,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1502.6241639999826,
+                "firestore.transactionRead.getDocuments": 412.0917470000022,
+                "firestore.transactionRead.getDocument": 466.87658399998327,
+                "firestore.getDocuments": 296.57678400000987,
+                "membership.pinRevision": 63.58833299999969,
+                "firestore.getDocument": 424.95145599999523,
+                "firestore.commitWrites": 270.90191099997537,
+                "membership.queryResults": 226.2116230000065,
+                "sql.membershipQuery": 133.6138300000166,
+                "firestore.queryDocuments": 202.07312599999932
+              }
+            },
+            {
+              "run": 1,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1143.4524170000113,
+                "firestore.transactionRead.getDocuments": 361.07091700000456,
+                "firestore.transactionRead.getDocument": 268.92037700001674,
+                "firestore.getDocuments": 265.1090860000004,
+                "membership.pinRevision": 7.741125000000466,
+                "firestore.getDocument": 347.5909519999732,
+                "firestore.commitWrites": 134.68491799999174,
+                "membership.queryResults": 172.94020900000032,
+                "sql.membershipQuery": 93.99920900001598,
+                "firestore.queryDocuments": 116.96945800000321
+              }
+            },
+            {
+              "run": 2,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1175.4739100000043,
+                "firestore.transactionRead.getDocuments": 357.95829099999173,
+                "firestore.transactionRead.getDocument": 270.9984570000124,
+                "firestore.getDocuments": 289.00312999999005,
+                "membership.pinRevision": 5.590041999999812,
+                "firestore.getDocument": 350.0676239999957,
+                "firestore.commitWrites": 130.02825299998585,
+                "membership.queryResults": 171.6499580000018,
+                "sql.membershipQuery": 95.46874600000228,
+                "firestore.queryDocuments": 128.75474800000666
+              }
+            },
+            {
+              "run": 3,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1232.151456000025,
+                "firestore.transactionRead.getDocuments": 386.24141300002884,
+                "firestore.transactionRead.getDocument": 236.75562399998307,
+                "firestore.getDocuments": 359.2209970000149,
+                "membership.pinRevision": 8.912625000000844,
+                "firestore.getDocument": 337.5505479999847,
+                "firestore.commitWrites": 164.182125000003,
+                "membership.queryResults": 158.46321100000205,
+                "sql.membershipQuery": 87.04613099999187,
+                "firestore.queryDocuments": 166.53887300000133
+              }
+            },
+            {
+              "run": 4,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1180.6082119999992,
+                "firestore.transactionRead.getDocuments": 357.18429000000106,
+                "firestore.transactionRead.getDocument": 334.0405439999704,
+                "firestore.getDocuments": 274.63941999998497,
+                "membership.pinRevision": 9.612957999997889,
+                "firestore.getDocument": 349.75266500000726,
+                "firestore.commitWrites": 116.33199900000545,
+                "membership.queryResults": 163.8564600000027,
+                "sql.membershipQuery": 89.14274099998147,
+                "firestore.queryDocuments": 109.13720900000044
+              }
+            },
+            {
+              "run": 5,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1136.385094999947,
+                "firestore.transactionRead.getDocuments": 371.1602060000223,
+                "firestore.transactionRead.getDocument": 235.63562799996726,
+                "firestore.getDocuments": 280.00683500002924,
+                "membership.pinRevision": 8.727624999999534,
+                "firestore.getDocument": 354.4367920000004,
+                "firestore.commitWrites": 120.97137700000894,
+                "membership.queryResults": 159.57320900000923,
+                "sql.membershipQuery": 87.21236799999315,
+                "firestore.queryDocuments": 119.50191600001563
+              }
+            },
+            {
+              "run": 6,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1214.051086000014,
+                "firestore.transactionRead.getDocuments": 386.2396659999504,
+                "firestore.transactionRead.getDocument": 270.2907029999842,
+                "firestore.getDocuments": 288.31892400002107,
+                "membership.pinRevision": 6.343790999999328,
+                "firestore.getDocument": 351.78545999996277,
+                "firestore.commitWrites": 222.45208399998955,
+                "membership.queryResults": 162.4917909999931,
+                "sql.membershipQuery": 87.02014899995993,
+                "firestore.queryDocuments": 228.81837599998835
+              }
+            },
+            {
+              "run": 7,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1158.4014960000204,
+                "firestore.transactionRead.getDocuments": 356.882832999916,
+                "firestore.transactionRead.getDocument": 248.52450599996519,
+                "firestore.getDocuments": 270.71304800001235,
+                "membership.pinRevision": 27.232750000002852,
+                "firestore.getDocument": 335.08817500002624,
+                "firestore.commitWrites": 120.21933400000853,
+                "membership.queryResults": 161.40500100000645,
+                "sql.membershipQuery": 89.7055100000216,
+                "firestore.queryDocuments": 112.13191500000539
+              }
+            },
+            {
+              "run": 8,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1131.864034999955,
+                "firestore.transactionRead.getDocuments": 351.9035820000354,
+                "firestore.transactionRead.getDocument": 238.16966599997977,
+                "firestore.getDocuments": 267.7686270000122,
+                "membership.pinRevision": 5.935917000002519,
+                "firestore.getDocument": 338.4562519999963,
+                "firestore.commitWrites": 125.99345600001107,
+                "membership.queryResults": 152.21337600000697,
+                "sql.membershipQuery": 80.876167000024,
+                "firestore.queryDocuments": 111.06849700004386
+              }
+            },
+            {
+              "run": 9,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1180.3750020000007,
+                "firestore.transactionRead.getDocuments": 396.76733600003354,
+                "firestore.transactionRead.getDocument": 242.87749699996493,
+                "firestore.getDocuments": 280.8824589999931,
+                "membership.pinRevision": 6.5115420000001905,
+                "firestore.getDocument": 345.40271499999653,
+                "firestore.commitWrites": 202.961750999988,
+                "membership.queryResults": 156.32862400000158,
+                "sql.membershipQuery": 84.11716199991497,
+                "firestore.queryDocuments": 235.88429399999586
+              }
+            },
+            {
+              "run": 10,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1156.0688729999965,
+                "firestore.transactionRead.getDocuments": 357.6059960000275,
+                "firestore.transactionRead.getDocument": 261.21929299999465,
+                "firestore.getDocuments": 268.06054200003564,
+                "membership.pinRevision": 10.84454199999891,
+                "firestore.getDocument": 333.21891600001254,
+                "firestore.commitWrites": 146.11537399998633,
+                "membership.queryResults": 161.12383400000544,
+                "sql.membershipQuery": 87.87137299997994,
+                "firestore.queryDocuments": 114.95895900000323
+              }
+            },
+            {
+              "run": 11,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1125.5011249999297,
+                "firestore.transactionRead.getDocuments": 363.749247000007,
+                "firestore.transactionRead.getDocument": 250.9311669999879,
+                "firestore.getDocuments": 264.7227929999717,
+                "membership.pinRevision": 5.980125000001863,
+                "firestore.getDocument": 321.72533499996644,
+                "firestore.commitWrites": 114.88216899998952,
+                "membership.queryResults": 156.69474900002388,
+                "sql.membershipQuery": 86.0507059999436,
+                "firestore.queryDocuments": 108.10929200001556
+              }
+            },
+            {
+              "run": 12,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1124.066583000007,
+                "firestore.transactionRead.getDocuments": 338.9652169999754,
+                "firestore.transactionRead.getDocument": 247.87096099997143,
+                "firestore.getDocuments": 269.92033099997207,
+                "membership.pinRevision": 5.036916999997629,
+                "firestore.getDocument": 345.5536670000147,
+                "firestore.commitWrites": 116.67958100004034,
+                "membership.queryResults": 162.74991899997985,
+                "sql.membershipQuery": 87.25195900004474,
+                "firestore.queryDocuments": 107.31316400001378
+              }
+            },
+            {
+              "run": 13,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1226.9543790000534,
+                "firestore.transactionRead.getDocuments": 420.18091900002037,
+                "firestore.transactionRead.getDocument": 249.86625300000014,
+                "firestore.getDocuments": 338.0769940000173,
+                "membership.pinRevision": 6.382582999998704,
+                "firestore.getDocument": 335.5550440000443,
+                "firestore.commitWrites": 215.64812500001426,
+                "membership.queryResults": 158.14683199999854,
+                "sql.membershipQuery": 86.73612200000207,
+                "firestore.queryDocuments": 275.1223750000281
+              }
+            },
+            {
+              "run": 14,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1114.0919140000333,
+                "firestore.transactionRead.getDocuments": 348.78587699992204,
+                "firestore.transactionRead.getDocument": 244.07120599998598,
+                "firestore.getDocuments": 262.83350100000825,
+                "membership.pinRevision": 9.559000000001106,
+                "firestore.getDocument": 340.9016649999612,
+                "firestore.commitWrites": 124.50258199998643,
+                "membership.queryResults": 168.23866699998325,
+                "sql.membershipQuery": 92.51421299995127,
+                "firestore.queryDocuments": 118.36675000000105
+              }
+            },
+            {
+              "run": 15,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1168.8108719999436,
+                "firestore.transactionRead.getDocuments": 349.99596200009546,
+                "firestore.transactionRead.getDocument": 264.6177879999377,
+                "firestore.getDocuments": 269.20479900006467,
+                "membership.pinRevision": 6.931917000001704,
+                "firestore.getDocument": 335.58916099999624,
+                "firestore.commitWrites": 142.09762600002432,
+                "membership.queryResults": 163.32925100003922,
+                "sql.membershipQuery": 90.12274900003831,
+                "firestore.queryDocuments": 113.34270699998888
+              }
+            },
+            {
+              "run": 16,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1119.8832050000929,
+                "firestore.transactionRead.getDocuments": 341.2576250000129,
+                "firestore.transactionRead.getDocument": 238.67466799993417,
+                "firestore.getDocuments": 260.2237519999471,
+                "membership.pinRevision": 6.54383300000336,
+                "firestore.getDocument": 327.28917000000365,
+                "firestore.commitWrites": 131.27174999997078,
+                "membership.queryResults": 157.15425200003665,
+                "sql.membershipQuery": 85.74729199997091,
+                "firestore.queryDocuments": 116.04404000000795
+              }
+            },
+            {
+              "run": 17,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1275.0457549999264,
+                "firestore.transactionRead.getDocuments": 373.15745799992874,
+                "firestore.transactionRead.getDocument": 310.1644609999639,
+                "firestore.getDocuments": 336.3389880000177,
+                "membership.pinRevision": 5.3179999999993015,
+                "firestore.getDocument": 319.60716500009585,
+                "firestore.commitWrites": 178.55941299998085,
+                "membership.queryResults": 154.10525100007362,
+                "sql.membershipQuery": 84.1807940001745,
+                "firestore.queryDocuments": 221.37566600005084
+              }
+            },
+            {
+              "run": 18,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1145.7545109999191,
+                "firestore.transactionRead.getDocuments": 366.4770400000416,
+                "firestore.transactionRead.getDocument": 244.21416500007035,
+                "firestore.getDocuments": 267.18879800006107,
+                "membership.pinRevision": 8.671667000002344,
+                "firestore.getDocument": 329.2189529999887,
+                "firestore.commitWrites": 127.06225000001723,
+                "membership.queryResults": 160.83300099997723,
+                "sql.membershipQuery": 83.98724700009916,
+                "firestore.queryDocuments": 128.551541000008
+              }
+            },
+            {
+              "run": 19,
+              "httpCalls": 28,
+              "requestedDocuments": 754,
+              "operationCalls": {
+                "firestore.transaction": 138,
+                "firestore.transactionRead.getDocuments": 138,
+                "firestore.transactionRead.getDocument": 88,
+                "firestore.getDocuments": 106,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 108,
+                "firestore.commitWrites": 55,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 1127.668177999949,
+                "firestore.transactionRead.getDocuments": 342.50529099999403,
+                "firestore.transactionRead.getDocument": 257.2372090000281,
+                "firestore.getDocuments": 266.18100300003425,
+                "membership.pinRevision": 5.921583000003011,
+                "firestore.getDocument": 336.3782479999645,
+                "firestore.commitWrites": 132.4873350000271,
+                "membership.queryResults": 159.10366499994416,
+                "sql.membershipQuery": 85.69216800000868,
+                "firestore.queryDocuments": 121.18404199996439
+              }
+            }
+          ]
+        },
+        "bitesaver-signed": {
+          "samples": 20,
+          "successes": 20,
+          "errors": 0,
+          "firstObservationMs": [
+            460.899
+          ],
+          "warm": {
+            "n": 19,
+            "medianMs": 415.965,
+            "minimumMs": 354.757,
+            "maximumMs": 795.394,
+            "nearestRankP95Ms": 795.394,
+            "atOrBelow2000Ms": 19,
+            "allMilliseconds": [
+              418.983,
+              467.827,
+              424.646,
+              373.798,
+              441.335,
+              371.246,
+              415.965,
+              354.757,
+              795.394,
+              607.205,
+              436.081,
+              411.939,
+              392.023,
+              389.074,
+              442.849,
+              380.972,
+              390.727,
+              401.983,
+              469.953
+            ]
+          },
+          "httpCallsPerSample": [
+            3
+          ],
+          "usefulCardCounts": [
+            25
+          ],
+          "orderedMembershipDigests": [
+            "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+          ],
+          "challengeRoundsPerSample": [
+            0
+          ],
+          "challengeSizes": [],
+          "authorityCountsIdenticalAcrossSamples": true,
+          "authorityCounts": {
+            "httpCalls": 3,
+            "operationCalls": {
+              "firestore.commitWrites": 1,
+              "firestore.getDocument": 2,
+              "firestore.getDocuments": 7,
+              "firestore.queryDocuments": 26,
+              "firestore.transaction": 10,
+              "firestore.transactionRead.getDocument": 12,
+              "firestore.transactionRead.getDocuments": 9,
+              "membership.pinRevision": 1,
+              "membership.queryResults": 1,
+              "sql.membershipQuery": 62
+            },
+            "requestedDocuments": 411
+          },
+          "authorityTimingSamples": [
+            {
+              "run": 0,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 124.53579199998057,
+                "firestore.transactionRead.getDocuments": 32.928919000027236,
+                "firestore.transactionRead.getDocument": 80.056333000015,
+                "firestore.getDocuments": 28.86962600001425,
+                "membership.pinRevision": 6.814999999987776,
+                "firestore.getDocument": 5.849375000019791,
+                "membership.queryResults": 31.2432919999992,
+                "sql.membershipQuery": 20.13470499998948,
+                "firestore.commitWrites": 5.1240839999954915,
+                "firestore.queryDocuments": 84.23891799998819
+              }
+            },
+            {
+              "run": 1,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 106.88762500001758,
+                "firestore.transactionRead.getDocuments": 32.12216800000169,
+                "firestore.transactionRead.getDocument": 52.37512500000594,
+                "firestore.getDocuments": 28.81029199999466,
+                "membership.pinRevision": 5.250625000000582,
+                "firestore.getDocument": 5.514626000003773,
+                "membership.queryResults": 37.73808399999689,
+                "sql.membershipQuery": 24.638413999942713,
+                "firestore.commitWrites": 6.559250000005704,
+                "firestore.queryDocuments": 99.29858299999614
+              }
+            },
+            {
+              "run": 2,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 144.59383300000627,
+                "firestore.transactionRead.getDocuments": 39.1147079999937,
+                "firestore.transactionRead.getDocument": 78.13574899997911,
+                "firestore.getDocuments": 34.779750000016065,
+                "membership.pinRevision": 5.256416999996873,
+                "firestore.getDocument": 5.392791999998735,
+                "membership.queryResults": 33.73916699999245,
+                "sql.membershipQuery": 23.175671000019065,
+                "firestore.commitWrites": 4.786582999993698,
+                "firestore.queryDocuments": 125.61387600003218
+              }
+            },
+            {
+              "run": 3,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 111.3874150000047,
+                "firestore.transactionRead.getDocuments": 27.263540000014473,
+                "firestore.transactionRead.getDocument": 58.2352089999913,
+                "firestore.getDocuments": 31.746750000020256,
+                "membership.pinRevision": 8.354374999995343,
+                "firestore.getDocument": 5.580833000014536,
+                "membership.queryResults": 31.305124999998952,
+                "sql.membershipQuery": 20.359414999911678,
+                "firestore.commitWrites": 5.458875000011176,
+                "firestore.queryDocuments": 106.70616599998903
+              }
+            },
+            {
+              "run": 4,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 103.18078900000546,
+                "firestore.transactionRead.getDocuments": 29.19058200001018,
+                "firestore.transactionRead.getDocument": 61.64141499996185,
+                "firestore.getDocuments": 26.519625999979326,
+                "membership.pinRevision": 6.186584000010043,
+                "firestore.getDocument": 4.982333000007202,
+                "membership.queryResults": 30.128791000010096,
+                "sql.membershipQuery": 19.984711999932188,
+                "firestore.commitWrites": 4.505332999993698,
+                "firestore.queryDocuments": 87.18287500001315
+              }
+            },
+            {
+              "run": 5,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 119.91091699997196,
+                "firestore.transactionRead.getDocuments": 27.81046000000788,
+                "firestore.transactionRead.getDocument": 68.37541699998837,
+                "firestore.getDocuments": 47.29800100001739,
+                "membership.pinRevision": 7.5118749999965075,
+                "firestore.getDocument": 4.971291999987443,
+                "membership.queryResults": 32.6329160000023,
+                "sql.membershipQuery": 19.238874999951804,
+                "firestore.commitWrites": 6.113832999995793,
+                "firestore.queryDocuments": 88.91383099998347
+              }
+            },
+            {
+              "run": 6,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 107.78408400001354,
+                "firestore.transactionRead.getDocuments": 28.219458000021405,
+                "firestore.transactionRead.getDocument": 55.02808500001265,
+                "firestore.getDocuments": 30.853083999987575,
+                "membership.pinRevision": 5.183250000001863,
+                "firestore.getDocument": 6.308833999995841,
+                "membership.queryResults": 31.551751000006334,
+                "sql.membershipQuery": 20.902289000034216,
+                "firestore.commitWrites": 5.538790999999037,
+                "firestore.queryDocuments": 105.4271260000678
+              }
+            },
+            {
+              "run": 7,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 115.91104300004372,
+                "firestore.transactionRead.getDocuments": 33.658957999999984,
+                "firestore.transactionRead.getDocument": 54.35358500001894,
+                "firestore.getDocuments": 31.035459999984596,
+                "membership.pinRevision": 4.381292000005487,
+                "firestore.getDocument": 5.803249999997206,
+                "membership.queryResults": 31.78191700000025,
+                "sql.membershipQuery": 21.33029400005762,
+                "firestore.commitWrites": 4.5092079999885755,
+                "firestore.queryDocuments": 114.49395700004243
+              }
+            },
+            {
+              "run": 8,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 101.72028999999748,
+                "firestore.transactionRead.getDocuments": 25.227584000022034,
+                "firestore.transactionRead.getDocument": 52.6868330000143,
+                "firestore.getDocuments": 108.26691699997173,
+                "membership.pinRevision": 4.390625,
+                "firestore.getDocument": 7.045750000004773,
+                "membership.queryResults": 30.45558299998811,
+                "sql.membershipQuery": 19.6496230000339,
+                "firestore.commitWrites": 4.946042000010493,
+                "firestore.queryDocuments": 88.95029100000102
+              }
+            },
+            {
+              "run": 9,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 353.0499180000188,
+                "firestore.transactionRead.getDocuments": 52.52950000001874,
+                "firestore.transactionRead.getDocument": 431.21746000002895,
+                "firestore.getDocuments": 48.36225000000559,
+                "membership.pinRevision": 7.014250000007451,
+                "firestore.getDocument": 7.5659579999919515,
+                "membership.queryResults": 25.4333750000078,
+                "sql.membershipQuery": 17.02124999994703,
+                "firestore.commitWrites": 15.56637500000943,
+                "firestore.queryDocuments": 183.28391400005785
+              }
+            },
+            {
+              "run": 10,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 161.2851670000091,
+                "firestore.transactionRead.getDocuments": 40.568627000029664,
+                "firestore.transactionRead.getDocument": 94.02670699998271,
+                "firestore.getDocuments": 38.76450299999851,
+                "membership.pinRevision": 29.036040999999386,
+                "firestore.getDocument": 6.481665999992401,
+                "membership.queryResults": 36.33712500000547,
+                "sql.membershipQuery": 22.89970600005472,
+                "firestore.commitWrites": 14.949291999990237,
+                "firestore.queryDocuments": 143.21320900000865
+              }
+            },
+            {
+              "run": 11,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 116.42045700000017,
+                "firestore.transactionRead.getDocuments": 31.257750000004307,
+                "firestore.transactionRead.getDocument": 78.36958399997093,
+                "firestore.getDocuments": 31.855749000009382,
+                "membership.pinRevision": 8.837457999994513,
+                "firestore.getDocument": 7.591832999984035,
+                "membership.queryResults": 32.818249999996624,
+                "sql.membershipQuery": 21.916413999933866,
+                "firestore.commitWrites": 5.615625000005821,
+                "firestore.queryDocuments": 115.0647939999617
+              }
+            },
+            {
+              "run": 12,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 102.72379300001194,
+                "firestore.transactionRead.getDocuments": 26.866457999989507,
+                "firestore.transactionRead.getDocument": 55.0882910000073,
+                "firestore.getDocuments": 31.543874999988475,
+                "membership.pinRevision": 5.058667000004789,
+                "firestore.getDocument": 6.026167000003625,
+                "membership.queryResults": 28.81012500000361,
+                "sql.membershipQuery": 19.379126000058022,
+                "firestore.commitWrites": 5.004333000004408,
+                "firestore.queryDocuments": 110.48312400000577
+              }
+            },
+            {
+              "run": 13,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 103.26366700000654,
+                "firestore.transactionRead.getDocuments": 27.72041700000409,
+                "firestore.transactionRead.getDocument": 54.95296000002418,
+                "firestore.getDocuments": 33.09103999998479,
+                "membership.pinRevision": 6.422042000005604,
+                "firestore.getDocument": 7.59049899999809,
+                "membership.queryResults": 31.26554200000828,
+                "sql.membershipQuery": 20.352289000016754,
+                "firestore.commitWrites": 5.7430830000084825,
+                "firestore.queryDocuments": 101.40421000002243
+              }
+            },
+            {
+              "run": 14,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 104.16829299998062,
+                "firestore.transactionRead.getDocuments": 28.30745800001023,
+                "firestore.transactionRead.getDocument": 58.336249999993015,
+                "firestore.getDocuments": 32.73850100004347,
+                "membership.pinRevision": 6.206125999990036,
+                "firestore.getDocument": 5.820748999991338,
+                "membership.queryResults": 30.050124999994296,
+                "sql.membershipQuery": 20.40287400003581,
+                "firestore.commitWrites": 5.526708999997936,
+                "firestore.queryDocuments": 113.73708299998543
+              }
+            },
+            {
+              "run": 15,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 125.59808100001828,
+                "firestore.transactionRead.getDocuments": 30.678498000008403,
+                "firestore.transactionRead.getDocument": 89.0346260000224,
+                "firestore.getDocuments": 42.716374999974505,
+                "membership.pinRevision": 10.579041999997571,
+                "firestore.getDocument": 4.5084159999969415,
+                "membership.queryResults": 29.21524999999383,
+                "sql.membershipQuery": 18.120710999937728,
+                "firestore.commitWrites": 6.283499999990454,
+                "firestore.queryDocuments": 89.25854399996751
+              }
+            },
+            {
+              "run": 16,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 115.31208299998252,
+                "firestore.transactionRead.getDocuments": 29.971581000019796,
+                "firestore.transactionRead.getDocument": 75.74749899999006,
+                "firestore.getDocuments": 28.146750999992946,
+                "membership.pinRevision": 5.458417000001646,
+                "firestore.getDocument": 6.375417000002926,
+                "membership.queryResults": 27.16854100000637,
+                "sql.membershipQuery": 18.234165999980178,
+                "firestore.commitWrites": 4.142500000001746,
+                "firestore.queryDocuments": 91.216373999996
+              }
+            },
+            {
+              "run": 17,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 100.7655840000225,
+                "firestore.transactionRead.getDocuments": 28.129417999982252,
+                "firestore.transactionRead.getDocument": 50.58558499999344,
+                "firestore.getDocuments": 29.682125999985146,
+                "membership.pinRevision": 4.472999999998137,
+                "firestore.getDocument": 5.833291000002646,
+                "membership.queryResults": 29.76675100000284,
+                "sql.membershipQuery": 20.243872000006377,
+                "firestore.commitWrites": 4.673957999999402,
+                "firestore.queryDocuments": 110.66412399998808
+              }
+            },
+            {
+              "run": 18,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 114.30021000000124,
+                "firestore.transactionRead.getDocuments": 32.12299999999232,
+                "firestore.transactionRead.getDocument": 71.36666899996635,
+                "firestore.getDocuments": 47.869459000008646,
+                "membership.pinRevision": 7.555125000013504,
+                "firestore.getDocument": 5.748667000007117,
+                "membership.queryResults": 30.603582999989158,
+                "sql.membershipQuery": 19.695998000068357,
+                "firestore.commitWrites": 5.801208000004408,
+                "firestore.queryDocuments": 91.40754400005972
+              }
+            },
+            {
+              "run": 19,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 128.89770800000406,
+                "firestore.transactionRead.getDocuments": 44.90495899997768,
+                "firestore.transactionRead.getDocument": 97.77171099999396,
+                "firestore.getDocuments": 30.151041999968584,
+                "membership.pinRevision": 7.12462499999674,
+                "firestore.getDocument": 6.496083000005456,
+                "membership.queryResults": 30.523749999993015,
+                "sql.membershipQuery": 20.800292000101763,
+                "firestore.commitWrites": 4.879082999992534,
+                "firestore.queryDocuments": 114.69499799999176
+              }
+            }
+          ]
+        },
+        "bitescore-dish-home": {
+          "samples": 3,
+          "successes": 3,
+          "errors": 0,
+          "firstObservationMs": [
+            226.352
+          ],
+          "warm": {
+            "n": 2,
+            "medianMs": 161.312,
+            "minimumMs": 147.978,
+            "maximumMs": 174.646,
+            "nearestRankP95Ms": 174.646,
+            "atOrBelow2000Ms": 2,
+            "allMilliseconds": [
+              174.646,
+              147.978
+            ]
+          },
+          "httpCallsPerSample": [
+            2
+          ],
+          "usefulCardCounts": [
+            null
+          ],
+          "orderedMembershipDigests": [
+            null
+          ],
+          "challengeRoundsPerSample": [
+            0
+          ],
+          "challengeSizes": [],
+          "authorityCountsIdenticalAcrossSamples": true,
+          "authorityCounts": {
+            "httpCalls": 2,
+            "operationCalls": {
+              "firestore.commitWrites": 1,
+              "firestore.getDocuments": 4,
+              "firestore.transaction": 5,
+              "firestore.transactionRead.getDocument": 15,
+              "firestore.transactionRead.getDocuments": 3,
+              "membership.pinRevision": 1,
+              "membership.queryResults": 1,
+              "sql.membershipQuery": 5
+            },
+            "requestedDocuments": 129
+          },
+          "authorityTimingSamples": [
+            {
+              "run": 0,
+              "httpCalls": 2,
+              "requestedDocuments": 129,
+              "operationCalls": {
+                "firestore.transaction": 5,
+                "firestore.transactionRead.getDocument": 15,
+                "firestore.transactionRead.getDocuments": 3,
+                "firestore.getDocuments": 4,
+                "membership.pinRevision": 1,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 5,
+                "firestore.commitWrites": 1
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 65.03075000000536,
+                "firestore.transactionRead.getDocument": 73.9145849999768,
+                "firestore.transactionRead.getDocuments": 21.853167000008398,
+                "firestore.getDocuments": 32.27387600000657,
+                "membership.pinRevision": 8.237458000003244,
+                "membership.queryResults": 23.52537499999744,
+                "sql.membershipQuery": 14.578875999999582,
+                "firestore.commitWrites": 3.439874999996391
+              }
+            },
+            {
+              "run": 1,
+              "httpCalls": 2,
+              "requestedDocuments": 129,
+              "operationCalls": {
+                "firestore.transaction": 5,
+                "firestore.transactionRead.getDocument": 15,
+                "firestore.transactionRead.getDocuments": 3,
+                "firestore.getDocuments": 4,
+                "membership.pinRevision": 1,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 5,
+                "firestore.commitWrites": 1
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 56.881666999994195,
+                "firestore.transactionRead.getDocument": 69.26266900001792,
+                "firestore.transactionRead.getDocuments": 16.911292000004323,
+                "firestore.getDocuments": 20.08420800001477,
+                "membership.pinRevision": 6.0847499999945285,
+                "membership.queryResults": 12.712916999997105,
+                "sql.membershipQuery": 5.984084999989136,
+                "firestore.commitWrites": 4.204666999998153
+              }
+            },
+            {
+              "run": 2,
+              "httpCalls": 2,
+              "requestedDocuments": 129,
+              "operationCalls": {
+                "firestore.transaction": 5,
+                "firestore.transactionRead.getDocument": 15,
+                "firestore.transactionRead.getDocuments": 3,
+                "firestore.getDocuments": 4,
+                "membership.pinRevision": 1,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 5,
+                "firestore.commitWrites": 1
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 46.30829299999459,
+                "firestore.transactionRead.getDocument": 60.417916999955196,
+                "firestore.transactionRead.getDocuments": 16.878708000018378,
+                "firestore.getDocuments": 20.72104199999012,
+                "membership.pinRevision": 4.851208000007318,
+                "membership.queryResults": 11.881291999990935,
+                "sql.membershipQuery": 6.544875999985379,
+                "firestore.commitWrites": 3.6826250000012806
+              }
+            }
+          ]
+        },
+        "create-rate-finder": {
+          "samples": 3,
+          "successes": 3,
+          "errors": 0,
+          "firstObservationMs": [
+            587.798
+          ],
+          "warm": {
+            "n": 2,
+            "medianMs": 485.14750000000004,
+            "minimumMs": 467.384,
+            "maximumMs": 502.911,
+            "nearestRankP95Ms": 502.911,
+            "atOrBelow2000Ms": 2,
+            "allMilliseconds": [
+              502.911,
+              467.384
+            ]
+          },
+          "httpCallsPerSample": [
+            2
+          ],
+          "usefulCardCounts": [
+            null
+          ],
+          "orderedMembershipDigests": [
+            null
+          ],
+          "challengeRoundsPerSample": [
+            0
+          ],
+          "challengeSizes": [],
+          "authorityCountsIdenticalAcrossSamples": true,
+          "authorityCounts": {
+            "httpCalls": 2,
+            "operationCalls": {
+              "firestore.commitWrites": 1,
+              "firestore.getDocuments": 4,
+              "firestore.transaction": 5,
+              "firestore.transactionRead.getDocument": 15,
+              "firestore.transactionRead.getDocuments": 3,
+              "membership.pinRevision": 1,
+              "membership.queryResults": 1,
+              "sql.membershipQuery": 5
+            },
+            "requestedDocuments": 77
+          },
+          "authorityTimingSamples": [
+            {
+              "run": 0,
+              "httpCalls": 2,
+              "requestedDocuments": 77,
+              "operationCalls": {
+                "firestore.transaction": 5,
+                "firestore.transactionRead.getDocument": 15,
+                "firestore.transactionRead.getDocuments": 3,
+                "firestore.getDocuments": 4,
+                "membership.pinRevision": 1,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 5,
+                "firestore.commitWrites": 1
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 96.66079200002423,
+                "firestore.transactionRead.getDocument": 129.4844599999633,
+                "firestore.transactionRead.getDocuments": 33.339125000013155,
+                "firestore.getDocuments": 27.404999999998836,
+                "membership.pinRevision": 13.400874999992084,
+                "membership.queryResults": 33.825417000000016,
+                "sql.membershipQuery": 22.546041000037803,
+                "firestore.commitWrites": 6.897375000000466
+              }
+            },
+            {
+              "run": 1,
+              "httpCalls": 2,
+              "requestedDocuments": 77,
+              "operationCalls": {
+                "firestore.transaction": 5,
+                "firestore.transactionRead.getDocument": 15,
+                "firestore.transactionRead.getDocuments": 3,
+                "firestore.getDocuments": 4,
+                "membership.pinRevision": 1,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 5,
+                "firestore.commitWrites": 1
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 86.66821000001801,
+                "firestore.transactionRead.getDocument": 127.73279100003128,
+                "firestore.transactionRead.getDocuments": 39.73841599999287,
+                "firestore.getDocuments": 18.22566700000607,
+                "membership.pinRevision": 10.88483300000371,
+                "membership.queryResults": 6.17004199999792,
+                "sql.membershipQuery": 3.3385830000042915,
+                "firestore.commitWrites": 3.241041999994195
+              }
+            },
+            {
+              "run": 2,
+              "httpCalls": 2,
+              "requestedDocuments": 77,
+              "operationCalls": {
+                "firestore.transaction": 5,
+                "firestore.transactionRead.getDocument": 15,
+                "firestore.transactionRead.getDocuments": 3,
+                "firestore.getDocuments": 4,
+                "membership.pinRevision": 1,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 5,
+                "firestore.commitWrites": 1
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 75.40725099998235,
+                "firestore.transactionRead.getDocument": 110.11350399996445,
+                "firestore.transactionRead.getDocuments": 31.413999000011245,
+                "firestore.getDocuments": 15.308082999996259,
+                "membership.pinRevision": 11.020999999993364,
+                "membership.queryResults": 6.808541999998852,
+                "sql.membershipQuery": 3.3055009999952745,
+                "firestore.commitWrites": 3.21279200000572
+              }
+            }
+          ]
+        }
+      },
+      "actualContainer": {
+        "image": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+        "command": [
+          "/evidence/linux-flutter-host.cjs"
+        ],
+        "guestWindowEnvironment": "0",
+        "fixtureTemporalNow": "2026-10-18T00:00:00Z",
+        "networkMode": "container:3c2fe6ab8dee085903d9b4aa1e54ddfba42a5e84804b2af86b685267c465fba4",
+        "portBindings": {},
+        "mounts": [
+          {
+            "Type": "bind",
+            "Source": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution",
+            "Destination": "/evidence",
+            "Mode": "",
+            "RW": true,
+            "Propagation": "rprivate"
+          }
+        ]
+      }
+    },
+    "window": {
+      "observations": 46,
+      "allSuccess": true,
+      "allHttpCalls": 132,
+      "authorityOperationFailures": 0,
+      "flows": {
+        "bitesaver-guest": {
+          "samples": 20,
+          "successes": 20,
+          "errors": 0,
+          "firstObservationMs": [
+            2289.407
+          ],
+          "warm": {
+            "n": 19,
+            "medianMs": 1392.252,
+            "minimumMs": 1270.881,
+            "maximumMs": 2225.986,
+            "nearestRankP95Ms": 2225.986,
+            "atOrBelow2000Ms": 18,
+            "allMilliseconds": [
+              1498.787,
+              1376.169,
+              1768.86,
+              1421.385,
+              1415.571,
+              1386.782,
+              1418.394,
+              1473.902,
+              1348.611,
+              1392.252,
+              1439.361,
+              1270.881,
+              1346.926,
+              2225.986,
+              1429.968,
+              1297.205,
+              1343.969,
+              1351.765,
+              1319.177
+            ]
+          },
+          "httpCallsPerSample": [
+            3
+          ],
+          "usefulCardCounts": [
+            25
+          ],
+          "orderedMembershipDigests": [
+            "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+          ],
+          "challengeRoundsPerSample": [
+            1
+          ],
+          "challengeSizes": [
+            26
+          ],
+          "authorityCountsIdenticalAcrossSamples": true,
+          "authorityCounts": {
+            "httpCalls": 3,
+            "operationCalls": {
+              "firestore.commitWrites": 30,
+              "firestore.getDocument": 33,
+              "firestore.getDocuments": 82,
+              "firestore.queryDocuments": 26,
+              "firestore.transaction": 89,
+              "firestore.transactionRead.getDocument": 13,
+              "firestore.transactionRead.getDocuments": 165,
+              "membership.pinRevision": 1,
+              "membership.queryResults": 26,
+              "sql.membershipQuery": 191
+            },
+            "requestedDocuments": 658
+          },
+          "authorityTimingSamples": [
+            {
+              "run": 0,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 3728.252416000025,
+                "firestore.transactionRead.getDocuments": 2674.177040000024,
+                "firestore.transactionRead.getDocument": 149.08537700000306,
+                "firestore.getDocuments": 254.66613099999813,
+                "membership.pinRevision": 66.2835410000007,
+                "firestore.getDocument": 124.47945599998275,
+                "firestore.commitWrites": 77.96387200001482,
+                "membership.queryResults": 231.35074699999677,
+                "sql.membershipQuery": 146.64124699996682,
+                "firestore.queryDocuments": 171.26066699999865
+              }
+            },
+            {
+              "run": 1,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 3028.1105850000167,
+                "firestore.transactionRead.getDocuments": 2106.8852169999664,
+                "firestore.transactionRead.getDocument": 75.45375099999364,
+                "firestore.getDocuments": 246.62608399994497,
+                "membership.pinRevision": 8.115749999997206,
+                "firestore.getDocument": 99.08433499997773,
+                "firestore.commitWrites": 78.90575000000536,
+                "membership.queryResults": 165.1903769999917,
+                "sql.membershipQuery": 96.87737100003142,
+                "firestore.queryDocuments": 150.48745899997448
+              }
+            },
+            {
+              "run": 2,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 2406.7870889999976,
+                "firestore.transactionRead.getDocuments": 1621.2807079999766,
+                "firestore.transactionRead.getDocument": 71.09649999999237,
+                "firestore.getDocuments": 217.4415310000477,
+                "membership.pinRevision": 7.289959000001545,
+                "firestore.getDocument": 86.85704199997417,
+                "firestore.commitWrites": 63.873833000026934,
+                "membership.queryResults": 155.09658399999898,
+                "sql.membershipQuery": 88.1644180000294,
+                "firestore.queryDocuments": 124.52320900000632
+              }
+            },
+            {
+              "run": 3,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 2734.7629160000215,
+                "firestore.transactionRead.getDocuments": 1897.5355389999531,
+                "firestore.transactionRead.getDocument": 59.50000300000829,
+                "firestore.getDocuments": 271.92704299998877,
+                "membership.pinRevision": 7.661500000001979,
+                "firestore.getDocument": 104.20829099998082,
+                "firestore.commitWrites": 157.20854100001452,
+                "membership.queryResults": 158.43691499998386,
+                "sql.membershipQuery": 91.32591299994237,
+                "firestore.queryDocuments": 233.6883769999913
+              }
+            },
+            {
+              "run": 4,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 2660.243705999994,
+                "firestore.transactionRead.getDocuments": 1741.7194619999354,
+                "firestore.transactionRead.getDocument": 61.46908400000393,
+                "firestore.getDocuments": 217.21074699993915,
+                "membership.pinRevision": 7.48066700000345,
+                "firestore.getDocument": 114.55628900001466,
+                "firestore.commitWrites": 64.12807900000917,
+                "membership.queryResults": 158.2487930000134,
+                "sql.membershipQuery": 92.30095599989,
+                "firestore.queryDocuments": 132.66666500002611
+              }
+            },
+            {
+              "run": 5,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 2272.99320500005,
+                "firestore.transactionRead.getDocuments": 1552.4851219999982,
+                "firestore.transactionRead.getDocument": 73.46612500001356,
+                "firestore.getDocuments": 219.9074620000174,
+                "membership.pinRevision": 7.447875000005297,
+                "firestore.getDocument": 90.74358200000279,
+                "firestore.commitWrites": 69.26616600000125,
+                "membership.queryResults": 169.43679300000804,
+                "sql.membershipQuery": 97.02938000005815,
+                "firestore.queryDocuments": 128.5779999999868
+              }
+            },
+            {
+              "run": 6,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 3893.629502000047,
+                "firestore.transactionRead.getDocuments": 2934.3717129999714,
+                "firestore.transactionRead.getDocument": 64.43958399997791,
+                "firestore.getDocuments": 223.60021100001904,
+                "membership.pinRevision": 7.179999999993015,
+                "firestore.getDocument": 89.54291299999022,
+                "firestore.commitWrites": 56.34412400000292,
+                "membership.queryResults": 145.19891600002302,
+                "sql.membershipQuery": 83.41229900002509,
+                "firestore.queryDocuments": 123.39541299997654
+              }
+            },
+            {
+              "run": 7,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 2380.5625429999927,
+                "firestore.transactionRead.getDocuments": 1632.497459000042,
+                "firestore.transactionRead.getDocument": 72.32587399999466,
+                "firestore.getDocuments": 224.01334000003408,
+                "membership.pinRevision": 9.982541000004858,
+                "firestore.getDocument": 87.97016699997039,
+                "firestore.commitWrites": 59.90145799997117,
+                "membership.queryResults": 142.7459969999909,
+                "sql.membershipQuery": 80.73990600002435,
+                "firestore.queryDocuments": 132.79870899998787
+              }
+            },
+            {
+              "run": 8,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 2795.16262800002,
+                "firestore.transactionRead.getDocuments": 1883.2448259999655,
+                "firestore.transactionRead.getDocument": 67.3801660000172,
+                "firestore.getDocuments": 228.76153700004215,
+                "membership.pinRevision": 8.145959000001312,
+                "firestore.getDocument": 102.1573300000091,
+                "firestore.commitWrites": 69.7702089999948,
+                "membership.queryResults": 182.42258399999992,
+                "sql.membershipQuery": 104.79079500003718,
+                "firestore.queryDocuments": 136.6542930000287
+              }
+            },
+            {
+              "run": 9,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 2380.1921359999906,
+                "firestore.transactionRead.getDocuments": 1586.066456999979,
+                "firestore.transactionRead.getDocument": 68.71750000000611,
+                "firestore.getDocuments": 241.1642950000387,
+                "membership.pinRevision": 6.851792000001296,
+                "firestore.getDocument": 86.01153799997701,
+                "firestore.commitWrites": 66.94437300002028,
+                "membership.queryResults": 145.0978740000137,
+                "sql.membershipQuery": 84.76224900002126,
+                "firestore.queryDocuments": 131.73029199997836
+              }
+            },
+            {
+              "run": 10,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 3154.0662080000184,
+                "firestore.transactionRead.getDocuments": 2378.494933000009,
+                "firestore.transactionRead.getDocument": 67.52108499997848,
+                "firestore.getDocuments": 231.28821000001335,
+                "membership.pinRevision": 8.365833000003477,
+                "firestore.getDocument": 82.32087499998306,
+                "firestore.commitWrites": 64.54070899997896,
+                "membership.queryResults": 153.3071669999772,
+                "sql.membershipQuery": 84.13363799995568,
+                "firestore.queryDocuments": 137.36483399998542
+              }
+            },
+            {
+              "run": 11,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 2694.593667999965,
+                "firestore.transactionRead.getDocuments": 1883.4217519999947,
+                "firestore.transactionRead.getDocument": 76.21129000002111,
+                "firestore.getDocuments": 233.39925100000255,
+                "membership.pinRevision": 5.887957999999344,
+                "firestore.getDocument": 111.78583300000173,
+                "firestore.commitWrites": 63.951168999985384,
+                "membership.queryResults": 157.3892119999946,
+                "sql.membershipQuery": 91.02500900005543,
+                "firestore.queryDocuments": 153.95833400000993
+              }
+            },
+            {
+              "run": 12,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 2345.3950470000054,
+                "firestore.transactionRead.getDocuments": 1632.32628499993,
+                "firestore.transactionRead.getDocument": 58.914497999998275,
+                "firestore.getDocuments": 208.15475099998002,
+                "membership.pinRevision": 7.191708000005747,
+                "firestore.getDocument": 96.77333299999009,
+                "firestore.commitWrites": 65.0981660000034,
+                "membership.queryResults": 136.06604399999924,
+                "sql.membershipQuery": 78.41225500006112,
+                "firestore.queryDocuments": 130.21833100001095
+              }
+            },
+            {
+              "run": 13,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 2427.6659179999697,
+                "firestore.transactionRead.getDocuments": 1643.192038999994,
+                "firestore.transactionRead.getDocument": 55.99362600001041,
+                "firestore.getDocuments": 214.3188750000263,
+                "membership.pinRevision": 8.033167000001413,
+                "firestore.getDocument": 99.78987200001575,
+                "firestore.commitWrites": 59.37124899999617,
+                "membership.queryResults": 169.40566599999875,
+                "sql.membershipQuery": 96.43809300004068,
+                "firestore.queryDocuments": 127.72329099996568
+              }
+            },
+            {
+              "run": 14,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 22044.54864099998,
+                "firestore.transactionRead.getDocuments": 19638.37446200002,
+                "firestore.transactionRead.getDocument": 56.75637500001176,
+                "firestore.getDocuments": 291.51445999998396,
+                "membership.pinRevision": 5.780417000001762,
+                "firestore.getDocument": 102.70421599998372,
+                "firestore.commitWrites": 105.30812400001014,
+                "membership.queryResults": 154.60933399997157,
+                "sql.membershipQuery": 90.79932199994073,
+                "firestore.queryDocuments": 126.97262500000215
+              }
+            },
+            {
+              "run": 15,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 2249.4543279999707,
+                "firestore.transactionRead.getDocuments": 1556.9907190000085,
+                "firestore.transactionRead.getDocument": 86.04953899999964,
+                "firestore.getDocuments": 219.12754499998846,
+                "membership.pinRevision": 8.671833000000333,
+                "firestore.getDocument": 87.67583300000115,
+                "firestore.commitWrites": 71.25599999998667,
+                "membership.queryResults": 146.95566699998744,
+                "sql.membershipQuery": 84.07675100005144,
+                "firestore.queryDocuments": 208.1814619999932
+              }
+            },
+            {
+              "run": 16,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 2745.4757950000057,
+                "firestore.transactionRead.getDocuments": 1967.8104969999695,
+                "firestore.transactionRead.getDocument": 63.49279100000422,
+                "firestore.getDocuments": 206.71508199995878,
+                "membership.pinRevision": 8.862167000006593,
+                "firestore.getDocument": 89.31916700001602,
+                "firestore.commitWrites": 57.23841700000048,
+                "membership.queryResults": 144.622835999995,
+                "sql.membershipQuery": 81.39804499991442,
+                "firestore.queryDocuments": 129.40120399999432
+              }
+            },
+            {
+              "run": 17,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 2349.6891259999975,
+                "firestore.transactionRead.getDocuments": 1616.8679269999484,
+                "firestore.transactionRead.getDocument": 58.03637899999012,
+                "firestore.getDocuments": 237.7445439999865,
+                "membership.pinRevision": 4.70350000000326,
+                "firestore.getDocument": 95.5351229999942,
+                "firestore.commitWrites": 53.496376999981294,
+                "membership.queryResults": 150.773168000007,
+                "sql.membershipQuery": 83.80237899999338,
+                "firestore.queryDocuments": 130.31024600001547
+              }
+            },
+            {
+              "run": 18,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 2512.845251999992,
+                "firestore.transactionRead.getDocuments": 1718.988500000014,
+                "firestore.transactionRead.getDocument": 64.92079299999023,
+                "firestore.getDocuments": 238.17674400001124,
+                "membership.pinRevision": 9.258207999999286,
+                "firestore.getDocument": 91.32837200000358,
+                "firestore.commitWrites": 59.110454000016034,
+                "membership.queryResults": 169.01416400000016,
+                "sql.membershipQuery": 97.55138299999817,
+                "firestore.queryDocuments": 130.32266700000037
+              }
+            },
+            {
+              "run": 19,
+              "httpCalls": 3,
+              "requestedDocuments": 658,
+              "operationCalls": {
+                "firestore.transaction": 89,
+                "firestore.transactionRead.getDocuments": 165,
+                "firestore.transactionRead.getDocument": 13,
+                "firestore.getDocuments": 82,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 33,
+                "firestore.commitWrites": 30,
+                "membership.queryResults": 26,
+                "sql.membershipQuery": 191,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 2653.150333999998,
+                "firestore.transactionRead.getDocuments": 1814.9218339999861,
+                "firestore.transactionRead.getDocument": 62.83054099998844,
+                "firestore.getDocuments": 220.10104000007414,
+                "membership.pinRevision": 5.912250000001222,
+                "firestore.getDocument": 87.24099900003057,
+                "firestore.commitWrites": 58.936251000021,
+                "membership.queryResults": 166.17716300000757,
+                "sql.membershipQuery": 94.32649899998796,
+                "firestore.queryDocuments": 127.43562300002668
+              }
+            }
+          ]
+        },
+        "bitesaver-signed": {
+          "samples": 20,
+          "successes": 20,
+          "errors": 0,
+          "firstObservationMs": [
+            469.736
+          ],
+          "warm": {
+            "n": 19,
+            "medianMs": 443.49,
+            "minimumMs": 379.696,
+            "maximumMs": 798.021,
+            "nearestRankP95Ms": 798.021,
+            "atOrBelow2000Ms": 19,
+            "allMilliseconds": [
+              426.794,
+              379.696,
+              437.803,
+              456.583,
+              467.82,
+              453.525,
+              451.589,
+              426.715,
+              443.49,
+              798.021,
+              432.062,
+              490.727,
+              428.485,
+              419.286,
+              507.597,
+              479.091,
+              461.491,
+              394.618,
+              394.634
+            ]
+          },
+          "httpCallsPerSample": [
+            3
+          ],
+          "usefulCardCounts": [
+            25
+          ],
+          "orderedMembershipDigests": [
+            "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+          ],
+          "challengeRoundsPerSample": [
+            0
+          ],
+          "challengeSizes": [],
+          "authorityCountsIdenticalAcrossSamples": true,
+          "authorityCounts": {
+            "httpCalls": 3,
+            "operationCalls": {
+              "firestore.commitWrites": 1,
+              "firestore.getDocument": 2,
+              "firestore.getDocuments": 7,
+              "firestore.queryDocuments": 26,
+              "firestore.transaction": 10,
+              "firestore.transactionRead.getDocument": 12,
+              "firestore.transactionRead.getDocuments": 9,
+              "membership.pinRevision": 1,
+              "membership.queryResults": 1,
+              "sql.membershipQuery": 62
+            },
+            "requestedDocuments": 411
+          },
+          "authorityTimingSamples": [
+            {
+              "run": 0,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 111.94437299999117,
+                "firestore.transactionRead.getDocuments": 31.278917000017827,
+                "firestore.transactionRead.getDocument": 61.106250000004366,
+                "firestore.getDocuments": 30.909083000013197,
+                "membership.pinRevision": 6.6663750000006985,
+                "firestore.getDocument": 5.608666999993147,
+                "membership.queryResults": 34.23408399999607,
+                "sql.membershipQuery": 20.40945400000055,
+                "firestore.commitWrites": 5.1261670000021695,
+                "firestore.queryDocuments": 116.9554560000106
+              }
+            },
+            {
+              "run": 1,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 126.82879200000752,
+                "firestore.transactionRead.getDocuments": 39.5450850000052,
+                "firestore.transactionRead.getDocument": 59.79262500000914,
+                "firestore.getDocuments": 31.841875999998592,
+                "membership.pinRevision": 4.651041000004625,
+                "firestore.getDocument": 5.661875999998301,
+                "membership.queryResults": 27.586083000001963,
+                "sql.membershipQuery": 18.817004999989877,
+                "firestore.commitWrites": 6.062708999997994,
+                "firestore.queryDocuments": 106.05566500002897
+              }
+            },
+            {
+              "run": 2,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 112.28199799999857,
+                "firestore.transactionRead.getDocuments": 29.439374000001408,
+                "firestore.transactionRead.getDocument": 64.56041700001515,
+                "firestore.getDocuments": 31.50895800001308,
+                "membership.pinRevision": 6.656750000001921,
+                "firestore.getDocument": 5.649416000007477,
+                "membership.queryResults": 33.868875000000116,
+                "sql.membershipQuery": 21.000370000008843,
+                "firestore.commitWrites": 5.086666999995941,
+                "firestore.queryDocuments": 102.3127479999821
+              }
+            },
+            {
+              "run": 3,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 119.07366699998965,
+                "firestore.transactionRead.getDocuments": 28.013585000000603,
+                "firestore.transactionRead.getDocument": 60.59466400001111,
+                "firestore.getDocuments": 80.96762400000443,
+                "membership.pinRevision": 4.693583000000217,
+                "firestore.getDocument": 5.294499999996333,
+                "membership.queryResults": 36.277249999999185,
+                "sql.membershipQuery": 24.325960000001942,
+                "firestore.commitWrites": 5.6489999999976135,
+                "firestore.queryDocuments": 114.90312099998118
+              }
+            },
+            {
+              "run": 4,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 123.89908399997512,
+                "firestore.transactionRead.getDocuments": 36.0886650000175,
+                "firestore.transactionRead.getDocument": 84.58024899999873,
+                "firestore.getDocuments": 32.39083300000493,
+                "membership.pinRevision": 6.832583999996132,
+                "firestore.getDocument": 5.347708000001148,
+                "membership.queryResults": 29.617708999998285,
+                "sql.membershipQuery": 19.20199600000342,
+                "firestore.commitWrites": 5.887415999997756,
+                "firestore.queryDocuments": 116.40837400001328
+              }
+            },
+            {
+              "run": 5,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 126.76479100000142,
+                "firestore.transactionRead.getDocuments": 39.143583999997645,
+                "firestore.transactionRead.getDocument": 76.897707000011,
+                "firestore.getDocuments": 37.20783300000039,
+                "membership.pinRevision": 9.077750000004016,
+                "firestore.getDocument": 13.341708000007202,
+                "membership.queryResults": 26.49054099999921,
+                "sql.membershipQuery": 17.56987399997888,
+                "firestore.commitWrites": 4.915291999997862,
+                "firestore.queryDocuments": 136.6466709999877
+              }
+            },
+            {
+              "run": 6,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 111.56525000000693,
+                "firestore.transactionRead.getDocuments": 30.60820800001966,
+                "firestore.transactionRead.getDocument": 68.13183400000707,
+                "firestore.getDocuments": 31.497916999993322,
+                "membership.pinRevision": 8.03387500000099,
+                "firestore.getDocument": 5.8104589999929885,
+                "membership.queryResults": 37.242667000005895,
+                "sql.membershipQuery": 21.77783400001499,
+                "firestore.commitWrites": 5.660916000000725,
+                "firestore.queryDocuments": 119.23216600001615
+              }
+            },
+            {
+              "run": 7,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 110.16779099999258,
+                "firestore.transactionRead.getDocuments": 27.719081999988703,
+                "firestore.transactionRead.getDocument": 69.71200000000681,
+                "firestore.getDocuments": 29.36291699999856,
+                "membership.pinRevision": 6.7832500000004075,
+                "firestore.getDocument": 6.554792000002635,
+                "membership.queryResults": 31.734833000002254,
+                "sql.membershipQuery": 21.134709999991173,
+                "firestore.commitWrites": 4.6970409999994445,
+                "firestore.queryDocuments": 114.81166500001564
+              }
+            },
+            {
+              "run": 8,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 110.9013769999874,
+                "firestore.transactionRead.getDocuments": 29.304996999984724,
+                "firestore.transactionRead.getDocument": 58.54641600004106,
+                "firestore.getDocuments": 35.15533300001698,
+                "membership.pinRevision": 5.870542000004207,
+                "firestore.getDocument": 5.54708400000527,
+                "membership.queryResults": 51.00066700000025,
+                "sql.membershipQuery": 37.099004000017885,
+                "firestore.commitWrites": 10.572916999997688,
+                "firestore.queryDocuments": 118.60970400000224
+              }
+            },
+            {
+              "run": 9,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 110.5754600000364,
+                "firestore.transactionRead.getDocuments": 31.105168000009144,
+                "firestore.transactionRead.getDocument": 69.80791700001282,
+                "firestore.getDocuments": 29.11454199999571,
+                "membership.pinRevision": 5.507166000010329,
+                "firestore.getDocument": 5.799666000006255,
+                "membership.queryResults": 28.732082999995328,
+                "sql.membershipQuery": 18.7869539999665,
+                "firestore.commitWrites": 6.287500000005821,
+                "firestore.queryDocuments": 124.2600839999941
+              }
+            },
+            {
+              "run": 10,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 187.82170599997335,
+                "firestore.transactionRead.getDocuments": 30.894333999982337,
+                "firestore.transactionRead.getDocument": 89.23012300003029,
+                "firestore.getDocuments": 42.37066800000321,
+                "membership.pinRevision": 6.0394590000069,
+                "firestore.getDocument": 7.3616669999901205,
+                "membership.queryResults": 30.024833000003127,
+                "sql.membershipQuery": 20.961168999958318,
+                "firestore.commitWrites": 4.775874999992084,
+                "firestore.queryDocuments": 415.4917059999716
+              }
+            },
+            {
+              "run": 11,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 129.97012400001404,
+                "firestore.transactionRead.getDocuments": 33.94825200000196,
+                "firestore.transactionRead.getDocument": 74.37958500003151,
+                "firestore.getDocuments": 36.817124999986845,
+                "membership.pinRevision": 10.154500000004191,
+                "firestore.getDocument": 5.597083000000566,
+                "membership.queryResults": 31.37958300000173,
+                "sql.membershipQuery": 19.747624000010546,
+                "firestore.commitWrites": 8.36387499999546,
+                "firestore.queryDocuments": 115.70787499990547
+              }
+            },
+            {
+              "run": 12,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 122.96237599999586,
+                "firestore.transactionRead.getDocuments": 31.433164000030956,
+                "firestore.transactionRead.getDocument": 69.03300000002491,
+                "firestore.getDocuments": 56.59416699997382,
+                "membership.pinRevision": 5.527415999997174,
+                "firestore.getDocument": 5.460750000012922,
+                "membership.queryResults": 63.600167000011425,
+                "sql.membershipQuery": 42.7843330000469,
+                "firestore.commitWrites": 13.154334000006202,
+                "firestore.queryDocuments": 133.77724999999919
+              }
+            },
+            {
+              "run": 13,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 133.4474570000457,
+                "firestore.transactionRead.getDocuments": 43.80270799995924,
+                "firestore.transactionRead.getDocument": 123.90962500000023,
+                "firestore.getDocuments": 30.291457999992417,
+                "membership.pinRevision": 6.713792000009562,
+                "firestore.getDocument": 5.303374999988591,
+                "membership.queryResults": 27.95358299999498,
+                "sql.membershipQuery": 18.041159000058542,
+                "firestore.commitWrites": 4.818459000001894,
+                "firestore.queryDocuments": 106.44533299996692
+              }
+            },
+            {
+              "run": 14,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 113.86366500001168,
+                "firestore.transactionRead.getDocuments": 31.399874999988242,
+                "firestore.transactionRead.getDocument": 55.43899999996938,
+                "firestore.getDocuments": 41.39916800001811,
+                "membership.pinRevision": 4.556833000009647,
+                "firestore.getDocument": 6.148667000015848,
+                "membership.queryResults": 31.43162499999744,
+                "sql.membershipQuery": 21.081913000016357,
+                "firestore.commitWrites": 5.15587499999674,
+                "firestore.queryDocuments": 142.68087399996875
+              }
+            },
+            {
+              "run": 15,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 143.99729100000695,
+                "firestore.transactionRead.getDocuments": 35.80108299996937,
+                "firestore.transactionRead.getDocument": 73.4810399999842,
+                "firestore.getDocuments": 36.09974799997872,
+                "membership.pinRevision": 26.319166000001132,
+                "firestore.getDocument": 5.181125000002794,
+                "membership.queryResults": 30.606999999989057,
+                "sql.membershipQuery": 19.622007999991183,
+                "firestore.commitWrites": 6.436166999992565,
+                "firestore.queryDocuments": 137.63041700000758
+              }
+            },
+            {
+              "run": 16,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 114.84416799999599,
+                "firestore.transactionRead.getDocuments": 34.20662400002766,
+                "firestore.transactionRead.getDocument": 57.89124900000752,
+                "firestore.getDocuments": 31.736751000004006,
+                "membership.pinRevision": 5.480999999999767,
+                "firestore.getDocument": 7.183999000015319,
+                "membership.queryResults": 31.07045799998741,
+                "sql.membershipQuery": 20.78754800002207,
+                "firestore.commitWrites": 4.836582999996608,
+                "firestore.queryDocuments": 166.3620800000208
+              }
+            },
+            {
+              "run": 17,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 121.31783400000131,
+                "firestore.transactionRead.getDocuments": 33.48554199998034,
+                "firestore.transactionRead.getDocument": 62.07212300001993,
+                "firestore.getDocuments": 53.145541999983834,
+                "membership.pinRevision": 6.650542000003043,
+                "firestore.getDocument": 6.122541000004276,
+                "membership.queryResults": 31.423292000006768,
+                "sql.membershipQuery": 21.0714949999674,
+                "firestore.commitWrites": 5.038499999995111,
+                "firestore.queryDocuments": 138.5014189999929
+              }
+            },
+            {
+              "run": 18,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 103.10366499998781,
+                "firestore.transactionRead.getDocuments": 28.07074999996985,
+                "firestore.transactionRead.getDocument": 53.21678899998369,
+                "firestore.getDocuments": 30.77504099998623,
+                "membership.pinRevision": 5.76791600001161,
+                "firestore.getDocument": 6.788667000015266,
+                "membership.queryResults": 29.78225000000384,
+                "sql.membershipQuery": 19.4098339999764,
+                "firestore.commitWrites": 4.988292000009096,
+                "firestore.queryDocuments": 114.6820849999931
+              }
+            },
+            {
+              "run": 19,
+              "httpCalls": 3,
+              "requestedDocuments": 411,
+              "operationCalls": {
+                "firestore.transaction": 10,
+                "firestore.transactionRead.getDocuments": 9,
+                "firestore.transactionRead.getDocument": 12,
+                "firestore.getDocuments": 7,
+                "membership.pinRevision": 1,
+                "firestore.getDocument": 2,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 62,
+                "firestore.commitWrites": 1,
+                "firestore.queryDocuments": 26
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 102.20408499997575,
+                "firestore.transactionRead.getDocuments": 31.638833000004524,
+                "firestore.transactionRead.getDocument": 73.4040409999725,
+                "firestore.getDocuments": 31.813415999989957,
+                "membership.pinRevision": 4.260332999998354,
+                "firestore.getDocument": 6.06845799999428,
+                "membership.queryResults": 27.694082999994862,
+                "sql.membershipQuery": 18.94820899995102,
+                "firestore.commitWrites": 4.354458000001614,
+                "firestore.queryDocuments": 106.86800099999527
+              }
+            }
+          ]
+        },
+        "bitescore-dish-home": {
+          "samples": 3,
+          "successes": 3,
+          "errors": 0,
+          "firstObservationMs": [
+            248.509
+          ],
+          "warm": {
+            "n": 2,
+            "medianMs": 174.6825,
+            "minimumMs": 172.748,
+            "maximumMs": 176.617,
+            "nearestRankP95Ms": 176.617,
+            "atOrBelow2000Ms": 2,
+            "allMilliseconds": [
+              176.617,
+              172.748
+            ]
+          },
+          "httpCallsPerSample": [
+            2
+          ],
+          "usefulCardCounts": [
+            null
+          ],
+          "orderedMembershipDigests": [
+            null
+          ],
+          "challengeRoundsPerSample": [
+            0
+          ],
+          "challengeSizes": [],
+          "authorityCountsIdenticalAcrossSamples": true,
+          "authorityCounts": {
+            "httpCalls": 2,
+            "operationCalls": {
+              "firestore.commitWrites": 1,
+              "firestore.getDocuments": 4,
+              "firestore.transaction": 5,
+              "firestore.transactionRead.getDocument": 15,
+              "firestore.transactionRead.getDocuments": 3,
+              "membership.pinRevision": 1,
+              "membership.queryResults": 1,
+              "sql.membershipQuery": 5
+            },
+            "requestedDocuments": 129
+          },
+          "authorityTimingSamples": [
+            {
+              "run": 0,
+              "httpCalls": 2,
+              "requestedDocuments": 129,
+              "operationCalls": {
+                "firestore.transaction": 5,
+                "firestore.transactionRead.getDocument": 15,
+                "firestore.transactionRead.getDocuments": 3,
+                "firestore.getDocuments": 4,
+                "membership.pinRevision": 1,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 5,
+                "firestore.commitWrites": 1
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 62.81570800000918,
+                "firestore.transactionRead.getDocument": 77.11621099997137,
+                "firestore.transactionRead.getDocuments": 20.413291000004392,
+                "firestore.getDocuments": 33.5509999999922,
+                "membership.pinRevision": 8.574791999999434,
+                "membership.queryResults": 22.622749999994994,
+                "sql.membershipQuery": 13.33125000000291,
+                "firestore.commitWrites": 3.2510829999955604
+              }
+            },
+            {
+              "run": 1,
+              "httpCalls": 2,
+              "requestedDocuments": 129,
+              "operationCalls": {
+                "firestore.transaction": 5,
+                "firestore.transactionRead.getDocument": 15,
+                "firestore.transactionRead.getDocuments": 3,
+                "firestore.getDocuments": 4,
+                "membership.pinRevision": 1,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 5,
+                "firestore.commitWrites": 1
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 51.32587600001716,
+                "firestore.transactionRead.getDocument": 61.552917000008165,
+                "firestore.transactionRead.getDocuments": 18.761874999996508,
+                "firestore.getDocuments": 18.803458000009414,
+                "membership.pinRevision": 5.76091599999927,
+                "membership.queryResults": 11.90470899999491,
+                "sql.membershipQuery": 5.234041999996407,
+                "firestore.commitWrites": 4.415583000009065
+              }
+            },
+            {
+              "run": 2,
+              "httpCalls": 2,
+              "requestedDocuments": 129,
+              "operationCalls": {
+                "firestore.transaction": 5,
+                "firestore.transactionRead.getDocument": 15,
+                "firestore.transactionRead.getDocuments": 3,
+                "firestore.getDocuments": 4,
+                "membership.pinRevision": 1,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 5,
+                "firestore.commitWrites": 1
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 54.44375000002037,
+                "firestore.transactionRead.getDocument": 64.12933500000509,
+                "firestore.transactionRead.getDocuments": 19.72462499998801,
+                "firestore.getDocuments": 26.31808299999102,
+                "membership.pinRevision": 5.406917000000249,
+                "membership.queryResults": 12.471040999997058,
+                "sql.membershipQuery": 6.308293000023696,
+                "firestore.commitWrites": 3.3051249999989523
+              }
+            }
+          ]
+        },
+        "create-rate-finder": {
+          "samples": 3,
+          "successes": 3,
+          "errors": 0,
+          "firstObservationMs": [
+            579.862
+          ],
+          "warm": {
+            "n": 2,
+            "medianMs": 518.586,
+            "minimumMs": 508.937,
+            "maximumMs": 528.235,
+            "nearestRankP95Ms": 528.235,
+            "atOrBelow2000Ms": 2,
+            "allMilliseconds": [
+              528.235,
+              508.937
+            ]
+          },
+          "httpCallsPerSample": [
+            2
+          ],
+          "usefulCardCounts": [
+            null
+          ],
+          "orderedMembershipDigests": [
+            null
+          ],
+          "challengeRoundsPerSample": [
+            0
+          ],
+          "challengeSizes": [],
+          "authorityCountsIdenticalAcrossSamples": true,
+          "authorityCounts": {
+            "httpCalls": 2,
+            "operationCalls": {
+              "firestore.commitWrites": 1,
+              "firestore.getDocuments": 4,
+              "firestore.transaction": 5,
+              "firestore.transactionRead.getDocument": 15,
+              "firestore.transactionRead.getDocuments": 3,
+              "membership.pinRevision": 1,
+              "membership.queryResults": 1,
+              "sql.membershipQuery": 5
+            },
+            "requestedDocuments": 77
+          },
+          "authorityTimingSamples": [
+            {
+              "run": 0,
+              "httpCalls": 2,
+              "requestedDocuments": 77,
+              "operationCalls": {
+                "firestore.transaction": 5,
+                "firestore.transactionRead.getDocument": 15,
+                "firestore.transactionRead.getDocuments": 3,
+                "firestore.getDocuments": 4,
+                "membership.pinRevision": 1,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 5,
+                "firestore.commitWrites": 1
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 106.1207899999863,
+                "firestore.transactionRead.getDocument": 171.3447099999903,
+                "firestore.transactionRead.getDocuments": 52.99666600002092,
+                "firestore.getDocuments": 16.78729100000055,
+                "membership.pinRevision": 15.660915999993449,
+                "membership.queryResults": 16.218290999997407,
+                "sql.membershipQuery": 12.61966600001324,
+                "firestore.commitWrites": 3.788791000013589
+              }
+            },
+            {
+              "run": 1,
+              "httpCalls": 2,
+              "requestedDocuments": 77,
+              "operationCalls": {
+                "firestore.transaction": 5,
+                "firestore.transactionRead.getDocument": 15,
+                "firestore.transactionRead.getDocuments": 3,
+                "firestore.getDocuments": 4,
+                "membership.pinRevision": 1,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 5,
+                "firestore.commitWrites": 1
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 88.02562599998782,
+                "firestore.transactionRead.getDocument": 128.51716699999815,
+                "firestore.transactionRead.getDocuments": 38.605498999982956,
+                "firestore.getDocuments": 16.767957999996725,
+                "membership.pinRevision": 11.139209000000847,
+                "membership.queryResults": 5.652249999999185,
+                "sql.membershipQuery": 2.717667999997502,
+                "firestore.commitWrites": 3.5975840000028256
+              }
+            },
+            {
+              "run": 2,
+              "httpCalls": 2,
+              "requestedDocuments": 77,
+              "operationCalls": {
+                "firestore.transaction": 5,
+                "firestore.transactionRead.getDocument": 15,
+                "firestore.transactionRead.getDocuments": 3,
+                "firestore.getDocuments": 4,
+                "membership.pinRevision": 1,
+                "membership.queryResults": 1,
+                "sql.membershipQuery": 5,
+                "firestore.commitWrites": 1
+              },
+              "operationMilliseconds": {
+                "firestore.transaction": 91.03229000000283,
+                "firestore.transactionRead.getDocument": 126.17762400000356,
+                "firestore.transactionRead.getDocuments": 35.0835840000218,
+                "firestore.getDocuments": 19.175916999971378,
+                "membership.pinRevision": 14.46600000000035,
+                "membership.queryResults": 6.037083999995957,
+                "sql.membershipQuery": 2.7497520000033546,
+                "firestore.commitWrites": 2.59870800000499
+              }
+            }
+          ]
+        }
+      },
+      "actualContainer": {
+        "image": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+        "command": [
+          "/evidence/linux-flutter-host.cjs"
+        ],
+        "guestWindowEnvironment": "1",
+        "fixtureTemporalNow": "2026-10-18T00:00:00Z",
+        "networkMode": "container:3c2fe6ab8dee085903d9b4aa1e54ddfba42a5e84804b2af86b685267c465fba4",
+        "portBindings": {},
+        "mounts": [
+          {
+            "Type": "bind",
+            "Source": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution",
+            "Destination": "/evidence",
+            "Mode": "",
+            "RW": true,
+            "Propagation": "rprivate"
+          }
+        ]
+      }
+    }
+  },
+  "equivalentInputs": {
+    "entireHostMetadataEqual": true,
+    "fixture": {
+      "syntheticOnly": true,
+      "generator": "postgis_gate0.v1",
+      "counts": {
+        "biteSaver:restaurant": 35,
+        "biteSaver:offer": 60,
+        "biteScore:restaurant": 30,
+        "biteScore:dish": 60
+      },
+      "documentCount": 185,
+      "sourceCount": 185,
+      "fingerprint": "c0d2864f294a274ff3570dc9a8128d19f920ec7e86b1884a62735e43da87eb65",
+      "dimensions": {
+        "saverParents": 35,
+        "scoreParents": 30,
+        "offersPerRestaurant": 2,
+        "dishesPerRestaurant": 2,
+        "noOfferEvery": 7
+      }
+    },
+    "temporalNow": "2026-10-18T00:00:00.000Z",
+    "publishedRevision": "1",
+    "fullPublishedSourceFence": {
+      "protocolVersion": "bitestar.postgis-source.v1",
+      "epoch": "flutter-local-source-v1",
+      "enrolled": true,
+      "shards": [
+        {
+          "seq": 8,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 2,
+              "xor": "5a576074a3dbf47f29ef6bad3246d1ae7751b80c8e6039edcadb1b1658362b90"
+            },
+            "dish_search_index": {
+              "count": 4,
+              "xor": "5b9d1dbb1bb586a0d2663ce56910d3d27d944e301e320d5ce354040f0b38be6f"
+            },
+            "bitesaver_offer_index": {
+              "count": 2,
+              "xor": "0930afa75b0fde52f00a92f5923be30954797e08427268991c50a19cabbf0b30"
+            }
+          }
+        },
+        {
+          "seq": 12,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 7,
+              "xor": "d17238bff1d4a1cf5b113da8bde6861553ac76e4397dc9ccdf4049f9f9005433"
+            },
+            "dish_search_index": {
+              "count": 2,
+              "xor": "9c58396e24256123289274485d1c9c3de5f4bf429a69df593cc4d3cdd46dc476"
+            },
+            "bitesaver_offer_index": {
+              "count": 3,
+              "xor": "eb0e2b55a8198dbdb31426d5c2c9273540406cab74f79b211fc93aa962dae9af"
+            }
+          }
+        },
+        {
+          "seq": 11,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 1,
+              "xor": "d034b613f6cc7e155641195167478fec62fec3051dd1655a1e074b8033d87791"
+            },
+            "dish_search_index": {
+              "count": 6,
+              "xor": "9826fc54b880a8f5a50d50e1d1ea71165f9e3cd8ecefcf20973a459021955b7e"
+            },
+            "bitesaver_offer_index": {
+              "count": 4,
+              "xor": "c3c10ada90a556b5350ce7c2619b013fb6fa3fc1398074271cc65d725a32ae2a"
+            }
+          }
+        },
+        {
+          "seq": 13,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 7,
+              "xor": "8dbadf5b25bb266999af9e998b5ce595fcb923a8991cde2df91e083acddfaddd"
+            },
+            "dish_search_index": {
+              "count": 3,
+              "xor": "2eaaa65fde352132d2e83e252c851b91e3f84b5416924d3e795d805a211eb261"
+            },
+            "bitesaver_offer_index": {
+              "count": 3,
+              "xor": "4550f95a00e20a438b2494b6fb17d9f5b4789b2f547cde69e5c5d838633d1b03"
+            }
+          }
+        },
+        {
+          "seq": 9,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 1,
+              "xor": "f908d8aa1443a5f269caef06a546b294655b7bbb412c3522e0b9bf74cad5b57e"
+            },
+            "dish_search_index": {
+              "count": 7,
+              "xor": "3b0263f31b862139869132e23fca427fa22b1ab704766644e58cd326e2af6915"
+            },
+            "bitesaver_offer_index": {
+              "count": 1,
+              "xor": "019c76170904474073025317870a421f950df24786120aba3feb8ba57f571a6d"
+            }
+          }
+        },
+        {
+          "seq": 8,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 3,
+              "xor": "8c2ed414a0c186d5bd9725a774b08436f8d9d39acac050b46a56622038d0b1f1"
+            },
+            "dish_search_index": {
+              "count": 2,
+              "xor": "4882bc30ff7ba32bf3a72e314b90cc7294a0c5bbbf0cdb418bcaf1cb8ecda204"
+            },
+            "bitesaver_offer_index": {
+              "count": 3,
+              "xor": "5c1aef7a95b42959ed59cd4258643013b1fc513103242befbff0b8af2105c273"
+            }
+          }
+        },
+        {
+          "seq": 9,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 4,
+              "xor": "bbf577e89f7afb8c32bf0e6993f1b53965fe0dbf3a33e43bed9ac6231b0e3b74"
+            },
+            "dish_search_index": {
+              "count": 3,
+              "xor": "b0b07ffae4044e1790f5b3e11a3a928f369d5560012ce23698a1ea99e1ab95b2"
+            },
+            "bitesaver_offer_index": {
+              "count": 2,
+              "xor": "9fe55a3d930be0b260f21c3cfbaad80c8fba300f049cb8aaf48015691dc6010f"
+            }
+          }
+        },
+        {
+          "seq": 18,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 3,
+              "xor": "e89cfd7ed5d9983edb93cf0adb00b5b8b588b5bbdbf38966fac0f29fcc297ac2"
+            },
+            "dish_search_index": {
+              "count": 9,
+              "xor": "49d03f8d1cf70da0c587008283e2d0205472cc4a6653c5306185b5b6ba379ddb"
+            },
+            "bitesaver_offer_index": {
+              "count": 6,
+              "xor": "4ab87233855497c6282272bb565eabec2a7caeaea394714325b110d3fbb7dc14"
+            }
+          }
+        },
+        {
+          "seq": 15,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 9,
+              "xor": "2a800ac59ffb0677412a6f98acd315819bf4d8536132eb00a8981f8a1cf48601"
+            },
+            "dish_search_index": {
+              "count": 2,
+              "xor": "87c07b4653a0893e16cc3a596ab0edfc2a79f8466e6fabe08029cd082c23ec2f"
+            },
+            "bitesaver_offer_index": {
+              "count": 4,
+              "xor": "d8cec12511a2949d0e817bcacd95eac199fbc5e4eea84847795a42c0645f8f93"
+            }
+          }
+        },
+        {
+          "seq": 11,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 3,
+              "xor": "5afb288742136304f0aad61459eb8d951a1b6259bbabf0bbc09d73817a9d3a4b"
+            },
+            "dish_search_index": {
+              "count": 2,
+              "xor": "c0e26dfd31b26a4ca8fc0da834bc70ad3b038d9cfd08e7b9f87bdbddadb25428"
+            },
+            "bitesaver_offer_index": {
+              "count": 6,
+              "xor": "1487eecce41d7132b02648a1c6e922bea99d5e27ebbc016d289bc56943a7fc5c"
+            }
+          }
+        },
+        {
+          "seq": 10,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 3,
+              "xor": "9245527f082acc6b7b7fc3d5ab1945b96877d72785362898dc1fcacedc39db78"
+            },
+            "dish_search_index": {
+              "count": 5,
+              "xor": "94bd137fefa03ded94fe976c9dd95443ab59b15b168ad240bdf6d4dbab5803c9"
+            },
+            "bitesaver_offer_index": {
+              "count": 2,
+              "xor": "123f2a1cdf86495c7750deddd08d5471f54d42c8e02fe8610358002644e667fc"
+            }
+          }
+        },
+        {
+          "seq": 12,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 4,
+              "xor": "f1f751b0cb0341e5d967c123404117d67d93f7f65c91b39c12c963ff17f67913"
+            },
+            "dish_search_index": {
+              "count": 3,
+              "xor": "5424a68f9043961a72852b70709ff5c4d700953d214876426b83a6db4b4f7a79"
+            },
+            "bitesaver_offer_index": {
+              "count": 5,
+              "xor": "545936eaceca2ee09a25b166b745a2d51425df56f427436ce90f05a9dc90a655"
+            }
+          }
+        },
+        {
+          "seq": 14,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 7,
+              "xor": "e1d081e5871b913abe7f12f8f772b46bda2ac0f3c22039f2d7b97f4b5f0048dd"
+            },
+            "dish_search_index": {
+              "count": 5,
+              "xor": "25d2b520a3674237cab8553a8ceb60c459be9c4f89d8b02deb924d8cadc524db"
+            },
+            "bitesaver_offer_index": {
+              "count": 2,
+              "xor": "b8408ac046ca97954d23e82452a6bf61eac71ee24d1d5bcbb57846633c8fde84"
+            }
+          }
+        },
+        {
+          "seq": 13,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 5,
+              "xor": "c25afa621242ac632f9346d7f8630b6dfa38ba2027162a891fcef77aaea271e7"
+            },
+            "dish_search_index": {
+              "count": 2,
+              "xor": "8cd4609195b5dcab80714e0a3c3d8ca79e57edf219bfd9f73ae951c9d9687165"
+            },
+            "bitesaver_offer_index": {
+              "count": 6,
+              "xor": "16c8c8b5e99ee5b8bd7d3a4b608668f85924bea4edbb34036a446be31ee10c9b"
+            }
+          }
+        },
+        {
+          "seq": 9,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 4,
+              "xor": "9f82146b14b238307996c1f980f6613526ab11f8e08c294f69fd7cde49f02418"
+            },
+            "dish_search_index": {
+              "count": 0,
+              "xor": "0000000000000000000000000000000000000000000000000000000000000000"
+            },
+            "bitesaver_offer_index": {
+              "count": 5,
+              "xor": "1cc4f6288d401dcd9b494db00e3a93ea76d4dc7fc33707a03d6b370463fc4fd9"
+            }
+          }
+        },
+        {
+          "seq": 13,
+          "partitions": {
+            "restaurant_search_index": {
+              "count": 2,
+              "xor": "ec66948f1d168ccab813a9721488ce3e50eb82d16594a903ef7d53428fcecbd8"
+            },
+            "dish_search_index": {
+              "count": 5,
+              "xor": "7e8f475293e3968a30af46175d5c4a4e611dac3ccdcdd20c700011d825e483ad"
+            },
+            "bitesaver_offer_index": {
+              "count": 6,
+              "xor": "f6d5ce146e47e9440a6045be22a5fcbe059360333dcff826e53e1b3df0790190"
+            }
+          }
+        }
+      ]
+    },
+    "activeEntities": 185
+  },
+  "resultIdentity": {
+    "saverSamples": 80,
+    "all25UsefulCards": true,
+    "sameOrderedPublicIdSha256": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+    "scoreFinder": "3 successful observations each per mode; no ordered-membership digest for these flows, so no stronger identical-membership claim from timing JSON."
+  },
+  "warmGuestMedianReductionPercent": 54.489610995830276,
+  "counterMeaning": [
+    "Instrumented method calls and requested document counts, not billed Firestore reads. Query-returned rows are excluded from requestedDocuments.",
+    "Unique document counts are per endpoint; do not sum as global distinct reads.",
+    "Nested and concurrent operation durations overlap; summing them is not request wall time.",
+    "Both modes retain 26 membership queries and 191 instrumented SQL queries per guest sample; reduced challenge round trips do not imply SQL authority replacement."
+  ],
+  "limitations": [
+    "First observations are retained separately and are not proof of a cold-start distribution.",
+    "19 warm guest samples per mode: window 18/19 at or below 2 seconds; one 2225.986ms sample. No consistent sub-2-second or hosted-tail claim.",
+    "Linux x64 runs under Rosetta on this Mac; Flutter is on macOS. No native cloud CPU, network, mobile-device or nationwide load qualification.",
+    "Serial and window runs are sequential fixed-fixture runs; do not infer a general causal latency distribution from these samples.",
+    "Signed, Score and Finder remain functional; their timings are not claimed unchanged or improved."
+  ]
+}

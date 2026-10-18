@@ -1,0 +1,14 @@
+✔ exact local Linux tuple is accepted and cached without granting hosted scope (45.997458ms)
+✔ Linux qualification refuses other binary, V8, Node, architecture, kernel and CPU tuples (8.352875ms)
+✔ scope and flags are checked again after cached local qualification (0.912292ms)
+✔ previous exact Darwin qualification remains unchanged (1.986084ms)
+✔ both hosted entry paths explicitly require hosted numerical qualification (1.503167ms)
+✔ actual qualified local process cannot unlock Linux hosted scope (318.584959ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 497.891126

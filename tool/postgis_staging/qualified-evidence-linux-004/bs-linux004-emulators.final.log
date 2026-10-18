@@ -1,0 +1,28 @@
+⚠  Unable to fetch the CLI MOTD and remote config. This is not a fatal error, but may indicate an issue with your network connection.
+i  emulators: Starting emulators: auth, firestore, storage
+i  emulators: Detected demo project ID "demo-bs-postgis-flutter", emulated services will use a demo configuration and attempts to access non-emulated services for this project will fail.
+i  firestore: Firestore Emulator logging to firestore-debug.log
+✔  firestore: Firestore Emulator was started in standard edition.
+✔  firestore: Firestore Emulator UI websocket is running on 9150.
+⚠  Unexpected rules runtime error: Picked up JAVA_TOOL_OPTIONS: -Xmx1400m
+
+⚠  emulators: The Emulator UI is not starting because none of the running emulators have a UI component.
+
+┌─────────────────────────────────────────────────────────────┐
+│ ✔  All emulators ready! It is now safe to connect your app. │
+└─────────────────────────────────────────────────────────────┘
+
+┌────────────────┬────────────────┐
+│ Emulator       │ Host:Port      │
+├────────────────┼────────────────┤
+│ Authentication │ 127.0.0.1:9099 │
+├────────────────┼────────────────┤
+│ Firestore      │ 127.0.0.1:8088 │
+├────────────────┼────────────────┤
+│ Storage        │ 127.0.0.1:9199 │
+└────────────────┴────────────────┘
+  Emulator Hub host: 127.0.0.1 port: 4400
+  Other reserved ports: 4500, 9150
+
+Issues? Report them at https://github.com/firebase/firebase-tools/issues and attach the *-debug.log files.
+ 

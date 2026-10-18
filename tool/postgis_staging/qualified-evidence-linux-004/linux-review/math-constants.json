@@ -1,0 +1,253 @@
+{
+  "kind": "ELF RIP-referenced constant equality against retained source; instruction sign use reviewed separately",
+  "nodeSha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c",
+  "checks": 35,
+  "passed": 35,
+  "constants": [
+    {
+      "name": "S1",
+      "sourceBits": "bfc5555555555549",
+      "referencedAddress": "0x66515c0",
+      "binaryBits": "3fc5555555555549",
+      "signNegatedWithSubtraction": true
+    },
+    {
+      "name": "S2",
+      "sourceBits": "3f8111111110f8a6",
+      "referencedAddress": "0x66515b8",
+      "binaryBits": "3f8111111110f8a6",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "S3",
+      "sourceBits": "bf2a01a019c161d5",
+      "referencedAddress": "0x66515b0",
+      "binaryBits": "3f2a01a019c161d5",
+      "signNegatedWithSubtraction": true
+    },
+    {
+      "name": "S4",
+      "sourceBits": "3ec71de357b1fe7d",
+      "referencedAddress": "0x66515a8",
+      "binaryBits": "3ec71de357b1fe7d",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "S5",
+      "sourceBits": "be5ae5e68a2b9ceb",
+      "referencedAddress": "0x66515a0",
+      "binaryBits": "3e5ae5e68a2b9ceb",
+      "signNegatedWithSubtraction": true
+    },
+    {
+      "name": "S6",
+      "sourceBits": "3de5d93a5acfd57c",
+      "referencedAddress": "0x6651598",
+      "binaryBits": "3de5d93a5acfd57c",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "C1",
+      "sourceBits": "3fa555555555554c",
+      "referencedAddress": "0x6651590",
+      "binaryBits": "3fa555555555554c",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "C2",
+      "sourceBits": "bf56c16c16c15177",
+      "referencedAddress": "0x6651588",
+      "binaryBits": "3f56c16c16c15177",
+      "signNegatedWithSubtraction": true
+    },
+    {
+      "name": "C3",
+      "sourceBits": "3efa01a019cb1590",
+      "referencedAddress": "0x6651580",
+      "binaryBits": "3efa01a019cb1590",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "C4",
+      "sourceBits": "be927e4f809c52ad",
+      "referencedAddress": "0x6651578",
+      "binaryBits": "3e927e4f809c52ad",
+      "signNegatedWithSubtraction": true
+    },
+    {
+      "name": "C5",
+      "sourceBits": "3e21ee9ebdb4b1c4",
+      "referencedAddress": "0x6651570",
+      "binaryBits": "3e21ee9ebdb4b1c4",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "C6",
+      "sourceBits": "bda8fae9be8838d4",
+      "referencedAddress": "0x6651568",
+      "binaryBits": "bda8fae9be8838d4",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "pio2_1",
+      "sourceBits": "3ff921fb54400000",
+      "referencedAddress": "0x6651400",
+      "binaryBits": "3ff921fb54400000",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "pio2_1t",
+      "sourceBits": "3dd0b4611a626331",
+      "referencedAddress": "0x6651408",
+      "binaryBits": "3dd0b4611a626331",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "pio2_2",
+      "sourceBits": "3dd0b4611a600000",
+      "referencedAddress": "0x6651410",
+      "binaryBits": "3dd0b4611a600000",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "pio2_2t",
+      "sourceBits": "3ba3198a2e037073",
+      "referencedAddress": "0x6651418",
+      "binaryBits": "3ba3198a2e037073",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "atanhi[0]",
+      "sourceBits": "3fddac670561bb4f",
+      "referencedAddress": "0x66514d0",
+      "binaryBits": "3fddac670561bb4f",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "atanhi[1]",
+      "sourceBits": "3fe921fb54442d18",
+      "referencedAddress": "0x66514a8",
+      "binaryBits": "3fe921fb54442d18",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "atanhi[2]",
+      "sourceBits": "3fef730bd281f69b",
+      "referencedAddress": "0x66514c0",
+      "binaryBits": "3fef730bd281f69b",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "atanhi[3]",
+      "sourceBits": "3ff921fb54442d18",
+      "referencedAddress": "0x6651440",
+      "binaryBits": "3ff921fb54442d18",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "atanlo[0]",
+      "sourceBits": "3c7a2b7f222f65e2",
+      "referencedAddress": "0x66514c8",
+      "binaryBits": "3c7a2b7f222f65e2",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "atanlo[1]",
+      "sourceBits": "3c81a62633145c07",
+      "referencedAddress": "0x66514b0",
+      "binaryBits": "3c81a62633145c07",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "atanlo[2]",
+      "sourceBits": "3c7007887af0cbbd",
+      "referencedAddress": "0x66514b8",
+      "binaryBits": "3c7007887af0cbbd",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "atanlo[3]",
+      "sourceBits": "3c91a62633145c07",
+      "referencedAddress": "0x6651238",
+      "binaryBits": "3c91a62633145c07",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "aT[0]",
+      "sourceBits": "3fd555555555550d",
+      "referencedAddress": "0x6651508",
+      "binaryBits": "3fd555555555550d",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "aT[1]",
+      "sourceBits": "bfc999999998ebc4",
+      "referencedAddress": "0x6651530",
+      "binaryBits": "3fc999999998ebc4",
+      "signNegatedWithSubtraction": true
+    },
+    {
+      "name": "aT[2]",
+      "sourceBits": "3fc24924920083ff",
+      "referencedAddress": "0x6651500",
+      "binaryBits": "3fc24924920083ff",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "aT[3]",
+      "sourceBits": "bfbc71c6fe231671",
+      "referencedAddress": "0x6651528",
+      "binaryBits": "3fbc71c6fe231671",
+      "signNegatedWithSubtraction": true
+    },
+    {
+      "name": "aT[4]",
+      "sourceBits": "3fb745cdc54c206e",
+      "referencedAddress": "0x66514f8",
+      "binaryBits": "3fb745cdc54c206e",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "aT[5]",
+      "sourceBits": "bfb3b0f2af749a6d",
+      "referencedAddress": "0x6651520",
+      "binaryBits": "3fb3b0f2af749a6d",
+      "signNegatedWithSubtraction": true
+    },
+    {
+      "name": "aT[6]",
+      "sourceBits": "3fb10d66a0d03d51",
+      "referencedAddress": "0x66514f0",
+      "binaryBits": "3fb10d66a0d03d51",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "aT[7]",
+      "sourceBits": "bfadde2d52defd9a",
+      "referencedAddress": "0x6651518",
+      "binaryBits": "3fadde2d52defd9a",
+      "signNegatedWithSubtraction": true
+    },
+    {
+      "name": "aT[8]",
+      "sourceBits": "3fa97b4b24760deb",
+      "referencedAddress": "0x66514e8",
+      "binaryBits": "3fa97b4b24760deb",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "aT[9]",
+      "sourceBits": "bfa2b4442c6a6c2f",
+      "referencedAddress": "0x6651510",
+      "binaryBits": "bfa2b4442c6a6c2f",
+      "signNegatedWithSubtraction": false
+    },
+    {
+      "name": "aT[10]",
+      "sourceBits": "3f90ad3ae322da11",
+      "referencedAddress": "0x66514e0",
+      "binaryBits": "3f90ad3ae322da11",
+      "signNegatedWithSubtraction": false
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "metadata": {
+    "osRelease": "PRETTY_NAME=\"Debian GNU/Linux 12 (bookworm)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"12\"\nVERSION=\"12 (bookworm)\"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\"\n",
+    "platform": "Linux-7.0.14-linuxkit-x86_64-with-glibc2.36",
+    "machine": "x86_64",
+    "python": {
+      "version": "3.12.13 (main, Aug  5 2026, 01:11:46) [GCC 12.2.0]",
+      "path": "/usr/local/bin/python3.12",
+      "sha256": "4dbf3143240288fb2170257ffaa7bd030cdda5d2703d1f5f30b627042267e2e3",
+      "openssl": "OpenSSL 3.0.20 7 Apr 2026",
+      "sqlite": "3.40.1"
+    },
+    "node": {
+      "node": "v24.21.0",
+      "v8": "13.6.233.17-node.53",
+      "arch": "x64",
+      "platform": "linux",
+      "execPath": "/usr/local/bin/node",
+      "resolvedPath": "/usr/local/bin/node",
+      "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
+    },
+    "uid": 65532,
+    "imageFiles": {
+      "tool/postgis_staging/scripts/guard.py": {
+        "imageSha256": "35727623fdb0caeec1666e672cd684785a60288d2837f0cf898d6e11dd32eb6d",
+        "copySha256": "35727623fdb0caeec1666e672cd684785a60288d2837f0cf898d6e11dd32eb6d"
+      },
+      "tool/postgis_staging/scripts/cloud_provider.py": {
+        "imageSha256": "b6a465032526a5b3c6e17d4797a1f082d268fbb9fca7ca371f0fba8274830fd8",
+        "copySha256": "b6a465032526a5b3c6e17d4797a1f082d268fbb9fca7ca371f0fba8274830fd8"
+      },
+      "tool/postgis_staging/scripts/cloud_controller.py": {
+        "imageSha256": "d8ed5eade98216424d07396037381f26f0377fdb3e6c2c4c29f9baede5c2a9af",
+        "copySha256": "d8ed5eade98216424d07396037381f26f0377fdb3e6c2c4c29f9baede5c2a9af"
+      },
+      "tool/postgis_staging/scripts/provider_entrypoint.py": {
+        "imageSha256": "ff8af3fb4901eded6c6a0a971c4c114f8bb2ed6f257f71f6ac96c9bd544fbe91",
+        "copySha256": "ff8af3fb4901eded6c6a0a971c4c114f8bb2ed6f257f71f6ac96c9bd544fbe91"
+      },
+      "tool/postgis_staging/verify-approval.cjs": {
+        "imageSha256": "3564fb6779cb33d7f91a332110ff4d43a4c7b1a15007da6a3ad87cb3f899b99e",
+        "copySha256": "3564fb6779cb33d7f91a332110ff4d43a4c7b1a15007da6a3ad87cb3f899b99e"
+      },
+      "functions/lib/postgis_execution_approval.js": {
+        "imageSha256": "33ed71e19126f321b061fd266450b621c94e162f7448ccc7cf03137016b1a12e",
+        "copySha256": "33ed71e19126f321b061fd266450b621c94e162f7448ccc7cf03137016b1a12e"
+      }
+    },
+    "importModulePaths": {
+      "guard": "/app/tool/postgis_staging/scripts/guard.py",
+      "cloud_provider": "/app/tool/postgis_staging/scripts/cloud_provider.py",
+      "cloud_controller": "/app/tool/postgis_staging/scripts/cloud_controller.py",
+      "provider_entrypoint": "/app/tool/postgis_staging/scripts/provider_entrypoint.py"
+    },
+    "fixtureFiles": {
+      "tool/postgis_staging/scripts/test_cloud_controller.py": "2a68eb4d5edc5e6b959ed4e69856128c2d360c8502bfd8cf8049061b7a8775ae",
+      "tool/postgis_staging/scripts/test_guard.py": "fd036f016676ed5d4bd2b2c52768db5619a0a7c1d75684a115794e55db444e24",
+      "tool/postgis_staging/scripts/test_gate0_controls.py": "ae6a1ddf0170b28d29dde7df4979005d68413e354a9b927df976a2387abc0df8",
+      "tool/postgis_staging/scripts/test_price_worksheet_20261017.py": "bdab12f6f98eb85fffb5a9cea9d8622c47dcb164b88a043834c356d2e061da5c",
+      "tool/postgis_staging/scripts/freeze.py": "366f8b7d24fb22c7df8becdcfcf86e41ad4a6258dadf1179c198b72e64c7fa16",
+      "tool/postgis_staging/scripts/ledger.py": "098076e904c695386d2bdfa1553616894e18c512ad823e65cae4de515de97b28",
+      "tool/postgis_staging/scripts/render_watchdog.py": "b90c13ce95934e4d5d96625c1fa6b16b1f2044c9eeb0d0bf0dd65fcd20ff215c",
+      "tool/postgis_staging/scripts/render_provider_descriptors.py": "1c9ed3a86eee93a5837d445693a2192752564f1a650fbeb5cbdd5961c1cffeff",
+      "tool/postgis_staging/scripts/price_worksheet_20261017.py": "d04e91bbd7c5277718fb2a974def8968e35198e2aae47d5084b2fee861d128b5",
+      "tool/postgis_staging/config/staging.json": "0f95e9300e8661867389a967a39413ebac7f6bdf0e5a1b60f3d5137ae25bd83d",
+      "tool/postgis_staging/config/provider.example.json": "15d9ffe2dc6ce57aded62748736bd842d843e8441587044066fe5f127ab4fe15",
+      "tool/postgis_staging/pricing-2026-10-17.json": "3f1c8b5dc736564c9fb184233ca2b9a906aabcb3007393feba7f25aac8ce752a"
+    }
+  },
+  "suites": {
+    "selected-source-89": {
+      "run": 89,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "successful": true,
+      "elapsedSeconds": 2.804102751999949
+    },
+    "independent003-13": {
+      "run": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "successful": true,
+      "elapsedSeconds": 0.02001887500000521
+    }
+  },
+  "capturedTestStdout": "",
+  "imageFilesUnchanged": true
+}

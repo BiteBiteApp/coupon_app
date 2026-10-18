@@ -1,0 +1,17 @@
+--- /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.v3.cjs
++++ /review/independent-window-diagnostics.v3.cjs
+@@ -3,7 +3,7 @@
+ // native fixture/authority adapter and injected membership provider. No SQL,
+ // emulator, cloud, production data or runtime qualification is claimed.
+ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),Module=require('node:module'),path=require('node:path');
+-const repo='/Users/colesmart/dev/coupon_app';
++const repo='/app';
+ const fixturePath=path.join(repo,'functions/test/customer_bitesaver_search_handlers.test.js');
+ const fixtures=new Module(fixturePath,module);fixtures.filename=fixturePath;fixtures.paths=Module._nodeModulePaths(path.dirname(fixturePath));
+ const actualRequire=Module.createRequire(fixturePath),ignoreTest=()=>undefined;
+@@ -93,4 +93,4 @@
+  assert.equal(result.outcome,'retryRequired');assert.equal(result.reason,'sourceChanged');assert.equal('result' in result,false);
+ });
+ 
+-process.on('exit',()=>fs.writeFileSync(path.join(__dirname,'independent-window-observations.v3.json'),JSON.stringify({scope:'in-memory native handler diagnostics; no performance/SQL/cloud claim',observations},null,2)+'\n'));
++process.on('exit',()=>fs.writeFileSync(path.join('/tmp','independent-window-observations.v3.json'),JSON.stringify({scope:'in-memory native handler diagnostics; no performance/SQL/cloud claim',observations},null,2)+'\n'));

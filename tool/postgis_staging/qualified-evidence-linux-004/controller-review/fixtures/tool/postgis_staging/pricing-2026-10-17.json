@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "checkedDate": "2026-10-17",
+  "region": "us-central1 (Iowa)",
+  "currency": "USD",
+  "rates": {
+    "sqlCpuHour": {
+      "usd": ".0413",
+      "source": "https://cloud.google.com/sql/pricing"
+    },
+    "sqlMemoryGiBHour": {
+      "usd": ".007",
+      "source": "https://cloud.google.com/sql/pricing"
+    },
+    "sqlSsdGiBHour": {
+      "usd": ".000232877",
+      "source": "https://cloud.google.com/sql/pricing"
+    },
+    "sqlHaSsdGiBHour": {
+      "usd": ".000465753",
+      "source": "https://cloud.google.com/sql/pricing"
+    },
+    "sqlBackupGiBHour": {
+      "usd": ".000109589",
+      "source": "https://cloud.google.com/sql/pricing"
+    },
+    "runCpuSecond": {
+      "usd": ".000024",
+      "source": "https://cloud.google.com/run/pricing"
+    },
+    "runMemoryGiBSecond": {
+      "usd": ".0000025",
+      "source": "https://cloud.google.com/run/pricing"
+    },
+    "runMillionRequests": {
+      "usd": ".40",
+      "source": "https://cloud.google.com/run/pricing"
+    },
+    "runJobCpuSecond": {
+      "usd": ".000018",
+      "source": "https://cloud.google.com/run/pricing"
+    },
+    "runJobMemoryGiBSecond": {
+      "usd": ".000002",
+      "source": "https://cloud.google.com/run/pricing"
+    },
+    "firestoreRead100k": {
+      "usd": ".03",
+      "source": "https://cloud.google.com/firestore/pricing"
+    },
+    "firestoreWrite100k": {
+      "usd": ".09",
+      "source": "https://cloud.google.com/firestore/pricing"
+    },
+    "firestoreDelete100k": {
+      "usd": ".01",
+      "source": "https://cloud.google.com/firestore/pricing"
+    },
+    "firestoreStorageGiBHour": {
+      "usd": ".000205479",
+      "source": "https://cloud.google.com/firestore/pricing"
+    },
+    "networkInternetGiB": {
+      "usd": ".12",
+      "source": "https://cloud.google.com/vpc/network-pricing"
+    },
+    "networkCrossZoneGiB": {
+      "usd": ".01",
+      "source": "https://cloud.google.com/vpc/network-pricing"
+    },
+    "logIngestGiB": {
+      "usd": ".50",
+      "source": "https://cloud.google.com/logging#pricing"
+    },
+    "artifactGiBHour": {
+      "usd": ".000136986",
+      "source": "https://cloud.google.com/artifact-registry/pricing"
+    },
+    "gcsGiBHour": {
+      "usd": ".000027397",
+      "source": "https://cloud.google.com/storage/pricing"
+    },
+    "gcsClassA1000": {
+      "usd": ".005",
+      "source": "https://cloud.google.com/storage/pricing"
+    },
+    "gcsClassB1000": {
+      "usd": ".0004",
+      "source": "https://cloud.google.com/storage/pricing"
+    },
+    "workflowInternal1000": {
+      "usd": ".01",
+      "source": "https://cloud.google.com/workflows/pricing"
+    },
+    "workflowExternal1000": {
+      "usd": ".025",
+      "source": "https://cloud.google.com/workflows/pricing"
+    },
+    "schedulerJob31Days": {
+      "usd": ".10",
+      "source": "https://cloud.google.com/scheduler/pricing"
+    }
+  },
+  "sources": {
+    "sql": "https://cloud.google.com/sql/pricing",
+    "run": "https://cloud.google.com/run/pricing",
+    "firestore": "https://cloud.google.com/firestore/pricing",
+    "network": "https://cloud.google.com/vpc/network-pricing",
+    "logging": "https://cloud.google.com/logging#pricing",
+    "registry": "https://cloud.google.com/artifact-registry/pricing",
+    "storage": "https://cloud.google.com/storage/pricing",
+    "workflows": "https://cloud.google.com/workflows/pricing",
+    "scheduler": "https://cloud.google.com/scheduler/pricing"
+  },
+  "coverage": {
+    "sql": "Enterprise dedicated custom4vCPU16GiB, SSD100GiB,48h zonal+24h conditional HA; hourly on-demand USD",
+    "run": "Tier1 request-based app; instance/job rates for load job; no discounts/free credits",
+    "firestore": "Regional Standard edition, named database; billed reads include index-entry batches and minimum queries; storage includes indexes",
+    "storage": "Regional Standard flat namespace; no retrieval charge or minimum duration; soft-delete/retention exposure separate"
+  },
+  "budgetControls": {
+    "budgetAlerts": "Alerts by themselves do not stop consumption.",
+    "spendCaps": "Current service-specific monthly caps cover Cloud Run/Run functions, Gemini API and Vertex/Agent Platform; not Cloud SQL, Firestore or Cloud Storage. Enforcement is delayed, inflight/fixed charges persist, no resource deletion, monthly reset.",
+    "sourceAlerts": "https://docs.cloud.google.com/billing/docs/how-to/budgets",
+    "sourceCaps": "https://docs.cloud.google.com/billing/docs/how-to/budgets-spend-caps",
+    "wholeRunDollarCapGuaranteed": false
+  },
+  "historicalWorksheetPreserved": "scripts/price_worksheet.py (2026-10-02)",
+  "accountCurrencyTaxesDiscountsAndProviderBillingCalibration": "UNVERIFIED; actual project and paid approval remain owner decisions"
+}

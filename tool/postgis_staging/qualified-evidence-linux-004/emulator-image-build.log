@@ -1,0 +1,130 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.08kB done
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 1)
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 2)
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/eclipse-temurin:21-jre-jammy@sha256:8ecbec1f32912979c15b86aaf98f7082a77d318a7f92af3d9fe2c0fd2723df10
+#3 ...
+
+#4 [auth] library/eclipse-temurin:pull token for registry-1.docker.io
+#4 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/eclipse-temurin:21-jre-jammy@sha256:8ecbec1f32912979c15b86aaf98f7082a77d318a7f92af3d9fe2c0fd2723df10
+#3 DONE 1.1s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 2B done
+#5 DONE 0.0s
+
+#6 [stage-1 1/8] FROM docker.io/library/node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd
+#6 resolve docker.io/library/node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd done
+#6 CACHED
+
+#7 [java 1/1] FROM docker.io/library/eclipse-temurin:21-jre-jammy@sha256:8ecbec1f32912979c15b86aaf98f7082a77d318a7f92af3d9fe2c0fd2723df10
+#7 resolve docker.io/library/eclipse-temurin:21-jre-jammy@sha256:8ecbec1f32912979c15b86aaf98f7082a77d318a7f92af3d9fe2c0fd2723df10 done
+#7 sha256:d18e088bcb32fde124a4553022c55d42c394a352ce80c57bdbf902ffa0441a52 2.46kB / 2.46kB 0.2s done
+#7 sha256:9ddd6de30055ac5bdcb28bc67e61aa12ab2c46949cfa24571411b2a9b9fd4873 0B / 159B 0.2s
+#7 sha256:f5c13179339d83404d86b92f445e2692eb870962a738a4383da35394859e46fa 0B / 16.12MB 0.2s
+#7 sha256:22d3391d8c4912e306bcf7153bab3c68fe06476ef652c930e39b65dea9140eed 0B / 53.10MB 0.2s
+#7 sha256:9ddd6de30055ac5bdcb28bc67e61aa12ab2c46949cfa24571411b2a9b9fd4873 159B / 159B 0.3s done
+#7 sha256:cf1a5487baaf7d71eb78fd0888933c6cdecb40e59edb896511aa0ef4a896031e 0B / 29.75MB 0.2s
+#7 sha256:cf1a5487baaf7d71eb78fd0888933c6cdecb40e59edb896511aa0ef4a896031e 5.24MB / 29.75MB 0.3s
+#7 sha256:f5c13179339d83404d86b92f445e2692eb870962a738a4383da35394859e46fa 1.05MB / 16.12MB 0.8s
+#7 sha256:cf1a5487baaf7d71eb78fd0888933c6cdecb40e59edb896511aa0ef4a896031e 10.49MB / 29.75MB 0.5s
+#7 sha256:22d3391d8c4912e306bcf7153bab3c68fe06476ef652c930e39b65dea9140eed 4.19MB / 53.10MB 0.8s
+#7 sha256:cf1a5487baaf7d71eb78fd0888933c6cdecb40e59edb896511aa0ef4a896031e 15.73MB / 29.75MB 0.6s
+#7 sha256:f5c13179339d83404d86b92f445e2692eb870962a738a4383da35394859e46fa 2.10MB / 16.12MB 0.9s
+#7 sha256:22d3391d8c4912e306bcf7153bab3c68fe06476ef652c930e39b65dea9140eed 8.39MB / 53.10MB 0.9s
+#7 sha256:cf1a5487baaf7d71eb78fd0888933c6cdecb40e59edb896511aa0ef4a896031e 20.97MB / 29.75MB 0.8s
+#7 sha256:22d3391d8c4912e306bcf7153bab3c68fe06476ef652c930e39b65dea9140eed 11.53MB / 53.10MB 1.1s
+#7 sha256:cf1a5487baaf7d71eb78fd0888933c6cdecb40e59edb896511aa0ef4a896031e 25.17MB / 29.75MB 0.9s
+#7 ...
+
+#8 [internal] load build context
+#8 transferring context: 191.44MB 1.3s done
+#8 DONE 1.3s
+
+#7 [java 1/1] FROM docker.io/library/eclipse-temurin:21-jre-jammy@sha256:8ecbec1f32912979c15b86aaf98f7082a77d318a7f92af3d9fe2c0fd2723df10
+#7 sha256:f5c13179339d83404d86b92f445e2692eb870962a738a4383da35394859e46fa 3.15MB / 16.12MB 1.4s
+#7 sha256:22d3391d8c4912e306bcf7153bab3c68fe06476ef652c930e39b65dea9140eed 15.73MB / 53.10MB 1.2s
+#7 sha256:cf1a5487baaf7d71eb78fd0888933c6cdecb40e59edb896511aa0ef4a896031e 29.75MB / 29.75MB 1.1s done
+#7 extracting sha256:cf1a5487baaf7d71eb78fd0888933c6cdecb40e59edb896511aa0ef4a896031e
+#7 sha256:f5c13179339d83404d86b92f445e2692eb870962a738a4383da35394859e46fa 4.19MB / 16.12MB 1.5s
+#7 sha256:22d3391d8c4912e306bcf7153bab3c68fe06476ef652c930e39b65dea9140eed 20.97MB / 53.10MB 1.4s
+#7 sha256:22d3391d8c4912e306bcf7153bab3c68fe06476ef652c930e39b65dea9140eed 26.21MB / 53.10MB 1.5s
+#7 extracting sha256:cf1a5487baaf7d71eb78fd0888933c6cdecb40e59edb896511aa0ef4a896031e 0.4s done
+#7 sha256:f5c13179339d83404d86b92f445e2692eb870962a738a4383da35394859e46fa 7.34MB / 16.12MB 1.8s
+#7 sha256:22d3391d8c4912e306bcf7153bab3c68fe06476ef652c930e39b65dea9140eed 31.46MB / 53.10MB 1.7s
+#7 sha256:f5c13179339d83404d86b92f445e2692eb870962a738a4383da35394859e46fa 8.39MB / 16.12MB 2.0s
+#7 sha256:22d3391d8c4912e306bcf7153bab3c68fe06476ef652c930e39b65dea9140eed 36.70MB / 53.10MB 1.8s
+#7 sha256:f5c13179339d83404d86b92f445e2692eb870962a738a4383da35394859e46fa 9.44MB / 16.12MB 2.1s
+#7 sha256:22d3391d8c4912e306bcf7153bab3c68fe06476ef652c930e39b65dea9140eed 42.99MB / 53.10MB 2.0s
+#7 sha256:22d3391d8c4912e306bcf7153bab3c68fe06476ef652c930e39b65dea9140eed 53.10MB / 53.10MB 2.2s done
+#7 sha256:f5c13179339d83404d86b92f445e2692eb870962a738a4383da35394859e46fa 11.53MB / 16.12MB 2.3s
+#7 sha256:f5c13179339d83404d86b92f445e2692eb870962a738a4383da35394859e46fa 12.58MB / 16.12MB 2.4s
+#7 sha256:f5c13179339d83404d86b92f445e2692eb870962a738a4383da35394859e46fa 14.68MB / 16.12MB 2.6s
+#7 sha256:f5c13179339d83404d86b92f445e2692eb870962a738a4383da35394859e46fa 16.12MB / 16.12MB 2.6s done
+#7 extracting sha256:f5c13179339d83404d86b92f445e2692eb870962a738a4383da35394859e46fa
+#7 extracting sha256:f5c13179339d83404d86b92f445e2692eb870962a738a4383da35394859e46fa 0.2s done
+#7 DONE 2.9s
+
+#7 [java 1/1] FROM docker.io/library/eclipse-temurin:21-jre-jammy@sha256:8ecbec1f32912979c15b86aaf98f7082a77d318a7f92af3d9fe2c0fd2723df10
+#7 extracting sha256:22d3391d8c4912e306bcf7153bab3c68fe06476ef652c930e39b65dea9140eed
+#7 extracting sha256:22d3391d8c4912e306bcf7153bab3c68fe06476ef652c930e39b65dea9140eed 0.4s done
+#7 DONE 3.3s
+
+#7 [java 1/1] FROM docker.io/library/eclipse-temurin:21-jre-jammy@sha256:8ecbec1f32912979c15b86aaf98f7082a77d318a7f92af3d9fe2c0fd2723df10
+#7 extracting sha256:9ddd6de30055ac5bdcb28bc67e61aa12ab2c46949cfa24571411b2a9b9fd4873 done
+#7 extracting sha256:d18e088bcb32fde124a4553022c55d42c394a352ce80c57bdbf902ffa0441a52 done
+#7 DONE 3.3s
+
+#9 [stage-1 2/8] COPY --from=java /opt/java/openjdk /opt/java/openjdk
+#9 DONE 0.5s
+
+#10 [stage-1 3/8] WORKDIR /fixture
+#10 DONE 0.0s
+
+#11 [stage-1 4/8] COPY package.json package-lock.json ./
+#11 DONE 0.0s
+
+#12 [stage-1 5/8] RUN npm ci --ignore-scripts --no-audit --no-fund
+#12 2.614 npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+#12 2.885 npm warn deprecated json-ptr@3.1.1: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+#12 3.559 npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+#12 4.376 npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+#12 6.240 
+#12 6.240 added 680 packages in 6s
+#12 DONE 6.7s
+
+#13 [stage-1 6/8] COPY firebase.json firestore.rules storage.rules ./
+#13 DONE 0.1s
+
+#14 [stage-1 7/8] COPY cloud-firestore-emulator-v1.21.0.jar cloud-storage-rules-runtime-v1.1.3.jar /home/node/.cache/firebase/emulators/
+#14 DONE 0.2s
+
+#15 [stage-1 8/8] RUN chown -R node:node /fixture /home/node/.cache && java -version && node node_modules/firebase-tools/lib/bin/firebase.js --version
+#15 7.349 Picked up JAVA_TOOL_OPTIONS: -Xmx1400m
+#15 7.496 openjdk version "21.0.12.1" 2026-08-18 LTS
+#15 7.496 OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)
+#15 7.496 OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)
+#15 8.189 15.19.1
+#15 DONE 8.3s
+
+#16 exporting to image
+#16 exporting layers
+#16 exporting layers 7.1s done
+#16 exporting manifest sha256:5c022006853f723ca2353c37c0f4f69ffcfbe201406ecc775bc30ce7c156e75c
+#16 exporting manifest sha256:5c022006853f723ca2353c37c0f4f69ffcfbe201406ecc775bc30ce7c156e75c done
+#16 exporting config sha256:fd12bed469534dfad7575f8caf7d3f9d663dd357fe025053d8315b959c0af272 done
+#16 naming to docker.io/library/bitestar-postgis-emulators-004:local done
+#16 DONE 7.1s
+
+ [33m2 warnings found (use docker --debug to expand):
+[0m - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 1)
+ - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 2)

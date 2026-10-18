@@ -1,0 +1,86 @@
+[
+  {
+    "Command": "\"node /evidence/linu\u2026\"",
+    "CreatedAt": "2026-10-17 20:11:41 -0400 EDT",
+    "HealthStatus": "none",
+    "ID": "6464dd358d08",
+    "Image": "a2de5c980425",
+    "Labels": "bitestar.run=linux004,desktop.docker.io/mounts/0/Source=/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-execution,desktop.docker.io/mounts/0/SourceKind=hostFile,desktop.docker.io/mounts/0/Target=/evidence,desktop.docker.io/ports.scheme=v2",
+    "LocalVolumes": "0",
+    "Mounts": "/host_mnt/User\u2026",
+    "Names": "bs-linux004-flutter-host",
+    "Networks": "",
+    "Platform": {
+      "architecture": "amd64",
+      "os": "linux"
+    },
+    "Ports": "",
+    "RunningFor": "3 minutes ago",
+    "Size": "28.7kB (virtual 487MB)",
+    "State": "exited",
+    "Status": "Exited (0) 37 seconds ago"
+  },
+  {
+    "Command": "\"node /relay.cjs\"",
+    "CreatedAt": "2026-10-17 20:09:27 -0400 EDT",
+    "HealthStatus": "none",
+    "ID": "c5b3eb92a8cd",
+    "Image": "bitestar-postgis-linux-004:qualified-local",
+    "Labels": "bitestar.run=linux004,desktop.docker.io/mounts/0/Source=/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/mac-loopback-relay.cjs,desktop.docker.io/mounts/0/SourceKind=hostFile,desktop.docker.io/mounts/0/Target=/relay.cjs,desktop.docker.io/ports.scheme=v2,desktop.docker.io/ports/8189/tcp=127.0.0.1:8188,desktop.docker.io/ports/9099/tcp=127.0.0.1:9099",
+    "LocalVolumes": "0",
+    "Mounts": "/host_mnt/User\u2026",
+    "Names": "bs-linux004-mac-relay",
+    "Networks": "bridge,bs-linux004",
+    "Platform": {
+      "architecture": "amd64",
+      "os": "linux"
+    },
+    "Ports": "",
+    "RunningFor": "5 minutes ago",
+    "Size": "4.1kB (virtual 487MB)",
+    "State": "exited",
+    "Status": "Exited (137) 7 seconds ago"
+  },
+  {
+    "Command": "\"node node_modules/f\u2026\"",
+    "CreatedAt": "2026-10-17 20:01:09 -0400 EDT",
+    "HealthStatus": "none",
+    "ID": "9785395c3b0f",
+    "Image": "bitestar-postgis-emulators-004:local",
+    "Labels": "bitestar.run=linux004,desktop.docker.io/ports.scheme=v2",
+    "LocalVolumes": "0",
+    "Mounts": "",
+    "Names": "bs-linux004-emulators",
+    "Networks": "",
+    "Platform": {
+      "architecture": "amd64",
+      "os": "linux"
+    },
+    "Ports": "",
+    "RunningFor": "13 minutes ago",
+    "Size": "65.5kB (virtual 1.41GB)",
+    "State": "exited",
+    "Status": "Exited (0) 6 seconds ago"
+  },
+  {
+    "Command": "\"bash /fixture/pg-su\u2026\"",
+    "CreatedAt": "2026-10-17 20:00:51 -0400 EDT",
+    "HealthStatus": "none",
+    "ID": "3c2fe6ab8dee",
+    "Image": "7e00e8c3539f",
+    "Labels": "bitestar.run=linux004,desktop.docker.io/mounts/1/Source=/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/pg-supervisor.sh,desktop.docker.io/mounts/1/SourceKind=hostFile,desktop.docker.io/mounts/1/Target=/fixture/pg-supervisor.sh,desktop.docker.io/ports.scheme=v2,desktop.docker.io/ports/8189/tcp=127.0.0.1:8188,maintainer=PostGIS Project - https://postgis.net,org.opencontainers.image.description=PostGIS 3.6.4+dfsg-2.pgdg13+1 spatial database extension with PostgreSQL 18 trixie,org.opencontainers.image.source=https://github.com/postgis/docker-postgis",
+    "LocalVolumes": "1",
+    "Mounts": "/host_mnt/User\u2026,bs-linux004-pg",
+    "Names": "bs-linux004-pg",
+    "Networks": "bs-linux004",
+    "Platform": {
+      "architecture": "amd64",
+      "os": "linux"
+    },
+    "Ports": "",
+    "RunningFor": "14 minutes ago",
+    "Size": "41kB (virtual 717MB)",
+    "State": "exited",
+    "Status": "Exited (0) Less than a second ago"
+  }
+]

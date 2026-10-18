@@ -1,0 +1,69 @@
+[
+    {
+        "Id": "sha256:d31f485673c4638bffc4b5d5dd4b87a711d6182e47f799c877912eb57a49cf2f",
+        "RepoTags": [
+            "bitestar-postgis-controller-004:initial"
+        ],
+        "RepoDigests": [
+            "bitestar-postgis-controller-004@sha256:d31f485673c4638bffc4b5d5dd4b87a711d6182e47f799c877912eb57a49cf2f"
+        ],
+        "Comment": "buildkit.dockerfile.v0",
+        "Created": "2026-10-17T23:52:58.86725767Z",
+        "Config": {
+            "User": "65532:65532",
+            "Env": [
+                "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "LANG=C.UTF-8",
+                "GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305",
+                "PYTHON_VERSION=3.12.13",
+                "PYTHON_SHA256=c08bc65a81971c1dd5783182826503369466c7e67374d1646519adf05207b684",
+                "PYTHONDONTWRITEBYTECODE=1",
+                "PYTHONUNBUFFERED=1"
+            ],
+            "Entrypoint": [
+                "python3",
+                "/app/tool/postgis_staging/scripts/provider_entrypoint.py"
+            ],
+            "WorkingDir": "/app"
+        },
+        "Architecture": "amd64",
+        "Os": "linux",
+        "Size": 358786608,
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:66462cc862fe2053b9863fefa3866e07bb5dfb06f6b3ce3177cc096e4021aabe",
+                "sha256:bbbb19fa59e928e9d2412742b476b97f157cd95304b1f9fd3a82d221f661acde",
+                "sha256:0632d0601fca2055c070f7382e63078c292b98d8fa4a5388ee04bd6b1ea0582e",
+                "sha256:da835b7922cb8503b751d1cd1a3ac2309a9608198554e43fdd225591a1ec16f4",
+                "sha256:38cfd53d65dde75fecc4485ec618db6b914293845383950d553b6433a54fcb28",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                "sha256:ef5e5ffbad8390c08a730080687c42cd1427f9e824f1d2a40e76bf1f5815c528",
+                "sha256:91d58484d1feb0f08c695d305c5f535b5d4ee464df8108da80c52d609ea2564f",
+                "sha256:4e5b2857e061e69827d5add3a622e5d9e1d73db51ec3274ada38eaaae18fb8cd",
+                "sha256:38e930572e0644a1a47e38102a9b92407a5b18528a4907d413b6bc7ceaa649ad",
+                "sha256:4640d8e736814f0f69ec4f447a31e51c26b26915d81599b3e32cb2fe67490986"
+            ]
+        },
+        "Metadata": {
+            "LastTagTime": "2026-10-17T23:53:01.248561213Z"
+        },
+        "Descriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:d31f485673c4638bffc4b5d5dd4b87a711d6182e47f799c877912eb57a49cf2f",
+            "size": 2564,
+            "annotations": {
+                "config.digest": "sha256:6045d59fe7690a31730682f35db5cdaafe78a106997da8ee19eddc949d790b86"
+            }
+        },
+        "Identity": {
+            "Build": [
+                {
+                    "Ref": "kaiwzu4lly4j3rd1y8dzfdsrl",
+                    "CreatedAt": "2026-10-17T23:53:01.250447796Z"
+                }
+            ]
+        }
+    }
+]

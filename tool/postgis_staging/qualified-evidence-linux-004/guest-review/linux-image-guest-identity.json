@@ -1,0 +1,25 @@
+{
+  "measuredAt": "2026-10-17T23:56:57.830Z",
+  "platform": "linux",
+  "arch": "x64",
+  "node": "v24.21.0",
+  "v8": "13.6.233.17-node.53",
+  "executable": "/usr/local/bin/node",
+  "executableSha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c",
+  "uid": 1000,
+  "osRelease": "PRETTY_NAME=\"Debian GNU/Linux 12 (bookworm)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"12\"\nVERSION=\"12 (bookworm)\"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\"\n",
+  "sha256": {
+    "functions/src/customer_bitesaver_search_session.ts": "eed290895555fd171365179d729b070f211c94a79404be5e766e1df50866018e",
+    "functions/src/postgis_staging_runtime.ts": "05762b562defa673fb9d0e7d2b7e7b371db312079c75a6143c826a3034694925",
+    "functions/src/postgis_hosted_runtime.ts": "161c6b0ba7bd78cf5df18c0560cd7295870849274b140250a6bd8e00c7b728d3",
+    "functions/src/postgis_hosted_entrypoint.ts": "210755b379629372ddf93a063a1eb8e1ee315bf56fdee8d0f8604e0d62e4a0a4",
+    "functions/src/postgis_handlers.ts": "94eb93a362b84132d886c60827a6c797b57884d1f4830bf9343fdf70a5a37021",
+    "functions/src/customer_bitesaver_guest_offer_checks.ts": "4892ffa7db34c4999d02290b8a8ebaf3100031db1b374732ff35d481c84fb34a",
+    "functions/src/customer_bitesaver_search_contract.ts": "7757d797f2c3de386c80a9052d3331f50ba79bb6f831344d309296f83c1b0331",
+    "functions/src/index.ts": "d224af2552479b6c9a65e094e05583f1feaf5cb521807dfcc8d357234bad3012",
+    "functions/lib/customer_bitesaver_search_session.js": "6a5f9920ff1fa731b76472001687d8adb9c744cb14b746e4752ccf48ae274be6",
+    "functions/lib/postgis_staging_runtime.js": "00191ca1be125798a2c7507c79bdd997bf4e2de7921d5a8caf339b9e428c75c6",
+    "functions/test/customer_bitesaver_search_handlers.test.js": "1e3afcc4e6979b3e601f8250adfa22e4f93e6dd9c2832c52863e4350c552f042",
+    "functions/test/support/postgis_flutter_host.cjs": "58298dcb9f2e8bf8818556491f58fd8b4ceb1bdf4890330d7d4e15039fd87827"
+  }
+}

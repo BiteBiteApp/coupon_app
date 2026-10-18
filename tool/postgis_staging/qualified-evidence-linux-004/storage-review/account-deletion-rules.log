@@ -1,0 +1,49 @@
+[2026-10-17T23:44:25.997Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688a6 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L43, false for 'create' @ L2229, false for 'update' @ L43, false for 'update' @ L2229
+[2026-10-17T23:44:26.035Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688a9 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1612:24 for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229, false for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229
+[2026-10-17T23:44:26.048Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688aa error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1612:24 for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229, false for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229
+[2026-10-17T23:44:26.080Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688ad error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1612:24 for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229, false for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229
+[2026-10-17T23:44:26.084Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688ab error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1612:24 for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229, false for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229
+[2026-10-17T23:44:26.109Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688b0 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1612:24 for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229, false for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229
+[2026-10-17T23:44:26.113Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688ae error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1612:24 for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229, false for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229
+[2026-10-17T23:44:26.138Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688b3 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1612:24 for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229, false for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229
+[2026-10-17T23:44:26.142Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688b1 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1612:24 for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229, false for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229
+✔ marker is client-private; existence blocks actor and Admin target writes but preserves reads and B (2135.048292ms)
+[2026-10-17T23:44:26.210Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688b7 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2021:24 for 'update' @ L2021, false for 'update' @ L2229, false for 'update' @ L2021, false for 'update' @ L2229
+[2026-10-17T23:44:26.220Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688b9 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2018:24 for 'create' @ L2018, false for 'create' @ L2229, evaluation error at L2021:24 for 'update' @ L2021, false for 'update' @ L2229, false for 'create' @ L2018, false for 'create' @ L2229
+[2026-10-17T23:44:26.227Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688ba error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L2018:24 for 'create' @ L2018, false for 'create' @ L2229, evaluation error at L2021:24 for 'update' @ L2021, false for 'update' @ L2229, Null value error. for 'create' @ L2018, false for 'create' @ L2229
+✔ active B cannot create or retarget feedback onto absent/deleting A review; orphan own-delete remains (82.500875ms)
+[2026-10-17T23:44:26.284Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688be error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1666:26 for 'delete' @ L1666, false for 'delete' @ L1759, false for 'delete' @ L2229, false for 'delete' @ L1666, false for 'delete' @ L1759, false for 'delete' @ L2229
+[2026-10-17T23:44:26.294Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688c1 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1626:26 for 'create' @ L1626, false for 'create' @ L1759, false for 'create' @ L2229, evaluation error at L1641:26 for 'update' @ L1641, false for 'update' @ L1759, false for 'update' @ L2229, false for 'create' @ L1626, false for 'create' @ L1759, false for 'create' @ L2229
+[2026-10-17T23:44:26.303Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688c2 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L1612:24 for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229, false for 'update' @ L1612, false for 'update' @ L1759, false for 'update' @ L2229
+✔ anonymous actor fence covers direct writes and Admin cannot recreate nested favorites (68.861083ms)
+✔ screening cutover denies every client upload and preserves historical reads across deletion fences (237.246666ms)
+[2026-10-17T23:44:26.574Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688c8 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1810, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1810, false for 'update' @ L2229
+[2026-10-17T23:44:26.579Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688c9 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1810, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1810, false for 'update' @ L2229
+[2026-10-17T23:44:26.587Z]  @firebase/firestore: Firestore (12.15.0): GrpcConnection RPC 'Write' stream 0x806688ca error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L1810, Unable to evaluate the expression as the maximum of 1000 expressions to evaluate has been reached. for 'update' @ L2229, false for 'update' @ L1810, false for 'update' @ L2229
+✔ catalog bio authorship follows the real editor and cannot be reassigned without changing text (46.34525ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2704.817625

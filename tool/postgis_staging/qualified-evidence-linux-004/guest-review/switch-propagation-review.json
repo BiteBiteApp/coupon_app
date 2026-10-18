@@ -1,0 +1,204 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004",
+  "role": "Independent read-only guest/default-off/authority and preservation review",
+  "reviewer": "/root/query_client",
+  "recordedAt": "2026-10-17T23:48:35.197865+00:00",
+  "expectedSourceCommit": "e14b74adeca5088883d7efe7ee208b233be6616d",
+  "observedPrimaryHead": "e14b74adeca5088883d7efe7ee208b233be6616d",
+  "selectedSource": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/selected-source",
+  "governanceRead": [
+    "Current request 4d937fe7-ded6-434c-9689-234ee030a503; prompt 2026-10-17T19:34:00-04:00",
+    "Current AGENTS.md; no narrower AGENTS found under functions/lib/test/tool",
+    "Actual run004 bug-filter.txt and sanity-checklist.txt",
+    "PRESPEND-LOCAL-003.md and source manifest",
+    "Linux README, PROVIDER-GATE1.md, DURABLE-SNAPSHOTS.md, safety README and combined-source metadata"
+  ],
+  "currentOwnerLicenseInstruction": "Owner explicitly confirmed fewer than 250 employees and less than US$10 million revenue. Prior unanswered-eligibility statements are historical, not a current blocker.",
+  "switchTrace": [
+    {
+      "path": "functions/test/support/postgis_flutter_host.cjs",
+      "line": 93,
+      "effect": "Only this explicit local fixture host reads BS_POSTGIS_GUEST_WINDOW; exact string 1 passes true to createLocalPostgisStagingRuntime; all other/unset values are false."
+    },
+    {
+      "path": "functions/src/postgis_staging_runtime.ts",
+      "line": 91,
+      "effect": "Local factory forwards only options.guestRestaurantWindow===true into the native Saver context. Existing demo-project, loopback emulator and qualified-runtime restrictions stay active."
+    },
+    {
+      "path": "functions/src/customer_bitesaver_search_session.ts",
+      "line": 14487,
+      "effect": "A fresh restaurant-page checkpoint gets windowVersion1 only when the context flag is true and searchBackend is postgis. False/unset retains the existing serial path; public request cannot choose it."
+    },
+    {
+      "path": "functions/src/postgis_hosted_runtime.ts",
+      "line": 29,
+      "effect": "Hosted config defines no guest-window selector; its Saver context at lines93\u201394 omits the property. Extra JSON config fields or the local environment flag cannot enable the window."
+    },
+    {
+      "path": "functions/src/postgis_hosted_entrypoint.ts",
+      "line": 52,
+      "effect": "Explicit execution opens approved resources then calls the hosted factory. It does not route through the local factory or local fixture host."
+    },
+    {
+      "path": "tool/postgis_staging/hosted/render-service.cjs",
+      "line": 12,
+      "effect": "Future descriptor runs functions/lib/postgis_hosted_entrypoint.js --execute with exact mounted config/approval/trust/key files. No guest selector/environment override is supplied."
+    },
+    {
+      "path": "tool/postgis_staging/linux/Dockerfile",
+      "line": 32,
+      "effect": "Image includes both shared window code and local fixture tests, but default command is hosted dry-run and starts no service. Being present in the image does not select window mode."
+    }
+  ],
+  "actualModes": {
+    "imageDefault": "No listener; dry-run only",
+    "futureHostedExecutionWithCurrentSourceAndConfig": "Serial guest path",
+    "localFixtureHostUnsetOr0": "Serial",
+    "localFixtureHost1": "Restaurant window, subject to existing local/runtime guards",
+    "production": "Unchanged default-off; no production index export or activation"
+  },
+  "finding": {
+    "classification": "ACCEPT AND CLOSE",
+    "title": "Record the missing hosted window selection dependency; preserve current serial hosted behavior for this run",
+    "consequence": "Future hosted tests using the current descriptor cannot inherit the macOS/local window performance result. Claiming otherwise would test the wrong mode and could waste a paid qualification run. No data/identity or current serial-service defect is caused by the omission.",
+    "likelihood": "Certain when the current hosted execution path is used; local Linux window tests remain reachable through the explicit local host.",
+    "proportionality": "Current task expressly requires identifying this dependency and allows local qualification without enabling production. Parent directed no source repair in this stage. Explicitly report hosted serial and retain the prerequisite before any future hosted-window test.",
+    "parentDisposition": "No source repair requested; keep future hosted serial explicit, complete read-only preservation/authority review, then inspect final Linux evidence."
+  },
+  "smallestFutureSourceOnlyRepairIfSelected": {
+    "change": "Add optional strictly boolean hosted.guestRestaurantWindow, default omitted/false; propagate only cloned permit-bound config into the hosted native Saver context. Keep template false and production index untouched.",
+    "authorizationBinding": "Existing digestPostgisConfiguration covers the complete config, so mode selection must be included in the approved config digest and signature. Do not use an unsigned runtime env flag or public request property.",
+    "descriptorImpact": "Existing exact config-secret mount already transports the full signed config; no new resource/provider architecture or separate image variant is necessary.",
+    "focusedTests": [
+      "Omitted and false produce serial context; true produces window context only from validated hosted configuration",
+      "Invalid null/string/number values refuse before ADC/key-file/provider access",
+      "Changing false to true after signature invalidates permit/config binding",
+      "Caller-owned config mutation after construction cannot flip mode because the factory clones it",
+      "Actual native handler membership/privacy/replay and global75 bound remain covered; actual hosted execution still needs separately authorized provider qualification"
+    ],
+    "notImplemented": true
+  },
+  "authorityPreservationReview": {
+    "priorEvidence": {
+      "path": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/final-independent-review.json",
+      "sha256": "0873a211edac31f6fc791f412e76da1f0d62b8fcc949a0bae63c0b34a6084fee",
+      "nativeTestsPassed": 304,
+      "independentDiagnosticsPassed": 24,
+      "scope": "Prior 003 macOS/in-memory/real-local qualification only; not a new Linux PASS"
+    },
+    "matchingPriorReviewedPaths": 12,
+    "reviewedUnchangedBoundaries": [
+      "Global75 challenge IDs, at most26 needed parents and existing100 consumed-item work budget",
+      "Per-parent native Firestore result/account/offer authority, source occurrence and identity checks",
+      "Exact history intersection, per-caller/realm/session/revision binding and authenticated private progress",
+      "Resolved ordered prefix commits; no unresolved-head cursor advance or partial-page success",
+      "Accepted-answer interrupted-response recovery, expiry/daily-reset caps and fixed retention",
+      "Unchanged Dart history store, cancellation/account-switch coordinator, protocol DTOs, Saved/Menu/redemption paths and default production wiring"
+    ],
+    "newTestsRun": 0,
+    "reason": "No affected guest code or selector dependency changed; reuse exact-hash 003 evidence instead of rerunning the completed project. Linux execution evidence remains separately pending."
+  },
+  "preservationAtReview": {
+    "baseline": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/starting-state.json",
+    "protectedPaths": 291,
+    "mismatches": [],
+    "ownerModifiedPaths": 16,
+    "selectedOwnerPathsNotCommittedVersion": [],
+    "meaning": "All protected primary-worktree hashes match this run starting receipt; selected copy uses starting committed versions for all16 owner-modified files. Recheck after final source/image freeze."
+  },
+  "sourceHashes": [
+    {
+      "path": "functions/test/support/postgis_flutter_host.cjs",
+      "sha256": "58298dcb9f2e8bf8818556491f58fd8b4ceb1bdf4890330d7d4e15039fd87827",
+      "matches003ReviewedBytes": true
+    },
+    {
+      "path": "functions/src/postgis_staging_runtime.ts",
+      "sha256": "05762b562defa673fb9d0e7d2b7e7b371db312079c75a6143c826a3034694925",
+      "matches003ReviewedBytes": true
+    },
+    {
+      "path": "functions/src/customer_bitesaver_search_session.ts",
+      "sha256": "eed290895555fd171365179d729b070f211c94a79404be5e766e1df50866018e",
+      "matches003ReviewedBytes": true
+    },
+    {
+      "path": "functions/src/postgis_hosted_runtime.ts",
+      "sha256": "161c6b0ba7bd78cf5df18c0560cd7295870849274b140250a6bd8e00c7b728d3",
+      "matches003ReviewedBytes": true
+    },
+    {
+      "path": "functions/src/postgis_hosted_entrypoint.ts",
+      "sha256": "210755b379629372ddf93a063a1eb8e1ee315bf56fdee8d0f8604e0d62e4a0a4"
+    },
+    {
+      "path": "functions/src/postgis_cloudsql.ts",
+      "sha256": "299c6645ef5beaddc682adae9197cc647b8309dbabdfc9455e72517cf50273fa"
+    },
+    {
+      "path": "functions/src/postgis_execution_approval.ts",
+      "sha256": "3efec64518f5a89799e0ed1aa283ded06aed66b021e4690bfe4a0fdd0ea4cb9f"
+    },
+    {
+      "path": "functions/src/postgis_handlers.ts",
+      "sha256": "94eb93a362b84132d886c60827a6c797b57884d1f4830bf9343fdf70a5a37021",
+      "matches003ReviewedBytes": true
+    },
+    {
+      "path": "functions/src/customer_bitesaver_guest_offer_checks.ts",
+      "sha256": "4892ffa7db34c4999d02290b8a8ebaf3100031db1b374732ff35d481c84fb34a",
+      "matches003ReviewedBytes": true
+    },
+    {
+      "path": "functions/src/customer_bitesaver_search_contract.ts",
+      "sha256": "7757d797f2c3de386c80a9052d3331f50ba79bb6f831344d309296f83c1b0331",
+      "matches003ReviewedBytes": true
+    },
+    {
+      "path": "functions/src/index.ts",
+      "sha256": "d224af2552479b6c9a65e094e05583f1feaf5cb521807dfcc8d357234bad3012",
+      "matches003ReviewedBytes": true
+    },
+    {
+      "path": "tool/postgis_staging/hosted/render-service.cjs",
+      "sha256": "17fc441f4dc52c59426d08a8fe050ade64275fd256b8b2c4e4f5cfc0648d5f70"
+    },
+    {
+      "path": "tool/postgis_staging/hosted/hosted.example.json",
+      "sha256": "37d1d4358fd70613d415afb35c4813af48ebbe93577a174403d27aed6074d2f4"
+    },
+    {
+      "path": "tool/postgis_staging/linux/Dockerfile",
+      "sha256": "bb569df458e399960202c932ee2099e3c14c6d4adab011cd26544d253d8f4bd3"
+    },
+    {
+      "path": "lib/services/customer_bitesaver_search_coordinator.dart",
+      "sha256": "ac84b6a852ee7b8a7b303ca87ca0094ddf14eee220b3a92fdf4f9614830ebae6",
+      "matches003ReviewedBytes": true
+    },
+    {
+      "path": "lib/services/customer_bitesaver_guest_usage_store.dart",
+      "sha256": "79dfa8c731cccc77d13625febe171f107f4feaecfeb9ab6dda8580913bbb97da",
+      "matches003ReviewedBytes": true
+    },
+    {
+      "path": "lib/models/customer_bitesaver_search.dart",
+      "sha256": "b9a0f919f93473e430453dfc28b9dfecebf5c9e391ad0d7c459eeda5235df5b1",
+      "matches003ReviewedBytes": true
+    },
+    {
+      "path": "test/services/postgis_flutter_integration_test.dart",
+      "sha256": "994cb9d13d661f55e0e39b4d4cc268b88e23196e1d22b3a8dd94df8bf98d940f",
+      "matches003ReviewedBytes": true
+    }
+  ],
+  "remainingIndependentReview": [
+    "Inspect actual Linux image/build/source hashes and final runtime-guard/numerical evidence; do not infer functional qualification from image build",
+    "Verify local Linux serial and window paths from observed challenge counts and exact source/image identity",
+    "Review Linux native HTTP/SQL/Flutter and authority/recovery evidence without mixing prior macOS latency",
+    "Recheck all protected owner/historical paths at final freeze"
+  ],
+  "status": "SOURCE MODE/PRESERVATION REVIEW COMPLETE; FINAL LINUX EXECUTION REVIEW PENDING",
+  "actions": "No repository edits, Git mutations, Docker/cloud operations or credentials accessed by this reviewer."
+}

@@ -1,0 +1,770 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004",
+  "recordedAt": "2026-10-18T00:26:23.414074+00:00",
+  "externalRunDirectory": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017",
+  "description": "Exact copies of selected nonsecret synthetic qualification evidence; original paths and hashes retained. Index does not hash itself. New source freeze and report hashed separately. Large executable/image/recovery files remain locally available outside Git.",
+  "copiedEvidence": {
+    "bs-linux004-emulators.final.inspect.json": {
+      "sha256": "ab8aadba7c02a69598f3ff20ef4e4e7137ee7db5ca1747f2c1d2f936f5617920",
+      "sizeBytes": 6603
+    },
+    "bs-linux004-emulators.final.log": {
+      "sha256": "2ca22f934d5aef00f44ee18336f99e7691c4300aee723511616ac82b8f09b1e1",
+      "sizeBytes": 2103
+    },
+    "bs-linux004-flutter-host.final.inspect.json": {
+      "sha256": "f9db8d952e7c9c40b978501a9d99fcce2bd98bcaf7b27f90c584d7a039970704",
+      "sizeBytes": 7301
+    },
+    "bs-linux004-flutter-host.final.log": {
+      "sha256": "028482fd5e0562d06e6ff073e47a882d3f51f8ef9e8b5d44ab65b015c17e1888",
+      "sizeBytes": 104
+    },
+    "bs-linux004-mac-relay.final.inspect.json": {
+      "sha256": "a74ed5e8f142683f1990b9890d87a69ca278de54ccbba785d180979738d351e9",
+      "sizeBytes": 9399
+    },
+    "bs-linux004-mac-relay.final.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sizeBytes": 0
+    },
+    "bs-linux004-pg.final.inspect.json": {
+      "sha256": "a358a89e589ef42253b871bb4dd10407d63caa777c91a4eefc3241b1f96c2163",
+      "sizeBytes": 9082
+    },
+    "bs-linux004-pg.final.log": {
+      "sha256": "66afd0411ccc09366e99fdd99b85f21899c8d2d064f5835126859618802153ad",
+      "sizeBytes": 52
+    },
+    "controller-image-build.initial.log": {
+      "sha256": "71d182b7af510ce9def24e84b4d43fa6e972c83afaf0ac381b6a5fab8fcaa46f",
+      "sizeBytes": 3175
+    },
+    "controller-review/actual-image-independent-review.json": {
+      "sha256": "d0ec1620c7e3cae500e59aa93f46d1a1c348580265e5613fd876fd01aaf58631",
+      "sizeBytes": 13197
+    },
+    "controller-review/dryrun-container-final-inspect.json": {
+      "sha256": "1adb8977ced5ed86db9f1e403dff901d0cbce85af1e9436565e8b6f4ed2cb87d",
+      "sizeBytes": 6451
+    },
+    "controller-review/dryrun-container-inspect.json": {
+      "sha256": "52e02138cbdb248b0b9f23829dd56cf98b026ded6f449c9237a25f59f3fafc69",
+      "sizeBytes": 6069
+    },
+    "controller-review/dryrun-stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sizeBytes": 0
+    },
+    "controller-review/dryrun-stdout.json": {
+      "sha256": "6374211e3619819516c27a50b0353fe096d560f83b89164f4a0ee66e53c25298",
+      "sizeBytes": 123
+    },
+    "controller-review/execution-results.json": {
+      "sha256": "b5d8c1ef2643d8261cc62c9fe56ee6d5ad21b9b203fe96828f81828dbafa3932",
+      "sizeBytes": 1729
+    },
+    "controller-review/fixtures/fixture-manifest.json": {
+      "sha256": "b93d9782ad3b507235f3594d0a4eaf2d7b1a4977550e7913886583e8dd653948",
+      "sizeBytes": 2330
+    },
+    "controller-review/fixtures/run_image_review.py": {
+      "sha256": "922cbcb123243eafba9529eeea210e5d31f68cb9804b2ed6644b2c197ae3e674",
+      "sizeBytes": 8071
+    },
+    "controller-review/fixtures/tool/postgis_staging/config/provider.example.json": {
+      "sha256": "15d9ffe2dc6ce57aded62748736bd842d843e8441587044066fe5f127ab4fe15",
+      "sizeBytes": 964
+    },
+    "controller-review/fixtures/tool/postgis_staging/config/staging.json": {
+      "sha256": "0f95e9300e8661867389a967a39413ebac7f6bdf0e5a1b60f3d5137ae25bd83d",
+      "sizeBytes": 2747
+    },
+    "controller-review/fixtures/tool/postgis_staging/pricing-2026-10-17.json": {
+      "sha256": "3f1c8b5dc736564c9fb184233ca2b9a906aabcb3007393feba7f25aac8ce752a",
+      "sizeBytes": 4738
+    },
+    "controller-review/fixtures/tool/postgis_staging/scripts/freeze.py": {
+      "sha256": "366f8b7d24fb22c7df8becdcfcf86e41ad4a6258dadf1179c198b72e64c7fa16",
+      "sizeBytes": 2665
+    },
+    "controller-review/fixtures/tool/postgis_staging/scripts/ledger.py": {
+      "sha256": "098076e904c695386d2bdfa1553616894e18c512ad823e65cae4de515de97b28",
+      "sizeBytes": 3725
+    },
+    "controller-review/fixtures/tool/postgis_staging/scripts/price_worksheet_20261017.py": {
+      "sha256": "d04e91bbd7c5277718fb2a974def8968e35198e2aae47d5084b2fee861d128b5",
+      "sizeBytes": 6405
+    },
+    "controller-review/fixtures/tool/postgis_staging/scripts/render_provider_descriptors.py": {
+      "sha256": "1c9ed3a86eee93a5837d445693a2192752564f1a650fbeb5cbdd5961c1cffeff",
+      "sizeBytes": 5793
+    },
+    "controller-review/fixtures/tool/postgis_staging/scripts/render_watchdog.py": {
+      "sha256": "b90c13ce95934e4d5d96625c1fa6b16b1f2044c9eeb0d0bf0dd65fcd20ff215c",
+      "sizeBytes": 7990
+    },
+    "controller-review/fixtures/tool/postgis_staging/scripts/test_cloud_controller.py": {
+      "sha256": "2a68eb4d5edc5e6b959ed4e69856128c2d360c8502bfd8cf8049061b7a8775ae",
+      "sizeBytes": 44392
+    },
+    "controller-review/fixtures/tool/postgis_staging/scripts/test_gate0_controls.py": {
+      "sha256": "ae6a1ddf0170b28d29dde7df4979005d68413e354a9b927df976a2387abc0df8",
+      "sizeBytes": 10681
+    },
+    "controller-review/fixtures/tool/postgis_staging/scripts/test_guard.py": {
+      "sha256": "fd036f016676ed5d4bd2b2c52768db5619a0a7c1d75684a115794e55db444e24",
+      "sizeBytes": 8938
+    },
+    "controller-review/fixtures/tool/postgis_staging/scripts/test_price_worksheet_20261017.py": {
+      "sha256": "bdab12f6f98eb85fffb5a9cea9d8622c47dcb164b88a043834c356d2e061da5c",
+      "sizeBytes": 1663
+    },
+    "controller-review/image-inspect.json": {
+      "sha256": "f929788b559e2ddcab0a9a13e961635fb4a8771cf72927f016ac6222f8a2253d",
+      "sizeBytes": 3117
+    },
+    "controller-review/tests-container-final-inspect.json": {
+      "sha256": "09f4d6cb9ccfac68a97b2aca65dd0eecb5a90ac05b65a518de5c557eae47ba63",
+      "sizeBytes": 6235
+    },
+    "controller-review/tests-container-inspect.json": {
+      "sha256": "39dbe474171dd4ee6bb55abd5b942db3e6c7e9d0403faa4eb6ea8ccfb139a4e8",
+      "sizeBytes": 5853
+    },
+    "controller-review/tests-stderr.log": {
+      "sha256": "e28d4873be5d7f34987f47201e15811401792dcfc212cc956e8ac5e2870fbf48",
+      "sizeBytes": 13478
+    },
+    "controller-review/tests-stdout.json": {
+      "sha256": "6993dbcb8dc7b8f579d69569d59802373c2cedd7f94a289e1bdd73047e544260",
+      "sizeBytes": 4853
+    },
+    "darwin-guard-regression.log": {
+      "sha256": "ed79cd8ef779c960702222805385f3bec41e73271501321c4d68518665cede01",
+      "sizeBytes": 640
+    },
+    "docker-installation.json": {
+      "sha256": "227712ca8bf9bda3db7deb8acd61925a19fba7d2bc2e0edc385a4e09511c7185",
+      "sizeBytes": 2242
+    },
+    "docker-services-stopped.json": {
+      "sha256": "64ba2c9fb01720ee7e3468128a7f6a99383ed5cebde289dbbfe1fd770ba19b03",
+      "sizeBytes": 3607
+    },
+    "emulator-build-context/Dockerfile": {
+      "sha256": "56dfc058a7029bfef6867a355acfcae3bee521f08e378d77f8a58f75640cfcfb",
+      "sizeBytes": 1038
+    },
+    "emulator-build-context/firebase.json": {
+      "sha256": "5cf0e7e901ea5ad484754b87806e423e4bdb179d22c1967c9c1966c8d6948f62",
+      "sizeBytes": 544
+    },
+    "emulator-build-context/package-lock.json": {
+      "sha256": "b6167800bc971ac4ca330e79033be08c440bff75a5cdc55c15412122ee6dbe26",
+      "sizeBytes": 298128
+    },
+    "emulator-build-context/package.json": {
+      "sha256": "55df567f1d94063d09d41a0e5def6b5b6ee7e64da3cf58a9e3b93818c11fc762",
+      "sizeBytes": 142
+    },
+    "emulator-image-build.log": {
+      "sha256": "48c6ff8fb6880107178c145aa33bd1666617eb43ead5c2c052069504d3e05d83",
+      "sizeBytes": 8640
+    },
+    "final-review/execution-preservation-review.json": {
+      "sha256": "900993b8c025b3179b8bf3fb32ae6e9c2a445593f8cf9cae40530fd007bedb4d",
+      "sizeBytes": 52012
+    },
+    "final-review/final-freeze-handoff-review.json": {
+      "sha256": "a0be777e7b2b93eebfee5739fa66d0938c5ca4ceeaf30fde7cb97b4911fdbd2f",
+      "sizeBytes": 6267
+    },
+    "final-review/final-handoff-addendum.json": {
+      "sha256": "6f836da61c0fc0add14da077626ba445650339d7a2481af8f368db47397722ce",
+      "sizeBytes": 1597
+    },
+    "final-review/final-image-inventory.json": {
+      "sha256": "9e299fc1cf777a77db89efde5fbe1d21da1f6462b38407527d7d84fe780d2a85",
+      "sizeBytes": 78529
+    },
+    "final-review/final-image-inventory.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sizeBytes": 0
+    },
+    "final-review/image-inventory-comparison.json": {
+      "sha256": "e3470ebdd3eb3afa819096f760f0fff4132f3918f3abb379408f7f9bdf07a21d",
+      "sizeBytes": 3887
+    },
+    "final-review/independent-preservation-and-shutdown.json": {
+      "sha256": "072cd3d688ab05c7770bd28fcbbfe4670fed4dfee3f3146c41682acd5eedcf3f",
+      "sizeBytes": 2561
+    },
+    "final-review/initial-image-inventory.first-attempt.stderr.log": {
+      "sha256": "8b54d01c72a5626e3ba3e469d8a219a1d08d0685c8a66eeacd8e472b1606c05d",
+      "sizeBytes": 719
+    },
+    "final-review/initial-image-inventory.json": {
+      "sha256": "2cd30e93222d5b7368696d27e9a3ca1665bab1c5b353da7c647366940616f9db",
+      "sizeBytes": 78467
+    },
+    "final-review/initial-image-inventory.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sizeBytes": 0
+    },
+    "flutter-pub-get.log": {
+      "sha256": "b06090205811c7d58f138ae4eb1055960f6ad6ae693ef3066c1bad75acf6f645",
+      "sizeBytes": 2725
+    },
+    "guest-review/assemble-final-review.py": {
+      "sha256": "7fc3168a972c3cba20e7d75c2c24965b68fc48f62bcb1b628aa80c029e2e4cd1",
+      "sizeBytes": 21241
+    },
+    "guest-review/final-independent-review.json": {
+      "sha256": "1579dcd5a17a70d89875557dbdb9d85ab6d07274bb6f05c51431d83a53e36332",
+      "sizeBytes": 28907
+    },
+    "guest-review/linux-container-cleanup.final.json": {
+      "sha256": "c7f5f1eb5e8d7930f01b63bb282c855254ceeb6775326105af4e5579a078e317",
+      "sizeBytes": 389
+    },
+    "guest-review/linux-container-cleanup.json": {
+      "sha256": "4ed23d48165430d776b2a982c452f8e5b605a0a4ddd6d74b94829c7a5c6a4bca",
+      "sizeBytes": 311
+    },
+    "guest-review/linux-container-execution.final.json": {
+      "sha256": "ab1f469f293b7e30212ffcee33aa83dcdbc1ab02e005ccc0a254365d632f4479",
+      "sizeBytes": 3577
+    },
+    "guest-review/linux-container-execution.json": {
+      "sha256": "3852c979d087c06b7c5944878f3d390167f99b443ecacd3ae0c965d5d7928a00",
+      "sizeBytes": 3607
+    },
+    "guest-review/linux-diagnostic-adaptation.json": {
+      "sha256": "c7647f345b27de0017275607e8db0f244c8e57880daabf91ff07fde97cc1c2a2",
+      "sizeBytes": 1969
+    },
+    "guest-review/linux-image-guest-identity.final.json": {
+      "sha256": "037f927cb1c3ef716eff0968c18cfca26966294009efc972ec83d50420bb4cd1",
+      "sizeBytes": 2579
+    },
+    "guest-review/linux-image-guest-identity.final.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sizeBytes": 0
+    },
+    "guest-review/linux-image-guest-identity.json": {
+      "sha256": "f8f6f3d60e9c1b1d083d2145cc9874e61541302ebcf6745f2283df0405098567",
+      "sizeBytes": 2048
+    },
+    "guest-review/linux-independent-diagnostics.final.log": {
+      "sha256": "357694aabc64bb1f296b59f85007f252ab74ae83f51fc3b5b9044a5f36898574",
+      "sizeBytes": 1751
+    },
+    "guest-review/linux-independent-diagnostics.initial.log": {
+      "sha256": "28b28247d86d36671a0f6f4b41733a4bc3e84039d475ce0ad66cc73a023f1291",
+      "sizeBytes": 1762
+    },
+    "guest-review/linux-independent-observations.final.json": {
+      "sha256": "ec40eadd3d62ef3fc2381a803fd8dfbadae23c16da3f77ba1fa3f205df5f1d60",
+      "sizeBytes": 3187
+    },
+    "guest-review/linux-independent-observations.json": {
+      "sha256": "ec40eadd3d62ef3fc2381a803fd8dfbadae23c16da3f77ba1fa3f205df5f1d60",
+      "sizeBytes": 3187
+    },
+    "guest-review/linux-independent-supplement.final.log": {
+      "sha256": "52babb7be6b9e6649d9b994eb88e2f309d89e8faac5f76d149d4c40c5410f006",
+      "sizeBytes": 296
+    },
+    "guest-review/linux-independent-supplement.initial.log": {
+      "sha256": "810efedcf07936409657737757de0090ab6b10f21d948edadc74567907adbb46",
+      "sizeBytes": 296
+    },
+    "guest-review/linux-initial-guest-execution-review.json": {
+      "sha256": "d4c3cc8e6d63df5c860ccc419e845095fd1ed505401f5d9c26610b255caa8e68",
+      "sizeBytes": 11022
+    },
+    "guest-review/linux-initial-image.json": {
+      "sha256": "cefa9e010cee289169c8c96545892172f105f3ba5b376e805d628bd5c6d574c9",
+      "sizeBytes": 572
+    },
+    "guest-review/linux-inputs/independent-window-diagnostics.supplement.cjs": {
+      "sha256": "26aa98d7624f8a1e472001f4d6fa89b67deff6fb2cfe46dae333e5fcd3f5b741",
+      "sizeBytes": 17250
+    },
+    "guest-review/linux-inputs/independent-window-diagnostics.supplement.cjs.diff": {
+      "sha256": "983471a2ddd80d4a9a2a33611376c9f1aa93ff5e804b5664f5a28a058ccf078a",
+      "sizeBytes": 1511
+    },
+    "guest-review/linux-inputs/independent-window-diagnostics.v3.cjs": {
+      "sha256": "63d1c419cd90fc8cffbc627aaef1776c1c7ae7a2446a730920869cd9b03a80ac",
+      "sizeBytes": 14543
+    },
+    "guest-review/linux-inputs/independent-window-diagnostics.v3.cjs.diff": {
+      "sha256": "317ec3d817bcfa18ef7ceffc52acd28679e309d96d862cd67527a4996cd16fff",
+      "sizeBytes": 1498
+    },
+    "guest-review/linux-native-container.state.initial.txt": {
+      "sha256": "f86e47b443adb2ad0009cc9ab8e855f62c8676c5d65908a9132bc7e99f7296fb",
+      "sizeBytes": 259
+    },
+    "guest-review/linux-native-handlers.final.log": {
+      "sha256": "baa3372af98db6d8eb7ec196460618a6a4a21ebde8d3affc2efeab636ead9801",
+      "sizeBytes": 23834
+    },
+    "guest-review/linux-native-handlers.initial.log": {
+      "sha256": "014be45aaa9dfe4ab78709030c4cb93c3327967c661e20d4a2584385d1315fd3",
+      "sizeBytes": 23865
+    },
+    "guest-review/linux-performance-review.final.json": {
+      "sha256": "4818e38f98ba170692d261dd76ac67fd6fe5b9bdae901905b9ede030a8afa98e",
+      "sizeBytes": 150242
+    },
+    "guest-review/linux-supplement-observations.final.json": {
+      "sha256": "0c3e6875f2372f3c27c6fb42213be2f1140474983db4f4bbe8f430dd1490866e",
+      "sizeBytes": 264
+    },
+    "guest-review/linux-supplement-observations.json": {
+      "sha256": "0c3e6875f2372f3c27c6fb42213be2f1140474983db4f4bbe8f430dd1490866e",
+      "sizeBytes": 264
+    },
+    "guest-review/switch-propagation-review.json": {
+      "sha256": "2b033a89c41562f8710ed78053cfd5820dcfe7126a631596173830348105c65b",
+      "sizeBytes": 11889
+    },
+    "image-artifacts.json": {
+      "sha256": "f4ac69ed9969f9b538900864bf424af288bbf155f695d0dcafb90b428ded65a5",
+      "sizeBytes": 3947
+    },
+    "initial-build-context.sha256.json": {
+      "sha256": "bc5caeabbdbafc1b3092141d8059c1ae263a9bf092ed7f17c105855d65d13b26",
+      "sizeBytes": 40828
+    },
+    "java-image-manifest.txt": {
+      "sha256": "2ed0e3d0ac8e513033d454817ea9a057747a8200d291c1ba1b6fc68cd66bb36e",
+      "sizeBytes": 5937
+    },
+    "linux-execution/linux-flutter-host.cjs": {
+      "sha256": "09e99a84b4dd240d1565fc61e2e69f2ba56f1a2769c7b8332c03abdd29e24b5c",
+      "sizeBytes": 781
+    },
+    "linux-execution/native-integration.final.json": {
+      "sha256": "10851e1b0cd6f67bd6f2d7cf2c444931c1de1bae434935a8555f9f94dabde49e",
+      "sizeBytes": 15050
+    },
+    "linux-execution/postgres-restart-adaptation.diff": {
+      "sha256": "eb9ceab16a57cfe734d6f91ed88dd655cc700f86d0e70257be6c02bc3696b3e4",
+      "sizeBytes": 2350
+    },
+    "linux-execution/postgres-restart-check.cjs": {
+      "sha256": "affb8ce09f21f223d8931d046bb9de7c5ed69da6bcea2696a64e0e60e2618dd9",
+      "sizeBytes": 5527
+    },
+    "linux-execution/postgres-restart-container.inspect.json": {
+      "sha256": "4968d652c0b9fc3ec1298aadf9a6af8866a5f84c94a29b77bc2240e4259096ea",
+      "sizeBytes": 6865
+    },
+    "linux-execution/postgres-restart-evidence.json": {
+      "sha256": "b06417c88ae32bbf70aadfa024930173b90c0370b26350d15750dc3b9c3074e4",
+      "sizeBytes": 5314
+    },
+    "linux-execution/postgres-restart.final.log": {
+      "sha256": "bf9b74fd5aa2db5388b800f65b36cd5832e0c38e677cde7911bc22257430c59e",
+      "sizeBytes": 153
+    },
+    "linux-execution/query.final.json": {
+      "sha256": "3f5d089d1681cff9b98c63e380fb9df3f5b75dd4db5537e256377cc9e13fa830",
+      "sizeBytes": 1795
+    },
+    "linux-execution/recovery-snapshot-0Z8wIZ/qualification.json": {
+      "sha256": "b12fbc33bbaa08bf24a35d3fbe499fb4d2eb7af4a055f900ece518409cb32f6f",
+      "sizeBytes": 10252
+    },
+    "linux-execution/recovery-snapshot-0Z8wIZ/qualified.manifest.json": {
+      "sha256": "201146f0bd6b4cd18c0cc2525e6169247593e61fcebc83b1c6f74af4b45dbf92",
+      "sizeBytes": 5921
+    },
+    "linux-execution/recovery-snapshot-0Z8wIZ/qualified.offsets.json": {
+      "sha256": "a11fb6ce14b98d94cf9c07bda032614d5511b6e044effcd6e40da7d0bff5b086",
+      "sizeBytes": 287
+    },
+    "linux-execution/recovery-snapshot-sTSmtv/qualification.json": {
+      "sha256": "c6d048dcb0deedfb10ae369d4455c607bd98d17b15525e45856870c42410490f",
+      "sizeBytes": 10259
+    },
+    "linux-execution/restart-completed.json": {
+      "sha256": "870f3b4be29844d8725185f783aaf94f485718aedc515e9f1614a4f2fd76809c",
+      "sizeBytes": 329
+    },
+    "linux-execution/restart-request.json": {
+      "sha256": "8d8207df040d1384f50b3a7e9d6ff17926f46f8e9ba0ff254a26bfd606fc5218",
+      "sizeBytes": 60
+    },
+    "linux-execution/serial-authority.auth-relay-missing.jsonl": {
+      "sha256": "95eae44ad88a83aa90a47a8f9431251efc7f1b8049f6c4e4cf4f1584a330924b",
+      "sizeBytes": 578301
+    },
+    "linux-execution/serial-authority.final.jsonl": {
+      "sha256": "2cfdd6d1defd5bc904645535e617076ff695195126b01fcde47a3749530d29fb",
+      "sizeBytes": 623086
+    },
+    "linux-execution/serial-container.inspect.json": {
+      "sha256": "73436a6b9b1c10c31fbca31dbaca9912bb16055b3e49714ae06239281541d70d",
+      "sizeBytes": 7301
+    },
+    "linux-execution/serial-host.auth-relay-missing.json": {
+      "sha256": "4ca3575300cd6e9e3a2ae84b82331eff17accb2c047db98646de23f797357d90",
+      "sizeBytes": 9799
+    },
+    "linux-execution/serial-host.final.json": {
+      "sha256": "4ca3575300cd6e9e3a2ae84b82331eff17accb2c047db98646de23f797357d90",
+      "sizeBytes": 9799
+    },
+    "linux-execution/serial-render.auth-relay-missing.json": {
+      "sha256": "1143e9521fa7c9df82441397fc25b8e4fa7bfa22500981c7189a1844176cf5ac",
+      "sizeBytes": 135665
+    },
+    "linux-execution/serial-render.auth-relay-missing.log": {
+      "sha256": "c0dd1f27f345b2c9e77ae451fceb0f1a723b3eda24bd6fc1f275d9238e73c31b",
+      "sizeBytes": 8026
+    },
+    "linux-execution/serial-render.final.json": {
+      "sha256": "560abf9d42c9e8e417a0096b9e5fbf81fe46296d985829c854ecc197f5e7aa87",
+      "sizeBytes": 155405
+    },
+    "linux-execution/serial-render.final.log": {
+      "sha256": "d12374d6106ace38a99d3e4dbb14e2da41a4078b18af54354bc878161f444ecc",
+      "sizeBytes": 505
+    },
+    "linux-execution/serial-render.network-startup.log": {
+      "sha256": "778582b4e7336e1c24cc3c776767fd2dd81f3144c43c68505bfed381906f4201",
+      "sizeBytes": 5854
+    },
+    "linux-execution/snapshot-cleanup-hosted-source.initial.log": {
+      "sha256": "6b8a93e1439a8d35d10d8ef73d83469d59b9ead93a232a9e988ecc6ed92e6773",
+      "sizeBytes": 1814
+    },
+    "linux-execution/source-snapshot.initial.log": {
+      "sha256": "1ec7c666240b79639247e026c371d3ab51ebc454464fdc66e952f000dbee23da",
+      "sizeBytes": 1850
+    },
+    "linux-execution/sql-native-integration.final.log": {
+      "sha256": "b473ec95b4630409451d92d9eb7c90ebd0e68afe47d25f9350b5fc540b7492c1",
+      "sizeBytes": 3331
+    },
+    "linux-execution/window-authority.final.jsonl": {
+      "sha256": "b372555a70a87d6ec779181de45659ca26cf8106d94da3da481d5e7927b16576",
+      "sizeBytes": 104189
+    },
+    "linux-execution/window-container.inspect.json": {
+      "sha256": "f9db8d952e7c9c40b978501a9d99fcce2bd98bcaf7b27f90c584d7a039970704",
+      "sizeBytes": 7301
+    },
+    "linux-execution/window-host.final.json": {
+      "sha256": "4ca3575300cd6e9e3a2ae84b82331eff17accb2c047db98646de23f797357d90",
+      "sizeBytes": 9799
+    },
+    "linux-execution/window-render.final.json": {
+      "sha256": "de71138516ace236f95ad2377bfad0f80a4d2b9f87119efe781719be5cc30deb",
+      "sizeBytes": 44178
+    },
+    "linux-execution/window-render.final.log": {
+      "sha256": "1b700c660569625bcca7e28c3d67e0a044975bddff13993de2331e4c57b55f92",
+      "sizeBytes": 505
+    },
+    "linux-review/default-arithmetic-jit.log": {
+      "sha256": "185ae8aca6fa8d022a0987e5e381dbb4cb936f55dd532040af3c2fd4bc5a9228",
+      "sizeBytes": 1136
+    },
+    "linux-review/default-arithmetic-probe.cjs": {
+      "sha256": "bb3f72f63d745dfd413c2b726c2be4da37c17f25679ab5c11a0c09b84b0797a4",
+      "sizeBytes": 1659
+    },
+    "linux-review/default-arithmetic.no-flags.json": {
+      "sha256": "7ae4fbe49fb5303a095f2c2af480436df599dc6db87513b0b00b48f3ddeeed5e",
+      "sizeBytes": 1055
+    },
+    "linux-review/exact-rational-audit.linux.json": {
+      "sha256": "8b866cb66b2efe2cd7147a48f256e2787669eac8875370db56a2ae439e9bb081",
+      "sizeBytes": 5199
+    },
+    "linux-review/final-guard-review.json": {
+      "sha256": "bf3503ac8c9dd8c8590fa7a3f8fb8fdc6be593eebb974c9730d4460ab0499c4f",
+      "sizeBytes": 4094
+    },
+    "linux-review/final-guard-review.txt": {
+      "sha256": "3e2c687b6ced9258f85e43770c41803622b2f2cec4ef4e0c41916f8383265fb5",
+      "sizeBytes": 1009
+    },
+    "linux-review/final-guard-tests.log": {
+      "sha256": "5e2318823ff5eb4caf33a572f3b2a4320ff09d4e41a0a7e351a5518d739e8429",
+      "sizeBytes": 644
+    },
+    "linux-review/final-image-guard.sha256": {
+      "sha256": "7c704a88134e92bd6874d6a9e58f6db2f28dd2e103f2511e3e6f534788a3e9b7",
+      "sizeBytes": 630
+    },
+    "linux-review/inspect-math-constants.py": {
+      "sha256": "56744076dc1ccdc3ad4c16339a2133b582f4359317fc36a399c43ff3cf685dc0",
+      "sizeBytes": 1980
+    },
+    "linux-review/inspection-commands.txt": {
+      "sha256": "ca26b5147715f32a103193f76526f4d61d4735b5d1fc128b11dc1a76d8e6169e",
+      "sizeBytes": 2817
+    },
+    "linux-review/ldd.txt": {
+      "sha256": "35c350788f57d73ad284ded4c57b4c7f84aae2b61da7b8f9ba0220cf61f6808d",
+      "sizeBytes": 771
+    },
+    "linux-review/llvm-objdump-version.txt": {
+      "sha256": "4480136e4279bdce40f98483eacd8cf19d098fd32841187278297c745623b051",
+      "sizeBytes": 489
+    },
+    "linux-review/math-constants.json": {
+      "sha256": "47fae4c181715ffd9cc77b569a723e1f9cb15c0be2449e1337dd8606ff15cd07",
+      "sizeBytes": 7180
+    },
+    "linux-review/math-disassembly-compact.txt": {
+      "sha256": "ebbca1c42aecc0a457389b02e3393c97079bc4af69ef48e7ebbb1591b77efbaa",
+      "sizeBytes": 65390
+    },
+    "linux-review/math-disassembly.txt": {
+      "sha256": "847b5cb4f680dbc3f4329d3c75dbd339b9ff0c3f5f1bc09d2e31104a9ede172e",
+      "sizeBytes": 131589
+    },
+    "linux-review/math-symbols.txt": {
+      "sha256": "8af33c2a1f3b3af1b0e749c9a214acbac9796ed3f0fd5fbe5459e9e3861b5e6d",
+      "sizeBytes": 3874
+    },
+    "linux-review/numerical-diagnostics.final.json": {
+      "sha256": "857866a0472473c22df2f378dcb82ace358f5258f2c7d8e6842ed0b12391d74c",
+      "sizeBytes": 916
+    },
+    "linux-review/numerical-diagnostics.initial.json": {
+      "sha256": "857866a0472473c22df2f378dcb82ace358f5258f2c7d8e6842ed0b12391d74c",
+      "sizeBytes": 916
+    },
+    "linux-review/numerical-runtime-review.json": {
+      "sha256": "5b92780a3eb5e5fbb0a0ddd1b7fbf5e9f9a0889018ca9122192e54b871f4d398",
+      "sizeBytes": 9890
+    },
+    "linux-review/numerical-runtime-review.txt": {
+      "sha256": "46fdd7311b536e9249a5d0faa1aaafc061596b6098609c67daba5020cd2ed3d8",
+      "sizeBytes": 8139
+    },
+    "linux-review/postgresql-metadata.txt": {
+      "sha256": "53cca2ecc6b77a433eb2b9b991637f746cff0776b19841c8088c352f9c380476",
+      "sizeBytes": 1878
+    },
+    "linux-review/pre-execution-review.json": {
+      "sha256": "8e5ad5207ff11390d911782d790bfdec112989329049bcb721e713ae3c9ff78f",
+      "sizeBytes": 5397
+    },
+    "linux-review/pre-execution-review.txt": {
+      "sha256": "64800f04e42621ba557dc12da1dbb388d75458e3971c4d5e649c0a27df248b55",
+      "sizeBytes": 11297
+    },
+    "linux-review/primary-source/deps__v8__BUILD.gn": {
+      "sha256": "d41fadae65b0613bd16c8c4888a80575278be5d238e5ddcf2a761a4a0d1bf2d5",
+      "sizeBytes": 274580
+    },
+    "linux-review/primary-source/deps__v8__src__base__ieee754.cc": {
+      "sha256": "1bf999809d4c4c1d31ad5ff3578d32614796f159e08b9e7782560d017721a0c2",
+      "sizeBytes": 103309
+    },
+    "linux-review/primary-source/deps__v8__src__base__ieee754.h": {
+      "sha256": "d04cd7f71eae974bbb2fb64fd27241c7753678f042acd5ee89c2fa30ef37c4c3",
+      "sizeBytes": 3729
+    },
+    "linux-review/primary-source/deps__v8__src__codegen__external-reference.cc": {
+      "sha256": "5e348eeb58dd9140b38737627c22803ab587dea71c35e9e89933384302bbb2ed",
+      "sizeBytes": 74727
+    },
+    "linux-review/primary-source/deps__v8__src__flags__flag-definitions.h": {
+      "sha256": "b8de22cf11418d771c2ffcd7e002c71c94940bf9838f288982971ab2504e36d5",
+      "sizeBytes": 166112
+    },
+    "linux-review/primary-source/postgres-REL_18_6-numeric.c": {
+      "sha256": "6cde7cd60b3330b83be35d1f014045f5fb5fe737f3c5db4c8ed4080b99f2b666",
+      "sizeBytes": 321535
+    },
+    "linux-review/primary-source/tools__v8_gypfiles__features.gypi": {
+      "sha256": "436f9472248f09c3a8ef699b5303d9885cc5553ca0374f4cdd9956f0efaf44a6",
+      "sizeBytes": 19528
+    },
+    "linux-review/primary-source/tools__v8_gypfiles__v8.gyp": {
+      "sha256": "f0925d70587e3a1e24ece1665745a8a42555b1317e4178fdcec0001be0751f4d",
+      "sizeBytes": 91129
+    },
+    "linux-review/proof-input/distance-bound-arithmetic-audit.py": {
+      "sha256": "b0445dca0915ceb2938085cdf7bd0bd0702bc967a9e45ede71364ea247d0d94d",
+      "sizeBytes": 10810
+    },
+    "linux-review/proof-input/evidence/math/node-v24.21.0-ieee754.cc": {
+      "sha256": "1bf999809d4c4c1d31ad5ff3578d32614796f159e08b9e7782560d017721a0c2",
+      "sizeBytes": 103309
+    },
+    "linux-review/runtime-metadata-probe.cjs": {
+      "sha256": "a4c5102cca915112c72b1dff1e9e95088faa4dc3428835f2b3933ae501c5459e",
+      "sizeBytes": 1166
+    },
+    "linux-review/runtime-metadata.json": {
+      "sha256": "07b88add88bde5eef943a4c54b8760bada01921cab03ec0f6ff6678080f152f3",
+      "sizeBytes": 2385
+    },
+    "linux-review/sql-conversion-probe.cjs": {
+      "sha256": "89447e4bba0472655e114ca1755eee1d5814c70cb67318f89d0d7ff744980ce7",
+      "sizeBytes": 2418
+    },
+    "linux-review/sql-conversion-probe.json": {
+      "sha256": "117a3ca369ec8bd23fbf77712ef2f4e2647048407111e6034ae8fe6f025c6ac7",
+      "sizeBytes": 9855
+    },
+    "linux-review/v8-options.txt": {
+      "sha256": "586d602342533947953355bcf5679897139a68b5c4166ffe03124097c390dc45",
+      "sizeBytes": 120062
+    },
+    "linux004-source-edits.sha256.json": {
+      "sha256": "486c9730cf64838b6dfc738651e9031b6fe4dfe888181ced5028232fd33ca4b8",
+      "sizeBytes": 451
+    },
+    "local-fixture-resources.json": {
+      "sha256": "84bad6fb0abc9d7aee824cc3ffb501735207cc26b94c366549fe649c00725792",
+      "sizeBytes": 467
+    },
+    "mac-loopback-relay.cjs": {
+      "sha256": "503dad8d4ae14cd99b46ed88e2f517a7774e3816e92a221b8c3ac36677ff4ff3",
+      "sizeBytes": 494
+    },
+    "mac-loopback-relay.final.inspect.json": {
+      "sha256": "a74ed5e8f142683f1990b9890d87a69ca278de54ccbba785d180979738d351e9",
+      "sizeBytes": 9399
+    },
+    "performance-summary.json": {
+      "sha256": "f359bbe280558c5073f6573eb1960bfd9973b13e8e859cc352b996e24d70f77a",
+      "sizeBytes": 7350
+    },
+    "pg-supervisor.sh": {
+      "sha256": "f349e28ac2f4864ded26f6369e69c28a427dc66f23af215755d47259dcf2edfa",
+      "sizeBytes": 359
+    },
+    "postgis-image-manifest.txt": {
+      "sha256": "cf5a6e47ed443aec0026741a7d004caa9fcc7be3701b5fc8186697f37b3dc930",
+      "sizeBytes": 807
+    },
+    "postgis-image.inspect.json": {
+      "sha256": "a5a68081874408add8ebb4a1951cc0ad5e815aa5890a3184eeef51d9e519971e",
+      "sizeBytes": 3851
+    },
+    "preservation-final.json": {
+      "sha256": "b0a710e7e07415dd533805790cb63770648e95831dec6c1179cbc610636dafa1",
+      "sizeBytes": 43128
+    },
+    "run-flutter-host.py": {
+      "sha256": "20e0351ea1248543aa5877d99d3f855b376b2e3f02a912a45ec91225d50e5b10",
+      "sizeBytes": 1277
+    },
+    "run-restart-check.py": {
+      "sha256": "c7b6346f255f5ed372dd70df4ee8be0505e7ca11ae2bcb96bb80279d2e19a59e",
+      "sizeBytes": 1800
+    },
+    "search-dry-run.final.json": {
+      "sha256": "a4c971f17b50db8502db6dbba42c001099d0318ae7ecbcd5a421b61fece9fb76",
+      "sizeBytes": 151
+    },
+    "search-image-build.final.log": {
+      "sha256": "ee587157c9e2119931eef3c01047e59b9bcd74d401bf89fa93e911f9837f6e11",
+      "sizeBytes": 7934
+    },
+    "search-image-build.initial.log": {
+      "sha256": "bcbf848aaa7f6dc261ceb31305289b86ae42f23e37dd0f4a7f9656aebd6b2b30",
+      "sizeBytes": 13770
+    },
+    "search-image.final.files.sha256.json": {
+      "sha256": "9e299fc1cf777a77db89efde5fbe1d21da1f6462b38407527d7d84fe780d2a85",
+      "sizeBytes": 78529
+    },
+    "search-image.final.inspect.json": {
+      "sha256": "a1f2658a7a360c23c245d5dadf7546132e2da4107cdd7772b39700cbde23810a",
+      "sizeBytes": 2875
+    },
+    "search-image.initial.inspect.json": {
+      "sha256": "79969c70f7995d190ecf372f2a9dee1c04dbf67ed5cf4ad7053b5c938ace5171",
+      "sizeBytes": 2867
+    },
+    "storage-review/account-deletion-rules.log": {
+      "sha256": "25c227aa5aec55c264d4928f4220334209aa7a4f242e5cd9f4e4c4cd8ed85cf5",
+      "sizeBytes": 7352
+    },
+    "storage-review/runtime/emulators.log": {
+      "sha256": "271b60318b18bab06143f8b30132aa0cfe6d1518fc56304f6b4e29cda7238cf3",
+      "sizeBytes": 2510
+    },
+    "storage-review/runtime/firebase.json": {
+      "sha256": "b09d14593ce525823d32cbf91b7788ec454c5116fde88b90990c6cf4bc615af4",
+      "sizeBytes": 762
+    },
+    "storage-review/runtime-and-hashes.json": {
+      "sha256": "734781d4e31ef664d81e1b5fdde29e0d2b168c48b19c9cf2805d2e0abd581ccc",
+      "sizeBytes": 23488
+    },
+    "storage-review/safety-connected-candidate.log": {
+      "sha256": "b2f380691548f0b90b7aa4a2cb5fadb3ef304aef54438db5958f9fc241515cf8",
+      "sizeBytes": 636
+    },
+    "storage-review/safety-connected-source.log": {
+      "sha256": "a2aa99682dce12fd024fe7414b507494af629d6d7a6654d4725b40bc2b9e8fc9",
+      "sizeBytes": 637
+    },
+    "storage-review/selected-source-inputs.json": {
+      "sha256": "2bb762b82358668dd063a39faf8fb664d48f0af1e58f1aa075cd7fdf5e9c0e83",
+      "sizeBytes": 44648
+    },
+    "storage-review/shutdown.json": {
+      "sha256": "dc6bd240edb161f5a1bbcdf6000d87c915e82ddcf49695441518d015d46040c6",
+      "sizeBytes": 1482
+    },
+    "storage-review/storage-safety-review.json": {
+      "sha256": "e42adfe83f51757a4adb39550ee8b74f887989f0ecd8d0fddc5921626a37c995",
+      "sizeBytes": 12609
+    },
+    "storage-review/typescript-build.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sizeBytes": 0
+    }
+  },
+  "localOnlyEvidence": {
+    "qualified-search-controller.images.tar": {
+      "sha256": "4d443b360d1643230421f58021b681b3ea4d992191171460128f16e31bd346ca",
+      "sizeBytes": 204947456
+    },
+    "Docker-4.95.0-arm64.dmg": {
+      "sha256": "7857222d3c009d787e7f8347b12e24bfee44e49a68cf455cb4b612991d2492c1",
+      "sizeBytes": 589939097
+    },
+    "linux-review/node-linux-x64": {
+      "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c",
+      "sizeBytes": 126595440
+    },
+    "starting-state.json": {
+      "sha256": "a6ed79269cfa9549b5009f32d896dd4010b8efdae40a85e713ae84555269e80e",
+      "sizeBytes": 43067
+    },
+    "linux-execution/recovery-snapshot-0Z8wIZ/qualified.rows.jsonl": {
+      "sha256": "bd04c462f27cf1152509c3819dc88a1312f2fe1738b1c27ec94807e7886c13cf",
+      "sizeBytes": 1058576
+    },
+    "linux-execution/recovery-snapshot-sTSmtv/simulated-provider-objects.json": {
+      "sha256": "a52096edadf5e65f78290c8f835a2a57e32411650ff6e89f2fb3e7aa7149d60b",
+      "sizeBytes": 1423075
+    },
+    "storage-review/runtime/firestore-debug.log": {
+      "sha256": "854b4ca10d1b191a16a0f42e1ef7ec51832415a311e0e62ea0cbf4cfb1f24975",
+      "sizeBytes": 89604
+    }
+  },
+  "reviewedDocumentsSha256": {
+    "tool/postgis_staging/LINUX-QUALIFICATION-004.md": "8cfea780ef736b3bd14409bec5e82431375e053284ccfbeb70812ee5771d6ae9",
+    "tool/postgis_staging/combined-source.linux-004.json": "a9bb21f9c2674ad5b079513be963d23be18c505791290a41078acb1ee920cdb8"
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004",
+  "reviewer": "Track C staging_recovery; final read-only independent handoff/freeze reviewer",
+  "recordedAt": "2026-10-18T00:24:56.296823+00:00",
+  "verdict": "PASS_FINAL_SOURCE_EVIDENCE_AND_HANDOFF",
+  "repositoryEditsByReviewer": false,
+  "additionalTestSuitesRun": false,
+  "reviewedArtifacts": {
+    "tool/postgis_staging/LINUX-QUALIFICATION-004.md": "59e2946a353259f16e34320797b3e9358024bb3833d8596bd93bcd7f84d00821",
+    "tool/postgis_staging/combined-source.linux-004.json": "a9bb21f9c2674ad5b079513be963d23be18c505791290a41078acb1ee920cdb8",
+    "tool/postgis_staging/qualified-evidence-linux-004/evidence-index.json": "c86aff71b9ac9e6138f81c35f04e8e39e764c7a4f4aa39a5a1788513b5ba45b6"
+  },
+  "sourceFreeze": {
+    "candidateDigest": "650f5c3d4ecdb18a65887c086d82d122a56908c45353fb14bbff956f2663ec5d",
+    "sourceCount": 649,
+    "allSelectedHashesVerified": true,
+    "committedStartingHead": "e14b74adeca5088883d7efe7ee208b233be6616d",
+    "unchangedInventoryFilesVerifiedAgainstCommittedBlobs": 645,
+    "exactFourChanges": [
+      "functions/src/postgis_hosted_entrypoint.ts",
+      "functions/src/postgis_hosted_runtime.ts",
+      "functions/src/postgis_runtime.ts",
+      "functions/test/postgis_runtime.test.cjs"
+    ],
+    "ownerVersionsExcluded": 16,
+    "ownerSelectedArchiveVersionsVerifiedCommitted": 16,
+    "ownerPathsInInventory": 14,
+    "ownerScreenTestsOutsideInventoryButArchiveVerifiedCommitted": 2,
+    "untrackedOwnerPathsExcluded": 36,
+    "protectedWorkspacePathsUnchanged": 291
+  },
+  "evidenceIntegrity": {
+    "copiedFilesVerifiedAgainstBothExternalOriginalAndIndex": 180,
+    "localOnlyArtifactsVerifiedBySizeAndSha256": 7,
+    "unindexedCopiedFiles": 0,
+    "indexSelfHash": false,
+    "reviewedReportAndManifestHashesMatchIndex": true,
+    "originalsPreserved": true,
+    "finalIndexProcedure": "Integrator may append this exact final receipt and its SHA256 to the index after review. The reviewed index hash above refers to the180-copy pre-receipt index; that narrow addition does not replace source/report qualification."
+  },
+  "acceptanceAssessment": [
+    "Final image identity, compiled/source inventory, selected649-file source digest and independent exact runtime guard review agree. Exactly three existing runtime source files plus one new test differ from the prior freeze; all owner versions stay outside candidate selection and untouched in workspace.",
+    "Report accurately separates final-image functional/numerical/native/HTTP/UI evidence from initial-image unchanged source/snapshot/cleanup implementation tests. Local GCS simulation is not represented as real provider recovery.",
+    "Controller102-check result refers to actual isolated Linux image with image-code import/hash checks. Storage nine unique requested checks plus separately repeated four candidate-policy cases refer to native macOS emulators; no Linux Storage or historical failure closure is inferred.",
+    "Actual server restart preserves data/publication/pins/order while changing server start time and reconnecting the pool. Report does not claim crash durability or managed failover.",
+    "Guest measurements retain sample size, same synthetic membership, first versus warm distinctions,54.49percent median reduction and18/19 warm samples at most two seconds. No consistent two-second success or hosted/native tail guarantee is claimed. Failed fixture attempts remain visible.",
+    "Hosted window selector is absent and explicitly recorded as future bounded source work. Exact local Rosetta numerical admission does not unlock native hosted serving. Paid authorization, real IAM/cleanup/exclusivity/delivery/GCS evidence and unattended readiness remain unverified.",
+    "Pre-spend handoff preserves separate owner approval, first small supervised Gates1/5 drill, immutable start/deadline, forecast checkpoint and reserve, exact project/resource identities, independent cleanup evidence, alert delivery, retained liabilities and future native CPU/SQL qualification.",
+    "Tag identifies the future authorized Git checkpoint and completion-receipt.json is reserved for actual post-push SHA/time. This review does not claim Git completion, deployment, activation, paid execution or a running72-hour clock.",
+    "Stopped-service and retained-image/volume claims match independent inspection; relay exit137 is disclosed as non-graceful, without falsely implying an OOM or test pass."
+  ],
+  "materialCorrectionsRequired": [],
+  "remainingQualifiedLimits": [
+    "Exact local emulated Linux tuple only; no native managed Linux qualification.",
+    "No hosted experiment, production/default activation, cloud credentials or real provider execution.",
+    "Real live cleanup and unattended-spend readiness are not established by deterministic tests."
+  ],
+  "supportingReceipts": {
+    "final-review/freeze-integrity-check.json": "88bf6c77620824cc85a4ea3009b0ea406195ecd88262244c6860a3f8888c9e37",
+    "final-review/verify_freeze.py": "7831b95ca5b26c3137547597a7ede53dcd5ee6b12185e4405e01a450cca1e0c1",
+    "final-review/execution-preservation-review.json": "900993b8c025b3179b8bf3fb32ae6e9c2a445593f8cf9cae40530fd007bedb4d",
+    "final-review/image-inventory-comparison.json": "e3470ebdd3eb3afa819096f760f0fff4132f3918f3abb379408f7f9bdf07a21d",
+    "final-review/independent-preservation-and-shutdown.json": "072cd3d688ab05c7770bd28fcbbfe4670fed4dfee3f3146c41682acd5eedcf3f",
+    "controller-review/actual-image-independent-review.json": "d0ec1620c7e3cae500e59aa93f46d1a1c348580265e5613fd876fd01aaf58631",
+    "storage-review/storage-safety-review.json": "e42adfe83f51757a4adb39550ee8b74f887989f0ecd8d0fddc5921626a37c995",
+    "guest-review/final-independent-review.json": "1579dcd5a17a70d89875557dbdb9d85ab6d07274bb6f05c51431d83a53e36332",
+    "linux-review/final-guard-review.json": "bf3503ac8c9dd8c8590fa7a3f8fb8fdc6be593eebb974c9730d4460ab0499c4f"
+  },
+  "probeNote": "Initial checker assumed all16 owner paths were in649-path inventory. Two screen tests are outside that inventory, but all16 selected-archive versions were independently verified against committed starting HEAD. Only report checker corrected; source, tests, evidence and assertions of preservation unchanged."
+}

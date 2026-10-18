@@ -1,0 +1,311 @@
+{
+  "kind": "real-local-Flutter-Auth-Firestore-PostGIS",
+  "url": "http://127.0.0.1:8188",
+  "projectId": "demo-bs-postgis-flutter",
+  "database": "bsgate0_flutter",
+  "firestore": "127.0.0.1:8088",
+  "auth": "127.0.0.1:9099",
+  "fixture": {
+    "syntheticOnly": true,
+    "generator": "postgis_gate0.v1",
+    "counts": {
+      "biteSaver:restaurant": 35,
+      "biteSaver:offer": 60,
+      "biteScore:restaurant": 30,
+      "biteScore:dish": 60
+    },
+    "documentCount": 185,
+    "sourceCount": 185,
+    "fingerprint": "c0d2864f294a274ff3570dc9a8128d19f920ec7e86b1884a62735e43da87eb65",
+    "dimensions": {
+      "saverParents": 35,
+      "scoreParents": 30,
+      "offersPerRestaurant": 2,
+      "dishesPerRestaurant": 2,
+      "noOfferEvery": 7
+    }
+  },
+  "hostPid": 1,
+  "publishedRevision": "1",
+  "publishedSourceFence": {
+    "protocolVersion": "bitestar.postgis-source.v1",
+    "epoch": "flutter-local-source-v1",
+    "enrolled": true,
+    "shards": [
+      {
+        "seq": 8,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 2,
+            "xor": "5a576074a3dbf47f29ef6bad3246d1ae7751b80c8e6039edcadb1b1658362b90"
+          },
+          "dish_search_index": {
+            "count": 4,
+            "xor": "5b9d1dbb1bb586a0d2663ce56910d3d27d944e301e320d5ce354040f0b38be6f"
+          },
+          "bitesaver_offer_index": {
+            "count": 2,
+            "xor": "0930afa75b0fde52f00a92f5923be30954797e08427268991c50a19cabbf0b30"
+          }
+        }
+      },
+      {
+        "seq": 12,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 7,
+            "xor": "d17238bff1d4a1cf5b113da8bde6861553ac76e4397dc9ccdf4049f9f9005433"
+          },
+          "dish_search_index": {
+            "count": 2,
+            "xor": "9c58396e24256123289274485d1c9c3de5f4bf429a69df593cc4d3cdd46dc476"
+          },
+          "bitesaver_offer_index": {
+            "count": 3,
+            "xor": "eb0e2b55a8198dbdb31426d5c2c9273540406cab74f79b211fc93aa962dae9af"
+          }
+        }
+      },
+      {
+        "seq": 11,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 1,
+            "xor": "d034b613f6cc7e155641195167478fec62fec3051dd1655a1e074b8033d87791"
+          },
+          "dish_search_index": {
+            "count": 6,
+            "xor": "9826fc54b880a8f5a50d50e1d1ea71165f9e3cd8ecefcf20973a459021955b7e"
+          },
+          "bitesaver_offer_index": {
+            "count": 4,
+            "xor": "c3c10ada90a556b5350ce7c2619b013fb6fa3fc1398074271cc65d725a32ae2a"
+          }
+        }
+      },
+      {
+        "seq": 13,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 7,
+            "xor": "8dbadf5b25bb266999af9e998b5ce595fcb923a8991cde2df91e083acddfaddd"
+          },
+          "dish_search_index": {
+            "count": 3,
+            "xor": "2eaaa65fde352132d2e83e252c851b91e3f84b5416924d3e795d805a211eb261"
+          },
+          "bitesaver_offer_index": {
+            "count": 3,
+            "xor": "4550f95a00e20a438b2494b6fb17d9f5b4789b2f547cde69e5c5d838633d1b03"
+          }
+        }
+      },
+      {
+        "seq": 9,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 1,
+            "xor": "f908d8aa1443a5f269caef06a546b294655b7bbb412c3522e0b9bf74cad5b57e"
+          },
+          "dish_search_index": {
+            "count": 7,
+            "xor": "3b0263f31b862139869132e23fca427fa22b1ab704766644e58cd326e2af6915"
+          },
+          "bitesaver_offer_index": {
+            "count": 1,
+            "xor": "019c76170904474073025317870a421f950df24786120aba3feb8ba57f571a6d"
+          }
+        }
+      },
+      {
+        "seq": 8,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 3,
+            "xor": "8c2ed414a0c186d5bd9725a774b08436f8d9d39acac050b46a56622038d0b1f1"
+          },
+          "dish_search_index": {
+            "count": 2,
+            "xor": "4882bc30ff7ba32bf3a72e314b90cc7294a0c5bbbf0cdb418bcaf1cb8ecda204"
+          },
+          "bitesaver_offer_index": {
+            "count": 3,
+            "xor": "5c1aef7a95b42959ed59cd4258643013b1fc513103242befbff0b8af2105c273"
+          }
+        }
+      },
+      {
+        "seq": 9,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 4,
+            "xor": "bbf577e89f7afb8c32bf0e6993f1b53965fe0dbf3a33e43bed9ac6231b0e3b74"
+          },
+          "dish_search_index": {
+            "count": 3,
+            "xor": "b0b07ffae4044e1790f5b3e11a3a928f369d5560012ce23698a1ea99e1ab95b2"
+          },
+          "bitesaver_offer_index": {
+            "count": 2,
+            "xor": "9fe55a3d930be0b260f21c3cfbaad80c8fba300f049cb8aaf48015691dc6010f"
+          }
+        }
+      },
+      {
+        "seq": 18,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 3,
+            "xor": "e89cfd7ed5d9983edb93cf0adb00b5b8b588b5bbdbf38966fac0f29fcc297ac2"
+          },
+          "dish_search_index": {
+            "count": 9,
+            "xor": "49d03f8d1cf70da0c587008283e2d0205472cc4a6653c5306185b5b6ba379ddb"
+          },
+          "bitesaver_offer_index": {
+            "count": 6,
+            "xor": "4ab87233855497c6282272bb565eabec2a7caeaea394714325b110d3fbb7dc14"
+          }
+        }
+      },
+      {
+        "seq": 15,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 9,
+            "xor": "2a800ac59ffb0677412a6f98acd315819bf4d8536132eb00a8981f8a1cf48601"
+          },
+          "dish_search_index": {
+            "count": 2,
+            "xor": "87c07b4653a0893e16cc3a596ab0edfc2a79f8466e6fabe08029cd082c23ec2f"
+          },
+          "bitesaver_offer_index": {
+            "count": 4,
+            "xor": "d8cec12511a2949d0e817bcacd95eac199fbc5e4eea84847795a42c0645f8f93"
+          }
+        }
+      },
+      {
+        "seq": 11,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 3,
+            "xor": "5afb288742136304f0aad61459eb8d951a1b6259bbabf0bbc09d73817a9d3a4b"
+          },
+          "dish_search_index": {
+            "count": 2,
+            "xor": "c0e26dfd31b26a4ca8fc0da834bc70ad3b038d9cfd08e7b9f87bdbddadb25428"
+          },
+          "bitesaver_offer_index": {
+            "count": 6,
+            "xor": "1487eecce41d7132b02648a1c6e922bea99d5e27ebbc016d289bc56943a7fc5c"
+          }
+        }
+      },
+      {
+        "seq": 10,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 3,
+            "xor": "9245527f082acc6b7b7fc3d5ab1945b96877d72785362898dc1fcacedc39db78"
+          },
+          "dish_search_index": {
+            "count": 5,
+            "xor": "94bd137fefa03ded94fe976c9dd95443ab59b15b168ad240bdf6d4dbab5803c9"
+          },
+          "bitesaver_offer_index": {
+            "count": 2,
+            "xor": "123f2a1cdf86495c7750deddd08d5471f54d42c8e02fe8610358002644e667fc"
+          }
+        }
+      },
+      {
+        "seq": 12,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 4,
+            "xor": "f1f751b0cb0341e5d967c123404117d67d93f7f65c91b39c12c963ff17f67913"
+          },
+          "dish_search_index": {
+            "count": 3,
+            "xor": "5424a68f9043961a72852b70709ff5c4d700953d214876426b83a6db4b4f7a79"
+          },
+          "bitesaver_offer_index": {
+            "count": 5,
+            "xor": "545936eaceca2ee09a25b166b745a2d51425df56f427436ce90f05a9dc90a655"
+          }
+        }
+      },
+      {
+        "seq": 14,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 7,
+            "xor": "e1d081e5871b913abe7f12f8f772b46bda2ac0f3c22039f2d7b97f4b5f0048dd"
+          },
+          "dish_search_index": {
+            "count": 5,
+            "xor": "25d2b520a3674237cab8553a8ceb60c459be9c4f89d8b02deb924d8cadc524db"
+          },
+          "bitesaver_offer_index": {
+            "count": 2,
+            "xor": "b8408ac046ca97954d23e82452a6bf61eac71ee24d1d5bcbb57846633c8fde84"
+          }
+        }
+      },
+      {
+        "seq": 13,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 5,
+            "xor": "c25afa621242ac632f9346d7f8630b6dfa38ba2027162a891fcef77aaea271e7"
+          },
+          "dish_search_index": {
+            "count": 2,
+            "xor": "8cd4609195b5dcab80714e0a3c3d8ca79e57edf219bfd9f73ae951c9d9687165"
+          },
+          "bitesaver_offer_index": {
+            "count": 6,
+            "xor": "16c8c8b5e99ee5b8bd7d3a4b608668f85924bea4edbb34036a446be31ee10c9b"
+          }
+        }
+      },
+      {
+        "seq": 9,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 4,
+            "xor": "9f82146b14b238307996c1f980f6613526ab11f8e08c294f69fd7cde49f02418"
+          },
+          "dish_search_index": {
+            "count": 0,
+            "xor": "0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "bitesaver_offer_index": {
+            "count": 5,
+            "xor": "1cc4f6288d401dcd9b494db00e3a93ea76d4dc7fc33707a03d6b370463fc4fd9"
+          }
+        }
+      },
+      {
+        "seq": 13,
+        "partitions": {
+          "restaurant_search_index": {
+            "count": 2,
+            "xor": "ec66948f1d168ccab813a9721488ce3e50eb82d16594a903ef7d53428fcecbd8"
+          },
+          "dish_search_index": {
+            "count": 5,
+            "xor": "7e8f475293e3968a30af46175d5c4a4e611dac3ccdcdd20c700011d825e483ad"
+          },
+          "bitesaver_offer_index": {
+            "count": 6,
+            "xor": "f6d5ce146e47e9440a6045be22a5fcbe059360333dcff826e53e1b3df0790190"
+          }
+        }
+      }
+    ]
+  },
+  "fixtureTemporalNow": "2026-10-18T00:00:00.000Z",
+  "activeEntities": 185
+}

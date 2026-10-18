@@ -1,0 +1,32 @@
+--- retained-mac-gate0
++++ linux004-report-fixture
+@@ -1,12 +1,11 @@
+ "use strict";
+ const assert=require("node:assert/strict"),fs=require("node:fs"),crypto=require("node:crypto"),{execFile}=require("node:child_process"),{promisify}=require("node:util");
+-const repo="/Users/colesmart/dev/coupon_app";
++const repo="/app";
+ const {createLocalPostgisPool}=require(repo+"/functions/lib/postgis_store.js");
+ const {select}=require(repo+"/functions/lib/postgis_query.js");
+ const {parseCustomerBiteScoreCriteria}=require(repo+"/functions/lib/customer_bitescore_search_contract.js");
+ const {postgisCanonicalJson}=require(repo+"/functions/lib/postgis_source.js");
+-const root=__dirname, dataDirectory=root+"/local-postgres/pgdata";
+-const pgCtl="/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-PROOF-001-20261001-123527-EDT/runtime/Postgres.app/Contents/Versions/18/bin/pg_ctl";
++const root=__dirname, dataDirectory="/var/lib/postgresql/18/docker";
+ if(process.env.BS_POSTGIS_RESTART_TEST!=="1")throw Error("Explicit coordinated task-local restart gate required");
+ const pool=createLocalPostgisPool({host:"127.0.0.1",port:55441,database:"bsgate0_flutter",user:"bsgate0"});
+ const hash=value=>crypto.createHash("sha256").update(postgisCanonicalJson(value)).digest("hex");
+@@ -38,7 +37,13 @@
+     await new Promise(resolve=>setTimeout(resolve,20));
+   }
+   const restartStarted=Date.now();
+-  const processResult=await promisify(execFile)(pgCtl,["-D",dataDirectory,"-l",root+"/local-postgres/postgres.log","-m","fast","-w","-t","30","restart"],{timeout:45000,maxBuffer:1024*1024});
++  // Root orchestrator restarts only the task-owned PostgreSQL process. No Docker socket enters this workload.
++  fs.writeFileSync(root+"/restart-request.json",JSON.stringify({backend,beforeStartedAt:before.meta.started_at}));
++  while(!fs.existsSync(root+"/restart-completed.json")) {
++    if(Date.now()-restartStarted>45000)throw Error("Task-local restart coordinator did not finish");
++    await new Promise(resolve=>setTimeout(resolve,50));
++  }
++  const processResult={stdout:fs.readFileSync(root+"/restart-completed.json","utf8")};
+   const failure=await activeQuery;assert.equal(failure.unexpectedSuccess,undefined);assert.equal(failure.code,"57P01");
+   await assert.rejects(old.query("SELECT 1"));old.release(true);
+   const after=await snapshot();

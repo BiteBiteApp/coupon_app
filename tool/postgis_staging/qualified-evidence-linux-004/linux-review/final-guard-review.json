@@ -1,0 +1,82 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004",
+  "reviewer": "/root/source_ingestion",
+  "reviewType": "Independent read-only final numerical guard/image review",
+  "completedAt": "2026-10-18T00:02:19.848014+00:00",
+  "expectedStartingHead": "e14b74adeca5088883d7efe7ee208b233be6616d",
+  "gitOperationsByReviewer": false,
+  "permittedChangeArea": "External report artifacts only; no repository edits",
+  "verdict": "PASS: exact inspected local Linux tuple only; hosted Linux remains refused",
+  "image": {
+    "dockerId": "sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4",
+    "ociConfigDigest": "sha256:0f16f7b7edeed6288f69ae665b8c689422664f04aaacb9dab14ddcbdcb070a32",
+    "tag": "bitestar-postgis-linux-004:qualified-local",
+    "os": "linux",
+    "architecture": "amd64",
+    "nodeBinarySha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c",
+    "compiledRuntimeSha256": "5d8eb096c39ab7712c97872fb95dac41cdf76e8fd81b6cab855711cd476ce02e"
+  },
+  "reviewedSource": [
+    {
+      "path": "functions/src/postgis_runtime.ts",
+      "sha256": "74887f3e8af5546a59402e79b4f18557c340db6c371aa9d2fd7ccb374cdeae85",
+      "workspaceSelectedSourceAndImageMatch": true
+    },
+    {
+      "path": "functions/src/postgis_hosted_runtime.ts",
+      "sha256": "6aa32d0d23b502a8d91eb57850ebc967e2bc81f50300a95cfa76a9b98104b3ac",
+      "workspaceSelectedSourceAndImageMatch": true
+    },
+    {
+      "path": "functions/src/postgis_hosted_entrypoint.ts",
+      "sha256": "78f55eee2f4ad2d5989c76ff26c0ccbb8fb29c233a248f3f7b5dcfff7c9abac7",
+      "workspaceSelectedSourceAndImageMatch": true
+    },
+    {
+      "path": "functions/test/postgis_runtime.test.cjs",
+      "sha256": "adb0a1d616d89e3c2fee9cb878829f4518be465c2d9bf3bd2125f40ec8499613",
+      "workspaceSelectedSourceAndImageMatch": true
+    }
+  ],
+  "executedTest": {
+    "command": "/Applications/Docker.app/Contents/Resources/bin/docker run --rm --platform=linux/amd64 --network=none --memory=768m --cpus=1 --workdir=/app/functions -e BS_POSTGIS_RUNTIME_TEST=1 --entrypoint=node sha256:a2de5c9804255d17d275a974d2ce1923191f43b4a7e33c64f722f0566b33c6e4 --test --test-isolation=none test/postgis_runtime.test.cjs",
+    "exitCode": 0,
+    "tests": 6,
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "durationMs": 497.891126,
+    "log": "final-guard-tests.log",
+    "logSha256": "5e2318823ff5eb4caf33a572f3b2a4320ff09d4e41a0a7e351a5518d739e8429"
+  },
+  "imageHashEvidence": {
+    "path": "final-image-guard.sha256",
+    "sha256": "7c704a88134e92bd6874d6a9e58f6db2f28dd2e103f2511e3e6f534788a3e9b7"
+  },
+  "numericalProofReceipt": {
+    "path": "numerical-runtime-review.json",
+    "sha256": "5b92780a3eb5e5fbb0a0ddd1b7fbf5e9f9a0889018ca9122192e54b871f4d398",
+    "status": "Reused unchanged; final image executes the same inspected Node binary"
+  },
+  "findings": [
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "statement": "Explicit scope validation and runtime flags are checked on every call; Linux hosted refusal precedes cached local qualification."
+    },
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "statement": "Exact Linux Node/V8/binary/architecture/kernel/CPU tuple is required. Both hosted entry paths explicitly request hosted scope. Previous exact Darwin tuple is preserved."
+    },
+    {
+      "classification": "ACCEPT AND CLOSE",
+      "statement": "All four source files in the executed image match both primary workspace and selected-source; six independent image tests pass without skips."
+    }
+  ],
+  "limitations": [
+    "This is an exact local Rosetta/Linux qualification, not native Linux or managed-hosting qualification.",
+    "CPU/kernel metadata and trusted call scope are compatibility guards, not security attestation.",
+    "Numerical/guard qualification does not substitute for the parent-run SQL, native-handler, HTTP, Flutter, Rules, or load evidence.",
+    "No cloud calls, credential initialization, host installation, repository edits, or service changes were performed in this final review."
+  ],
+  "unresolvedMaterialFindings": []
+}

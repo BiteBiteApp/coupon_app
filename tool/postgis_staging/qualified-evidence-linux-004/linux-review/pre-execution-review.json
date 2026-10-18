@@ -1,0 +1,66 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004",
+  "promptTime": "2026-10-17T19:34:00-04:00",
+  "recordedAtUtc": "2026-10-17T23:46:06.303590+00:00",
+  "role": "Independent Linux/numerical/runtime pre-execution reviewer",
+  "expectedSource": "e14b74adeca5088883d7efe7ee208b233be6616d",
+  "selectedSource": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/selected-source",
+  "dockerEligibility": "RESOLVED_BY_CURRENT_OWNER_INSTRUCTION",
+  "sourceChanges": false,
+  "guardChanges": false,
+  "installBuildExecutionByReviewer": false,
+  "cloudActions": false,
+  "verdict": "PENDING_ACTUAL_BINARY_AND_EXECUTION_EVIDENCE",
+  "localNumericalQualified": false,
+  "hostedQualified": false,
+  "selectedSourceSha256": {
+    "functions/src/postgis_runtime.ts": "c020f3dc8e253571d5efd2c4e907508e5cf9c956a26508cdb2346375f021c920",
+    "functions/src/postgis_query.ts": "309e27651e330a1fd04fd3c9063605c59b2bce83d8364e98bd85c6b8803dacdf",
+    "functions/src/postgis_store.ts": "3c7f49cc9d57acb4ad26d39448f9f2af26af5b6078dad5336269fcd9afa7469c",
+    "functions/src/restaurant_geo_helpers.ts": "8fc56748c811d848b853be0912522b451e1e7c01c0cd1060be2f1cde7ffd9066",
+    "functions/src/postgis_staging_runtime.ts": "05762b562defa673fb9d0e7d2b7e7b371db312079c75a6143c826a3034694925",
+    "functions/src/postgis_hosted_runtime.ts": "161c6b0ba7bd78cf5df18c0560cd7295870849274b140250a6bd8e00c7b728d3",
+    "functions/src/postgis_hosted_entrypoint.ts": "210755b379629372ddf93a063a1eb8e1ee315bf56fdee8d0f8604e0d62e4a0a4",
+    "functions/package-lock.json": "062a0dd70d51553e6346df95eb86429f10f8be7c9b33ad2a7d8c4f0f7d806ab7",
+    "tool/postgis_staging/linux/Dockerfile": "bb569df458e399960202c932ee2099e3c14c6d4adab011cd26544d253d8f4bd3",
+    "tool/postgis_staging/Controller.Dockerfile": "ee3a5ea7a12bd5690784d7330f16fdc56ce672ba4135c66dbace4f7d57e4334b",
+    "tool/postgis_staging/linux/numerical-diagnostics.cjs": "21e2465db0ae227126c4864180ebeed8dc495ddccebe5c68de7e8319c17f8147",
+    "tool/postgis_staging/linux/runtime-source.json": "1154d8aac54305233944ca7158c44e7c2d01310d37e742cbebbcc2b214f44bae",
+    "tool/postgis_staging/linux/README.md": "4ec46d2afd7e57a6263b0bfeaadf0b915c1727fb5b443822965cff3322ba540a",
+    "tool/postgis_staging/PRESPEND-LOCAL-003.md": "e77706e75b1574da3e89e62494bb2ed89922e0f696c272e852fc1255ebe69440",
+    "tool/postgis_staging/combined-source.local-003.json": "47759c113953730e1ab8f4454aab87f1d6516a2c0f8e58a6baa38380cd250d47",
+    "tool/safety_release_prep/combined-source.json": "8ccf369d6b062610a32c23c30327b14f752a75442c3c35d080a957f36e9ccc91"
+  },
+  "proofArtifacts": {
+    "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-CORRECT-001-20261001-140350-EDT/distance-bound-arithmetic-audit.py": "b0445dca0915ceb2938085cdf7bd0bd0702bc967a9e45ede71364ea247d0d94d",
+    "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-CORRECT-001-20261001-140350-EDT/DISTANCE-BOUND-REVIEW.md": "11640dc74aac39eede3db72d8f5365b3a7411d87bb6c5dbacecb2a1188d30346",
+    "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-CORRECT-001-20261001-140350-EDT/DISTANCE-LONGITUDE-ADDENDUM.md": "92b8d1cf33b6ed57d004d35dbbfb82f7f0e44654ee93b8d732cae06fe4010771",
+    "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-CORRECT-001-20261001-140350-EDT/DISTANCE-FINAL-REVIEW.md": "c8d5bbb422cc897800c0c2d0cafcb83bb00f0f78e7de4adc036a3ea26491b883",
+    "/Users/colesmart/.codex/reports/BS-NATIONWIDE-SEARCH-READ-MODEL-CORRECT-001-20261001-140350-EDT/evidence/math/node-v24.21.0-ieee754.cc": "1bf999809d4c4c1d31ad5ff3578d32614796f159e08b9e7782560d017721a0c2"
+  },
+  "primarySourceCopies": {
+    "primary-source/deps__v8__BUILD.gn": "d41fadae65b0613bd16c8c4888a80575278be5d238e5ddcf2a761a4a0d1bf2d5",
+    "primary-source/deps__v8__src__base__ieee754.cc": "1bf999809d4c4c1d31ad5ff3578d32614796f159e08b9e7782560d017721a0c2",
+    "primary-source/deps__v8__src__base__ieee754.h": "d04cd7f71eae974bbb2fb64fd27241c7753678f042acd5ee89c2fa30ef37c4c3",
+    "primary-source/deps__v8__src__codegen__external-reference.cc": "5e348eeb58dd9140b38737627c22803ab587dea71c35e9e89933384302bbb2ed",
+    "primary-source/deps__v8__src__flags__flag-definitions.h": "b8de22cf11418d771c2ffcd7e002c71c94940bf9838f288982971ab2504e36d5",
+    "primary-source/tools__v8_gypfiles__features.gypi": "436f9472248f09c3a8ef699b5303d9885cc5553ca0374f4cdd9956f0efaf44a6",
+    "primary-source/tools__v8_gypfiles__v8.gyp": "f0925d70587e3a1e24ece1665745a8a42555b1317e4178fdcec0001be0751f4d"
+  },
+  "newReviewArtifacts": {
+    "pre-execution-review.txt": "64800f04e42621ba557dc12da1dbb388d75458e3971c4d5e649c0a27df248b55",
+    "runtime-metadata-probe.cjs": "a4c5102cca915112c72b1dff1e9e95088faa4dc3428835f2b3933ae501c5459e",
+    "inspection-commands.txt": "ca26b5147715f32a103193f76526f4d61d4735b5d1fc128b11dc1a76d8e6169e"
+  },
+  "finding": "No unavoidable local failure established. Actual binary dispatch, rounding, SQL conversions and guarded tests must be accepted; finite318/1512 passes alone do not qualify a tuple. Hosted remains separate.",
+  "governingDocuments": {
+    "bug-filter.txt": "826ae67e8388d9bd84f20804fd9183dbc8fc843b3540a268fd93ec5702aac866",
+    "sanity-checklist.txt": "c2794cf8793532a4dc0cfb6784dc0bdc5aa25db35750545adc9622b342fda71f"
+  },
+  "appliedChecklistSections": [
+    "1-5",
+    "9",
+    "12-14",
+    "final reviewer-profile lesson"
+  ]
+}

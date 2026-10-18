@@ -1,0 +1,23 @@
+✔ real Firestore bootstrap survives SQL loss via local-files, bounded resume and post-snapshot replay (17164.926342ms)
+ℹ Qualified 546 real projection rows; recovery evidence /evidence/recovery-snapshot-0Z8wIZ/qualification.json
+✔ real Firestore bootstrap survives SQL loss via simulated-gcs-json-api, bounded resume and post-snapshot replay (12532.008255ms)
+ℹ Qualified 546 real projection rows; recovery evidence /evidence/recovery-snapshot-sTSmtv/qualification.json
+▶ real Firestore source journaling, fenced bootstrap and interruption recovery
+  ✔ default writer remains dormant and pre-existing projections are not mistaken for an empty enrolled source (1374.735126ms)
+  ✔ real maintenance create/update/delete/recreate and duplicate delivery preserve a single identity sequence (112.319667ms)
+  ✔ interrupted source transaction cannot commit an event or advance a shard (19.19625ms)
+  ✔ bootstrap resumes after interruption, re-reads raced scan rows and captures an end fence only after every collection (284.381375ms)
+  ✔ concurrent identity writes on the same shard cannot lose a committed sequence or count (7301.37617ms)
+  ✔ actual BiteSaver account/coupon/special and BiteScore dish/aggregate paths journal parent fanout and independent identities (567.063459ms)
+  ✔ poison and missing-event gaps block delivery; restoring exact immutable evidence permits retry (65.784916ms)
+  ✔ epoch replacement and incomplete enrollment owner changes fail closed (13.314959ms)
+  ✔ source retention requires actual intact recovery files and preserves every change beyond the acknowledged fence (506.261333ms)
+✔ real Firestore source journaling, fenced bootstrap and interruption recovery (10288.68713ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 40574.786977

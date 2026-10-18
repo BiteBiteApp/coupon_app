@@ -1,0 +1,197 @@
+[
+    {
+        "Id": "9785395c3b0f60db88c869fc542054e5a7cd1241095b2e5b508ee33d2f7db85e",
+        "Created": "2026-10-18T00:01:09.176643383Z",
+        "Path": "node",
+        "Args": [
+            "node_modules/firebase-tools/lib/bin/firebase.js",
+            "emulators:start",
+            "--only",
+            "firestore,auth,storage",
+            "--project",
+            "demo-bs-postgis-flutter"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3620,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-10-18T00:01:09.227717925Z",
+            "FinishedAt": "0001-01-01T00:00:00Z"
+        },
+        "Image": "sha256:5c022006853f723ca2353c37c0f4f69ffcfbe201406ecc775bc30ce7c156e75c",
+        "ResolvConfPath": "/var/lib/docker/containers/3c2fe6ab8dee085903d9b4aa1e54ddfba42a5e84804b2af86b685267c465fba4/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/3c2fe6ab8dee085903d9b4aa1e54ddfba42a5e84804b2af86b685267c465fba4/hostname",
+        "HostsPath": "/var/lib/docker/containers/3c2fe6ab8dee085903d9b4aa1e54ddfba42a5e84804b2af86b685267c465fba4/hosts",
+        "LogPath": "",
+        "Name": "/bs-linux004-emulators",
+        "RestartCount": 0,
+        "Driver": "overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "local",
+                "Config": {}
+            },
+            "NetworkMode": "container:3c2fe6ab8dee085903d9b4aa1e54ddfba42a5e84804b2af86b685267c465fba4",
+            "PortBindings": {},
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 2415919104,
+            "NanoCpus": 2000000000,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": [],
+            "BlkioDeviceReadBps": [],
+            "BlkioDeviceWriteBps": [],
+            "BlkioDeviceReadIOps": [],
+            "BlkioDeviceWriteIOps": [],
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": [],
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 4831838208,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": 256,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "Storage": {
+            "RootFS": {
+                "Snapshot": {
+                    "Name": "overlayfs"
+                }
+            }
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "3c2fe6ab8dee",
+            "Domainname": "",
+            "User": "node",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "PATH=/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "NODE_VERSION=24.21.0",
+                "YARN_VERSION=1.22.22",
+                "JAVA_HOME=/opt/java/openjdk",
+                "JAVA_TOOL_OPTIONS=-Xmx1400m",
+                "CI=true",
+                "FIREBASE_CLI_DISABLE_MOTD=true"
+            ],
+            "Cmd": [
+                "node_modules/firebase-tools/lib/bin/firebase.js",
+                "emulators:start",
+                "--only",
+                "firestore,auth,storage",
+                "--project",
+                "demo-bs-postgis-flutter"
+            ],
+            "Image": "bitestar-postgis-emulators-004:local",
+            "Volumes": null,
+            "WorkingDir": "/fixture",
+            "Entrypoint": [
+                "node"
+            ],
+            "Labels": {
+                "bitestar.run": "linux004"
+            }
+        },
+        "NetworkSettings": {
+            "SandboxID": "",
+            "SandboxKey": "",
+            "Ports": {},
+            "Networks": {}
+        },
+        "ImageManifestDescriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:5c022006853f723ca2353c37c0f4f69ffcfbe201406ecc775bc30ce7c156e75c",
+            "size": 2585,
+            "annotations": {
+                "config.digest": "sha256:fd12bed469534dfad7575f8caf7d3f9d663dd357fe025053d8315b959c0af272"
+            },
+            "platform": {
+                "architecture": "amd64",
+                "os": "linux"
+            }
+        }
+    }
+]

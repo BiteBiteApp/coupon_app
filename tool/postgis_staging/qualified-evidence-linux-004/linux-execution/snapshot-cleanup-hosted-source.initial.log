@@ -1,0 +1,26 @@
+✔ bounded SQL cleanup preserves active revisions, remaining foreign keys and unpublished source events (883.483792ms)
+✔ real Firestore bounded binding cleanup is inert, nonproduction guarded and retains live bindings (3755.195543ms)
+✔ controlled synthetic job exercises raw Firestore -> native maintenance -> atomic journal, interruption and tombstones (2500.565709ms)
+✔ construction and missing/forged approval are inert; production/mismatched config refused (14.102625ms)
+✔ immutable generation-pinned chunks round-trip beyond500 rows; retry is identical (76.481541ms)
+✔ lost upload acknowledgements reconcile verified bytes and do not duplicate (42.111625ms)
+✔ interrupted upload never publishes completeness and resumes create-if-absent (34.865125ms)
+✔ missing chunk rejects recovery evidence (27.291417ms)
+✔ corrupt chunk rejects recovery evidence (48.825458ms)
+✔ generation chunk rejects recovery evidence (31.938042ms)
+✔ metadata chunk rejects recovery evidence (29.351916ms)
+✔ terminal generation replacement/removal after pin is rejected even for identical bytes (36.219334ms)
+✔ conflicting create cannot overwrite previously durable rows (34.253459ms)
+✔ permission and timeout failures are not absence; bucket incarnation/scope and expiry fail closed (1.131708ms)
+✔ unverified source and storage overflow never produce a terminal manifest (22.169417ms)
+✔ empty complete snapshot retains fence and validates without data objects (3.356416ms)
+✔ malformed provider JSON and transport errors never expose response fragments (1.39475ms)
+✔ hosted streaming export uses branded approved SQL and no filesystem; restore binds exact store and ID (45.065458ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7919.278879

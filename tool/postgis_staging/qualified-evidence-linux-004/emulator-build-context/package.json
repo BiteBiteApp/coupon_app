@@ -1,0 +1,8 @@
+{
+  "name": "bs-linux004-local-emulators",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "firebase-tools": "15.19.1"
+  }
+}

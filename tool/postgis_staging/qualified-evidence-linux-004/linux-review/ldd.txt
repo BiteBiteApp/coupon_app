@@ -1,0 +1,12 @@
+ldd (Debian GLIBC 2.36-9+deb12u14) 2.36
+Copyright (C) 2022 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Written by Roland McGrath and Ulrich Drepper.
+	libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007fffff7c1000)
+	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007fffff5a7000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007fffff4c7000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007fffff4a7000)
+	libpthread.so.0 => /lib/x86_64-linux-gnu/libpthread.so.0 (0x00007fffff4a2000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007fffff2c0000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007ffffffcb000)

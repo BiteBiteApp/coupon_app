@@ -1,0 +1,9 @@
+{
+  "network": "289d997236b5e34bd220280ebc59dcea0d6ffc69b693f011d4ddfdab83f13546",
+  "internal": true,
+  "volume": "bs-linux004-pg",
+  "postgresContainer": "02728be92b5b44a79df3ff3c8abf990451b1959364da4719b32a8b4f25c5bf0d",
+  "postgresImage": "postgis/postgis@sha256:7e00e8c3539fdd43f513b98806c8204714dcd09dea683c259e333d7690317119",
+  "hostPublication": "127.0.0.1:8188 -> future task relay8189 only; SQL not published",
+  "project": "synthetic demo-bs-postgis-*"
+}

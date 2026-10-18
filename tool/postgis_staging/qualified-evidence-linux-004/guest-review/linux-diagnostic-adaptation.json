@@ -1,0 +1,35 @@
+{
+  "recordedAt": "2026-10-17T23:56:03.942152+00:00",
+  "image": "bitestar-postgis-linux-004:initial",
+  "observedImageId": "sha256:2b449598cf09490b7c3d4699031d26783a94c46d450176ad696c96909c28d12c",
+  "platform": "linux/amd64",
+  "mode": "Rosetta emulation per parent; not native hosted execution",
+  "noNetwork": true,
+  "memory": "768m",
+  "cpus": "1",
+  "pidsLimit": 128,
+  "scripts": [
+    {
+      "original": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.v3.cjs",
+      "originalSha256": "9812e4b2a732a6ae84f29d4b84879e621a9890787f5f906b77159d6fb025ae4b",
+      "adapted": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-inputs/independent-window-diagnostics.v3.cjs",
+      "adaptedSha256": "63d1c419cd90fc8cffbc627aaef1776c1c7ae7a2446a730920869cd9b03a80ac",
+      "adaptations": [
+        "Fixture repository root only: Mac checkout -> /app (native fixture at /app/functions/test)",
+        "Observation JSON output path only: read-only script mount -> container-writable /tmp"
+      ],
+      "assertionBodiesUnchanged": true
+    },
+    {
+      "original": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PRESPEND-LOCAL-003-20261017/guest-review/independent-window-diagnostics.supplement.cjs",
+      "originalSha256": "918a32133236926ccde4566fada4ce784d77ae5b6f411712697a9aa8aae2db42",
+      "adapted": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/guest-review/linux-inputs/independent-window-diagnostics.supplement.cjs",
+      "adaptedSha256": "26aa98d7624f8a1e472001f4d6fa89b67deff6fb2cfe46dae333e5fcd3f5b741",
+      "adaptations": [
+        "Fixture repository root only: Mac checkout -> /app (native fixture at /app/functions/test)",
+        "Observation JSON output path only: read-only script mount -> container-writable /tmp"
+      ],
+      "assertionBodiesUnchanged": true
+    }
+  ]
+}

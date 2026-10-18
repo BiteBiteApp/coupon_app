@@ -1,0 +1,1089 @@
+00000000027a6300 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)>:
+ 27a6300: pushq %rbp
+ 27a6301: movq %xmm0, %rdx
+ 27a6306: movq %rsp, %rbp
+ 27a6309: pushq %r12
+ 27a630b: movq %rdx, %r12
+ 27a630e: pushq %rbx
+ 27a630f: shrq $0x20, %r12
+ 27a6313: movq %rdi, %rbx
+ 27a6316: movl %r12d, %eax
+ 27a6319: andl $0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a631e: subq $0x20, %rsp
+ 27a6322: cmpl $0x3fe921fb, %eax       # imm = 0x3FE921FB
+ 27a6327: jle 0x27a6420 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x120>
+ 27a632d: cmpl $0x4002d97b, %eax       # imm = 0x4002D97B
+ 27a6332: jg 0x27a6388 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x88>
+ 27a6334: testl %r12d, %r12d
+ 27a6337: jle 0x27a6622 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x322>
+ 27a633d: subsd 0x3eab0bb(%rip), %xmm0  # 0x6651400 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x140>
+ 27a6345: cmpl $0x3ff921fb, %eax       # imm = 0x3FF921FB
+ 27a634a: je 0x27a6500 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x200>
+ 27a6350: movsd 0x3eab0b0(%rip), %xmm2  # 0x6651408 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x148>
+ 27a6358: movapd %xmm0, %xmm1
+ 27a635c: subsd %xmm2, %xmm1
+ 27a6360: subsd %xmm1, %xmm0
+ 27a6364: subsd %xmm2, %xmm0
+ 27a6368: movsd %xmm1, (%rbx)
+ 27a636c: movl $0x1, %edx
+ 27a6371: movsd %xmm0, 0x8(%rbx)
+ 27a6376: addq $0x20, %rsp
+ 27a637a: movl %edx, %eax
+ 27a637c: popq %rbx
+ 27a637d: popq %r12
+ 27a637f: popq %rbp
+ 27a6380: retq
+ 27a6381: nopl (%rax)
+ 27a6388: cmpl $0x413921fb, %eax       # imm = 0x413921FB
+ 27a638d: jg 0x27a6438 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x138>
+ 27a6393: andpd 0xa5b255(%rip), %xmm0   # 0x32015f0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x130>
+ 27a639b: movsd 0x3eab07d(%rip), %xmm1  # 0x6651420 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x160>
+ 27a63a3: pxor %xmm3, %xmm3
+ 27a63a7: movsd 0x3eab059(%rip), %xmm2  # 0x6651408 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x148>
+ 27a63af: mulsd %xmm0, %xmm1
+ 27a63b3: addsd 0xa8409d(%rip), %xmm1   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a63bb: cvttsd2si %xmm1, %edx
+ 27a63bf: movsd 0x3eab039(%rip), %xmm1  # 0x6651400 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x140>
+ 27a63c7: cvtsi2sd %edx, %xmm3
+ 27a63cb: mulsd %xmm3, %xmm1
+ 27a63cf: mulsd %xmm3, %xmm2
+ 27a63d3: subsd %xmm1, %xmm0
+ 27a63d7: movapd %xmm0, %xmm1
+ 27a63db: subsd %xmm2, %xmm1
+ 27a63df: cmpl $0x1f, %edx
+ 27a63e2: jg 0x27a6528 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x228>
+ 27a63e8: leal -0x1(%rdx), %ecx
+ 27a63eb: movslq %ecx, %rcx
+ 27a63ee: cmpl %eax, 0x6651240(,%rcx,4)
+ 27a63f5: je 0x27a6528 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x228>
+ 27a63fb: movsd %xmm1, (%rbx)
+ 27a63ff: subsd %xmm1, %xmm0
+ 27a6403: subsd %xmm2, %xmm0
+ 27a6407: testl %r12d, %r12d
+ 27a640a: js 0x27a65d0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x2d0>
+ 27a6410: movsd %xmm0, 0x8(%rbx)
+ 27a6415: jmp 0x27a6376 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x76>
+ 27a641a: nopw (%rax,%rax)
+ 27a6420: movq $0x0, 0x8(%rdi)
+ 27a6428: xorl %edx, %edx
+ 27a642a: movsd %xmm0, (%rdi)
+ 27a642e: jmp 0x27a6376 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x76>
+ 27a6433: nopl (%rax,%rax)
+ 27a6438: cmpl $0x7fefffff, %eax       # imm = 0x7FEFFFFF
+ 27a643d: jg 0x27a65f0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x2f0>
+ 27a6443: movl %eax, %esi
+ 27a6445: pxor %xmm1, %xmm1
+ 27a6449: pxor %xmm2, %xmm2
+ 27a644d: movl %edx, %edx
+ 27a644f: sarl $0x14, %esi
+ 27a6452: subl $0x416, %esi            # imm = 0x416
+ 27a6458: movl %esi, %ecx
+ 27a645a: shll $0x14, %ecx
+ 27a645d: subl %ecx, %eax
+ 27a645f: shlq $0x20, %rax
+ 27a6463: orq %rdx, %rax
+ 27a6466: movq %rax, %xmm0
+ 27a646b: cvttsd2si %xmm0, %eax
+ 27a646f: cvtsi2sd %eax, %xmm1
+ 27a6473: subsd %xmm1, %xmm0
+ 27a6477: movsd %xmm1, -0x30(%rbp)
+ 27a647c: movsd 0x3eaaf4c(%rip), %xmm1  # 0x66513d0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x110>
+ 27a6484: mulsd %xmm1, %xmm0
+ 27a6488: cvttsd2si %xmm0, %eax
+ 27a648c: cvtsi2sd %eax, %xmm2
+ 27a6490: subsd %xmm2, %xmm0
+ 27a6494: movsd %xmm2, -0x28(%rbp)
+ 27a6499: mulsd %xmm1, %xmm0
+ 27a649d: pxor %xmm1, %xmm1
+ 27a64a1: ucomisd %xmm1, %xmm0
+ 27a64a5: movsd %xmm0, -0x20(%rbp)
+ 27a64aa: jp 0x27a6618 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x318>
+ 27a64b0: jne 0x27a6618 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x318>
+ 27a64b6: cmpl $0x1, %eax
+ 27a64b9: movl $0x1, %ecx
+ 27a64be: sbbl $-0x1, %ecx
+ 27a64c1: movl %esi, %edx
+ 27a64c3: leaq -0x30(%rbp), %rdi
+ 27a64c7: movq %rbx, %rsi
+ 27a64ca: callq 0x27a5730 <v8::base::ieee754::(anonymous namespace)::__kernel_rem_pio2(double*, double*, int, int, int, int const*) (.constprop.0)>
+ 27a64cf: movl %eax, %edx
+ 27a64d1: testl %r12d, %r12d
+ 27a64d4: jns 0x27a6376 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x76>
+ 27a64da: movsd 0xa83fce(%rip), %xmm0   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a64e2: movupd (%rbx), %xmm5
+ 27a64e6: negl %edx
+ 27a64e8: unpcklpd %xmm0, %xmm0            # xmm0 = xmm0[0,0]
+ 27a64ec: xorpd %xmm5, %xmm0
+ 27a64f0: movups %xmm0, (%rbx)
+ 27a64f3: jmp 0x27a6376 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x76>
+ 27a64f8: nopl (%rax,%rax)
+ 27a6500: subsd 0x3eaaf08(%rip), %xmm0  # 0x6651410 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x150>
+ 27a6508: movsd 0x3eaaf08(%rip), %xmm2  # 0x6651418 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x158>
+ 27a6510: movapd %xmm0, %xmm1
+ 27a6514: subsd %xmm2, %xmm1
+ 27a6518: subsd %xmm1, %xmm0
+ 27a651c: subsd %xmm2, %xmm0
+ 27a6520: jmp 0x27a6368 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x68>
+ 27a6525: nopl (%rax)
+ 27a6528: movq %xmm1, %rsi
+ 27a652d: sarl $0x14, %eax
+ 27a6530: shrq $0x34, %rsi
+ 27a6534: movq %rsi, %rcx
+ 27a6537: movl %eax, %esi
+ 27a6539: andl $0x7ff, %ecx            # imm = 0x7FF
+ 27a653f: subl %ecx, %esi
+ 27a6541: cmpl $0x10, %esi
+ 27a6544: jle 0x27a63fb <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0xfb>
+ 27a654a: movsd 0x3eaaebe(%rip), %xmm1  # 0x6651410 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x150>
+ 27a6552: movapd %xmm0, %xmm4
+ 27a6556: movsd 0x3eaaeba(%rip), %xmm2  # 0x6651418 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x158>
+ 27a655e: mulsd %xmm3, %xmm1
+ 27a6562: mulsd %xmm3, %xmm2
+ 27a6566: subsd %xmm1, %xmm4
+ 27a656a: subsd %xmm4, %xmm0
+ 27a656e: subsd %xmm1, %xmm0
+ 27a6572: movapd %xmm4, %xmm1
+ 27a6576: subsd %xmm0, %xmm2
+ 27a657a: subsd %xmm2, %xmm1
+ 27a657e: movq %xmm1, %rsi
+ 27a6583: shrq $0x34, %rsi
+ 27a6587: movq %rsi, %rcx
+ 27a658a: andl $0x7ff, %ecx            # imm = 0x7FF
+ 27a6590: subl %ecx, %eax
+ 27a6592: cmpl $0x31, %eax
+ 27a6595: jle 0x27a6608 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x308>
+ 27a6597: movsd 0x3eaae89(%rip), %xmm1  # 0x6651428 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x168>
+ 27a659f: movapd %xmm4, %xmm0
+ 27a65a3: mulsd %xmm3, %xmm1
+ 27a65a7: mulsd 0x3eaae81(%rip), %xmm3  # 0x6651430 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x170>
+ 27a65af: subsd %xmm1, %xmm0
+ 27a65b3: subsd %xmm0, %xmm4
+ 27a65b7: subsd %xmm1, %xmm4
+ 27a65bb: movapd %xmm0, %xmm1
+ 27a65bf: subsd %xmm4, %xmm3
+ 27a65c3: subsd %xmm3, %xmm1
+ 27a65c7: movapd %xmm3, %xmm2
+ 27a65cb: jmp 0x27a63fb <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0xfb>
+ 27a65d0: unpcklpd %xmm0, %xmm1            # xmm1 = xmm1[0],xmm0[0]
+ 27a65d4: movsd 0xa83ed4(%rip), %xmm0   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a65dc: negl %edx
+ 27a65de: unpcklpd %xmm0, %xmm0            # xmm0 = xmm0[0,0]
+ 27a65e2: xorpd %xmm0, %xmm1
+ 27a65e6: movups %xmm1, (%rbx)
+ 27a65e9: jmp 0x27a6376 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x76>
+ 27a65ee: nop
+ 27a65f0: subsd %xmm0, %xmm0
+ 27a65f4: xorl %edx, %edx
+ 27a65f6: unpcklpd %xmm0, %xmm0            # xmm0 = xmm0[0,0]
+ 27a65fa: movups %xmm0, (%rdi)
+ 27a65fd: jmp 0x27a6376 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x76>
+ 27a6602: nopw (%rax,%rax)
+ 27a6608: movsd %xmm1, (%rbx)
+ 27a660c: movapd %xmm4, %xmm0
+ 27a6610: jmp 0x27a63ff <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0xff>
+ 27a6615: nopl (%rax)
+ 27a6618: movl $0x3, %ecx
+ 27a661d: jmp 0x27a64c1 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x1c1>
+ 27a6622: addsd 0x3eaadd6(%rip), %xmm0  # 0x6651400 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x140>
+ 27a662a: cmpl $0x3ff921fb, %eax       # imm = 0x3FF921FB
+ 27a662f: je 0x27a665c <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x35c>
+ 27a6631: movsd 0x3eaadcf(%rip), %xmm2  # 0x6651408 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x148>
+ 27a6639: movapd %xmm0, %xmm1
+ 27a663d: addsd %xmm2, %xmm1
+ 27a6641: subsd %xmm1, %xmm0
+ 27a6645: addsd %xmm2, %xmm0
+ 27a6649: movsd %xmm1, (%rbx)
+ 27a664d: movl $0xffffffff, %edx       # imm = 0xFFFFFFFF
+ 27a6652: movsd %xmm0, 0x8(%rbx)
+ 27a6657: jmp 0x27a6376 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x76>
+ 27a665c: addsd 0x3eaadac(%rip), %xmm0  # 0x6651410 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x150>
+ 27a6664: movsd 0x3eaadac(%rip), %xmm2  # 0x6651418 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x158>
+ 27a666c: movapd %xmm0, %xmm1
+ 27a6670: addsd %xmm2, %xmm1
+ 27a6674: subsd %xmm1, %xmm0
+ 27a6678: addsd %xmm2, %xmm0
+ 27a667c: jmp 0x27a6649 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)+0x349>
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64: file format elf64-x86-64
+00000000027a8e60 <v8::base::ieee754::sin(double)>:
+ 27a8e60: movq %xmm0, %rax
+ 27a8e65: shrq $0x20, %rax
+ 27a8e69: andl $0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a8e6e: cmpl $0x3fe921fb, %eax       # imm = 0x3FE921FB
+ 27a8e73: jg 0x27a8ee8 <v8::base::ieee754::sin(double)+0x88>
+ 27a8e75: cmpl $0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a8e7a: jg 0x27a8e88 <v8::base::ieee754::sin(double)+0x28>
+ 27a8e7c: cvttsd2si %xmm0, %eax
+ 27a8e80: movapd %xmm0, %xmm1
+ 27a8e84: testl %eax, %eax
+ 27a8e86: je 0x27a8ef7 <v8::base::ieee754::sin(double)+0x97>
+ 27a8e88: movapd %xmm0, %xmm2
+ 27a8e8c: movsd 0x3ea8704(%rip), %xmm1  # 0x6651598 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d8>
+ 27a8e94: mulsd %xmm0, %xmm2
+ 27a8e98: mulsd %xmm2, %xmm1
+ 27a8e9c: subsd 0x3ea86fc(%rip), %xmm1  # 0x66515a0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e0>
+ 27a8ea4: mulsd %xmm2, %xmm1
+ 27a8ea8: addsd 0x3ea86f8(%rip), %xmm1  # 0x66515a8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e8>
+ 27a8eb0: mulsd %xmm2, %xmm1
+ 27a8eb4: subsd 0x3ea86f4(%rip), %xmm1  # 0x66515b0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f0>
+ 27a8ebc: mulsd %xmm2, %xmm1
+ 27a8ec0: addsd 0x3ea86f0(%rip), %xmm1  # 0x66515b8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f8>
+ 27a8ec8: mulsd %xmm2, %xmm1
+ 27a8ecc: mulsd %xmm0, %xmm2
+ 27a8ed0: subsd 0x3ea86e8(%rip), %xmm1  # 0x66515c0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x300>
+ 27a8ed8: mulsd %xmm2, %xmm1
+ 27a8edc: addsd %xmm0, %xmm1
+ 27a8ee0: movapd %xmm1, %xmm0
+ 27a8ee4: retq
+ 27a8ee5: nopl (%rax)
+ 27a8ee8: cmpl $0x7fefffff, %eax       # imm = 0x7FEFFFFF
+ 27a8eed: jle 0x27a8f00 <v8::base::ieee754::sin(double)+0xa0>
+ 27a8eef: movapd %xmm0, %xmm1
+ 27a8ef3: subsd %xmm0, %xmm1
+ 27a8ef7: movapd %xmm1, %xmm0
+ 27a8efb: retq
+ 27a8efc: nopl (%rax)
+ 27a8f00: pushq %rbp
+ 27a8f01: movq %rsp, %rbp
+ 27a8f04: subq $0x10, %rsp
+ 27a8f08: leaq -0x10(%rbp), %rdi
+ 27a8f0c: callq 0x27a6300 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)>
+ 27a8f11: andl $0x3, %eax
+ 27a8f14: cmpl $0x1, %eax
+ 27a8f17: je 0x27a9158 <v8::base::ieee754::sin(double)+0x2f8>
+ 27a8f1d: cmpl $0x2, %eax
+ 27a8f20: je 0x27a9000 <v8::base::ieee754::sin(double)+0x1a0>
+ 27a8f26: testl %eax, %eax
+ 27a8f28: je 0x27a90b0 <v8::base::ieee754::sin(double)+0x250>
+ 27a8f2e: movsd -0x10(%rbp), %xmm4
+ 27a8f33: movsd -0x8(%rbp), %xmm2
+ 27a8f38: movq %xmm4, %rax
+ 27a8f3d: shrq $0x20, %rax
+ 27a8f41: andl $0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a8f46: cmpl $0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a8f4b: jle 0x27a92d8 <v8::base::ieee754::sin(double)+0x478>
+ 27a8f51: movapd %xmm4, %xmm3
+ 27a8f55: movsd 0x3ea860b(%rip), %xmm0  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a8f5d: mulsd %xmm4, %xmm3
+ 27a8f61: mulsd %xmm3, %xmm0
+ 27a8f65: addsd 0x3ea8603(%rip), %xmm0  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a8f6d: mulsd %xmm3, %xmm0
+ 27a8f71: subsd 0x3ea85ff(%rip), %xmm0  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a8f79: mulsd %xmm3, %xmm0
+ 27a8f7d: addsd 0x3ea85fb(%rip), %xmm0  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a8f85: mulsd %xmm3, %xmm0
+ 27a8f89: subsd 0x3ea85f7(%rip), %xmm0  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a8f91: mulsd %xmm3, %xmm0
+ 27a8f95: addsd 0x3ea85f3(%rip), %xmm0  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a8f9d: mulsd %xmm3, %xmm0
+ 27a8fa1: cmpl $0x3fd33332, %eax       # imm = 0x3FD33332
+ 27a8fa6: jle 0x27a933c <v8::base::ieee754::sin(double)+0x4dc>
+ 27a8fac: cmpl $0x3fe90000, %eax       # imm = 0x3FE90000
+ 27a8fb1: jg 0x27a9390 <v8::base::ieee754::sin(double)+0x530>
+ 27a8fb7: subl $0x200000, %eax         # imm = 0x200000
+ 27a8fbc: movsd 0xa585fc(%rip), %xmm1   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a8fc4: shlq $0x20, %rax
+ 27a8fc8: movq %rax, %xmm5
+ 27a8fcd: subsd %xmm5, %xmm1
+ 27a8fd1: movsd 0xa8147f(%rip), %xmm6   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a8fd9: mulsd %xmm3, %xmm0
+ 27a8fdd: mulsd %xmm2, %xmm4
+ 27a8fe1: mulsd %xmm3, %xmm6
+ 27a8fe5: subsd %xmm4, %xmm0
+ 27a8fe9: subsd %xmm5, %xmm6
+ 27a8fed: subsd %xmm0, %xmm6
+ 27a8ff1: subsd %xmm6, %xmm1
+ 27a8ff5: jmp 0x27a909b <v8::base::ieee754::sin(double)+0x23b>
+ 27a8ffa: nopw (%rax,%rax)
+ 27a9000: movsd -0x10(%rbp), %xmm1
+ 27a9005: movsd -0x8(%rbp), %xmm4
+ 27a900a: movq %xmm1, %rax
+ 27a900f: shrq $0x20, %rax
+ 27a9013: andl $0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a9018: cmpl $0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a901d: jle 0x27a92c0 <v8::base::ieee754::sin(double)+0x460>
+ 27a9023: movapd %xmm1, %xmm5
+ 27a9027: movsd 0x3ea8569(%rip), %xmm0  # 0x6651598 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d8>
+ 27a902f: movapd %xmm1, %xmm3
+ 27a9033: movsd 0xa8141d(%rip), %xmm2   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a903b: mulsd %xmm1, %xmm5
+ 27a903f: mulsd %xmm4, %xmm2
+ 27a9043: mulsd %xmm5, %xmm0
+ 27a9047: subsd 0x3ea8551(%rip), %xmm0  # 0x66515a0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e0>
+ 27a904f: mulsd %xmm5, %xmm3
+ 27a9053: mulsd %xmm5, %xmm0
+ 27a9057: addsd 0x3ea8549(%rip), %xmm0  # 0x66515a8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e8>
+ 27a905f: mulsd %xmm5, %xmm0
+ 27a9063: subsd 0x3ea8545(%rip), %xmm0  # 0x66515b0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f0>
+ 27a906b: mulsd %xmm5, %xmm0
+ 27a906f: addsd 0x3ea8541(%rip), %xmm0  # 0x66515b8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f8>
+ 27a9077: mulsd %xmm3, %xmm0
+ 27a907b: mulsd 0x3ea853d(%rip), %xmm3  # 0x66515c0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x300>
+ 27a9083: subsd %xmm0, %xmm2
+ 27a9087: mulsd %xmm5, %xmm2
+ 27a908b: movapd %xmm2, %xmm0
+ 27a908f: subsd %xmm4, %xmm0
+ 27a9093: addsd %xmm3, %xmm0
+ 27a9097: subsd %xmm0, %xmm1
+ 27a909b: xorpd 0xa8140d(%rip), %xmm1   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a90a3: leave
+ 27a90a4: movapd %xmm1, %xmm0
+ 27a90a8: retq
+ 27a90a9: nopl (%rax)
+ 27a90b0: movsd -0x10(%rbp), %xmm1
+ 27a90b5: movsd -0x8(%rbp), %xmm4
+ 27a90ba: movq %xmm1, %rax
+ 27a90bf: shrq $0x20, %rax
+ 27a90c3: andl $0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a90c8: cmpl $0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a90cd: jg 0x27a90d7 <v8::base::ieee754::sin(double)+0x277>
+ 27a90cf: cvttsd2si %xmm1, %eax
+ 27a90d3: testl %eax, %eax
+ 27a90d5: je 0x27a90a3 <v8::base::ieee754::sin(double)+0x243>
+ 27a90d7: movapd %xmm1, %xmm5
+ 27a90db: movsd 0x3ea84b5(%rip), %xmm0  # 0x6651598 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d8>
+ 27a90e3: movapd %xmm1, %xmm3
+ 27a90e7: movsd 0xa81369(%rip), %xmm2   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a90ef: mulsd %xmm1, %xmm5
+ 27a90f3: mulsd %xmm4, %xmm2
+ 27a90f7: mulsd %xmm5, %xmm0
+ 27a90fb: subsd 0x3ea849d(%rip), %xmm0  # 0x66515a0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e0>
+ 27a9103: mulsd %xmm5, %xmm3
+ 27a9107: mulsd %xmm5, %xmm0
+ 27a910b: addsd 0x3ea8495(%rip), %xmm0  # 0x66515a8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e8>
+ 27a9113: mulsd %xmm5, %xmm0
+ 27a9117: subsd 0x3ea8491(%rip), %xmm0  # 0x66515b0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f0>
+ 27a911f: mulsd %xmm5, %xmm0
+ 27a9123: addsd 0x3ea848d(%rip), %xmm0  # 0x66515b8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f8>
+ 27a912b: mulsd %xmm3, %xmm0
+ 27a912f: mulsd 0x3ea8489(%rip), %xmm3  # 0x66515c0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x300>
+ 27a9137: subsd %xmm0, %xmm2
+ 27a913b: mulsd %xmm5, %xmm2
+ 27a913f: movapd %xmm2, %xmm0
+ 27a9143: subsd %xmm4, %xmm0
+ 27a9147: addsd %xmm3, %xmm0
+ 27a914b: subsd %xmm0, %xmm1
+ 27a914f: jmp 0x27a90a3 <v8::base::ieee754::sin(double)+0x243>
+ 27a9154: nopl (%rax)
+ 27a9158: movsd -0x10(%rbp), %xmm4
+ 27a915d: movsd -0x8(%rbp), %xmm2
+ 27a9162: movq %xmm4, %rax
+ 27a9167: shrq $0x20, %rax
+ 27a916b: andl $0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a9170: cmpl $0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a9175: jle 0x27a9228 <v8::base::ieee754::sin(double)+0x3c8>
+ 27a917b: movapd %xmm4, %xmm3
+ 27a917f: movsd 0x3ea83e1(%rip), %xmm0  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a9187: mulsd %xmm4, %xmm3
+ 27a918b: mulsd %xmm3, %xmm0
+ 27a918f: addsd 0x3ea83d9(%rip), %xmm0  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a9197: mulsd %xmm3, %xmm0
+ 27a919b: subsd 0x3ea83d5(%rip), %xmm0  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a91a3: mulsd %xmm3, %xmm0
+ 27a91a7: addsd 0x3ea83d1(%rip), %xmm0  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a91af: mulsd %xmm3, %xmm0
+ 27a91b3: subsd 0x3ea83cd(%rip), %xmm0  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a91bb: mulsd %xmm3, %xmm0
+ 27a91bf: addsd 0x3ea83c9(%rip), %xmm0  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a91c7: mulsd %xmm3, %xmm0
+ 27a91cb: cmpl $0x3fd33332, %eax       # imm = 0x3FD33332
+ 27a91d0: jle 0x27a928c <v8::base::ieee754::sin(double)+0x42c>
+ 27a91d6: cmpl $0x3fe90000, %eax       # imm = 0x3FE90000
+ 27a91db: jg 0x27a9378 <v8::base::ieee754::sin(double)+0x518>
+ 27a91e1: subl $0x200000, %eax         # imm = 0x200000
+ 27a91e6: movsd 0xa583d2(%rip), %xmm1   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a91ee: shlq $0x20, %rax
+ 27a91f2: movq %rax, %xmm5
+ 27a91f7: subsd %xmm5, %xmm1
+ 27a91fb: movsd 0xa81255(%rip), %xmm6   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a9203: mulsd %xmm3, %xmm0
+ 27a9207: mulsd %xmm2, %xmm4
+ 27a920b: mulsd %xmm3, %xmm6
+ 27a920f: subsd %xmm4, %xmm0
+ 27a9213: subsd %xmm5, %xmm6
+ 27a9217: subsd %xmm0, %xmm6
+ 27a921b: subsd %xmm6, %xmm1
+ 27a921f: jmp 0x27a90a3 <v8::base::ieee754::sin(double)+0x243>
+ 27a9224: nopl (%rax)
+ 27a9228: cvttsd2si %xmm4, %eax
+ 27a922c: movsd 0xa5838c(%rip), %xmm1   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a9234: testl %eax, %eax
+ 27a9236: je 0x27a90a3 <v8::base::ieee754::sin(double)+0x243>
+ 27a923c: movapd %xmm4, %xmm3
+ 27a9240: movsd 0x3ea8320(%rip), %xmm0  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a9248: mulsd %xmm4, %xmm3
+ 27a924c: mulsd %xmm3, %xmm0
+ 27a9250: addsd 0x3ea8318(%rip), %xmm0  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a9258: mulsd %xmm3, %xmm0
+ 27a925c: subsd 0x3ea8314(%rip), %xmm0  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a9264: mulsd %xmm3, %xmm0
+ 27a9268: addsd 0x3ea8310(%rip), %xmm0  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a9270: mulsd %xmm3, %xmm0
+ 27a9274: subsd 0x3ea830c(%rip), %xmm0  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a927c: mulsd %xmm3, %xmm0
+ 27a9280: addsd 0x3ea8308(%rip), %xmm0  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a9288: mulsd %xmm3, %xmm0
+ 27a928c: mulsd %xmm2, %xmm4
+ 27a9290: movsd 0xa811c0(%rip), %xmm1   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a9298: mulsd %xmm3, %xmm0
+ 27a929c: mulsd %xmm3, %xmm1
+ 27a92a0: subsd %xmm4, %xmm0
+ 27a92a4: movapd %xmm1, %xmm2
+ 27a92a8: movsd 0xa58310(%rip), %xmm1   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a92b0: subsd %xmm0, %xmm2
+ 27a92b4: subsd %xmm2, %xmm1
+ 27a92b8: jmp 0x27a90a3 <v8::base::ieee754::sin(double)+0x243>
+ 27a92bd: nopl (%rax)
+ 27a92c0: cvttsd2si %xmm1, %eax
+ 27a92c4: testl %eax, %eax
+ 27a92c6: jne 0x27a9023 <v8::base::ieee754::sin(double)+0x1c3>
+ 27a92cc: jmp 0x27a909b <v8::base::ieee754::sin(double)+0x23b>
+ 27a92d1: nopl (%rax)
+ 27a92d8: cvttsd2si %xmm4, %eax
+ 27a92dc: movsd 0xa5bb64(%rip), %xmm1   # 0x3204e48 <std::_Sp_make_shared_tag::_S_ti()::__tag+0x10>
+ 27a92e4: testl %eax, %eax
+ 27a92e6: je 0x27a90a3 <v8::base::ieee754::sin(double)+0x243>
+ 27a92ec: movapd %xmm4, %xmm3
+ 27a92f0: movsd 0x3ea8270(%rip), %xmm0  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a92f8: mulsd %xmm4, %xmm3
+ 27a92fc: mulsd %xmm3, %xmm0
+ 27a9300: addsd 0x3ea8268(%rip), %xmm0  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a9308: mulsd %xmm3, %xmm0
+ 27a930c: subsd 0x3ea8264(%rip), %xmm0  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a9314: mulsd %xmm3, %xmm0
+ 27a9318: addsd 0x3ea8260(%rip), %xmm0  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a9320: mulsd %xmm3, %xmm0
+ 27a9324: subsd 0x3ea825c(%rip), %xmm0  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a932c: mulsd %xmm3, %xmm0
+ 27a9330: addsd 0x3ea8258(%rip), %xmm0  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a9338: mulsd %xmm3, %xmm0
+ 27a933c: mulsd %xmm2, %xmm4
+ 27a9340: movsd 0xa81110(%rip), %xmm1   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a9348: mulsd %xmm3, %xmm0
+ 27a934c: mulsd %xmm3, %xmm1
+ 27a9350: subsd %xmm4, %xmm0
+ 27a9354: movapd %xmm1, %xmm2
+ 27a9358: movsd 0xa58260(%rip), %xmm1   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a9360: subsd %xmm0, %xmm2
+ 27a9364: subsd %xmm2, %xmm1
+ 27a9368: xorpd 0xa81140(%rip), %xmm1   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a9370: jmp 0x27a90a3 <v8::base::ieee754::sin(double)+0x243>
+ 27a9375: nopl (%rax)
+ 27a9378: movsd 0x3ea81d8(%rip), %xmm1  # 0x6651558 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x298>
+ 27a9380: movsd 0x3ea81d8(%rip), %xmm5  # 0x6651560 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a0>
+ 27a9388: jmp 0x27a91fb <v8::base::ieee754::sin(double)+0x39b>
+ 27a938d: nopl (%rax)
+ 27a9390: movsd 0x3ea81c0(%rip), %xmm1  # 0x6651558 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x298>
+ 27a9398: movsd 0x3ea81c0(%rip), %xmm5  # 0x6651560 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a0>
+ 27a93a0: jmp 0x27a8fd1 <v8::base::ieee754::sin(double)+0x171>
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64: file format elf64-x86-64
+00000000027a6f20 <v8::base::ieee754::atan2(double, double)>:
+ 27a6f20: movq %xmm1, %rdx
+ 27a6f25: movq %rdx, %rsi
+ 27a6f28: shrq $0x20, %rsi
+ 27a6f2c: movl %esi, %edi
+ 27a6f2e: andl $0x7fffffff, %edi       # imm = 0x7FFFFFFF
+ 27a6f34: cmpl $0x80000000, %edx       # imm = 0x80000000
+ 27a6f3a: je 0x27a7183 <v8::base::ieee754::atan2(double, double)+0x263>
+ 27a6f40: movl %edx, %eax
+ 27a6f42: negl %eax
+ 27a6f44: orl %edx, %eax
+ 27a6f46: shrl $0x1f, %eax
+ 27a6f49: orl %edi, %eax
+ 27a6f4b: cmpl $0x7ff00000, %eax       # imm = 0x7FF00000
+ 27a6f50: ja 0x27a6fe0 <v8::base::ieee754::atan2(double, double)+0xc0>
+ 27a6f56: movq %xmm0, %rcx
+ 27a6f5b: cmpl $0x80000000, %ecx       # imm = 0x80000000
+ 27a6f61: je 0x27a71b1 <v8::base::ieee754::atan2(double, double)+0x291>
+ 27a6f67: movl %ecx, %eax
+ 27a6f69: negl %eax
+ 27a6f6b: movq %rcx, %r10
+ 27a6f6e: orl %ecx, %eax
+ 27a6f70: shrq $0x20, %r10
+ 27a6f74: shrl $0x1f, %eax
+ 27a6f77: movl %r10d, %r9d
+ 27a6f7a: andl $0x7fffffff, %r9d       # imm = 0x7FFFFFFF
+ 27a6f81: orl %r9d, %eax
+ 27a6f84: cmpl $0x7ff00000, %eax       # imm = 0x7FF00000
+ 27a6f89: ja 0x27a6fe0 <v8::base::ieee754::atan2(double, double)+0xc0>
+ 27a6f8b: leal -0x3ff00000(%rsi), %eax
+ 27a6f91: orl %edx, %eax
+ 27a6f93: je 0x27a7050 <v8::base::ieee754::atan2(double, double)+0x130>
+ 27a6f99: movl %esi, %r8d
+ 27a6f9c: movl %r10d, %eax
+ 27a6f9f: sarl $0x1e, %r8d
+ 27a6fa3: shrl $0x1f, %eax
+ 27a6fa6: andl $0x2, %r8d
+ 27a6faa: orl %eax, %r8d
+ 27a6fad: orl %r9d, %ecx
+ 27a6fb0: jne 0x27a6ff0 <v8::base::ieee754::atan2(double, double)+0xd0>
+ 27a6fb2: cmpl $0x2, %r8d
+ 27a6fb6: je 0x27a7078 <v8::base::ieee754::atan2(double, double)+0x158>
+ 27a6fbc: movapd %xmm0, %xmm2
+ 27a6fc0: cmpl $0x3, %r8d
+ 27a6fc4: jne 0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a6fc6: movsd 0x43d54e2(%rip), %xmm0  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a6fce: movsd 0x3eaa562(%rip), %xmm2  # 0x6651538 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x278>
+ 27a6fd6: subsd %xmm0, %xmm2
+ 27a6fda: jmp 0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a6fdc: nopl (%rax)
+ 27a6fe0: movapd %xmm1, %xmm2
+ 27a6fe4: addsd %xmm0, %xmm2
+ 27a6fe8: movapd %xmm2, %xmm0
+ 27a6fec: retq
+ 27a6fed: nopl (%rax)
+ 27a6ff0: orl %edi, %edx
+ 27a6ff2: je 0x27a7058 <v8::base::ieee754::atan2(double, double)+0x138>
+ 27a6ff4: cmpl $0x7ff00000, %edi       # imm = 0x7FF00000
+ 27a6ffa: je 0x27a7090 <v8::base::ieee754::atan2(double, double)+0x170>
+ 27a7000: cmpl $0x7ff00000, %r9d       # imm = 0x7FF00000
+ 27a7007: je 0x27a7058 <v8::base::ieee754::atan2(double, double)+0x138>
+ 27a7009: subl %edi, %r9d
+ 27a700c: movl %r9d, %eax
+ 27a700f: sarl $0x14, %eax
+ 27a7012: cmpl $0x3cfffff, %r9d        # imm = 0x3CFFFFF
+ 27a7019: jle 0x27a70f0 <v8::base::ieee754::atan2(double, double)+0x1d0>
+ 27a701f: movsd 0x43d5481(%rip), %xmm2  # 0x6b7c4a8 <v8::base::ieee754::atan2(double, double)::pi_lo>
+ 27a7027: andl $0x1, %r8d
+ 27a702b: mulsd 0xa83425(%rip), %xmm2   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a7033: addsd 0x3eaa405(%rip), %xmm2  # 0x6651440 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x180>
+ 27a703b: je 0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a703d: xorpd 0xa8346b(%rip), %xmm2   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a7045: jmp 0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a7047: nopw (%rax,%rax)
+ 27a7050: jmp 0x27a6c90 <v8::base::ieee754::atan(double)>
+ 27a7055: nopl (%rax)
+ 27a7058: testl %r10d, %r10d
+ 27a705b: js 0x27a70d0 <v8::base::ieee754::atan2(double, double)+0x1b0>
+ 27a705d: movsd 0x43d544b(%rip), %xmm2  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a7065: addsd 0x3eaa3d3(%rip), %xmm2  # 0x6651440 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x180>
+ 27a706d: jmp 0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a7072: nopw (%rax,%rax)
+ 27a7078: movsd 0x43d5430(%rip), %xmm2  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a7080: addsd 0x1630718(%rip), %xmm2  # 0x3dd77a0 <v8::internal::AsmJs::kSingleFunctionName+0x30>
+ 27a7088: jmp 0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a708d: nopl (%rax)
+ 27a7090: cmpl $0x7ff00000, %r9d       # imm = 0x7FF00000
+ 27a7097: je 0x27a7158 <v8::base::ieee754::atan2(double, double)+0x238>
+ 27a709d: cmpl $0x2, %r8d
+ 27a70a1: je 0x27a7078 <v8::base::ieee754::atan2(double, double)+0x158>
+ 27a70a3: cmpl $0x3, %r8d
+ 27a70a7: je 0x27a6fc6 <v8::base::ieee754::atan2(double, double)+0xa6>
+ 27a70ad: movsd 0xa833fb(%rip), %xmm2   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a70b5: cmpl $0x1, %r8d
+ 27a70b9: je 0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a70bf: pxor %xmm2, %xmm2
+ 27a70c3: jmp 0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a70c8: nopl (%rax,%rax)
+ 27a70d0: movsd 0x43d53d8(%rip), %xmm0  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a70d8: movsd 0x3eaa3f8(%rip), %xmm2  # 0x66514d8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x218>
+ 27a70e0: subsd %xmm0, %xmm2
+ 27a70e4: jmp 0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a70e9: nopl (%rax)
+ 27a70f0: pushq %rbp
+ 27a70f1: shrq $0x1f, %rsi
+ 27a70f5: movq %rsp, %rbp
+ 27a70f8: je 0x27a718d <v8::base::ieee754::atan2(double, double)+0x26d>
+ 27a70fe: pxor %xmm2, %xmm2
+ 27a7102: cmpl $-0x3c, %eax
+ 27a7105: jge 0x27a718d <v8::base::ieee754::atan2(double, double)+0x26d>
+ 27a710b: cmpl $0x1, %r8d
+ 27a710f: je 0x27a71a7 <v8::base::ieee754::atan2(double, double)+0x287>
+ 27a7115: cmpl $0x2, %r8d
+ 27a7119: jne 0x27a713d <v8::base::ieee754::atan2(double, double)+0x21d>
+ 27a711b: movsd 0x43d5385(%rip), %xmm1  # 0x6b7c4a8 <v8::base::ieee754::atan2(double, double)::pi_lo>
+ 27a7123: subsd %xmm1, %xmm2
+ 27a7127: movapd %xmm2, %xmm0
+ 27a712b: movsd 0x163066d(%rip), %xmm2  # 0x3dd77a0 <v8::internal::AsmJs::kSingleFunctionName+0x30>
+ 27a7133: subsd %xmm0, %xmm2
+ 27a7137: movapd %xmm2, %xmm0
+ 27a713b: popq %rbp
+ 27a713c: retq
+ 27a713d: testl %r8d, %r8d
+ 27a7140: je 0x27a7137 <v8::base::ieee754::atan2(double, double)+0x217>
+ 27a7142: movsd 0x43d535e(%rip), %xmm0  # 0x6b7c4a8 <v8::base::ieee754::atan2(double, double)::pi_lo>
+ 27a714a: subsd %xmm0, %xmm2
+ 27a714e: subsd 0x163064a(%rip), %xmm2  # 0x3dd77a0 <v8::internal::AsmJs::kSingleFunctionName+0x30>
+ 27a7156: jmp 0x27a7137 <v8::base::ieee754::atan2(double, double)+0x217>
+ 27a7158: cmpl $0x2, %r8d
+ 27a715c: je 0x27a71ed <v8::base::ieee754::atan2(double, double)+0x2cd>
+ 27a7162: cmpl $0x3, %r8d
+ 27a7166: je 0x27a71d4 <v8::base::ieee754::atan2(double, double)+0x2b4>
+ 27a7168: cmpl $0x1, %r8d
+ 27a716c: je 0x27a71bb <v8::base::ieee754::atan2(double, double)+0x29b>
+ 27a716e: movsd 0x43d533a(%rip), %xmm2  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a7176: addsd 0x3eaa32a(%rip), %xmm2  # 0x66514a8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x1e8>
+ 27a717e: jmp 0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a7183: movl $0x80000000, %eax       # imm = 0x80000000
+ 27a7188: jmp 0x27a6f44 <v8::base::ieee754::atan2(double, double)+0x24>
+ 27a718d: divsd %xmm1, %xmm0
+ 27a7191: andpd 0xa5a457(%rip), %xmm0   # 0x32015f0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x130>
+ 27a7199: callq 0x27a6c90 <v8::base::ieee754::atan(double)>
+ 27a719e: movapd %xmm0, %xmm2
+ 27a71a2: jmp 0x27a710b <v8::base::ieee754::atan2(double, double)+0x1eb>
+ 27a71a7: xorpd 0xa83301(%rip), %xmm2   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a71af: jmp 0x27a7137 <v8::base::ieee754::atan2(double, double)+0x217>
+ 27a71b1: movl $0x80000000, %eax       # imm = 0x80000000
+ 27a71b6: jmp 0x27a6f6b <v8::base::ieee754::atan2(double, double)+0x4b>
+ 27a71bb: movsd 0x43d52ed(%rip), %xmm0  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a71c3: movsd 0x3eaa375(%rip), %xmm2  # 0x6651540 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x280>
+ 27a71cb: subsd %xmm0, %xmm2
+ 27a71cf: jmp 0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a71d4: movsd 0x43d52d4(%rip), %xmm0  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a71dc: movsd 0x3eaa36c(%rip), %xmm2  # 0x6651550 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x290>
+ 27a71e4: subsd %xmm0, %xmm2
+ 27a71e8: jmp 0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+ 27a71ed: movsd 0x43d52bb(%rip), %xmm2  # 0x6b7c4b0 <v8::base::ieee754::atan2(double, double)::tiny>
+ 27a71f5: addsd 0x3eaa34b(%rip), %xmm2  # 0x6651548 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x288>
+ 27a71fd: jmp 0x27a6fe8 <v8::base::ieee754::atan2(double, double)+0xc8>
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64: file format elf64-x86-64
+00000000027a7210 <v8::base::ieee754::cos(double)>:
+ 27a7210: movq %xmm0, %rax
+ 27a7215: shrq $0x20, %rax
+ 27a7219: andl $0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a721e: cmpl $0x3fe921fb, %eax       # imm = 0x3FE921FB
+ 27a7223: jg 0x27a72e8 <v8::base::ieee754::cos(double)+0xd8>
+ 27a7229: cmpl $0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a722e: jle 0x27a7300 <v8::base::ieee754::cos(double)+0xf0>
+ 27a7234: movapd %xmm0, %xmm2
+ 27a7238: movsd 0x3eaa328(%rip), %xmm1  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a7240: mulsd %xmm0, %xmm2
+ 27a7244: mulsd %xmm2, %xmm1
+ 27a7248: addsd 0x3eaa320(%rip), %xmm1  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a7250: mulsd %xmm2, %xmm1
+ 27a7254: subsd 0x3eaa31c(%rip), %xmm1  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a725c: mulsd %xmm2, %xmm1
+ 27a7260: addsd 0x3eaa318(%rip), %xmm1  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a7268: mulsd %xmm2, %xmm1
+ 27a726c: subsd 0x3eaa314(%rip), %xmm1  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a7274: mulsd %xmm2, %xmm1
+ 27a7278: addsd 0x3eaa310(%rip), %xmm1  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a7280: mulsd %xmm2, %xmm1
+ 27a7284: cmpl $0x3fd33332, %eax       # imm = 0x3FD33332
+ 27a7289: jle 0x27a735c <v8::base::ieee754::cos(double)+0x14c>
+ 27a728f: cmpl $0x3fe90000, %eax       # imm = 0x3FE90000
+ 27a7294: jg 0x27a7460 <v8::base::ieee754::cos(double)+0x250>
+ 27a729a: subl $0x200000, %eax         # imm = 0x200000
+ 27a729f: movsd 0xa5a319(%rip), %xmm5   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a72a7: shlq $0x20, %rax
+ 27a72ab: movq %rax, %xmm3
+ 27a72b0: subsd %xmm3, %xmm5
+ 27a72b4: movsd 0xa8319c(%rip), %xmm4   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a72bc: mulsd %xmm2, %xmm1
+ 27a72c0: mulsd %xmm2, %xmm4
+ 27a72c4: pxor %xmm2, %xmm2
+ 27a72c8: mulsd %xmm0, %xmm2
+ 27a72cc: subsd %xmm3, %xmm4
+ 27a72d0: subsd %xmm2, %xmm1
+ 27a72d4: subsd %xmm1, %xmm4
+ 27a72d8: subsd %xmm4, %xmm5
+ 27a72dc: movapd %xmm5, %xmm0
+ 27a72e0: retq
+ 27a72e1: nopl (%rax)
+ 27a72e8: cmpl $0x7fefffff, %eax       # imm = 0x7FEFFFFF
+ 27a72ed: jle 0x27a7390 <v8::base::ieee754::cos(double)+0x180>
+ 27a72f3: subsd %xmm0, %xmm0
+ 27a72f7: retq
+ 27a72f8: nopl (%rax,%rax)
+ 27a7300: cvttsd2si %xmm0, %eax
+ 27a7304: testl %eax, %eax
+ 27a7306: je 0x27a76c0 <v8::base::ieee754::cos(double)+0x4b0>
+ 27a730c: movapd %xmm0, %xmm2
+ 27a7310: movsd 0x3eaa250(%rip), %xmm1  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a7318: mulsd %xmm0, %xmm2
+ 27a731c: mulsd %xmm2, %xmm1
+ 27a7320: addsd 0x3eaa248(%rip), %xmm1  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a7328: mulsd %xmm2, %xmm1
+ 27a732c: subsd 0x3eaa244(%rip), %xmm1  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a7334: mulsd %xmm2, %xmm1
+ 27a7338: addsd 0x3eaa240(%rip), %xmm1  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a7340: mulsd %xmm2, %xmm1
+ 27a7344: subsd 0x3eaa23c(%rip), %xmm1  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a734c: mulsd %xmm2, %xmm1
+ 27a7350: addsd 0x3eaa238(%rip), %xmm1  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a7358: mulsd %xmm2, %xmm1
+ 27a735c: movsd 0xa830f4(%rip), %xmm3   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a7364: mulsd %xmm2, %xmm1
+ 27a7368: mulsd %xmm2, %xmm3
+ 27a736c: pxor %xmm2, %xmm2
+ 27a7370: mulsd %xmm0, %xmm2
+ 27a7374: movsd 0xa5a244(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a737c: subsd %xmm2, %xmm1
+ 27a7380: subsd %xmm1, %xmm3
+ 27a7384: subsd %xmm3, %xmm0
+ 27a7388: retq
+ 27a7389: nopl (%rax)
+ 27a7390: pushq %rbp
+ 27a7391: movq %rsp, %rbp
+ 27a7394: subq $0x10, %rsp
+ 27a7398: leaq -0x10(%rbp), %rdi
+ 27a739c: callq 0x27a6300 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)>
+ 27a73a1: andl $0x3, %eax
+ 27a73a4: cmpl $0x1, %eax
+ 27a73a7: je 0x27a7618 <v8::base::ieee754::cos(double)+0x408>
+ 27a73ad: cmpl $0x2, %eax
+ 27a73b0: je 0x27a7548 <v8::base::ieee754::cos(double)+0x338>
+ 27a73b6: testl %eax, %eax
+ 27a73b8: je 0x27a7478 <v8::base::ieee754::cos(double)+0x268>
+ 27a73be: movsd -0x10(%rbp), %xmm0
+ 27a73c3: movsd -0x8(%rbp), %xmm4
+ 27a73c8: movq %xmm0, %rax
+ 27a73cd: shrq $0x20, %rax
+ 27a73d1: andl $0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a73d6: cmpl $0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a73db: jg 0x27a73e5 <v8::base::ieee754::cos(double)+0x1d5>
+ 27a73dd: cvttsd2si %xmm0, %eax
+ 27a73e1: testl %eax, %eax
+ 27a73e3: je 0x27a745d <v8::base::ieee754::cos(double)+0x24d>
+ 27a73e5: movapd %xmm0, %xmm5
+ 27a73e9: movsd 0x3eaa1a7(%rip), %xmm1  # 0x6651598 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d8>
+ 27a73f1: movapd %xmm0, %xmm3
+ 27a73f5: movsd 0xa8305b(%rip), %xmm2   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a73fd: mulsd %xmm0, %xmm5
+ 27a7401: mulsd %xmm4, %xmm2
+ 27a7405: mulsd %xmm5, %xmm1
+ 27a7409: subsd 0x3eaa18f(%rip), %xmm1  # 0x66515a0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e0>
+ 27a7411: mulsd %xmm5, %xmm3
+ 27a7415: mulsd %xmm5, %xmm1
+ 27a7419: addsd 0x3eaa187(%rip), %xmm1  # 0x66515a8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e8>
+ 27a7421: mulsd %xmm5, %xmm1
+ 27a7425: subsd 0x3eaa183(%rip), %xmm1  # 0x66515b0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f0>
+ 27a742d: mulsd %xmm5, %xmm1
+ 27a7431: addsd 0x3eaa17f(%rip), %xmm1  # 0x66515b8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f8>
+ 27a7439: mulsd %xmm3, %xmm1
+ 27a743d: mulsd 0x3eaa17b(%rip), %xmm3  # 0x66515c0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x300>
+ 27a7445: subsd %xmm1, %xmm2
+ 27a7449: mulsd %xmm5, %xmm2
+ 27a744d: movapd %xmm2, %xmm1
+ 27a7451: subsd %xmm4, %xmm1
+ 27a7455: addsd %xmm3, %xmm1
+ 27a7459: subsd %xmm1, %xmm0
+ 27a745d: leave
+ 27a745e: retq
+ 27a745f: nop
+ 27a7460: movsd 0x3eaa0f0(%rip), %xmm5  # 0x6651558 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x298>
+ 27a7468: movsd 0x3eaa0f0(%rip), %xmm3  # 0x6651560 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a0>
+ 27a7470: jmp 0x27a72b4 <v8::base::ieee754::cos(double)+0xa4>
+ 27a7475: nopl (%rax)
+ 27a7478: movsd -0x10(%rbp), %xmm4
+ 27a747d: movsd -0x8(%rbp), %xmm2
+ 27a7482: movq %xmm4, %rax
+ 27a7487: shrq $0x20, %rax
+ 27a748b: andl $0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a7490: cmpl $0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a7495: jle 0x27a7780 <v8::base::ieee754::cos(double)+0x570>
+ 27a749b: movapd %xmm4, %xmm3
+ 27a749f: movsd 0x3eaa0c1(%rip), %xmm1  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a74a7: mulsd %xmm4, %xmm3
+ 27a74ab: mulsd %xmm3, %xmm1
+ 27a74af: addsd 0x3eaa0b9(%rip), %xmm1  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a74b7: mulsd %xmm3, %xmm1
+ 27a74bb: subsd 0x3eaa0b5(%rip), %xmm1  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a74c3: mulsd %xmm3, %xmm1
+ 27a74c7: addsd 0x3eaa0b1(%rip), %xmm1  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a74cf: mulsd %xmm3, %xmm1
+ 27a74d3: subsd 0x3eaa0ad(%rip), %xmm1  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a74db: mulsd %xmm3, %xmm1
+ 27a74df: addsd 0x3eaa0a9(%rip), %xmm1  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a74e7: mulsd %xmm3, %xmm1
+ 27a74eb: cmpl $0x3fd33332, %eax       # imm = 0x3FD33332
+ 27a74f0: jle 0x27a77dc <v8::base::ieee754::cos(double)+0x5cc>
+ 27a74f6: cmpl $0x3fe90000, %eax       # imm = 0x3FE90000
+ 27a74fb: jg 0x27a7838 <v8::base::ieee754::cos(double)+0x628>
+ 27a7501: subl $0x200000, %eax         # imm = 0x200000
+ 27a7506: movsd 0xa5a0b2(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a750e: shlq $0x20, %rax
+ 27a7512: movq %rax, %xmm5
+ 27a7517: subsd %xmm5, %xmm0
+ 27a751b: movsd 0xa82f35(%rip), %xmm6   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a7523: mulsd %xmm3, %xmm1
+ 27a7527: mulsd %xmm2, %xmm4
+ 27a752b: mulsd %xmm3, %xmm6
+ 27a752f: leave
+ 27a7530: subsd %xmm4, %xmm1
+ 27a7534: subsd %xmm5, %xmm6
+ 27a7538: subsd %xmm1, %xmm6
+ 27a753c: subsd %xmm6, %xmm0
+ 27a7540: retq
+ 27a7541: nopl (%rax)
+ 27a7548: movsd -0x10(%rbp), %xmm4
+ 27a754d: movsd -0x8(%rbp), %xmm2
+ 27a7552: movq %xmm4, %rax
+ 27a7557: shrq $0x20, %rax
+ 27a755b: andl $0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a7560: cmpl $0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a7565: jle 0x27a76e0 <v8::base::ieee754::cos(double)+0x4d0>
+ 27a756b: movapd %xmm4, %xmm3
+ 27a756f: movsd 0x3ea9ff1(%rip), %xmm1  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a7577: mulsd %xmm4, %xmm3
+ 27a757b: mulsd %xmm3, %xmm1
+ 27a757f: addsd 0x3ea9fe9(%rip), %xmm1  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a7587: mulsd %xmm3, %xmm1
+ 27a758b: subsd 0x3ea9fe5(%rip), %xmm1  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a7593: mulsd %xmm3, %xmm1
+ 27a7597: addsd 0x3ea9fe1(%rip), %xmm1  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a759f: mulsd %xmm3, %xmm1
+ 27a75a3: subsd 0x3ea9fdd(%rip), %xmm1  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a75ab: mulsd %xmm3, %xmm1
+ 27a75af: addsd 0x3ea9fd9(%rip), %xmm1  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a75b7: mulsd %xmm3, %xmm1
+ 27a75bb: cmpl $0x3fd33332, %eax       # imm = 0x3FD33332
+ 27a75c0: jle 0x27a7744 <v8::base::ieee754::cos(double)+0x534>
+ 27a75c6: cmpl $0x3fe90000, %eax       # imm = 0x3FE90000
+ 27a75cb: jg 0x27a7820 <v8::base::ieee754::cos(double)+0x610>
+ 27a75d1: subl $0x200000, %eax         # imm = 0x200000
+ 27a75d6: movsd 0xa59fe2(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a75de: shlq $0x20, %rax
+ 27a75e2: movq %rax, %xmm5
+ 27a75e7: subsd %xmm5, %xmm0
+ 27a75eb: movsd 0xa82e65(%rip), %xmm6   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a75f3: mulsd %xmm3, %xmm1
+ 27a75f7: mulsd %xmm2, %xmm4
+ 27a75fb: mulsd %xmm3, %xmm6
+ 27a75ff: subsd %xmm4, %xmm1
+ 27a7603: subsd %xmm5, %xmm6
+ 27a7607: subsd %xmm1, %xmm6
+ 27a760b: subsd %xmm6, %xmm0
+ 27a760f: jmp 0x27a76b3 <v8::base::ieee754::cos(double)+0x4a3>
+ 27a7614: nopl (%rax)
+ 27a7618: movsd -0x10(%rbp), %xmm0
+ 27a761d: movsd -0x8(%rbp), %xmm4
+ 27a7622: movq %xmm0, %rax
+ 27a7627: shrq $0x20, %rax
+ 27a762b: andl $0x7fffffff, %eax       # imm = 0x7FFFFFFF
+ 27a7630: cmpl $0x3e3fffff, %eax       # imm = 0x3E3FFFFF
+ 27a7635: jle 0x27a76d0 <v8::base::ieee754::cos(double)+0x4c0>
+ 27a763b: movapd %xmm0, %xmm5
+ 27a763f: movsd 0x3ea9f51(%rip), %xmm1  # 0x6651598 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d8>
+ 27a7647: movapd %xmm0, %xmm3
+ 27a764b: movsd 0xa82e05(%rip), %xmm2   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a7653: mulsd %xmm0, %xmm5
+ 27a7657: mulsd %xmm4, %xmm2
+ 27a765b: mulsd %xmm5, %xmm1
+ 27a765f: subsd 0x3ea9f39(%rip), %xmm1  # 0x66515a0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e0>
+ 27a7667: mulsd %xmm5, %xmm3
+ 27a766b: mulsd %xmm5, %xmm1
+ 27a766f: addsd 0x3ea9f31(%rip), %xmm1  # 0x66515a8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2e8>
+ 27a7677: mulsd %xmm5, %xmm1
+ 27a767b: subsd 0x3ea9f2d(%rip), %xmm1  # 0x66515b0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f0>
+ 27a7683: mulsd %xmm5, %xmm1
+ 27a7687: addsd 0x3ea9f29(%rip), %xmm1  # 0x66515b8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2f8>
+ 27a768f: mulsd %xmm3, %xmm1
+ 27a7693: mulsd 0x3ea9f25(%rip), %xmm3  # 0x66515c0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x300>
+ 27a769b: subsd %xmm1, %xmm2
+ 27a769f: mulsd %xmm5, %xmm2
+ 27a76a3: movapd %xmm2, %xmm1
+ 27a76a7: subsd %xmm4, %xmm1
+ 27a76ab: addsd %xmm3, %xmm1
+ 27a76af: subsd %xmm1, %xmm0
+ 27a76b3: xorpd 0xa82df5(%rip), %xmm0   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a76bb: leave
+ 27a76bc: retq
+ 27a76bd: nopl (%rax)
+ 27a76c0: movsd 0xa59ef8(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a76c8: retq
+ 27a76c9: nopl (%rax)
+ 27a76d0: cvttsd2si %xmm0, %eax
+ 27a76d4: testl %eax, %eax
+ 27a76d6: jne 0x27a763b <v8::base::ieee754::cos(double)+0x42b>
+ 27a76dc: jmp 0x27a76b3 <v8::base::ieee754::cos(double)+0x4a3>
+ 27a76de: nop
+ 27a76e0: cvttsd2si %xmm4, %eax
+ 27a76e4: movsd 0xa5d75c(%rip), %xmm0   # 0x3204e48 <std::_Sp_make_shared_tag::_S_ti()::__tag+0x10>
+ 27a76ec: testl %eax, %eax
+ 27a76ee: je 0x27a745d <v8::base::ieee754::cos(double)+0x24d>
+ 27a76f4: movapd %xmm4, %xmm3
+ 27a76f8: movsd 0x3ea9e68(%rip), %xmm1  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a7700: mulsd %xmm4, %xmm3
+ 27a7704: mulsd %xmm3, %xmm1
+ 27a7708: addsd 0x3ea9e60(%rip), %xmm1  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a7710: mulsd %xmm3, %xmm1
+ 27a7714: subsd 0x3ea9e5c(%rip), %xmm1  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a771c: mulsd %xmm3, %xmm1
+ 27a7720: addsd 0x3ea9e58(%rip), %xmm1  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a7728: mulsd %xmm3, %xmm1
+ 27a772c: subsd 0x3ea9e54(%rip), %xmm1  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a7734: mulsd %xmm3, %xmm1
+ 27a7738: addsd 0x3ea9e50(%rip), %xmm1  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a7740: mulsd %xmm3, %xmm1
+ 27a7744: mulsd %xmm2, %xmm4
+ 27a7748: movsd 0xa82d08(%rip), %xmm0   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a7750: mulsd %xmm3, %xmm1
+ 27a7754: mulsd %xmm3, %xmm0
+ 27a7758: subsd %xmm4, %xmm1
+ 27a775c: movapd %xmm0, %xmm2
+ 27a7760: movsd 0xa59e58(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a7768: subsd %xmm1, %xmm2
+ 27a776c: subsd %xmm2, %xmm0
+ 27a7770: xorpd 0xa82d38(%rip), %xmm0   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a7778: leave
+ 27a7779: retq
+ 27a777a: nopw (%rax,%rax)
+ 27a7780: cvttsd2si %xmm4, %eax
+ 27a7784: testl %eax, %eax
+ 27a7786: je 0x27a7810 <v8::base::ieee754::cos(double)+0x600>
+ 27a778c: movapd %xmm4, %xmm3
+ 27a7790: movsd 0x3ea9dd0(%rip), %xmm1  # 0x6651568 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a8>
+ 27a7798: mulsd %xmm4, %xmm3
+ 27a779c: mulsd %xmm3, %xmm1
+ 27a77a0: addsd 0x3ea9dc8(%rip), %xmm1  # 0x6651570 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b0>
+ 27a77a8: mulsd %xmm3, %xmm1
+ 27a77ac: subsd 0x3ea9dc4(%rip), %xmm1  # 0x6651578 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2b8>
+ 27a77b4: mulsd %xmm3, %xmm1
+ 27a77b8: addsd 0x3ea9dc0(%rip), %xmm1  # 0x6651580 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c0>
+ 27a77c0: mulsd %xmm3, %xmm1
+ 27a77c4: subsd 0x3ea9dbc(%rip), %xmm1  # 0x6651588 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2c8>
+ 27a77cc: mulsd %xmm3, %xmm1
+ 27a77d0: addsd 0x3ea9db8(%rip), %xmm1  # 0x6651590 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2d0>
+ 27a77d8: mulsd %xmm3, %xmm1
+ 27a77dc: mulsd %xmm2, %xmm4
+ 27a77e0: movsd 0xa82c70(%rip), %xmm0   # 0x322a458 <node::Histogram::Percentile(double) const::error_and_abort_args+0x38>
+ 27a77e8: mulsd %xmm3, %xmm1
+ 27a77ec: mulsd %xmm3, %xmm0
+ 27a77f0: subsd %xmm4, %xmm1
+ 27a77f4: movapd %xmm0, %xmm2
+ 27a77f8: movsd 0xa59dc0(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a7800: leave
+ 27a7801: subsd %xmm1, %xmm2
+ 27a7805: subsd %xmm2, %xmm0
+ 27a7809: retq
+ 27a780a: nopw (%rax,%rax)
+ 27a7810: movsd 0xa59da8(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a7818: leave
+ 27a7819: retq
+ 27a781a: nopw (%rax,%rax)
+ 27a7820: movsd 0x3ea9d30(%rip), %xmm0  # 0x6651558 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x298>
+ 27a7828: movsd 0x3ea9d30(%rip), %xmm5  # 0x6651560 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a0>
+ 27a7830: jmp 0x27a75eb <v8::base::ieee754::cos(double)+0x3db>
+ 27a7835: nopl (%rax)
+ 27a7838: movsd 0x3ea9d18(%rip), %xmm0  # 0x6651558 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x298>
+ 27a7840: movsd 0x3ea9d18(%rip), %xmm5  # 0x6651560 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x2a0>
+ 27a7848: jmp 0x27a751b <v8::base::ieee754::cos(double)+0x30b>
+/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-LINUX-QUALIFY-004-20261017/linux-review/node-linux-x64: file format elf64-x86-64
+00000000027a6c90 <v8::base::ieee754::atan(double)>:
+ 27a6c90: movq %xmm0, %rcx
+ 27a6c95: movapd %xmm0, %xmm5
+ 27a6c99: movq %rcx, %rax
+ 27a6c9c: shrq $0x20, %rax
+ 27a6ca0: movl %eax, %edx
+ 27a6ca2: andl $0x7fffffff, %edx       # imm = 0x7FFFFFFF
+ 27a6ca8: cmpl $0x440fffff, %edx       # imm = 0x440FFFFF
+ 27a6cae: jle 0x27a6cf0 <v8::base::ieee754::atan(double)+0x60>
+ 27a6cb0: cmpl $0x7ff00000, %edx       # imm = 0x7FF00000
+ 27a6cb6: jg 0x27a6cbe <v8::base::ieee754::atan(double)+0x2e>
+ 27a6cb8: jne 0x27a6cd0 <v8::base::ieee754::atan(double)+0x40>
+ 27a6cba: testl %ecx, %ecx
+ 27a6cbc: je 0x27a6cd0 <v8::base::ieee754::atan(double)+0x40>
+ 27a6cbe: addsd %xmm5, %xmm5
+ 27a6cc2: movapd %xmm5, %xmm0
+ 27a6cc6: retq
+ 27a6cc7: nopw (%rax,%rax)
+ 27a6cd0: testl %eax, %eax
+ 27a6cd2: jle 0x27a6e98 <v8::base::ieee754::atan(double)+0x208>
+ 27a6cd8: movsd 0x3eaa558(%rip), %xmm0  # 0x6651238 <v8::base::ieee754::atan(double)::atanlo+0x18>
+ 27a6ce0: addsd 0x3eaa758(%rip), %xmm0  # 0x6651440 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x180>
+ 27a6ce8: retq
+ 27a6ce9: nopl (%rax)
+ 27a6cf0: cmpl $0x3fdbffff, %edx       # imm = 0x3FDBFFFF
+ 27a6cf6: jg 0x27a6dd0 <v8::base::ieee754::atan(double)+0x140>
+ 27a6cfc: cmpl $0x3e3fffff, %edx       # imm = 0x3E3FFFFF
+ 27a6d02: jle 0x27a6e68 <v8::base::ieee754::atan(double)+0x1d8>
+ 27a6d08: pxor %xmm3, %xmm3
+ 27a6d0c: movl $0xffffffff, %edx       # imm = 0xFFFFFFFF
+ 27a6d11: movapd %xmm3, %xmm0
+ 27a6d15: movapd %xmm5, %xmm2
+ 27a6d19: movsd 0x3eaa7bf(%rip), %xmm1  # 0x66514e0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x220>
+ 27a6d21: mulsd %xmm5, %xmm2
+ 27a6d25: movapd %xmm2, %xmm4
+ 27a6d29: mulsd %xmm2, %xmm4
+ 27a6d2d: mulsd %xmm4, %xmm1
+ 27a6d31: addsd 0x3eaa7af(%rip), %xmm1  # 0x66514e8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x228>
+ 27a6d39: mulsd %xmm4, %xmm1
+ 27a6d3d: addsd 0x3eaa7ab(%rip), %xmm1  # 0x66514f0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x230>
+ 27a6d45: mulsd %xmm4, %xmm1
+ 27a6d49: addsd 0x3eaa7a7(%rip), %xmm1  # 0x66514f8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x238>
+ 27a6d51: mulsd %xmm4, %xmm1
+ 27a6d55: addsd 0x3eaa7a3(%rip), %xmm1  # 0x6651500 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x240>
+ 27a6d5d: mulsd %xmm4, %xmm1
+ 27a6d61: addsd 0x3eaa79f(%rip), %xmm1  # 0x6651508 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x248>
+ 27a6d69: mulsd %xmm2, %xmm1
+ 27a6d6d: movsd 0x3eaa79b(%rip), %xmm2  # 0x6651510 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x250>
+ 27a6d75: mulsd %xmm4, %xmm2
+ 27a6d79: subsd 0x3eaa797(%rip), %xmm2  # 0x6651518 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x258>
+ 27a6d81: mulsd %xmm4, %xmm2
+ 27a6d85: subsd 0x3eaa793(%rip), %xmm2  # 0x6651520 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x260>
+ 27a6d8d: mulsd %xmm4, %xmm2
+ 27a6d91: subsd 0x3eaa78f(%rip), %xmm2  # 0x6651528 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x268>
+ 27a6d99: mulsd %xmm4, %xmm2
+ 27a6d9d: subsd 0x3eaa78b(%rip), %xmm2  # 0x6651530 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x270>
+ 27a6da5: mulsd %xmm4, %xmm2
+ 27a6da9: addsd %xmm2, %xmm1
+ 27a6dad: mulsd %xmm5, %xmm1
+ 27a6db1: cmpl $-0x1, %edx
+ 27a6db4: je 0x27a6eb0 <v8::base::ieee754::atan(double)+0x220>
+ 27a6dba: subsd %xmm3, %xmm1
+ 27a6dbe: subsd %xmm5, %xmm1
+ 27a6dc2: subsd %xmm1, %xmm0
+ 27a6dc6: testl %eax, %eax
+ 27a6dc8: js 0x27a6e88 <v8::base::ieee754::atan(double)+0x1f8>
+ 27a6dce: retq
+ 27a6dcf: nop
+ 27a6dd0: andpd 0xa5a818(%rip), %xmm5   # 0x32015f0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x130>
+ 27a6dd8: movapd %xmm5, %xmm0
+ 27a6ddc: cmpl $0x3ff2ffff, %edx       # imm = 0x3FF2FFFF
+ 27a6de2: jg 0x27a6e20 <v8::base::ieee754::atan(double)+0x190>
+ 27a6de4: cmpl $0x3fe5ffff, %edx       # imm = 0x3FE5FFFF
+ 27a6dea: jg 0x27a6ec0 <v8::base::ieee754::atan(double)+0x230>
+ 27a6df0: addsd 0xa83658(%rip), %xmm0   # 0x322a450 <node::Histogram::Percentile(double) const::error_and_abort_args+0x30>
+ 27a6df8: addsd %xmm5, %xmm5
+ 27a6dfc: movsd 0x3eaa6c4(%rip), %xmm3  # 0x66514c8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x208>
+ 27a6e04: xorl %edx, %edx
+ 27a6e06: subsd 0xa5a7b2(%rip), %xmm5   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a6e0e: divsd %xmm0, %xmm5
+ 27a6e12: movsd 0x3eaa6b6(%rip), %xmm0  # 0x66514d0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x210>
+ 27a6e1a: jmp 0x27a6d15 <v8::base::ieee754::atan(double)+0x85>
+ 27a6e1f: nop
+ 27a6e20: cmpl $0x40037fff, %edx       # imm = 0x40037FFF
+ 27a6e26: jg 0x27a6ef0 <v8::base::ieee754::atan(double)+0x260>
+ 27a6e2c: movsd 0x16646f4(%rip), %xmm1  # 0x3e0b528 <cppgc::internal::HeapGrowing::kGrowingFactor+0x8>
+ 27a6e34: movsd 0x3eaa67c(%rip), %xmm3  # 0x66514b8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x1f8>
+ 27a6e3c: movl $0x2, %edx
+ 27a6e41: mulsd %xmm1, %xmm0
+ 27a6e45: subsd %xmm1, %xmm5
+ 27a6e49: addsd 0xa5a76f(%rip), %xmm0   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a6e51: divsd %xmm0, %xmm5
+ 27a6e55: movsd 0x3eaa663(%rip), %xmm0  # 0x66514c0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x200>
+ 27a6e5d: jmp 0x27a6d15 <v8::base::ieee754::atan(double)+0x85>
+ 27a6e62: nopw (%rax,%rax)
+ 27a6e68: movsd 0x3eaa630(%rip), %xmm1  # 0x66514a0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x1e0>
+ 27a6e70: addsd %xmm0, %xmm1
+ 27a6e74: comisd 0xa5a744(%rip), %xmm1   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a6e7c: jbe 0x27a6d08 <v8::base::ieee754::atan(double)+0x78>
+ 27a6e82: retq
+ 27a6e83: nopl (%rax,%rax)
+ 27a6e88: xorpd 0xa83620(%rip), %xmm0   # 0x322a4b0 <node::Histogram::Percentile(double) const::error_and_abort_args+0x90>
+ 27a6e90: retq
+ 27a6e91: nopl (%rax)
+ 27a6e98: movsd 0x3eaa398(%rip), %xmm1  # 0x6651238 <v8::base::ieee754::atan(double)::atanlo+0x18>
+ 27a6ea0: movsd 0x3eaa630(%rip), %xmm0  # 0x66514d8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x218>
+ 27a6ea8: subsd %xmm1, %xmm0
+ 27a6eac: retq
+ 27a6ead: nopl (%rax)
+ 27a6eb0: subsd %xmm1, %xmm5
+ 27a6eb4: movapd %xmm5, %xmm0
+ 27a6eb8: retq
+ 27a6eb9: nopl (%rax)
+ 27a6ec0: movsd 0xa5a6f8(%rip), %xmm1   # 0x32015c0 <simdjson::internal::base_formatter<simdjson::internal::fractured_formatter>::string(std::basic_string_view<char, std::char_traits<char>>)::needs_escaping+0x100>
+ 27a6ec8: movsd 0x3eaa5e0(%rip), %xmm3  # 0x66514b0 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x1f0>
+ 27a6ed0: movl $0x1, %edx
+ 27a6ed5: addsd %xmm1, %xmm0
+ 27a6ed9: subsd %xmm1, %xmm5
+ 27a6edd: divsd %xmm0, %xmm5
+ 27a6ee1: movsd 0x3eaa5bf(%rip), %xmm0  # 0x66514a8 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x1e8>
+ 27a6ee9: jmp 0x27a6d15 <v8::base::ieee754::atan(double)+0x85>
+ 27a6eee: nop
+ 27a6ef0: movsd 0xa5df50(%rip), %xmm5   # 0x3204e48 <std::_Sp_make_shared_tag::_S_ti()::__tag+0x10>
+ 27a6ef8: movsd 0x3eaa598(%rip), %xmm3  # 0x6651498 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x1d8>
+ 27a6f00: movl $0x3, %edx
+ 27a6f05: divsd %xmm0, %xmm5
+ 27a6f09: movsd 0x3eaa52f(%rip), %xmm0  # 0x6651440 <v8::base::ieee754::(anonymous namespace)::__ieee754_rem_pio2(double, double*)::two_over_pi+0x180>
+ 27a6f11: jmp 0x27a6d15 <v8::base::ieee754::atan(double)+0x85>
