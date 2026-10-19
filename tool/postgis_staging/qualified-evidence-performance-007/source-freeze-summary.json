@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "runId": "BS-BITESTAR-POSTGIS-PERFORMANCE-CLOSEOUT-007",
+  "promptTimestamp": "2026-10-19T17:36:00-04:00",
+  "frozenAt": "2026-10-19T22:07:35.088104+00:00",
+  "expectedStartingHead": "6753dd0f999afe8416e3d536feace7a7bf38347a",
+  "actualStartingHead": "39922fd418d5cc5cd191db0af8d3ee12dab64c7a",
+  "status": "SOURCE_AND_AFFECTED_LOCAL_CORRECTNESS_QUALIFIED; HEAVY_LATENCY_TARGET_UNMET; HOSTED_TAILS_UNQUALIFIED; CLOUD_EXECUTION_BLOCKED",
+  "previousFreezeDigest": "ec2b0a93697830915129739b341cf21ec6b61e6eb721c3ed15dfea8ccab04319",
+  "candidateDigest": "103d837f78f2a14a4d6c33e999fd3c2d097a56c708842eda90c9d459869cd81c",
+  "sourceCount": 689,
+  "digestAlgorithm": "SHA-256 of UTF-8 sorted lines: lowercase hex SHA256 + two spaces + relative path + LF",
+  "selection": "Final current-main39922fd clean archive plus one bounded backend change and focused test. Prior006 explicit scope extended for current backend compile inputs; newer committed website inputs preserved. Unrelated owner worktree bytes excluded. Qualification applies only to affected search paths, not all website changes. Reports/evidence indexed separately.",
+  "intendedImplementationEdits": [
+    "functions/src/customer_bitesaver_search_session.ts",
+    "functions/test/postgis_guest_authority_batching_007.test.cjs"
+  ],
+  "images": {
+    "controlledCandidate": "sha256:d6258f63d589a68cffdc3dc7f6562f948d712aa379f32e903e2a22c6a38b736c",
+    "finalIntegration": "sha256:8838c8de6d738fa587c67da3e8af8385d6a260ef0bef229e8cee5f1410f22043"
+  },
+  "qualified": [
+    "314 final-head native tests",
+    "179 final-head Dart tests",
+    "5 real Firestore/PostGIS authority/expiry/replay checks",
+    "16 final-image actual Flutter consumer intents",
+    "Exact heavy corrected-reference parity and controlled empty/moderate differential parity",
+    "Task-local relay buffering correction; application allocation unchanged"
+  ],
+  "unqualified": [
+    "Heavy suppression latency remains above target",
+    "Hosted warm p95<=2s/p99<=4s and cold<=4s not established",
+    "Native-cloud performance, provider refresh, whole workload and cleanup gates retained"
+  ],
+  "paidAuthorization": false,
+  "originalFirstBillableAtMs": null,
+  "productionActivation": false
+}

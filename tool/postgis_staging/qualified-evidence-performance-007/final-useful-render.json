@@ -1,0 +1,527 @@
+{
+  "kind": "actual-flutter-widget-local-http-firestore-auth-postgis",
+  "hostedEvidence": false,
+  "transport": "CustomerSearchHttpTransport with explicit loopback test opt-in",
+  "sampleCountsDoNotSupportHostedTailLatencyClaims": true,
+  "timingBoundary": "accepted center through useful render; geocoding excluded",
+  "observations": [
+    {
+      "flow": "bitesaver-guest",
+      "run": 0,
+      "milliseconds": 1879.451,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "first-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "orderedMembershipDigest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 389.097
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 26,
+          "milliseconds": 847.066
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 260.866
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-guest",
+      "run": 1,
+      "milliseconds": 1134.546,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "orderedMembershipDigest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 54.327
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 26,
+          "milliseconds": 676.442
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 279.27
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-guest",
+      "run": 2,
+      "milliseconds": 995.645,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "orderedMembershipDigest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 48.945
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 26,
+          "milliseconds": 621.731
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 228.561
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-guest",
+      "run": 3,
+      "milliseconds": 949.375,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "orderedMembershipDigest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 58.669
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 26,
+          "milliseconds": 586.195
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 203.116
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-guest",
+      "run": 4,
+      "milliseconds": 996.129,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "orderedMembershipDigest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 71.523
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 26,
+          "milliseconds": 606.638
+        },
+        {
+          "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 228.704
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 0,
+      "milliseconds": 422.645,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "first-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "orderedMembershipDigest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 76.282
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 251.474
+        },
+        {
+          "endpoint": "getCustomerBiteSaverFavoriteStates",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 109.185
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 1,
+      "milliseconds": 515.852,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "orderedMembershipDigest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 47.522
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 382.517
+        },
+        {
+          "endpoint": "getCustomerBiteSaverFavoriteStates",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 149.075
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 2,
+      "milliseconds": 806.961,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "orderedMembershipDigest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 342.486
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 369.395
+        },
+        {
+          "endpoint": "getCustomerBiteSaverFavoriteStates",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 129.202
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 3,
+      "milliseconds": 432.143,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "orderedMembershipDigest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 62.298
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 260.275
+        },
+        {
+          "endpoint": "getCustomerBiteSaverFavoriteStates",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 116.124
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitesaver-signed",
+      "run": 4,
+      "milliseconds": 401.486,
+      "httpCalls": 3,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": 25,
+      "orderedMembershipDigest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteSaverSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 53.968
+        },
+        {
+          "endpoint": "getCustomerBiteSaverSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 234.06
+        },
+        {
+          "endpoint": "getCustomerBiteSaverFavoriteStates",
+          "sequence": 3,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 103.108
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitescore-dish-home",
+      "run": 0,
+      "milliseconds": 209.098,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "first-observation",
+      "status": "success",
+      "usefulCards": null,
+      "orderedMembershipDigest": null,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteScoreSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 62.39
+        },
+        {
+          "endpoint": "getCustomerBiteScoreSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 66.684
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitescore-dish-home",
+      "run": 1,
+      "milliseconds": 178.211,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": null,
+      "orderedMembershipDigest": null,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteScoreSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 54.355
+        },
+        {
+          "endpoint": "getCustomerBiteScoreSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 64.57
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "bitescore-dish-home",
+      "run": 2,
+      "milliseconds": 210.016,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": null,
+      "orderedMembershipDigest": null,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteScoreSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 86.011
+        },
+        {
+          "endpoint": "getCustomerBiteScoreSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 61.88
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "create-rate-finder",
+      "run": 0,
+      "milliseconds": 498.638,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "first-observation",
+      "status": "success",
+      "usefulCards": null,
+      "orderedMembershipDigest": null,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteScoreSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 81.267
+        },
+        {
+          "endpoint": "getCustomerBiteScoreSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 60.001
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "create-rate-finder",
+      "run": 1,
+      "milliseconds": 458.555,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": null,
+      "orderedMembershipDigest": null,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteScoreSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 84.833
+        },
+        {
+          "endpoint": "getCustomerBiteScoreSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 41.77
+        }
+      ],
+      "clientDelays": []
+    },
+    {
+      "flow": "create-rate-finder",
+      "run": 2,
+      "milliseconds": 479.789,
+      "httpCalls": 2,
+      "errors": 0,
+      "phase": "warm-observation",
+      "status": "success",
+      "usefulCards": null,
+      "orderedMembershipDigest": null,
+      "calls": [
+        {
+          "endpoint": "startCustomerBiteScoreSearchV2",
+          "sequence": 1,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 84.521
+        },
+        {
+          "endpoint": "getCustomerBiteScoreSearchPageV2",
+          "sequence": 2,
+          "status": "success",
+          "challengeCandidates": 0,
+          "milliseconds": 44.56
+        }
+      ],
+      "clientDelays": []
+    }
+  ]
+}

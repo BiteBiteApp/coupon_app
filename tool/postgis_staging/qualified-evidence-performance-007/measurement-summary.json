@@ -1,0 +1,1681 @@
+{
+  "trace-heavy": {
+    "requests": 30,
+    "handlerMilliseconds": 10203.574375,
+    "cpuMilliseconds": 4509.779,
+    "phases": {
+      "firestore": 7328.0972390000525,
+      "sql": 914.6162340000026,
+      "both": 0,
+      "outsideMeasuredIo": 1960.8609019999453
+    },
+    "operations": {
+      "firestore.commitWrites": {
+        "calls": 53,
+        "inclusiveMs": 255.45675100000187
+      },
+      "firestore.getDocument": {
+        "calls": 296,
+        "inclusiveMs": 679.3650399999864
+      },
+      "firestore.getDocuments": {
+        "calls": 497,
+        "inclusiveMs": 1107.2070039999994
+      },
+      "firestore.queryDocuments": {
+        "calls": 222,
+        "inclusiveMs": 2706.7432869999875
+      },
+      "firestore.transaction": {
+        "calls": 719,
+        "inclusiveMs": 12663.21086300001
+      },
+      "firestore.transactionRead.getDocument": {
+        "calls": 96,
+        "inclusiveMs": 778.6223790000022
+      },
+      "firestore.transactionRead.getDocuments": {
+        "calls": 1284,
+        "inclusiveMs": 7777.4463609999975
+      },
+      "membership.pinRevision": {
+        "calls": 1,
+        "inclusiveMs": 73.17091700000003
+      },
+      "membership.queryResults": {
+        "calls": 22,
+        "inclusiveMs": 944.7689160000011
+      },
+      "sdk.getAll": {
+        "calls": 793,
+        "inclusiveMs": 1767.7252450000146
+      },
+      "sdk.query": {
+        "calls": 222,
+        "inclusiveMs": 2685.288628000002
+      },
+      "sdk.transaction": {
+        "calls": 720,
+        "inclusiveMs": 12668.479979000009
+      },
+      "sdk.transaction.commit": {
+        "calls": 719,
+        "inclusiveMs": 2813.4341960000133
+      },
+      "sdk.transaction.get": {
+        "calls": 96,
+        "inclusiveMs": 777.4725910000057
+      },
+      "sdk.transaction.getAll": {
+        "calls": 1284,
+        "inclusiveMs": 7767.311527000002
+      },
+      "sql.acquire": {
+        "calls": 24,
+        "inclusiveMs": 22.013288000002035
+      },
+      "sql.allStatements": {
+        "calls": 737,
+        "inclusiveMs": 892.6029460000005
+      },
+      "sql.membershipQuery": {
+        "calls": 638,
+        "inclusiveMs": 804.1999540000152
+      }
+    },
+    "sdkRequestedDocuments": 4566,
+    "authorityRequestedDocuments": 4549,
+    "transactionAttempts": 720,
+    "gcMs": 95.06008672714233,
+    "endpointPhases": [
+      {
+        "endpoint": "startCustomerBiteSaverSearchV2",
+        "ms": 319.85479100000003,
+        "cpuMs": 178.831,
+        "phases": {
+          "outsideMeasuredIo": 34.394123999999806,
+          "firestore": 220.18541699999997,
+          "sql": 65.27525000000026
+        },
+        "gcMs": 2.3186254501342773,
+        "eventLoop": {
+          "idle": 56.899209,
+          "active": 238.17374899255373,
+          "utilization": 0.8071690154628272
+        },
+        "eventLoopDelay": {
+          "meanMs": 16.201728,
+          "maxMs": 115.736575,
+          "p99Ms": 115.736575
+        }
+      },
+      {
+        "endpoint": "getCustomerBiteSaverSearchPageV2",
+        "ms": 1005.427209,
+        "cpuMs": 499.986,
+        "phases": {
+          "outsideMeasuredIo": 161.92295999999897,
+          "firestore": 749.983583000001,
+          "sql": 93.520666
+        },
+        "gcMs": 9.596001625061035,
+        "eventLoop": {
+          "idle": 403.951498,
+          "active": 601.5089178401488,
+          "utilization": 0.5982422662930358
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.380126315789473,
+          "maxMs": 16.875519,
+          "p99Ms": 14.606335
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 140.92266700000005,
+        "cpuMs": 94.173,
+        "phases": {
+          "outsideMeasuredIo": 32.868542000000616,
+          "firestore": 108.05412499999943
+        },
+        "gcMs": 1.3677916526794434,
+        "eventLoop": {
+          "idle": 47.30291299999999,
+          "active": 93.65579528628541,
+          "utilization": 0.6644200732605441
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.631168,
+          "maxMs": 13.869055,
+          "p99Ms": 13.869055
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 89.16245800000002,
+        "cpuMs": 42.969,
+        "phases": {
+          "outsideMeasuredIo": 21.270040999999992,
+          "firestore": 67.89241700000002
+        },
+        "gcMs": 0.8704166412353516,
+        "eventLoop": {
+          "idle": 45.433246,
+          "active": 43.769628660492,
+          "utilization": 0.49067509121292474
+        },
+        "eventLoopDelay": {
+          "meanMs": 9.975808,
+          "maxMs": 10.797055,
+          "p99Ms": 10.797055
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 90.53654200000005,
+        "cpuMs": 37.921,
+        "phases": {
+          "outsideMeasuredIo": 21.696542999999792,
+          "firestore": 68.83999900000026
+        },
+        "gcMs": 0.8216671943664551,
+        "eventLoop": {
+          "idle": 44.523086000000035,
+          "active": 46.04370601126095,
+          "utilization": 0.5083950197279365
+        },
+        "eventLoopDelay": {
+          "meanMs": 9.977856,
+          "maxMs": 10.575871,
+          "p99Ms": 10.575871
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 904.7065829999999,
+        "cpuMs": 497.142,
+        "phases": {
+          "outsideMeasuredIo": 179.29791900000305,
+          "firestore": 669.2532899999997,
+          "sql": 56.15537399999721
+        },
+        "gcMs": 10.116459846496582,
+        "eventLoop": {
+          "idle": 376.31620499999997,
+          "active": 528.4284620532228,
+          "utilization": 0.584063638390186
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.40933345882353,
+          "maxMs": 17.547263,
+          "p99Ms": 16.302079
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 295.61120800000026,
+        "cpuMs": 138.956,
+        "phases": {
+          "outsideMeasuredIo": 54.29929400000083,
+          "firestore": 217.46099799999956,
+          "sql": 23.85091599999987
+        },
+        "gcMs": 2.104583263397217,
+        "eventLoop": {
+          "idle": 135.298582,
+          "active": 160.35545881344592,
+          "utilization": 0.5423753329136071
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.182948571428572,
+          "maxMs": 12.976127,
+          "p99Ms": 12.976127
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 91.21345799999972,
+        "cpuMs": 41.019,
+        "phases": {
+          "outsideMeasuredIo": 22.38949599999887,
+          "firestore": 68.82396200000085
+        },
+        "gcMs": 0,
+        "eventLoop": {
+          "idle": 45.23157900000001,
+          "active": 46.015296286102284,
+          "utilization": 0.5042944883517652
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.2144,
+          "maxMs": 10.698751,
+          "p99Ms": 10.698751
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 83.0379170000001,
+        "cpuMs": 37.453,
+        "phases": {
+          "outsideMeasuredIo": 19.94483399999899,
+          "firestore": 63.093083000001116
+        },
+        "gcMs": 1.7387919425964355,
+        "eventLoop": {
+          "idle": 43.75258299999996,
+          "active": 39.316791561309856,
+          "utilization": 0.4733006811348011
+        },
+        "eventLoopDelay": {
+          "meanMs": 9.960886857142857,
+          "maxMs": 10.567679,
+          "p99Ms": 10.567679
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 1222.1062920000004,
+        "cpuMs": 479.361,
+        "phases": {
+          "outsideMeasuredIo": 219.30795099999477,
+          "firestore": 956.6711280000077,
+          "sql": 46.12721299999794
+        },
+        "gcMs": 6.217167854309082,
+        "eventLoop": {
+          "idle": 479.0002790000001,
+          "active": 743.161220977112,
+          "utilization": 0.6080712090759114
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.335748376068375,
+          "maxMs": 21.544959,
+          "p99Ms": 17.580031
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 289.4914170000002,
+        "cpuMs": 130.838,
+        "phases": {
+          "outsideMeasuredIo": 50.816758999999365,
+          "firestore": 216.18703500000447,
+          "sql": 22.487622999996347
+        },
+        "gcMs": 2.1960830688476562,
+        "eventLoop": {
+          "idle": 132.10095899999988,
+          "active": 157.42412406503263,
+          "utilization": 0.5437322473012549
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.422587076923076,
+          "maxMs": 20.922367,
+          "p99Ms": 20.922367
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 74.43079200000011,
+        "cpuMs": 44.693,
+        "phases": {
+          "outsideMeasuredIo": 20.43983500000104,
+          "firestore": 53.99095699999907
+        },
+        "gcMs": 1.8867082595825195,
+        "eventLoop": {
+          "idle": 34.42662700000005,
+          "active": 40.030582110260184,
+          "utilization": 0.5376320518672778
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.065237333333334,
+          "maxMs": 10.493951,
+          "p99Ms": 10.493951
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 64.45725000000039,
+        "cpuMs": 25.507,
+        "phases": {
+          "outsideMeasuredIo": 19.73770599999898,
+          "firestore": 44.719544000001406
+        },
+        "gcMs": 0,
+        "eventLoop": {
+          "idle": 34.6706650000001,
+          "active": 29.810002114257713,
+          "utilization": 0.46230914549062097
+        },
+        "eventLoopDelay": {
+          "meanMs": 9.8541568,
+          "maxMs": 10.444799,
+          "p99Ms": 10.444799
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 818.9758750000001,
+        "cpuMs": 398.821,
+        "phases": {
+          "outsideMeasuredIo": 173.9116739999945,
+          "firestore": 592.4423300000062,
+          "sql": 52.62187099999937
+        },
+        "gcMs": 6.307499885559082,
+        "eventLoop": {
+          "idle": 340.9922879999999,
+          "active": 478.0049201184388,
+          "utilization": 0.5836465806966615
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.553236210526315,
+          "maxMs": 21.807103,
+          "p99Ms": 19.972095
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 625.0610839999999,
+        "cpuMs": 276.655,
+        "phases": {
+          "outsideMeasuredIo": 126.73241799999232,
+          "firestore": 449.3802500000047,
+          "sql": 48.94841600000291
+        },
+        "gcMs": 4.750751495361328,
+        "eventLoop": {
+          "idle": 278.03195400000004,
+          "active": 347.0587118172607,
+          "utilization": 0.5552133967054309
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.307271593220339,
+          "maxMs": 13.418495,
+          "p99Ms": 12.853247
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 305.30562499999996,
+        "cpuMs": 159.583,
+        "phases": {
+          "outsideMeasuredIo": 51.254878999995526,
+          "firestore": 220.83545700000195,
+          "sql": 33.215289000002485
+        },
+        "gcMs": 3.7678751945495605,
+        "eventLoop": {
+          "idle": 139.23411799999985,
+          "active": 166.1020493355104,
+          "utilization": 0.5439972957838097
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.245851428571429,
+          "maxMs": 13.336575,
+          "p99Ms": 13.336575
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 207.10333300000002,
+        "cpuMs": 76.622,
+        "phases": {
+          "outsideMeasuredIo": 34.60704100000112,
+          "firestore": 146.7966669999987,
+          "sql": 25.699625000000196
+        },
+        "gcMs": 1.2878332138061523,
+        "eventLoop": {
+          "idle": 99.3564980000001,
+          "active": 107.7762939960021,
+          "utilization": 0.5203246330889135
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.280313263157895,
+          "maxMs": 13.393919,
+          "p99Ms": 13.393919
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 130.968167,
+        "cpuMs": 43.079,
+        "phases": {
+          "outsideMeasuredIo": 25.322669999998652,
+          "firestore": 79.69674900000155,
+          "sql": 25.948747999999796
+        },
+        "gcMs": 0,
+        "eventLoop": {
+          "idle": 65.62566599999991,
+          "active": 65.36695923651132,
+          "utilization": 0.4990125140135886
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.102101333333334,
+          "maxMs": 11.452415,
+          "p99Ms": 11.452415
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 145.4839580000007,
+        "cpuMs": 72.45,
+        "phases": {
+          "outsideMeasuredIo": 34.525249000003896,
+          "firestore": 84.47641799999656,
+          "sql": 26.48229100000026
+        },
+        "gcMs": 1.9974169731140137,
+        "eventLoop": {
+          "idle": 63.076172999999926,
+          "active": 82.43515998873909,
+          "utilization": 0.5665205472010807
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.38651076923077,
+          "maxMs": 13.066239,
+          "p99Ms": 13.066239
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 164.79866700000002,
+        "cpuMs": 92.006,
+        "phases": {
+          "outsideMeasuredIo": 55.318372999998246,
+          "firestore": 86.75820899999962,
+          "sql": 22.722085000002153
+        },
+        "gcMs": 2.131624698638916,
+        "eventLoop": {
+          "idle": 61.67512500000021,
+          "active": 103.18575012969995,
+          "utilization": 0.6258959261772762
+        },
+        "eventLoopDelay": {
+          "meanMs": 11.061833142857143,
+          "maxMs": 19.087359,
+          "p99Ms": 19.087359
+        }
+      },
+      {
+        "endpoint": "getCustomerBiteSaverSearchPageV2",
+        "ms": 99.46587499999987,
+        "cpuMs": 27.746,
+        "phases": {
+          "outsideMeasuredIo": 14.787250999999742,
+          "firestore": 18.557708999999704,
+          "sql": 66.12091500000042
+        },
+        "gcMs": 0,
+        "eventLoop": {
+          "idle": 51.14846699999998,
+          "active": 48.346200053221764,
+          "utilization": 0.4859175017627868
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.002432,
+          "maxMs": 10.756095,
+          "p99Ms": 10.756095
+        }
+      },
+      {
+        "endpoint": "getCustomerBiteSaverSearchPageV2",
+        "ms": 734.4246249999997,
+        "cpuMs": 260.048,
+        "phases": {
+          "outsideMeasuredIo": 119.57092899999407,
+          "firestore": 602.3667810000052,
+          "sql": 12.486915000000408
+        },
+        "gcMs": 5.67620849609375,
+        "eventLoop": {
+          "idle": 342.34813399999985,
+          "active": 392.1854076793825,
+          "utilization": 0.5339244369735917
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.328473599999999,
+          "maxMs": 15.671295,
+          "p99Ms": 14.131199
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 940.158958,
+        "cpuMs": 299.316,
+        "phases": {
+          "outsideMeasuredIo": 131.29129599999214,
+          "firestore": 752.7546260000126,
+          "sql": 56.11303599999519
+        },
+        "gcMs": 2.094207763671875,
+        "eventLoop": {
+          "idle": 356.0434230000001,
+          "active": 584.1489941447744,
+          "utilization": 0.6213079189882733
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.417554696629214,
+          "maxMs": 21.987327,
+          "p99Ms": 13.033471
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 283.609375,
+        "cpuMs": 109.888,
+        "phases": {
+          "outsideMeasuredIo": 51.62008099999184,
+          "firestore": 193.82883300000685,
+          "sql": 38.160461000001305
+        },
+        "gcMs": 2.1321659088134766,
+        "eventLoop": {
+          "idle": 137.98229700000002,
+          "active": 145.68611997692915,
+          "utilization": 0.5135789226362054
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.22676676923077,
+          "maxMs": 12.156927,
+          "p99Ms": 12.156927
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 185.95874999999978,
+        "cpuMs": 78.32,
+        "phases": {
+          "outsideMeasuredIo": 33.283410999996704,
+          "firestore": 116.6767130000062,
+          "sql": 35.998625999996875
+        },
+        "gcMs": 2.3992905616760254,
+        "eventLoop": {
+          "idle": 94.80171599999994,
+          "active": 91.25949224813849,
+          "utilization": 0.49048102561191204
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.175186823529412,
+          "maxMs": 10.969087,
+          "p99Ms": 10.969087
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 188.61320799999885,
+        "cpuMs": 67.78,
+        "phases": {
+          "outsideMeasuredIo": 33.817836999991414,
+          "firestore": 117.24187600000187,
+          "sql": 37.55349500000557
+        },
+        "gcMs": 2.395582675933838,
+        "eventLoop": {
+          "idle": 92.71462900000006,
+          "active": 95.92870395822138,
+          "utilization": 0.5085189200906801
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.249878588235294,
+          "maxMs": 12.517375,
+          "p99Ms": 12.517375
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 147.06058399999893,
+        "cpuMs": 54.218,
+        "phases": {
+          "outsideMeasuredIo": 33.38241800000105,
+          "firestore": 82.95062299999518,
+          "sql": 30.727543000002697
+        },
+        "gcMs": 0,
+        "eventLoop": {
+          "idle": 68.45617100000027,
+          "active": 78.63137105703663,
+          "utilization": 0.5345889254614462
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.266151384615384,
+          "maxMs": 13.385727,
+          "p99Ms": 13.385727
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 131.7622080000001,
+        "cpuMs": 68.234,
+        "phases": {
+          "outsideMeasuredIo": 30.99137300000075,
+          "firestore": 72.55271099999845,
+          "sql": 28.2181240000009
+        },
+        "gcMs": 3.3947081565856934,
+        "eventLoop": {
+          "idle": 53.5710009999998,
+          "active": 78.23304086248845,
+          "utilization": 0.593555704036067
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.419106909090909,
+          "maxMs": 14.049279,
+          "p99Ms": 14.049279
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 124.50704100000075,
+        "cpuMs": 56.142,
+        "phases": {
+          "outsideMeasuredIo": 34.17529099999774,
+          "firestore": 61.55920700000206,
+          "sql": 28.77254300000095
+        },
+        "gcMs": 0,
+        "eventLoop": {
+          "idle": 49.92054100000041,
+          "active": 74.61979179418904,
+          "utilization": 0.5991616540603182
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.6749952,
+          "maxMs": 12.509183,
+          "p99Ms": 12.509183
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 299.3584580000006,
+        "cpuMs": 120.022,
+        "phases": {
+          "outsideMeasuredIo": 117.88270700000066,
+          "firestore": 144.06654200000048,
+          "sql": 37.409208999999464
+        },
+        "gcMs": 17.49062490463257,
+        "eventLoop": {
+          "idle": 74.7047049999992,
+          "active": 224.69108605377278,
+          "utilization": 0.7504817795298194
+        },
+        "eventLoopDelay": {
+          "meanMs": 13.741260800000001,
+          "maxMs": 65.404927,
+          "p99Ms": 65.404927
+        }
+      }
+    ]
+  },
+  "trace-linux": {
+    "requests": 24,
+    "handlerMilliseconds": 15679.044051000023,
+    "cpuMilliseconds": 4332.53,
+    "phases": {
+      "firestore": 13491.277116999929,
+      "sql": 824.572617999951,
+      "both": 0,
+      "outsideMeasuredIo": 1363.1943160001429
+    },
+    "operations": {
+      "firestore.commitWrites": {
+        "calls": 18,
+        "inclusiveMs": 120.91379300000335
+      },
+      "firestore.getDocument": {
+        "calls": 70,
+        "inclusiveMs": 623.065083999998
+      },
+      "firestore.getDocuments": {
+        "calls": 152,
+        "inclusiveMs": 4948.081591000024
+      },
+      "firestore.queryDocuments": {
+        "calls": 104,
+        "inclusiveMs": 3079.2607160000043
+      },
+      "firestore.transaction": {
+        "calls": 228,
+        "inclusiveMs": 17141.376056000034
+      },
+      "firestore.transactionRead.getDocument": {
+        "calls": 140,
+        "inclusiveMs": 3342.4306719999804
+      },
+      "firestore.transactionRead.getDocuments": {
+        "calls": 366,
+        "inclusiveMs": 12036.305798000027
+      },
+      "membership.pinRevision": {
+        "calls": 10,
+        "inclusiveMs": 356.5555410000161
+      },
+      "membership.queryResults": {
+        "calls": 10,
+        "inclusiveMs": 791.5099589999991
+      },
+      "sdk.getAll": {
+        "calls": 222,
+        "inclusiveMs": 5549.08788599999
+      },
+      "sdk.query": {
+        "calls": 104,
+        "inclusiveMs": 3051.520173999983
+      },
+      "sdk.transaction": {
+        "calls": 238,
+        "inclusiveMs": 17363.629899
+      },
+      "sdk.transaction.commit": {
+        "calls": 228,
+        "inclusiveMs": 3243.0930139999728
+      },
+      "sdk.transaction.get": {
+        "calls": 140,
+        "inclusiveMs": 3337.886382999968
+      },
+      "sdk.transaction.getAll": {
+        "calls": 372,
+        "inclusiveMs": 12240.704295999953
+      },
+      "sql.acquire": {
+        "calls": 30,
+        "inclusiveMs": 25.049289999991743
+      },
+      "sql.allStatements": {
+        "calls": 428,
+        "inclusiveMs": 799.5233279999593
+      },
+      "sql.membershipQuery": {
+        "calls": 278,
+        "inclusiveMs": 676.1187979999595
+      }
+    },
+    "sdkRequestedDocuments": 2826,
+    "authorityRequestedDocuments": 2656,
+    "transactionAttempts": 238,
+    "gcMs": 148.47704500006512,
+    "endpointPhases": [
+      {
+        "endpoint": "startCustomerBiteSaverSearchV2",
+        "ms": 418.460750000002,
+        "cpuMs": 250.432,
+        "phases": {
+          "outsideMeasuredIo": 99.7362069999981,
+          "firestore": 253.14520900000934,
+          "sql": 65.57933399999456
+        },
+        "gcMs": 0,
+        "eventLoop": {
+          "idle": 218.90550000000076,
+          "active": 201.11691699997027,
+          "utilization": 0.4788242457068289
+        },
+        "eventLoopDelay": {
+          "meanMs": 12.527691851851852,
+          "maxMs": 32.882687,
+          "p99Ms": 32.882687
+        }
+      },
+      {
+        "endpoint": "getCustomerBiteSaverSearchPageV2",
+        "ms": 2685.3071259999997,
+        "cpuMs": 919.157,
+        "phases": {
+          "outsideMeasuredIo": 278.73827900001197,
+          "firestore": 2325.5922139999784,
+          "sql": 80.97663300000931
+        },
+        "gcMs": 21.741000000212807,
+        "eventLoop": {
+          "idle": 2015.4517840000008,
+          "active": 669.925926000029,
+          "utilization": 0.24947176834949655
+        },
+        "eventLoopDelay": {
+          "meanMs": 11.136,
+          "maxMs": 24.772607,
+          "p99Ms": 23.003135
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 1702.9452920000003,
+        "cpuMs": 496.75,
+        "phases": {
+          "outsideMeasuredIo": 152.43299899999693,
+          "firestore": 1550.5122930000034
+        },
+        "gcMs": 6.895166999951471,
+        "eventLoop": {
+          "idle": 1324.0233789999984,
+          "active": 378.98416300003737,
+          "utilization": 0.2225381589061861
+        },
+        "eventLoopDelay": {
+          "meanMs": 11.430579891891892,
+          "maxMs": 24.608767,
+          "p99Ms": 21.102591
+        }
+      },
+      {
+        "endpoint": "startCustomerBiteSaverSearchV2",
+        "ms": 229.96141699999862,
+        "cpuMs": 44.589,
+        "phases": {
+          "outsideMeasuredIo": 11.13445600000341,
+          "firestore": 209.53745999999228,
+          "sql": 9.289501000002929
+        },
+        "gcMs": 1.432208999991417,
+        "eventLoop": {
+          "idle": 192.976835999998,
+          "active": 37.07099799997013,
+          "utilization": 0.16114473827202072
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.763878400000001,
+          "maxMs": 12.173311,
+          "p99Ms": 12.173311
+        }
+      },
+      {
+        "endpoint": "getCustomerBiteSaverSearchPageV2",
+        "ms": 2678.0622519999997,
+        "cpuMs": 763.465,
+        "phases": {
+          "outsideMeasuredIo": 238.7905810000084,
+          "firestore": 2361.121964999991,
+          "sql": 78.14970600000015
+        },
+        "gcMs": 14.943583999876864,
+        "eventLoop": {
+          "idle": 2086.7505359999996,
+          "active": 591.5747150000025,
+          "utilization": 0.2208748600563457
+        },
+        "eventLoopDelay": {
+          "meanMs": 11.162422627615063,
+          "maxMs": 26.591231,
+          "p99Ms": 22.527999
+        }
+      },
+      {
+        "endpoint": "continueCustomerBiteSaverGuestOfferCheckV2",
+        "ms": 1551.2171679999992,
+        "cpuMs": 479.367,
+        "phases": {
+          "outsideMeasuredIo": 195.76404000000184,
+          "firestore": 1355.4531279999974
+        },
+        "gcMs": 63.29708400001982,
+        "eventLoop": {
+          "idle": 1143.3165520000002,
+          "active": 408.04044899996734,
+          "utilization": 0.26302163121509375
+        },
+        "eventLoopDelay": {
+          "meanMs": 12.073395401574803,
+          "maxMs": 55.115775,
+          "p99Ms": 25.542655
+        }
+      },
+      {
+        "endpoint": "startCustomerBiteSaverSearchV2",
+        "ms": 322.2399590000023,
+        "cpuMs": 51.577,
+        "phases": {
+          "outsideMeasuredIo": 11.951044000004913,
+          "firestore": 303.23012399999425,
+          "sql": 7.0587910000031115
+        },
+        "gcMs": 0,
+        "eventLoop": {
+          "idle": 280.6423770000001,
+          "active": 41.803331999992224,
+          "utilization": 0.12964455979159337
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.898285714285715,
+          "maxMs": 15.204351,
+          "p99Ms": 15.204351
+        }
+      },
+      {
+        "endpoint": "getCustomerBiteSaverSearchPageV2",
+        "ms": 1605.899333999998,
+        "cpuMs": 270.167,
+        "phases": {
+          "outsideMeasuredIo": 99.0896680000078,
+          "firestore": 1431.3629199999996,
+          "sql": 75.44674599999053
+        },
+        "gcMs": 4.724041999899782,
+        "eventLoop": {
+          "idle": 1373.4472590000005,
+          "active": 232.73611600002187,
+          "utilization": 0.1449000902527824
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.97143260689655,
+          "maxMs": 30.179327,
+          "p99Ms": 25.165823
+        }
+      },
+      {
+        "endpoint": "getCustomerBiteSaverFavoriteStates",
+        "ms": 122.12937500000044,
+        "cpuMs": 44.892,
+        "phases": {
+          "outsideMeasuredIo": 16.440418000005593,
+          "firestore": 105.68895699999484
+        },
+        "gcMs": 1.3655830000061542,
+        "eventLoop": {
+          "idle": 82.47400099999868,
+          "active": 39.754623999990145,
+          "utilization": 0.3252480668909904
+        },
+        "eventLoopDelay": {
+          "meanMs": 11.546624,
+          "maxMs": 15.728639,
+          "p99Ms": 15.728639
+        }
+      },
+      {
+        "endpoint": "startCustomerBiteSaverSearchV2",
+        "ms": 245.96266599999944,
+        "cpuMs": 45.804,
+        "phases": {
+          "outsideMeasuredIo": 8.978786000006949,
+          "firestore": 232.67004499999894,
+          "sql": 4.31383499999356
+        },
+        "gcMs": 1.3655830000061542,
+        "eventLoop": {
+          "idle": 208.2590850000015,
+          "active": 37.968122999966,
+          "utilization": 0.1541995432120199
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.506612363636362,
+          "maxMs": 13.377535,
+          "p99Ms": 13.377535
+        }
+      },
+      {
+        "endpoint": "getCustomerBiteSaverSearchPageV2",
+        "ms": 1263.2306669999998,
+        "cpuMs": 289.082,
+        "phases": {
+          "outsideMeasuredIo": 93.97870600002352,
+          "firestore": 1092.9112559999885,
+          "sql": 76.34070499998779
+        },
+        "gcMs": 7.298376000020653,
+        "eventLoop": {
+          "idle": 1029.7357890000021,
+          "active": 233.58641999994506,
+          "utilization": 0.1848985305062066
+        },
+        "eventLoopDelay": {
+          "meanMs": 11.392403963302751,
+          "maxMs": 33.357823,
+          "p99Ms": 23.298047
+        }
+      },
+      {
+        "endpoint": "getCustomerBiteSaverFavoriteStates",
+        "ms": 122.01545900000201,
+        "cpuMs": 42.896,
+        "phases": {
+          "outsideMeasuredIo": 15.56233500000235,
+          "firestore": 106.45312399999966
+        },
+        "gcMs": 0,
+        "eventLoop": {
+          "idle": 85.87162700000044,
+          "active": 36.20483200000308,
+          "utilization": 0.2965750505591093
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.4964096,
+          "maxMs": 13.148159,
+          "p99Ms": 13.148159
+        }
+      },
+      {
+        "endpoint": "startCustomerBiteScoreSearchV2",
+        "ms": 318.19008400000166,
+        "cpuMs": 45.879,
+        "phases": {
+          "outsideMeasuredIo": 9.386332000001858,
+          "firestore": 302.18154199999844,
+          "sql": 6.62221000000136
+        },
+        "gcMs": 0.9739579999586567,
+        "eventLoop": {
+          "idle": 278.2353359999979,
+          "active": 40.009997000030125,
+          "utilization": 0.12572060876074687
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.83728457142857,
+          "maxMs": 16.924671,
+          "p99Ms": 16.924671
+        }
+      },
+      {
+        "endpoint": "getCustomerBiteScoreSearchPageV2",
+        "ms": 254.8929590000007,
+        "cpuMs": 67.165,
+        "phases": {
+          "outsideMeasuredIo": 23.48766700001579,
+          "firestore": 127.8502089999929,
+          "sql": 103.55508299999201
+        },
+        "gcMs": 1.2415840000030585,
+        "eventLoop": {
+          "idle": 202.19945899999948,
+          "active": 52.77254100000937,
+          "utilization": 0.2069738677188379
+        },
+        "eventLoopDelay": {
+          "meanMs": 11.116739047619049,
+          "maxMs": 13.828095,
+          "p99Ms": 13.828095
+        }
+      },
+      {
+        "endpoint": "startCustomerBiteScoreSearchV2",
+        "ms": 95.4977089999993,
+        "cpuMs": 25.342,
+        "phases": {
+          "outsideMeasuredIo": 7.684795999986818,
+          "firestore": 82.79004100000748,
+          "sql": 5.022872000005009
+        },
+        "gcMs": 0,
+        "eventLoop": {
+          "idle": 71.20417000000089,
+          "active": 24.3879559999732,
+          "utilization": 0.2551251553917716
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.208256,
+          "maxMs": 11.034623,
+          "p99Ms": 11.034623
+        }
+      },
+      {
+        "endpoint": "getCustomerBiteScoreSearchPageV2",
+        "ms": 317.4547080000011,
+        "cpuMs": 54.25,
+        "phases": {
+          "outsideMeasuredIo": 16.336044000017864,
+          "firestore": 211.72695799998837,
+          "sql": 89.39170599999488
+        },
+        "gcMs": 1.656834000023082,
+        "eventLoop": {
+          "idle": 271.5435370000014,
+          "active": 45.97787999998036,
+          "utilization": 0.14480245280583073
+        },
+        "eventLoopDelay": {
+          "meanMs": 11.101525333333335,
+          "maxMs": 14.450687,
+          "p99Ms": 14.450687
+        }
+      },
+      {
+        "endpoint": "startCustomerBiteScoreSearchV2",
+        "ms": 197.4307090000002,
+        "cpuMs": 50.192,
+        "phases": {
+          "outsideMeasuredIo": 10.344626000020071,
+          "firestore": 178.51483399999415,
+          "sql": 8.571248999985983
+        },
+        "gcMs": 0,
+        "eventLoop": {
+          "idle": 152.6938310000005,
+          "active": 44.93566999998802,
+          "utilization": 0.22737329079220128
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.75248188235294,
+          "maxMs": 14.483455,
+          "p99Ms": 14.483455
+        }
+      },
+      {
+        "endpoint": "getCustomerBiteScoreSearchPageV2",
+        "ms": 269.04191600000195,
+        "cpuMs": 51.81,
+        "phases": {
+          "outsideMeasuredIo": 12.69924699999683,
+          "firestore": 206.75879300000815,
+          "sql": 49.58387599999696
+        },
+        "gcMs": 1.521208000020124,
+        "eventLoop": {
+          "idle": 229.48912500000006,
+          "active": 39.64262500000041,
+          "utilization": 0.14729820989162498
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.444458666666666,
+          "maxMs": 11.821055,
+          "p99Ms": 11.821055
+        }
+      },
+      {
+        "endpoint": "startCustomerBiteScoreSearchV2",
+        "ms": 178.3873339999991,
+        "cpuMs": 33.37,
+        "phases": {
+          "outsideMeasuredIo": 9.533877000008943,
+          "firestore": 164.40391599999566,
+          "sql": 4.449540999994497
+        },
+        "gcMs": 0,
+        "eventLoop": {
+          "idle": 147.30254199999763,
+          "active": 31.468415999981517,
+          "utilization": 0.17602644384769245
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.59584,
+          "maxMs": 12.673023,
+          "p99Ms": 12.673023
+        }
+      },
+      {
+        "endpoint": "getCustomerBiteScoreSearchPageV2",
+        "ms": 260.2801250000048,
+        "cpuMs": 29.834,
+        "phases": {
+          "outsideMeasuredIo": 7.186334000012721,
+          "firestore": 200.175416999984,
+          "sql": 52.91837400000804
+        },
+        "gcMs": 1.0652910000062548,
+        "eventLoop": {
+          "idle": 235.63704500000313,
+          "active": 24.764621000016632,
+          "utilization": 0.09510162273698645
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.801508173913042,
+          "maxMs": 12.689407,
+          "p99Ms": 12.689407
+        }
+      },
+      {
+        "endpoint": "startCustomerBiteScoreSearchV2",
+        "ms": 297.64004200000636,
+        "cpuMs": 60.801,
+        "phases": {
+          "outsideMeasuredIo": 10.71245700000145,
+          "firestore": 278.9333780000088,
+          "sql": 7.994206999996095
+        },
+        "gcMs": 0,
+        "eventLoop": {
+          "idle": 243.1010869999991,
+          "active": 54.75387100001171,
+          "utilization": 0.18382729422288055
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.653999407407406,
+          "maxMs": 13.033471,
+          "p99Ms": 13.033471
+        }
+      },
+      {
+        "endpoint": "getCustomerBiteScoreSearchPageV2",
+        "ms": 231.54612500000076,
+        "cpuMs": 44.099,
+        "phases": {
+          "outsideMeasuredIo": 9.79529399999592,
+          "firestore": 174.78383200000826,
+          "sql": 46.96699899999658
+        },
+        "gcMs": 0,
+        "eventLoop": {
+          "idle": 192.66387700000269,
+          "active": 39.070415000005596,
+          "utilization": 0.16860005769022826
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.7728896,
+          "maxMs": 12.509183,
+          "p99Ms": 12.509183
+        }
+      },
+      {
+        "endpoint": "startCustomerBiteScoreSearchV2",
+        "ms": 183.3337920000049,
+        "cpuMs": 148.603,
+        "phases": {
+          "outsideMeasuredIo": 14.390290000017558,
+          "firestore": 161.44212599999446,
+          "sql": 7.501375999992888
+        },
+        "gcMs": 18.955542000068817,
+        "eventLoop": {
+          "idle": 102.08904099999927,
+          "active": 81.56441799999448,
+          "utilization": 0.4441213274398347
+        },
+        "eventLoopDelay": {
+          "meanMs": 12.015030857142856,
+          "maxMs": 29.769727,
+          "p99Ms": 29.769727
+        }
+      },
+      {
+        "endpoint": "getCustomerBiteScoreSearchPageV2",
+        "ms": 127.91708300000028,
+        "cpuMs": 23.007,
+        "phases": {
+          "outsideMeasuredIo": 9.03983299999527,
+          "firestore": 74.03737600000022,
+          "sql": 44.839874000004784
+        },
+        "gcMs": 0,
+        "eventLoop": {
+          "idle": 107.0713739999992,
+          "active": 21.273668000001635,
+          "utilization": 0.16575371879189144
+        },
+        "eventLoopDelay": {
+          "meanMs": 10.772107636363637,
+          "maxMs": 12.451839,
+          "p99Ms": 12.451839
+        }
+      }
+    ]
+  },
+  "nativeBalanced": {
+    "empty": {
+      "baseline": {
+        "attempts": 3,
+        "firstMedianMs": 1217.8999169999997,
+        "laterMedianMs": 1064.065125,
+        "traces": [
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 1217.8999169999997,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 1023.4451249999997,
+                "unavailableAttempts": 0
+              }
+            ],
+            "challenges": 2,
+            "candidates": 108,
+            "suppressed": 0,
+            "unavailable": 0
+          },
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 1206.118,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 1590.70975,
+                "unavailableAttempts": 0
+              }
+            ],
+            "challenges": 2,
+            "candidates": 108,
+            "suppressed": 0,
+            "unavailable": 0
+          },
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 1474.867084,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 1064.065125,
+                "unavailableAttempts": 0
+              }
+            ],
+            "challenges": 2,
+            "candidates": 108,
+            "suppressed": 0,
+            "unavailable": 0
+          }
+        ]
+      },
+      "candidate": {
+        "attempts": 3,
+        "firstMedianMs": 1213.7224159999998,
+        "laterMedianMs": 1256.100458,
+        "traces": [
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 1316.9122909999999,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 1256.100458,
+                "unavailableAttempts": 0
+              }
+            ],
+            "challenges": 2,
+            "candidates": 108,
+            "suppressed": 0,
+            "unavailable": 0
+          },
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 1213.7224159999998,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 1076.5852499999999,
+                "unavailableAttempts": 0
+              }
+            ],
+            "challenges": 2,
+            "candidates": 108,
+            "suppressed": 0,
+            "unavailable": 0
+          },
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 1129.679334,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 1359.6755410000003,
+                "unavailableAttempts": 0
+              }
+            ],
+            "challenges": 2,
+            "candidates": 108,
+            "suppressed": 0,
+            "unavailable": 0
+          }
+        ]
+      }
+    },
+    "moderate": {
+      "baseline": {
+        "attempts": 3,
+        "firstMedianMs": 1224.990875,
+        "laterMedianMs": 1041.900833,
+        "traces": [
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 1224.990875,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 1041.900833,
+                "unavailableAttempts": 0
+              }
+            ],
+            "challenges": 2,
+            "candidates": 108,
+            "suppressed": 0,
+            "unavailable": 0
+          },
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 1073.4335420000002,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 957.6281249999997,
+                "unavailableAttempts": 0
+              }
+            ],
+            "challenges": 2,
+            "candidates": 108,
+            "suppressed": 0,
+            "unavailable": 0
+          },
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 1448.313417,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 1042.545208,
+                "unavailableAttempts": 0
+              }
+            ],
+            "challenges": 2,
+            "candidates": 108,
+            "suppressed": 0,
+            "unavailable": 0
+          }
+        ]
+      },
+      "candidate": {
+        "attempts": 3,
+        "firstMedianMs": 1122.7493749999999,
+        "laterMedianMs": 1029.9962910000002,
+        "traces": [
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 1122.7493749999999,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 990.6572499999997,
+                "unavailableAttempts": 0
+              }
+            ],
+            "challenges": 2,
+            "candidates": 108,
+            "suppressed": 0,
+            "unavailable": 0
+          },
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 1435.61825,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 1029.9962910000002,
+                "unavailableAttempts": 0
+              }
+            ],
+            "challenges": 2,
+            "candidates": 108,
+            "suppressed": 0,
+            "unavailable": 0
+          },
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 1114.813333,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 1065.0977090000001,
+                "unavailableAttempts": 0
+              }
+            ],
+            "challenges": 2,
+            "candidates": 108,
+            "suppressed": 0,
+            "unavailable": 0
+          }
+        ]
+      }
+    },
+    "heavy": {
+      "baseline": {
+        "attempts": 3,
+        "firstMedianMs": 7648.952917,
+        "laterMedianMs": 3209.780917,
+        "traces": [
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 7673.219833,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 3088.2734169999994,
+                "unavailableAttempts": 1
+              }
+            ],
+            "challenges": 26,
+            "candidates": 435,
+            "suppressed": 360,
+            "unavailable": 1
+          },
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 7385.096208,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 3209.780917,
+                "unavailableAttempts": 1
+              }
+            ],
+            "challenges": 26,
+            "candidates": 435,
+            "suppressed": 360,
+            "unavailable": 1
+          },
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 7648.952917,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 3975.0289170000005,
+                "unavailableAttempts": 1
+              }
+            ],
+            "challenges": 26,
+            "candidates": 435,
+            "suppressed": 360,
+            "unavailable": 1
+          }
+        ]
+      },
+      "candidate": {
+        "attempts": 3,
+        "firstMedianMs": 7150.006625,
+        "laterMedianMs": 3470.7202499999994,
+        "traces": [
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 7150.006625,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 3470.7202499999994,
+                "unavailableAttempts": 1
+              }
+            ],
+            "challenges": 26,
+            "candidates": 435,
+            "suppressed": 360,
+            "unavailable": 1
+          },
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 6978.848333,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 3047.23175,
+                "unavailableAttempts": 1
+              }
+            ],
+            "challenges": 26,
+            "candidates": 435,
+            "suppressed": 360,
+            "unavailable": 1
+          },
+          {
+            "pages": [
+              {
+                "page": 0,
+                "milliseconds": 7187.3063329999995,
+                "unavailableAttempts": 0
+              },
+              {
+                "page": 1,
+                "milliseconds": 3761.9581659999994,
+                "unavailableAttempts": 1
+              }
+            ],
+            "challenges": 26,
+            "candidates": 435,
+            "suppressed": 360,
+            "unavailable": 1
+          }
+        ]
+      }
+    }
+  }
+}

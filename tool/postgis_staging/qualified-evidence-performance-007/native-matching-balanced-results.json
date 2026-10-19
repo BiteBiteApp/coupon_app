@@ -1,0 +1,56 @@
+[
+  {
+    "scenario": "moderate",
+    "index": 0,
+    "variant": "baseline",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447438.163925,
+    "finishedAtEpoch": 1792447441.452706,
+    "evidence": "native-matching-moderate-0-baseline.json"
+  },
+  {
+    "scenario": "moderate",
+    "index": 1,
+    "variant": "candidate",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447441.4536781,
+    "finishedAtEpoch": 1792447444.5618298,
+    "evidence": "native-matching-moderate-1-candidate.json"
+  },
+  {
+    "scenario": "moderate",
+    "index": 2,
+    "variant": "candidate",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447444.562193,
+    "finishedAtEpoch": 1792447447.254796,
+    "evidence": "native-matching-moderate-2-candidate.json"
+  },
+  {
+    "scenario": "moderate",
+    "index": 3,
+    "variant": "baseline",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447447.255193,
+    "finishedAtEpoch": 1792447450.146698,
+    "evidence": "native-matching-moderate-3-baseline.json"
+  },
+  {
+    "scenario": "moderate",
+    "index": 4,
+    "variant": "baseline",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447450.147189,
+    "finishedAtEpoch": 1792447453.345332,
+    "evidence": "native-matching-moderate-4-baseline.json"
+  },
+  {
+    "scenario": "moderate",
+    "index": 5,
+    "variant": "candidate",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447453.345904,
+    "finishedAtEpoch": 1792447456.124536,
+    "evidence": "native-matching-moderate-5-candidate.json"
+  }
+]

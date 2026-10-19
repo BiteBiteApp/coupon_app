@@ -1,0 +1,299 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-PERFORMANCE-CLOSEOUT-007",
+  "reviewer": "Track A / query_client, independent read-only review",
+  "reviewedAt": "2026-10-19T22:10:43.653244+00:00",
+  "status": "FINAL_FOCUSED_CODE_AND_LOCAL_EVIDENCE_REVIEW_COMPLETE; NO_UNRESOLVED_SOURCE_FINDING; HEAVY_TARGET_UNMET; HOSTED_TAILS_UNQUALIFIED",
+  "scope": "Only the restaurantWindow branch of currentOffersForExpiredGuestBatch, its focused regression test, directly called authority validators, and supplied local causal measurements.",
+  "reviewerActions": {
+    "sourceEdits": 0,
+    "testRuns": 0,
+    "cloudActions": 0,
+    "gitMutations": 0,
+    "reasonNoIndependentTestRun": "Avoid contention with ongoing performance measurements as requested. Existing output was inspected, not rerun."
+  },
+  "sourceVerdict": "No actionable source defect identified in the single production hunk.",
+  "authorityReview": [
+    "The initial bounded result/parent read still validates exact public and authoritative identities, catalog and projection fingerprints, and the original restaurant sort tuple.",
+    "The existing evaluateOfferSeedsAtCoherentSnapshot rereads every parent in the Firestore transaction, rebuilds eligibility and projection, then rereads every raw offer through that same transaction.",
+    "Fresh offer projection checks account identity, source document ID, index identity, discoverability, source/catalog contribution, current query match, opaque public offer ID, usage policy and eligibility deadline.",
+    "The shared map uses account ID + offer type + source document ID, avoiding collisions between same-named offer documents in different restaurants.",
+    "Promise.all preserves the input parent sequence; flatten and corroboration reconstruct the original per-slice candidate sequence. No cursor, accepted answer, token, public DTO, or history payload changes.",
+    "The unchanged parser requires 1..26 ordered slices, 1..75 unique checkable candidates globally, exact slice counts and bindings. Shared offer evaluator retains its 100-seed ceiling; parent and raw-offer read arrays stay bounded. No limit increase.",
+    "Expired challenge reissue and accepted-answer application still use the same frozen availability instant and independent current authority; final delivery retains its separate fresh coherent validation. No authority survives across requests.",
+    "The combined transaction is read-only and uses the existing transaction retry contract. No side effects are added to the retry callback. More parents share one transaction, so hosted contention/transaction size behavior is not established by these local tests."
+  ],
+  "observedTestEvidence": {
+    "file": "candidate-focused-tests.log",
+    "passed": 314,
+    "failed": 0,
+    "skipped": 0,
+    "independentlyExecuted": false,
+    "newTests": "Two tests, each with two internal cases: bounded one-transaction window and separate later snapshots; parent/raw-offer withdrawal immediately before the combined snapshot.",
+    "existingCoverageInspected": [
+      "75-ID global bound",
+      "exact filtered membership/no full-history leak",
+      "lost replies and replay",
+      "caller/revision/extra ID/disabled continuation",
+      "forged parent slices/76th ID",
+      "expired exact-slice reissue",
+      "later-parent withdrawal",
+      "accepted-answer interruption/no cross-account cache",
+      "timed eligibility/day-boundary/replay expiry"
+    ]
+  },
+  "measurementReview": {
+    "relay": {
+      "ordering": [
+        "original",
+        "nodelay",
+        "nodelay",
+        "original"
+      ],
+      "observationsPerVariant": 4,
+      "warmObservationsPerVariant": 2,
+      "allMedianMs": {
+        "original": 4779.9005,
+        "nodelay": 1722.3115
+      },
+      "warmMedianMs": {
+        "original": 4277.0815,
+        "nodelay": 1175.9155
+      },
+      "appContainerImage": "sha256:2ed5837644b6a2e0957536f462a2e276b06a4557b9b81095db216c0e57cb1a46",
+      "verification": "Same app container is restarted across ABBA; direct read-only Docker inspect confirmed its image and report-host entrypoint. Relay source diff contains only setNoDelay(true) on accepted/upstream sockets. All eight raw observations succeeded with 25 useful cards, three HTTP calls, identical membership digest and no client delays.",
+      "causalLimit": "Strong local control for relay overhead, not a production or hosted service speedup. First observations are distinct from warm samples; no p95/p99 claim is supported."
+    },
+    "nativeHeavy": {
+      "attemptsPerVariant": 3,
+      "firstMedianMs": {
+        "baseline": 7648.952917,
+        "candidate": 7150.006625
+      },
+      "laterMedianMs": {
+        "baseline": 3209.780917,
+        "candidate": 3470.7202499999994
+      },
+      "parity": "Independently compared all six raw heavy page arrays to the retained corrected unbatched reference: two full 25-card pages, exact restaurant/offer ordering and hasMore. Identical 26 challenge-size and suppression vectors, maximum challenge 54, 435 candidate occurrences and 360 suppressions.",
+      "unavailable": "All six include one retained unavailable attempt on page 1 and its explicit 200ms retry wait. No failed attempts removed.",
+      "interpretation": "Small mixed local result: first-page median improves about 6.5%, later-page median worsens about 8.1%; not a universal latency improvement or tail qualification."
+    },
+    "tracedHeavy": {
+      "baseline": {
+        "requests": 30,
+        "handlerMilliseconds": 11040.928084,
+        "cpuMilliseconds": 4962.267,
+        "phases": {
+          "firestore": 7748.490994000029,
+          "sql": 1095.7519730000126,
+          "both": 0,
+          "outsideMeasuredIo": 2196.6851169999572
+        },
+        "sdkRequestedDocuments": 4566,
+        "authorityRequestedDocuments": 4549,
+        "transactionAttempts": 720
+      },
+      "candidate": {
+        "requests": 30,
+        "handlerMilliseconds": 10404.417543000001,
+        "cpuMilliseconds": 4859.751,
+        "phases": {
+          "firestore": 7053.370132000004,
+          "sql": 905.8492340000133,
+          "both": 0,
+          "outsideMeasuredIo": 2445.1981769999843
+        },
+        "sdkRequestedDocuments": 4566,
+        "authorityRequestedDocuments": 4549,
+        "transactionAttempts": 370
+      }
+    },
+    "traceInterpretation": "SDK transactions fall 720 to 370 and transaction getAll calls 1284 to 584. SDK requested documents remain exactly 4566; authority requested documents 4549, SQL statements 737, membership-query statements 638 and protocol requests 30 are unchanged. Do not describe this as fewer billed reads. Union-of-I/O phases identify Firestore as the largest observed portion; inclusive nested span totals must not be added together. Instrumented traces are diagnostic, not interchangeable with balanced uninstrumented timing samples. The final summary helper explicitly selects preserved trace-linux-original-operations.jsonl when present, keeping the original-relay trace separate from the later no-delay trace.",
+    "nativeMatchingModerate": {
+      "attemptsPerVariant": 3,
+      "historyIds": 30,
+      "actualSuppressions": 10,
+      "challengeSizes": [
+        54,
+        2,
+        6,
+        54
+      ],
+      "candidateOccurrences": 116,
+      "firstMedianMs": {
+        "baseline": 1399.239125,
+        "candidate": 1324.938666
+      },
+      "laterMedianMs": {
+        "baseline": 1019.8102500000002,
+        "candidate": 960.6590409999999
+      },
+      "verification": "Reviewer independently checked exact equality of all six ordered 2x25 restaurant/offer page arrays and hasMore, with no unavailable attempts. This is baseline/candidate equality, not comparison to the heavy-history reference."
+    },
+    "controlledCodeFlutter": {
+      "ordering": [
+        "baseline",
+        "candidate",
+        "candidate",
+        "baseline"
+      ],
+      "observationsPerVariant": 4,
+      "medianMs": {
+        "baseline": 2058.448,
+        "candidate": 1653.527
+      },
+      "warmSubsetN": 2,
+      "warmSubsetMedianMs": {
+        "baseline": 1608.105,
+        "candidate": 1210.634
+      },
+      "sameFlutterSource": "Both variants run baseline-source/test/services/postgis_flutter_integration_test.dart against their separate backend images, with the corrected local relay.",
+      "limitation": "Small descriptive local comparison; no tail or universal improvement claim."
+    },
+    "finalPhaseEvidence": {
+      "warmBaselineWithOriginalRelayHandlerMs": 4459.240836999998,
+      "warmBaselineWithCorrectedRelayHandlerMs": 1011.2149169999993,
+      "warmFinalHandlerMs": 955.2329999999993,
+      "finalWarmPhaseMs": {
+        "firestore": 653.0452120000082,
+        "sql": 42.68446400000448,
+        "outsideMeasuredIo": 259.5033239999866
+      },
+      "finalSDKTransactions": 40,
+      "baselineSDKTransactions": 90,
+      "sameSDKRequestedDocuments": 625,
+      "sameSQLStatements": 77,
+      "resourceCaveat": "Final app container records 384.222ms CPU throttling across the full 16.703s observation interval and zero OOM kills; this does not establish an emulation or capacity explanation for each request. SQL 10ms sampling saw no lock waiter, which cannot exclude shorter unobserved waits. Host and emulator conditions are local, not production capacity evidence."
+    }
+  },
+  "findings": [
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "area": "Evidence labeling, not production source",
+      "issue": "The initial moderate cohort had 30 stored but nonmatching history IDs and zero suppression. Earlier native-probe outputs unconditionally claimed corrected-unbatched parity although that assertion ran only for heavy mode.",
+      "status": "RESOLVED: explicit evidence-corrections.json preserves earlier raw attempts and supersedes the false label; six new matching-history attempts all succeeded and were independently compared by reviewer.",
+      "consequence": "Without qualification, the report could overstate moderate-suppression and oracle coverage. Heavy reference equality is independently confirmed and unaffected."
+    }
+  ],
+  "limitations": [
+    "Heavy first/later-page targets remain unmet on the supplied local measurements. No hosted deployment, cloud load or billing evidence exists.",
+    "n=3 per native variant, and relay n=4 including only two warm samples, do not establish p95/p99 or robust tail improvement.",
+    "New withdrawal test uses an in-memory deterministic race injection. It proves the validation boundary; it does not substitute for Firestore concurrent-write transaction retry qualification.",
+    "This review does not extend qualification to unrelated owner website changes, runtime strategy changes, or deployment/default activation."
+  ],
+  "pending": [],
+  "sha256": {
+    "baseline-source/functions/src/customer_bitesaver_search_session.ts": "1efee619966a2f01dbfc2816731ea07e63c04379e0034f0b68cdf7a206ef0a29",
+    "candidate-source/functions/src/customer_bitesaver_search_session.ts": "54bc01da7c7878b1c3a76ac9d16a44571490e8979951db6d8e0fb7bf3bb72189",
+    "candidate-source/functions/test/postgis_guest_authority_batching_007.test.cjs": "c3c99654e2edce5441cdf9a1845b239a94dbfc5f09a2be2597a536153c3ec084",
+    "candidate-focused-tests.log": "5593a64ac2a59ec7e4ae33e161e7f5e4ddcaa2d786e78293a1c0705b8238fd45",
+    "relay-abba-results.json": "f93481105d63605328d4aa1d28af0f444019698a58afdda8a0791175143c5958",
+    "relay-abba.py": "e96f792daaf9f60da16a00cd508d7288e400411a5e8c6e7e1853c50d0b9d66aa",
+    "loopback-relay-nodelay.cjs": "87edca6b41b92d16c8dde6ba87b01fbc17934c37fe01665aa3461b63aa7cbc08",
+    "native-balanced-results.json": "14fa190f8faf8c6904c175a3c4ed6e4d3422370890fbe0572bf59550c4119f17",
+    "native-balanced.py": "fc50280fe7dcaae968ab78b6f3de03581c7c665b9c8e4213229e61d65a0e18c8",
+    "measurement-summary.json": "ee547389f38fe1ecc09bf7d1c6af0c3ab64814b225d6804ba3ee303b471741ae",
+    "trace-heavy-comparison.json": "7c78920b47ec657e7e8794b54de41fb612b642abaa260b17a97c8edda3484908",
+    "trace-heavy-baseline-native.json": "760d6a7c2e1972f56453b1156363818a419ce3c19e481caf6f30680e432372f8",
+    "trace-heavy-candidate-native.json": "7ace488663786d3fa879a0e9be86c3337209c039e54f316666075f4e517e0d18",
+    "evidence-corrections.json": "6e2a0565f933275ce6c1f6c8f4e763f2d5a99d3d529e319b07ee408da6058dcb",
+    "summarize.py": "bc827d5ad6063c81bfc5902545d149a1268e463161d998fc47f211844a84d650",
+    "relay-0-original.json": "eac941bc991e362ee4bfef41918020d6c7128afd63bfa91b9a341b97b9a98462",
+    "relay-3-original.json": "6e1521c4f81fe20b4c79d3e3e690c31f5fdc65ec9a4206dd0563a1a6b507cbb1",
+    "relay-1-nodelay.json": "335ffbfeaceb1a5ad52492129f15e880808984c39759a51bbc8b5dd09eb4758c",
+    "relay-2-nodelay.json": "0ded374ac7eba7ec8a17c809b9a7f9da256a62d97987722719fc12bac536266e",
+    "native-heavy-0-baseline.json": "51373c10b2be1c361f99bb303f4e57dfeed25b99f09f649353628a3fcb39093b",
+    "native-heavy-1-candidate.json": "1519c69266f37178a8cbd339ee996ac671dd3d4cd2991c762d6cb8fc63a8e196",
+    "native-heavy-2-candidate.json": "fc504d57339c70958eadd5897b3e5672505f5ac244481bfc51ae5972be6ebc6d",
+    "native-heavy-3-baseline.json": "25f07ac3da262b96f35d403baa05918dc3ef4413c16bc8966ae04dceb53b9ef5",
+    "native-heavy-4-baseline.json": "d78c6add41b3be4d709e15fd561e1722b4eb1ae2178ec2e9e41ff25f3fe46b85",
+    "native-heavy-5-candidate.json": "60845d62a18dccfb907746373a9d27ee9c6e981ad80a12baada5deb9c6735f0b",
+    "native-matching-balanced-results.json": "09a3bfeee804756e7f16ee27f390609a9a790e6c545cb6cd27ea335aa7e146fd",
+    "native-matching-balanced.py": "fd643775b61619f09cda7f12b85f276513618d0e6440c90d704065836d2d0869",
+    "real-window-races.cjs": "cc4479e19290df3781d28206931d25ea0c733f82ca7984fe09bdb95cf1efacb6",
+    "real-window-races.json": "2dba698606deeadeae9d76435b68564bf29f756e50f58ca35c495b5faf71ec5c",
+    "real-window-races.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "real-window-races-failed-command.log": "3a6d39a11b5c84ee0edf9d84bb2ac2a7cd0eef755e8331652c250234d6fa0041",
+    "real-window-races-failed-fixture-mapping.log": "425fc73d6f86b6329c9f8d1583f3bdae6d7d5a98d02b4cffa90f1a001088d7da",
+    "native-probe.cjs": "dac34be35a3312067fc0736d524ef8ae25746426a08b5abf7040f50f41cf0833",
+    "native-matching-moderate-0-baseline.json": "bd96e2a2a50fce852140995fb0fac176b28bcf330ec477f84f0e21a45f06c303",
+    "native-matching-moderate-1-candidate.json": "ee2e60766756ca5b236a361cddd998cb30f6136fcb6c2ace2c7ad65e6e6d527d",
+    "native-matching-moderate-2-candidate.json": "fdf1f21ce945060812e861aebd4e4fa6b04d70f81375d4ba8f5036d2ab5ff175",
+    "native-matching-moderate-3-baseline.json": "ed710068c8783a78e0eada6a94775af3f286ab6dc4b66ef30ad3eb62262acd8c",
+    "native-matching-moderate-4-baseline.json": "457b87f708fdb69b954b4e54c1ffde9e8c148ef924422fc5094c89b66d235f2c",
+    "native-matching-moderate-5-candidate.json": "6dd1fada97af20de226d9a0aabbcc31f06f781d388081d203c2ed59ffbed041c",
+    "final-image-source-compiled-proof.json": "c09a1b58251c1c86fe75b751c22885f65846749f12ef49e32f2001db0207311d",
+    "final-integration-reuse-proof.json": "4ac12bbdb2a17f425fcef61e9376cc8e4a6e38ed435dde18c19bfccf220b93da",
+    "source-freeze-summary.json": "0962016ae0392a1d80a12852af3f670a8f7601fbcd84e3b709ce6c91f88e8bca",
+    "final-useful-render.json": "0966fee57ed8e3bf9091127e2616782d1d1f2d5f4c0026f58bf10b8a98fd4fd6",
+    "final-flutter.log": "581f23388ea7a68a62d698bd896746d5d23616a9d5c291bde7ddfa58ec5a80ec",
+    "integration-focused-tests.log": "6e82b64211d558b0ea3c36c69270ce02993c39a6eae2fb69498b7f0cf8cd5998",
+    "integration-dart-tests.log": "42cd9a2649a2866eff8909294484e830433fc956d222ecd3cee22399664706ef",
+    "final-measurement-summary.json": "c8b2b5cdc59a75ae276f2156a3a7e1205e0097f42bd91c46eae2661c5630db76",
+    "final-resources-before.json": "a2fbadf18e52a96c34b1218abcb47c91f5022c8e6bb6caba56df7d3935af9e98",
+    "final-resources-after.json": "40473b414d2f5d6344fb01ecb5bcb42865a38e2d11a70f19fd0bfc41f759c587",
+    "trace-final-useful-render.json": "22675bc26009c2af1145fa409e6702500df5023397961c366bcc68c81f281909",
+    "trace-final-operations.jsonl": "1de78e7dbc8e8ac356a6ce5d9c0203878aef1fe3adb640bc6d639f96d3fcc404",
+    "trace-nodelay-baseline-useful-render.json": "d2b71c4d7479cdb98fc7b55e98e93cf8f4881ef337f669683f988b64e4fa15da",
+    "code-abba.py": "27b9771d92a7f40358021a1b5db467d76c6074a3eb736c035dcab6207bd41cdc",
+    "code-abba-results.json": "446d634929e2806314f1a9581f50cd9995b43597f14bf668c8d561c86fae5ae7",
+    "moderate-matching-summary.json": "03bd5b06256a7b10ddfe92ece838adaa985ec9c5f2358f929c880aee34576e81",
+    "code-0-baseline.json": "8f98b035267e8a9ed6b9899fb4add51070f749c37c6656acac0426b8790e5378",
+    "code-1-candidate.json": "f0ba8e33a0ad8660d73bb5cce9958fc3193d16db5e0a504e67f3eeb12f38782d",
+    "code-2-candidate.json": "70fcbeb8f5925a0881d26d2253fc24615030ddb25acd38e8877a0d6f350b840d",
+    "code-3-baseline.json": "069ed5ad58a0731c701512214d994ed7d11906b4e84feebee968078648cf4649"
+  },
+  "prompt": {
+    "path": "/Users/colesmart/.codex/attachments/b9d812f8-25c2-43b2-8588-995d48602893/Pasted text.txt",
+    "prepared": "2026-10-19T17:36:00-04:00",
+    "reviewAcceptance": "Focused independent review of final changed bytes, causal diagnosis, authority and comparable local measurements; no requirement for local proof of hosted tails and no silent target relaxation."
+  },
+  "realAuthorityEvidence": {
+    "file": "real-window-races.json",
+    "observedPasses": 5,
+    "checks": [
+      "cross-account denied",
+      "lost-completion reply exact replay",
+      "expired challenge exact candidates reissued and old answer rejected",
+      "parent withdrawn after challenge rejected before delivery",
+      "offer withdrawn after challenge rejected before delivery"
+    ],
+    "method": "Inspected source and completed output; actual local Firestore/PostGIS native handlers with synthetic fixture, deterministic context clock and raw-document restoration in finally. Does not stress simultaneous concurrent-write transaction retries. Reviewer did not run this test.",
+    "retainedFailures": [
+      "real-window-races-failed-command.log",
+      "real-window-races-failed-fixture-mapping.log"
+    ]
+  },
+  "finalArtifactReview": {
+    "controlledCandidateImage": "sha256:d6258f63d589a68cffdc3dc7f6562f948d712aa379f32e903e2a22c6a38b736c",
+    "finalIntegrationImage": "sha256:8838c8de6d738fa587c67da3e8af8385d6a260ef0bef229e8cee5f1410f22043",
+    "finalBaseHead": "39922fd418d5cc5cd191db0af8d3ee12dab64c7a",
+    "productionSourceSha256": "54bc01da7c7878b1c3a76ac9d16a44571490e8979951db6d8e0fb7bf3bb72189",
+    "compiledSessionSha256": "20c63aaa55848b1c45e1bec9d28f6015c2fb34c8c7654d2ec9b0e41df0569b70",
+    "newTestSha256": "c3c99654e2edce5441cdf9a1845b239a94dbfc5f09a2be2597a536153c3ec084",
+    "runtimeClosureComparison": "Reviewer independently hashed the 54 listed runtime closure files in both candidate-source and integration-source and compared each with the extracted final image proof; all match. Production/test source hashes also match across both copies. Reviewer did not execute an image/test during measurements.",
+    "finalHeadNativeTests": 314,
+    "finalHeadDartTests": 179,
+    "nativeAndDartEvidence": "Inspected completed integration-focused-tests.log and integration-dart-tests.log; no failures reported.",
+    "consumerWidgetTests": 4,
+    "consumerIntents": 16,
+    "consumerIntentSuccesses": 16,
+    "consumerMediansMs": {
+      "guest": 996.129,
+      "signedSaver": 432.143,
+      "biteScoreHome": 209.098,
+      "finder": 479.789
+    },
+    "consumerGuestDetail": "All five untraced guest intents complete 25 useful cards with three HTTP calls, zero errors, and the exact controlled-baseline ordered-membership digest. Signed Saver also returns 25 cards in all five observations.",
+    "interpretation": "Current-HEAD final integration correctness/consumer run is separate from the controlled code ABBA, which holds the older baseline Flutter source constant for both backend variants. Do not attribute all final-vs-historical timing difference to the backend hunk.",
+    "qualificationScope": "Affected search behavior only. Existing owner website changes and all unrelated code are not independently qualified by this review."
+  },
+  "closeoutAssessment": "The coherent source checkpoint is supportable under task section 6 with an explicit unmet heavy-suppression performance target. The measured fix removes transaction setup amplification while preserving identical authority reads and protocol work. The remaining heavy trace still spends roughly7.05s in measured Firestore operations and2.45s outside measured I/O across30 handler requests, with435 candidate occurrences/360 suppressions. This review found no additional demonstrated small correction in the scoped branch. Do not assume hosting fixes that retained work; native-cloud measurement after separate authorization is still needed before any hosted tail claim. A change to history/privacy/freshness/page guarantees remains an owner decision and is not authorized here.",
+  "reportingRequirements": [
+    "Keep empty, nonmatching-history control, matching moderate and retained heavy cohorts separate.",
+    "Keep actual corrected-reference heavy equality distinct from empty/moderate baseline-candidate equality.",
+    "State all heavy retries and explicit200ms probe wait, n=3 native samples, and handler-vs-render timing boundaries.",
+    "State fewer transactions with unchanged requested documents; make no billed-operations or cloud savings claim.",
+    "Preserve targets warmp95<=2s,p99<=4s,cold<=4s; do not label source checkpoint cloud-ready or full performancePASS.",
+    "Retain separate spending/provider/IAM/retention/runtime/whole-workload gates and no cloud authorization."
+  ]
+}

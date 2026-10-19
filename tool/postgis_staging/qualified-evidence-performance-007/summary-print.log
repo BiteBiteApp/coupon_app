@@ -1,0 +1,42 @@
+{
+  "empty": {
+    "baseline": {
+      "attempts": 3,
+      "firstMedianMs": 1217.8999169999997,
+      "laterMedianMs": 1064.065125,
+      "traces": [
+        {
+          "pages": [
+            {
+              "page": 0,
+              "milliseconds": 1217.8999169999997,
+              "unavailableAttempts": 0
+            },
+            {
+              "page": 1,
+              "milliseconds": 1023.4451249999997,
+              "unavailableAttempts": 0
+            }
+          ],
+          "challenges": 2,
+          "candidates": 108,
+          "suppressed": 0,
+          "unavailable": 0
+        },
+        {
+          "pages": [
+            {
+              "page": 0,
+              "milliseconds": 1206.118,
+              "unavailableAttempts": 0
+            },
+            {
+              "page": 1,
+              "milliseconds": 1590.70975,
+              "unavailableAttempts": 0
+            }
+          ],
+          "challenges": 2,
+          "candidates": 108,
+          "suppressed": 0,
+     

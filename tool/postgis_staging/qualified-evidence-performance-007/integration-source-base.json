@@ -1,0 +1,11 @@
+{
+  "base": "39922fd418d5cc5cd191db0af8d3ee12dab64c7a",
+  "changedPaths": [
+    "functions/src/customer_bitesaver_search_session.ts",
+    "functions/test/postgis_guest_authority_batching_007.test.cjs"
+  ],
+  "hashes": {
+    "functions/src/customer_bitesaver_search_session.ts": "54bc01da7c7878b1c3a76ac9d16a44571490e8979951db6d8e0fb7bf3bb72189",
+    "functions/test/postgis_guest_authority_batching_007.test.cjs": "c3c99654e2edce5441cdf9a1845b239a94dbfc5f09a2be2597a536153c3ec084"
+  }
+}

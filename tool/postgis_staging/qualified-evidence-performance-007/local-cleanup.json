@@ -1,0 +1,57 @@
+{
+  "recordedAt": "2026-10-19T22:13:46.513749+00:00",
+  "services": [
+    [
+      "bs-performance007-final-verified",
+      "exited"
+    ],
+    [
+      "bs-performance007-final",
+      "created"
+    ],
+    [
+      "bs-performance007-trace-final",
+      "exited"
+    ],
+    [
+      "bs-performance007-candidate-ab",
+      "exited"
+    ],
+    [
+      "bs-performance007-relay-ab",
+      "exited"
+    ],
+    [
+      "bs-performance007-loopback-nodelay",
+      "exited"
+    ],
+    [
+      "bs-performance007-flutter-trace",
+      "exited"
+    ],
+    [
+      "bs-performance007-flutter-repro",
+      "exited"
+    ],
+    [
+      "bs-corrections006-http-outer",
+      "exited"
+    ],
+    [
+      "bs-corrections006-http-inner",
+      "exited"
+    ],
+    [
+      "bs-corrections006-pg",
+      "exited"
+    ],
+    [
+      "bs-corrections006-emulators",
+      "exited"
+    ]
+  ],
+  "runningTaskContainers": 0,
+  "deletedContainersImagesVolumes": 0,
+  "globalSettingsChanged": false,
+  "note": "Only task fixtures stopped. Existing006 images, containers and PostGIS volume retained. Unused bs-performance007-final container never started because its emulator-host typo was caught before use; final tests used bs-performance007-final-verified."
+}

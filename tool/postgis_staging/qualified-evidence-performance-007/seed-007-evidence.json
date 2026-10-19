@@ -1,0 +1,204 @@
+{
+  "kind": "real-local-raw-Firestore-native-projections-journal-SQL",
+  "hosted": false,
+  "billingEvidence": false,
+  "plan": {
+    "version": 1,
+    "planId": "local-500-final",
+    "offset": 0,
+    "count": 500,
+    "nowMs": 1792440000000,
+    "operation": "seed",
+    "distribution": "mixed-national-v1",
+    "maxParentsPerInvocation": 250,
+    "maxInvocations": 6,
+    "maxSourceOperations": 3000000,
+    "maxSourceBytes": 2147483648
+  },
+  "attempts": [
+    {
+      "kind": "resume",
+      "result": {
+        "ready": false,
+        "phase": "incomplete",
+        "next": 250,
+        "planDigest": "569a6fb189606cc7e51f2503fba129903fed3fbe4a51bfa7cea0f04793a09ed2",
+        "completed": 250,
+        "reservedThisInvocation": {
+          "operations": 182582,
+          "bytes": 68773544
+        }
+      },
+      "milliseconds": 28095.156667,
+      "counts": {
+        "directWrites": 2734,
+        "directDeletes": 0,
+        "requestedDocuments": 11621,
+        "queryReturnedDocuments": 0,
+        "transactionCalls": 1658,
+        "transactionAttempts": 1658,
+        "scheduledWrites": 17540,
+        "scheduledDeletes": 0,
+        "commits": 0
+      }
+    },
+    {
+      "kind": "resume",
+      "result": {
+        "ready": true,
+        "phase": "complete",
+        "next": 500,
+        "planDigest": "569a6fb189606cc7e51f2503fba129903fed3fbe4a51bfa7cea0f04793a09ed2",
+        "completed": 250,
+        "reservedThisInvocation": {
+          "operations": 181268,
+          "bytes": 68280154
+        }
+      },
+      "milliseconds": 27412.758374999998,
+      "counts": {
+        "directWrites": 2716,
+        "directDeletes": 0,
+        "requestedDocuments": 11535,
+        "queryReturnedDocuments": 1,
+        "transactionCalls": 1646,
+        "transactionAttempts": 1646,
+        "scheduledWrites": 17422,
+        "scheduledDeletes": 0,
+        "commits": 0
+      }
+    }
+  ],
+  "checks": [
+    "500-separate-saver-and-500-score-identities",
+    "interrupted-parent-replayed-and-completed"
+  ],
+  "budget": {
+    "planDigest": "569a6fb189606cc7e51f2503fba129903fed3fbe4a51bfa7cea0f04793a09ed2",
+    "minimumInvocationsByWorkBounds": 2,
+    "maximumReservedActiveSeconds": 3600,
+    "reservationCounts": {
+      "reads": 1800000,
+      "writes": 1200250,
+      "deletes": 210250
+    },
+    "datasetCounts": {
+      "pairs": 500,
+      "saverParents": 500,
+      "scoreParents": 500,
+      "totalParentRoots": 1000,
+      "offers": 1150,
+      "dishes": 1150,
+      "aggregates": 1150,
+      "rawDocuments": 4450
+    },
+    "totals": {
+      "reads": 204450,
+      "writes": 138450,
+      "deletes": 20950,
+      "operations": 363850,
+      "bytes": 137053698
+    },
+    "units": {
+      "count": "Saver/Score parent pairs",
+      "bytes": "conservative transfer/work allowance; not measured stored bytes"
+    },
+    "timingQualified": false
+  },
+  "seedCounts": {
+    "directWrites": 5450,
+    "directDeletes": 0,
+    "requestedDocuments": 23158,
+    "queryReturnedDocuments": 2,
+    "transactionCalls": 3305,
+    "transactionAttempts": 3305,
+    "scheduledWrites": 34962,
+    "scheduledDeletes": 0,
+    "commits": 0
+  },
+  "raw": {
+    "parents": 1000,
+    "coupons": 1150,
+    "dishes": 1150,
+    "aggregates": 1150,
+    "sourceBytes": 1885698,
+    "historyOrdinals": 630
+  },
+  "scenarios": {
+    "noOffer": 25,
+    "hidden": 25,
+    "expired": 25,
+    "national": 100,
+    "scheduled": 25,
+    "sparse": 25,
+    "historyCohort": 100
+  },
+  "publication": {
+    "ready": true,
+    "revision": "1",
+    "applied": 0,
+    "fence": [
+      197,
+      235,
+      206,
+      211,
+      215,
+      193,
+      201,
+      234,
+      189,
+      167,
+      238,
+      181,
+      205,
+      199,
+      216,
+      213
+    ],
+    "milliseconds": 9506.934542000003
+  },
+  "sqlCounts": [
+    {
+      "space": "saver",
+      "kind": "coupon",
+      "count": 1150
+    },
+    {
+      "space": "saver",
+      "kind": "restaurant",
+      "count": 500
+    },
+    {
+      "space": "score",
+      "kind": "dish",
+      "count": 1150
+    },
+    {
+      "space": "score",
+      "kind": "restaurant",
+      "count": 500
+    }
+  ],
+  "audit": {
+    "heads": 3300,
+    "partitions": 48,
+    "fence": [
+      197,
+      235,
+      206,
+      211,
+      215,
+      193,
+      201,
+      234,
+      189,
+      167,
+      238,
+      181,
+      205,
+      199,
+      216,
+      213
+    ]
+  }
+}

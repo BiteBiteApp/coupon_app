@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-10-19T22:13:46.845674+00:00",
+  "protectedFiles": 1813,
+  "mismatches": [],
+  "indexEntriesUnchanged": true,
+  "indexEntriesSha256": "1c5ca73b50fcc69bca30955ae0e48ea4cf47f8c1d57e9e9a3e2180890b918deb",
+  "actualStartingHead": "39922fd418d5cc5cd191db0af8d3ee12dab64c7a",
+  "originalStatus": " M test/screens/customer_bitesaver_browse_screen_test.dart\n M test/screens/restaurant_profile_bitescore_menu_test.dart\n?? APPROVAL-ADDENDUM-A2.md\n?? LEGAL_HOSTING_PUBLICATION_BASELINE.json\n?? LEGAL_HOSTING_PUBLICATION_BLOCKER.txt\n?? WEB_BETA_RELEASE_002_EVIDENCE.json\n?? WEB_BETA_RELEASE_002_QUALIFICATION.txt\n?? WEB_DELETION_RELEASE_BLOCKER.txt\n?? WEB_DELETION_RELEASE_EVIDENCE.json\n?? test/cuisine_fixture/main.dart\n?? test/visual_fixture/README.md\n?? test/visual_fixture/data.dart\n?? test/visual_fixture/main.dart\n",
+  "note": "Actual main included006 and newer website checkpoint at task start. Owner index was already empty of staged differences; preserve actual state rather than reconstructing historical staged inventory."
+}

@@ -1,0 +1,13 @@
+Error: PostGIS exact-distance runtime flags are unqualified.
+    at requireQualifiedPostgisRuntime (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PERFORMANCE-CLOSEOUT-007-20261019/baseline-source/functions/lib/postgis_runtime.js:16:15)
+    at requireLocalConfiguration (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PERFORMANCE-CLOSEOUT-007-20261019/baseline-source/functions/lib/postgis_staging_runtime.js:50:61)
+    at createLocalPostgisStagingRuntime (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PERFORMANCE-CLOSEOUT-007-20261019/baseline-source/functions/lib/postgis_staging_runtime.js:66:5)
+    at main (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PERFORMANCE-CLOSEOUT-007-20261019/native-probe.cjs:14:16)
+    at Object.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PERFORMANCE-CLOSEOUT-007-20261019/native-probe.cjs:48:1)
+    at Module._compile (node:internal/modules/cjs/loader:1929:14)
+    at Object..js (node:internal/modules/cjs/loader:2060:10)
+    at Module.load (node:internal/modules/cjs/loader:1651:32)
+    at Module._load (node:internal/modules/cjs/loader:1443:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47

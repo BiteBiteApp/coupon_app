@@ -1,0 +1,44 @@
+{
+  "baseline": {
+    "n": 3,
+    "medianFirstMs": 1399.239125,
+    "medianLaterMs": 1019.8102500000002,
+    "historyIds": 30,
+    "candidates": [
+      116,
+      116,
+      116
+    ],
+    "suppressed": [
+      10,
+      10,
+      10
+    ],
+    "challenges": [
+      4,
+      4,
+      4
+    ]
+  },
+  "candidate": {
+    "n": 3,
+    "medianFirstMs": 1324.938666,
+    "medianLaterMs": 960.6590409999999,
+    "historyIds": 30,
+    "candidates": [
+      116,
+      116,
+      116
+    ],
+    "suppressed": [
+      10,
+      10,
+      10
+    ],
+    "challenges": [
+      4,
+      4,
+      4
+    ]
+  }
+}

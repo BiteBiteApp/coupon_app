@@ -1,0 +1,26 @@
+[
+  {
+    "index": 0,
+    "variant": "baseline",
+    "exitCode": 0,
+    "evidence": "code-0-baseline.json"
+  },
+  {
+    "index": 1,
+    "variant": "candidate",
+    "exitCode": 0,
+    "evidence": "code-1-candidate.json"
+  },
+  {
+    "index": 2,
+    "variant": "candidate",
+    "exitCode": 0,
+    "evidence": "code-2-candidate.json"
+  },
+  {
+    "index": 3,
+    "variant": "baseline",
+    "exitCode": 0,
+    "evidence": "code-3-baseline.json"
+  }
+]

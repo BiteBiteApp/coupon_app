@@ -1,0 +1,12 @@
+{
+  "combinedRaw": "trace-linux-operations.jsonl",
+  "originalLines": [
+    1,
+    24
+  ],
+  "nodelayLines": [
+    25,
+    30
+  ],
+  "reason": "Retained original observer appends on host restart; split at sequence reset, no raw observation dropped."
+}

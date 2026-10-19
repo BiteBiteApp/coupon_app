@@ -12669,12 +12669,14 @@ async function currentOffersForExpiredGuestBatch(value: {
       offset += slice.candidateCount;
       return {row, offers};
     });
-    // One bounded parent/result read, followed by each parent's existing
-    // coherent coupon authority evaluation. No answers are shared across callers.
+    // One bounded parent/result read, then one coherent authority snapshot for
+    // this existing window (at most 26 parents and 75 offers). Re-read every
+    // parent and raw offer in that transaction; never retain authority across
+    // requests or reuse this snapshot for final-page validation.
     const sources = await value.context.database.getDocuments(groups.flatMap(({row}) => [
       path(privateCustomerBiteSaverResultCollection, row.resultId),
       `restaurant_accounts/${row.authoritativeAccountId}`]));
-    const current = await Promise.all(groups.map(async ({row, offers}, i) => {
+    const prepared = await Promise.all(groups.map(async ({row, offers}, i) => {
       const {parent} = await currentParentForGuestProgress({
         context: value.context, session: value.session, resultId: row.resultId,
         evaluationAt: value.evaluationAt, expectedRestaurantId: row.restaurantId,
@@ -12683,10 +12685,17 @@ async function currentOffersForExpiredGuestBatch(value: {
         expectedProjectionFingerprint: row.parentProjectionFingerprint,
         expectedSortTuple: row.sortTuple,
         currentSources: {result: sources[i * 2], parent: sources[i * 2 + 1]}});
-      return evaluateGuestStoredOffers({offers, parent, session: value.session,
-        context: value.context, evaluationAt: value.evaluationAt});
+      return {parent, offers};
     }));
-    return Object.freeze(current.flat());
+    const evaluated = await evaluateOfferSeedsAtCoherentSnapshot({
+      seeds: prepared.flatMap(({parent, offers}) => offers.map(stored => ({
+        parent, candidate: candidateFromGuestStoredOffer(stored),
+      }))),
+      session: value.session, context: value.context, now: value.evaluationAt,
+      guestUnavailableOfferIds: new Set<string>(),
+    });
+    return Object.freeze(prepared.flatMap(({parent, offers}) => offers.map(stored =>
+      corroborateGuestStoredOffer({stored, parent, currentOffers: evaluated.offers}))));
   }
   if (progress.kind === "offerPage") {
     const {parent} = await currentParentForGuestProgress({

@@ -1,0 +1,7 @@
+{
+  "sourceCount": 687,
+  "candidateDigest": "ec2b0a93697830915129739b341cf21ec6b61e6eb721c3ed15dfea8ccab04319",
+  "allHashesMatch": true,
+  "baselineHead": "6753dd0f999afe8416e3d536feace7a7bf38347a",
+  "actualIntegrationHead": "39922fd418d5cc5cd191db0af8d3ee12dab64c7a"
+}

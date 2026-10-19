@@ -1,0 +1,26 @@
+[
+  {
+    "index": 0,
+    "variant": "original",
+    "exitCode": 0,
+    "evidence": "relay-0-original.json"
+  },
+  {
+    "index": 1,
+    "variant": "nodelay",
+    "exitCode": 0,
+    "evidence": "relay-1-nodelay.json"
+  },
+  {
+    "index": 2,
+    "variant": "nodelay",
+    "exitCode": 0,
+    "evidence": "relay-2-nodelay.json"
+  },
+  {
+    "index": 3,
+    "variant": "original",
+    "exitCode": 0,
+    "evidence": "relay-3-original.json"
+  }
+]

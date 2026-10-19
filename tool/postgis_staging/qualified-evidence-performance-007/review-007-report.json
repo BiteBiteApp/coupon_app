@@ -1,0 +1,40 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-PERFORMANCE-CLOSEOUT-007",
+  "reviewer": "Track A / query_client, independent claims-only follow-up",
+  "completedAt": "2026-10-19T22:18:44.554422+00:00",
+  "verdict": "PASS: no unresolved inaccurate performance, correctness, source-scope or qualification claim found in the reviewed report.",
+  "reportPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PERFORMANCE-CLOSEOUT-007-20261019/integration-source/tool/postgis_staging/PERFORMANCE-CLOSEOUT-007.md",
+  "reportSha256": "a8e7accc54eeb57427b88e65826f031c181caf0dad5280dabdb5716018cc01f3",
+  "priorCodeReviewPath": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-PERFORMANCE-CLOSEOUT-007-20261019/review-007-code.json",
+  "priorCodeReviewSha256": "99c902e6ffa44bdac33516c0d08b12f4932002334025eb9cc2d349a1d24e322a",
+  "sourceFreezeDigest": "103d837f78f2a14a4d6c33e999fd3c2d097a56c708842eda90c9d459869cd81c",
+  "sourceFreezeCount": 689,
+  "sourceFrozenAt": "2026-10-19T22:07:35.088104+00:00",
+  "sourceFreezeReceiptSha256": "0962016ae0392a1d80a12852af3f670a8f7601fbcd84e3b709ce6c91f88e8bca",
+  "scope": "Claims-only comparison to already reviewed local evidence. No implementation reopening, test rerun, repository/source/report edit, cloud action or Git action.",
+  "correctionsVerified": [
+    {
+      "issue": "The 16.70-second final resource interval was called a trace interval although it belongs to the untraced 16-intent consumer run; the diagnostic trace-final interval is 8.913 seconds.",
+      "resolution": "Report now accurately calls it the final consumer observation interval. Resource quantities were unchanged."
+    },
+    {
+      "issue": "Earlier nonmatching moderate-history and unconditional oracle labels needed explicit correction.",
+      "resolution": "Report retains the nonmatching control separately, identifies the new matching cohort with 10 suppressions, and restricts corrected-independent-reference parity to heavy history."
+    }
+  ],
+  "claimsChecked": [
+    "687 baseline frozen inputs, 328 compiled files, 495 final source/compiled hashes, 54 unchanged runtime dependency files and 689-file final freeze.",
+    "Reproduction medians 907.3 ms Mac, 5543.3 ms Linux and 7578.1/2726.8 ms heavy pages; no inference that unlike measurements form a regression series.",
+    "Balanced relay 4779.9\u21921722.3 ms and code 2058.4\u21921653.5 ms comparisons retain sample counts, first/warm treatment and exact ordered 25-card results.",
+    "Empty/moderate/heavy matched medians, mixed later-page outcomes and retained heavy protocol counts are accurately presented.",
+    "Traced phase partitions, overlapping CPU caution, immutable requested-document counts, transaction reductions and no billed-read/cloud-savings claim.",
+    "314 native, 179 Dart, 49 final-image build checks, 5 actual authority checks and 4 Flutter tests/16 intents; suite counts are not added into a disjoint total.",
+    "Final image 8838c8de\u2026, source freeze 103d837f\u2026 and compiled/source hash bindings agree with the code-review receipt.",
+    "Heavy suppression remains 7.15/3.47 seconds and explicitly fails target qualification; cloud hosting is not assumed to remove application work.",
+    "Current-main final integration is separated from controlled timing comparisons and unrelated website behavior is not qualified.",
+    "Local cleanup and pre-integration preservation claims match retained receipts; all cloud/spending/provider/policy gates remain separate."
+  ],
+  "checkpointBoundary": "The added paragraph clearly states that publishing 007 would also publish the unpushed website ancestor, whose prior explicit no-push instruction requires clarification. This claims review does not authorize publishing, independently verify remote state, or certify future commit/tag/preservation/backlog outcomes. Those remain assigned to CHECKPOINT.json and the integrator after actual execution.",
+  "limitations": "This review binds the exact report bytes now. Later report edits need a refreshed receipt. It does not turn small local measurements into hosted tail qualification or extend the earlier source review to unrelated code.",
+  "unresolvedFindings": []
+}

@@ -1,0 +1,17 @@
+{
+  "time": 1792447164.758851,
+  "loadAverage": [
+    3.7275390625,
+    3.60546875,
+    2.9580078125
+  ],
+  "hostVm": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                     3995.\nPages active:                                 165381.\nPages inactive:                               163987.\nPages speculative:                              1061.\nPages throttled:                                   0.\nPages wired down:                             245666.\nPages purgeable:                                1816.\n\"Translation faults\":                    17521885741.\nPages copy-on-write:                       746844882.\nPages zero filled:                        4322287403.\nPages reactivated:                        2288099332.\nPages purged:                              314345047.\nFile-backed pages:                             99430.\nAnonymous pages:                              230999.\nPages stored in compressor:                  2483543.\nPages occupied by compressor:                 426770.\nDecompressions:                           2354497330.\nCompressions:                             2562906678.\nPageins:                                   192700558.\nPageouts:                                   12678522.\nSwapins:                                    27288662.\nSwapouts:                                   31904371.\nPages tagged:                                 131231.\nPages tagged resident:                        104789.\nPages tagged compressed:                       26442.\nPages tag-storage:                             32768.\nPages tag-storage holding tags:                 4547.\nPages tag-storage free:                          233.\nPages tag-storage non-tag pageable:            27873.\nPages tag-storage non-tag wired:                 115.\nBytes of compressed tags:                    4370496.\nTagged compressions:                        53081686.\nTagged decompressions:                      49408907.",
+  "containers": {
+    "bs-corrections006-pg": {
+      "stats": "usage_usec 24419175\nuser_usec 20179157\nsystem_usec 4240018\nnice_usec 0\nnr_periods 2679\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n417136640\n471035904\nlow 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0\nsome avg10=0.00 avg60=0.00 avg300=0.00 total=0\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\nsome avg10=0.00 avg60=0.00 avg300=0.00 total=133376\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=117839"
+    },
+    "bs-corrections006-emulators": {
+      "stats": "usage_usec 123994191\nuser_usec 109597597\nsystem_usec 14396593\nnice_usec 0\nnr_periods 6362\nnr_throttled 61\nthrottled_usec 936653\nnr_bursts 0\nburst_usec 0\n1713614848\n1714442240\nlow 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0\nsome avg10=0.00 avg60=0.00 avg300=0.00 total=0\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\nsome avg10=0.00 avg60=0.00 avg300=0.00 total=1637704\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=1131039"
+    }
+  }
+}

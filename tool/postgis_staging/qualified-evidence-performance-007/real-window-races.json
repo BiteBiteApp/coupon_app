@@ -1,0 +1,11 @@
+{
+  "kind": "real-local-Firestore-PostGIS-native-window",
+  "checks": [
+    "cross-account-denied",
+    "lost-completion-reply-replays-exact-page",
+    "expired-window-reissue-preserves-candidates-and-rejects-old-answer",
+    "parent-withdrawal-rejected-before-page-delivery",
+    "offer-withdrawal-rejected-before-page-delivery"
+  ],
+  "passed": 5
+}

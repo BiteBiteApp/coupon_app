@@ -1,0 +1,164 @@
+[
+  {
+    "scenario": "empty",
+    "index": 0,
+    "variant": "baseline",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447007.740917,
+    "finishedAtEpoch": 1792447011.154859,
+    "evidence": "native-empty-0-baseline.json"
+  },
+  {
+    "scenario": "empty",
+    "index": 1,
+    "variant": "candidate",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447011.1558888,
+    "finishedAtEpoch": 1792447014.452505,
+    "evidence": "native-empty-1-candidate.json"
+  },
+  {
+    "scenario": "empty",
+    "index": 2,
+    "variant": "candidate",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447014.453446,
+    "finishedAtEpoch": 1792447017.230268,
+    "evidence": "native-empty-2-candidate.json"
+  },
+  {
+    "scenario": "empty",
+    "index": 3,
+    "variant": "baseline",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447017.230815,
+    "finishedAtEpoch": 1792447020.456567,
+    "evidence": "native-empty-3-baseline.json"
+  },
+  {
+    "scenario": "empty",
+    "index": 4,
+    "variant": "baseline",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447020.457414,
+    "finishedAtEpoch": 1792447023.54904,
+    "evidence": "native-empty-4-baseline.json"
+  },
+  {
+    "scenario": "empty",
+    "index": 5,
+    "variant": "candidate",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447023.549757,
+    "finishedAtEpoch": 1792447026.452399,
+    "evidence": "native-empty-5-candidate.json"
+  },
+  {
+    "scenario": "moderate",
+    "index": 0,
+    "variant": "baseline",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447026.45277,
+    "finishedAtEpoch": 1792447029.2208982,
+    "evidence": "native-moderate-0-baseline.json"
+  },
+  {
+    "scenario": "moderate",
+    "index": 1,
+    "variant": "candidate",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447029.2215161,
+    "finishedAtEpoch": 1792447031.767773,
+    "evidence": "native-moderate-1-candidate.json"
+  },
+  {
+    "scenario": "moderate",
+    "index": 2,
+    "variant": "candidate",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447031.7682078,
+    "finishedAtEpoch": 1792447034.6410172,
+    "evidence": "native-moderate-2-candidate.json"
+  },
+  {
+    "scenario": "moderate",
+    "index": 3,
+    "variant": "baseline",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447034.641542,
+    "finishedAtEpoch": 1792447037.9109771,
+    "evidence": "native-moderate-3-baseline.json"
+  },
+  {
+    "scenario": "moderate",
+    "index": 4,
+    "variant": "baseline",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447037.911829,
+    "finishedAtEpoch": 1792447041.205648,
+    "evidence": "native-moderate-4-baseline.json"
+  },
+  {
+    "scenario": "moderate",
+    "index": 5,
+    "variant": "candidate",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447041.2064698,
+    "finishedAtEpoch": 1792447043.844845,
+    "evidence": "native-moderate-5-candidate.json"
+  },
+  {
+    "scenario": "heavy",
+    "index": 0,
+    "variant": "baseline",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447043.845355,
+    "finishedAtEpoch": 1792447054.996327,
+    "evidence": "native-heavy-0-baseline.json"
+  },
+  {
+    "scenario": "heavy",
+    "index": 1,
+    "variant": "candidate",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447054.9969668,
+    "finishedAtEpoch": 1792447066.199436,
+    "evidence": "native-heavy-1-candidate.json"
+  },
+  {
+    "scenario": "heavy",
+    "index": 2,
+    "variant": "candidate",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447066.200168,
+    "finishedAtEpoch": 1792447076.763975,
+    "evidence": "native-heavy-2-candidate.json"
+  },
+  {
+    "scenario": "heavy",
+    "index": 3,
+    "variant": "baseline",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447076.7646441,
+    "finishedAtEpoch": 1792447087.887114,
+    "evidence": "native-heavy-3-baseline.json"
+  },
+  {
+    "scenario": "heavy",
+    "index": 4,
+    "variant": "baseline",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447087.8877819,
+    "finishedAtEpoch": 1792447100.060559,
+    "evidence": "native-heavy-4-baseline.json"
+  },
+  {
+    "scenario": "heavy",
+    "index": 5,
+    "variant": "candidate",
+    "exitCode": 0,
+    "startedAtEpoch": 1792447100.06131,
+    "finishedAtEpoch": 1792447111.586752,
+    "evidence": "native-heavy-5-candidate.json"
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "observedAt": "2026-10-19T22:17:09.988275+00:00",
+  "remoteMain": "6753dd0f999afe8416e3d536feace7a7bf38347a",
+  "localStartingMain": "39922fd418d5cc5cd191db0af8d3ee12dab64c7a",
+  "remote007TagAbsent": true,
+  "interveningCommitCount": 1,
+  "interveningCommitSubject": "Checkpoint customer website foundations and Google location resolver",
+  "authoritySource": {
+    "chatTitle": "Build customer website foundation",
+    "threadId": "01a14b74-62b0-7a20-b925-f81e8a1b609b",
+    "userRunId": "BS-CUSTOMER-WEBSITE-CHECKPOINT-005-COMMIT-CORRECTION",
+    "prepared": "2026-10-19T16:02:00-04:00",
+    "instruction": "Do not push, tag, deploy, change branches, activate services, modify secrets, or alter production."
+  },
+  "action": "Prepare007 local exact-path commit and annotated tag under007 authorization; hold remote push pending clarification because main push also publishes the local-only website ancestor. No branch/history rewrite."
+}

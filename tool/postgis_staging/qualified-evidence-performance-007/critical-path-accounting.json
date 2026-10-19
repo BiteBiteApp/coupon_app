@@ -1,0 +1,26 @@
+{
+  "original": {
+    "usefulRenderMs": 4609.267,
+    "handlerMs": 4459.240836999998,
+    "clientHttpMs": 4499.602,
+    "transportSerializationAuthAndClientParsingResidualMs": 40.36116300000231,
+    "clientProcessingSchedulingAndRenderingResidualMs": 109.66499999999996,
+    "explicitClientDelays": []
+  },
+  "nodelay": {
+    "usefulRenderMs": 1174.33,
+    "handlerMs": 1011.2149169999993,
+    "clientHttpMs": 1046.835,
+    "transportSerializationAuthAndClientParsingResidualMs": 35.620083000000704,
+    "clientProcessingSchedulingAndRenderingResidualMs": 127.49499999999989,
+    "explicitClientDelays": []
+  },
+  "final": {
+    "usefulRenderMs": 1121.524,
+    "handlerMs": 955.2329999999993,
+    "clientHttpMs": 1005.644,
+    "transportSerializationAuthAndClientParsingResidualMs": 50.41100000000074,
+    "clientProcessingSchedulingAndRenderingResidualMs": 115.87999999999988,
+    "explicitClientDelays": []
+  }
+}

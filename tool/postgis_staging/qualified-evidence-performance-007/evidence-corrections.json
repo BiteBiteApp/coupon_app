@@ -1,0 +1,4 @@
+{
+  "earlierModerate": "The retained first moderate cohort had30 nonmatching stored IDs and zero suppression; it is a separate nonmatching-history control, superseded for the moderate-suppression requirement by native-matching-*.",
+  "earlierParityLabel": "Earlier native-probe output included a heavy-reference check label unconditionally. Only heavy mode actually compared against the corrected unbatched reference. Empty/nonmatching-moderate exact baseline/candidate parity was independently asserted by summarize.py. Raw attempts are preserved; this record supersedes their misleading label."
+}

@@ -1,0 +1,126 @@
+{
+  "empty": {
+    "baseline": {
+      "attempts": 3,
+      "firstMedianMs": 1217.8999169999997,
+      "laterMedianMs": 1064.065125,
+      "traces": [
+        {
+          "pages": [
+            {
+              "page": 0,
+              "milliseconds": 1217.8999169999997,
+              "unavailableAttempts": 0
+            },
+            {
+              "page": 1,
+              "milliseconds": 1023.4451249999997,
+              "unavailableAttempts": 0
+            }
+          ],
+          "challenges": 2,
+          "candidates": 108,
+          "suppressed": 0,
+          "unavailable": 0
+        },
+        {
+          "pages": [
+            {
+              "page": 0,
+              "milliseconds": 1206.118,
+              "unavailableAttempts": 0
+            },
+            {
+              "page": 1,
+              "milliseconds": 1590.70975,
+              "unavailableAttempts": 0
+            }
+          ],
+          "challenges": 2,
+          "candidates": 108,
+          "suppressed": 0,
+     
+{
+  "codeBalanced": {
+    "baseline": {
+      "n": 4,
+      "medianMs": 2058.448,
+      "warmSubsetN": 2,
+      "warmSubsetMedianMs": 1608.105,
+      "allMilliseconds": [
+        1988.334,
+        1087.648,
+        2161.728,
+        2128.562
+      ],
+      "exactOrderedDigest": [
+        "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+      ]
+    },
+    "candidate": {
+      "n": 4,
+      "medianMs": 1653.527,
+      "warmSubsetN": 2,
+      "warmSubsetMedianMs": 1210.634,
+      "allMilliseconds": [
+        2238.304,
+        1049.735,
+        1935.521,
+        1371.533
+      ],
+      "exactOrderedDigest": [
+        "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1"
+      ]
+    }
+  },
+  "phases": {
+    "trace-linux-original": {
+      "warmSecondGuestHandlerMs": 4459.240836999998,
+      "warmSecondGuestCpuMs": 1287.421,
+      "partitionMs": {
+        "firestore": 3926.112552999981,
+        "sql": 87.43920700000308,
+        "both": 0,
+        "outsideMeasuredIo": 445.68907700001364
+      },
+      "sdkTransactions": 90,
+      "authorityTransactions": 89,
+      "sdkRequestedDocuments": 625,
+      "authorityRequestedDocuments": 608,
+      "sqlStatements": 77,
+      "gcMs": 79.6728769998881
+    },
+    "trace-nodelay-baseline": {
+      "warmSecondGuestHandlerMs": 1011.2149169999993,
+      "warmSecondGuestCpuMs": 733.321,
+      "partitionMs": {
+        "firestore": 700.2265449999941,
+        "sql": 33.19684000000507,
+        "both": 0,
+        "outsideMeasuredIo": 277.7915320000002
+      },
+      "sdkTransactions": 90,
+      "authorityTransactions": 89,
+      "sdkRequestedDocuments": 625,
+      "authorityRequestedDocuments": 608,
+      "sqlStatements": 77,
+      "gcMs": 15.204581999452785
+    },
+    "trace-final": {
+      "warmSecondGuestHandlerMs": 955.2329999999993,
+      "warmSecondGuestCpuMs": 649.171,
+      "partitionMs": {
+        "firestore": 653.0452120000082,
+        "sql": 42.68446400000448,
+        "both": 0,
+        "outsideMeasuredIo": 259.5033239999866
+      },
+      "sdkTransactions": 40,
+      "authorityTransactions": 39,
+      "sdkRequestedDocuments": 625,
+      "authorityRequestedDocuments": 608,
+      "sqlStatements": 77,
+      "gcMs": 14.027916999300942
+    }
+  }
+}
