@@ -1,0 +1,138 @@
+BiteStar — Google Website Location Release Readiness 004
+Run ID: BS-CUSTOMER-WEBSITE-GOOGLE-LOCATION-READINESS-004
+Role: no-spend readiness investigation and narrow source qualification
+Prompt prepared: 2026-10-17 21:31:07 EDT (UTC-04:00)
+Recorded execution start: 2026-10-17T22:26:30.361285-04:00
+Completion: 2026-10-17T22:41:42.087656-04:00 (America/New_York)
+Prompt reference HEAD: 76281bddc4a76b6e6ed899560eb8d7227024a156
+Actual starting/current local and remote main: a8c056c90e0e0fff8e39dac8d407087d3137ad25
+
+VERDICT
+Prepared for owner decision; source-only, not deployed or production-qualified.
+The exact bounded release proposal and minimal legal drafts are in:
+/Users/colesmart/.codex/reports/BS-CUSTOMER-WEBSITE-GOOGLE-LOCATION-READINESS-004-20261017/owner-release-proposal.txt
+No owner authorization to activate is inferred from this report.
+
+READY / CORRECTED
+003's server-only key, strict city/ZIP matching, explicit-submit browser reuse,
+default-zero provider allowance, transactional admission and sanitized errors remain.
+No keystroke, radius, ordinary navigation, product switching, detail navigation or
+unchanged confirmed-center lookup is introduced. No provider retry loop exists.
+Native geocoding and protected QR/profile/menu/auth/coupon contracts are preserved.
+
+Two demonstrated defects required narrow corrections:
+1.The deployment validator did not recognize003's optional daily-limit parameter.
+  It now permits only0..250, keeps default0/absence closed, and preserves the existing
+  required canonical portal parameter, unknown/secret rejection and untracked-source
+  guard. No environment/Stripe configuration was changed.
+2.Opaque history and retained coordinator/auth state could keep coordinate copies
+  beyond the browser's stated lifetime. Browser comparison identities now use
+  digests; invalidation/disposal clear coordinate criteria; inactive routes release
+  disposed state while retaining Forward replay factories. The process-owned Browse
+  composition observes location expiry/replacement even with no Browse screen.
+  Native criteria equality/state behavior is unchanged.
+Permitted change area: client state/navigation retention plus deployment validation
+and directly relevant tests. No schema, infrastructure or security-policy redesign.
+
+FIVE RELEASE DEPENDENCIES
+Cost controls: IMPLEMENTED customer admission; PREPARED/INACTIVE resolver; MISSING
+configuration is a useful shared daily Google quota and verified alert delivery.
+Actual quota 3,000/minute, effectively unlimited daily/per-user. Thirty-day telemetry
+shows 23 HTTP requests (14 HTTP 200, 9 HTTP 403), not 23 successful geocodes or a bill.
+Billing budget/spend metadata unavailable403. OWNER AUTHORIZATION required for caps,
+recipient/window/operator and remaining platform-charge risk; LIVE TEST still needed.
+
+Credential/runtime: IMPLEMENTED server secret binding, sanitized output/no provider
+logging; inspected browser bundle has no server-key reference. Existing intended
+runtime 253983587346-compute@developer.gserviceaccount.com has explicit secretAccessor
+on GOOGLE_MAPS_API_KEY; no new secret-access grant indicated. Version 1 enabled; API
+restricted Geocoding key listed. Effective troubleshoot permission denied; secret/key
+correspondence deliberately unverified. LIVE TEST must prove runtime loading/key use.
+The new callable is absent from the deployed regional listing. A future new gen2
+function necessarily creates its own Cloud Run backing service/public invoker policy;
+that precise service-level change is in the proposal, not executed here.
+
+Guest abuse: IMPLEMENTED exact input schema, bounded US query, reserve-before-call,
+20/minute shared, 3/minute + 20/day per actor, four 30-second leases, daily allowance.
+Failures/replays consume reservations; rotating IDs cannot bypass the shared pool.
+Guest identity is weak and attackers can exhaust availability. Firebase/Firestore
+request costs remain outside the Google allowance. OWNER decision on attended-pilot
+risk and later unattended-public protection; no fingerprinting/account requirement.
+
+Retention: missing source protections above CORRECTED. Tab cache 24-hour logical
+expiry; user-entered preference text is distinct. Server criteria use60-minute
+absolute/15-minute idle sessions and both TTL policies are ACTIVE. Physical deletion
+is asynchronous, not a60-minute promise. PITR disabled; ordinary version retention
+3,600s; no listed backups/schedules. LIVE/OPERATIONAL checks remain for TTL lag and
+unlisted manual exports/copies. Use applicable Google 30-day temporary lat/lng rule;
+confirm billing jurisdiction, do not assume an indefinite caching exception.
+
+Legal: official Google Maps attribution IMPLEMENTED/UNCHANGED. Specific linked Maps
+Terms/Google Privacy notice and pre-submit disclosure PREPARED ONLY. Owner/legal
+approval and focused publication remain necessary for public launch. No legal file,
+effective date or dormant Terms gate changed. Broad legal/Hosting/domain rollout,
+PostGIS activation, native-proof release and full customer auth journeys remain
+OUTSIDE this website-location readiness assignment; prior001/002 gates are retained.
+
+PROPOSED FIRST TEST / COST EXPOSURE
+Owner-attended 30 minutes within one UTC day AND one Pacific quota day; at most 10
+purposeful provider attempts. Customer allowance 25/UTC day; shared Google daily quota
+100/Pacific day. Existing shared Admin/owner demand must fit or HOLD; exhaustion can
+interrupt those operations too. At $5/1,000, no credit assumed: 10 attempts = $0.05,
+customer 25 = $0.125/day, shared 100 = $0.50/day. These overlap, not additive. They bound
+Geocoding, not total project charges. Proposed $5/month Maps-service billing ALERT
+budget 50/90/100% actual + 100% forecast is notification, not a spending ceiling.
+Exact recipients, billing service IDs, operator/window/checkpoint remain to be
+specified by the owner/authorized billing reader. Return allowance 0 at window end;
+no unattended experiment or automatic quota increase. See proposal for stop rules,
+monitoring, disabled-first targeted deployment, live checks and closure verification.
+
+QUALIFICATION AND REVIEW
+New focused tests:35 deployment-validator,28 Chrome,25 native criteria/auth/location
+and10 native composition/navigation tests passed (98 total,0 failed). Both final
+004 release builds passed. Focused analysis: no errors/warnings; four pre-existing
+withOpacity deprecation infos on unchanged lines. git diff --check passed. Independent
+source and decision-package reviews PASS. See verification.txt and freeze-manifest.json
+for exact commands and final source/build hashes. Reused unchanged003 backend 93-pass evidence for
+no-call/default-zero/missing-key/admission/timeouts/sanitized output. Its 46 Chrome,
+45 native and broader 385 pass / 3 established-baseline-failure results remain historical,
+not re-reported as freshly executed. No broad suite was repeated.
+Real worktree predeploy intentionally FAILS on untracked customer_location.ts.
+The source contract itself now validates. An authorized exact tracking/checkpoint
+step is required before real predeploy PASS; this safety guard was not bypassed.
+Independent source and final package reviews are saved with their qualifications.
+
+BUG FILTER
+FIX NOW / DIRECTLY REQUIRED: validator contract mismatch; retained browser coordinate
+copies (including ownerless global coordinator). Corrected and focused-tested.
+PRODUCT DECISION REQUIRED: shared quota/activation/platform-cost risk; legal text,
+contract jurisdiction, exact operator/recipient/checkpoint; later public abuse policy.
+ACCEPT AND CLOSE for this bounded assignment: native unchanged deprecation notices,
+003's established unrelated baseline tests; no speculative architecture work.
+No newly identified unrelated production bug was expanded into this assignment.
+
+PRESERVATION / GIT
+Dirty main preserved. Newer HEAD and all changes since003 outside website work were
+owner PostGIS diagnostics/package evidence.004 modifies only the eight source/test
+paths listed in changed-source-paths.txt; adds this completion report. All other
+starting files remain byte-identical; see preservation.json. Baseline/current Git
+status, complete004incremental diff and SHA256 inventory distinguish prior work from
+this task. Mixed prior-owner/website changes must be reviewed before any future exact
+staging; this is not authorization to absorb all dirty files. No staging, commit,
+tag,push,branch switch,reset,stash or cleanup occurred. Prior001/002/003 reports/builds
+were preserved;004 builds have separate output directories.
+
+No production deployment/write, real Google Geocoding call, paid provider call,
+billing/budget/quota/API/key/secret/IAM/Rules/Hosting/DNS change, Docker/SQL action,
+PostGIS activation or Stripe change occurred. Read-only configuration metadata and
+local synthetic tests/builds only. No secret payload or credential was exposed.
+
+Evidence directory:
+/Users/colesmart/.codex/reports/BS-CUSTOMER-WEBSITE-GOOGLE-LOCATION-READINESS-004-20261017
+Core files: owner-release-proposal.txt; final-package-review.txt;
+independent-source-review.txt; independent-metadata-conclusions.txt;
+preflight-before.json; preflight-after.json; runtime-retention-metadata.json;
+google-service-quota-metadata.json; incremental-source.diff; preservation.json;
+verification.txt; freeze-manifest.json. Official supporting sources are linked
+alongside the detailed cost/terms/retention proposal. Later source edits require
+new affected qualification; no commit/deployment/default-active status is implied.

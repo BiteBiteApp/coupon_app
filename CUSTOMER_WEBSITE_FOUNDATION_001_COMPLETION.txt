@@ -1,0 +1,191 @@
+BiteStar Customer Website Foundation 001 — completion receipt
+Run ID: BS-CUSTOMER-WEBSITE-FOUNDATION-001
+Prompt date: October 17, 2026; an exact prompt time was not supplied.
+Completion: 2026-10-17 20:36:34 UTC
+Role: customer Flutter website implementation and local qualification.
+Permitted changes: presentation, client state and existing navigation/contracts.
+
+VERDICT
+A genuine local customer website foundation is implemented and independently
+reviewed. It is uncommitted, unpublished and default-off. It is not full browser
+parity or production-qualified. Useful browser presentation is demonstrated with
+safe synthetic public data; the real entry builds and opens, but live search,
+authentication and customer participation are not qualified by fixture tests.
+
+WHAT CHANGED
+The existing Flutter customer app now has a web-only, default-off entry selected
+by BITESTAR_CUSTOMER_WEBSITE. It reuses BiteSaver/BiteScore screens, DTOs, account
+and Saved services. Both existing bounded-customer selectors must be supplied;
+there is no fallback to whole-catalog reads. Existing selector defaults and the
+PostGIS default-off boundary remain unchanged.
+
+The customer frame constrains wide layouts and adapts existing content for desktop,
+tablet and mobile. Named browser destinations are /#/browse/coupons,
+/#/browse/bitescore, /#/account and /#/r/{coupons|bitescore}/{permanent catalog ID}.
+Named destinations support browser Back/Forward; direct restaurant destinations
+reload and retain identity. Route encoding preserves a literal percent-encoded
+catalog ID exactly once. Unsupported destinations offer safe Home recovery.
+Owner/Admin navigation, private owner hydration, claim controls and subscription
+return navigation are gated out of the customer website. Existing customer rating,
+reporting, account and other participation interfaces are retained where supported.
+
+The shared coupon-detail boundary covers existing entry constructors, including
+Browse/profile/Saved and legacy paths. Canonical unlimited coupons display and
+enlarge without usage, receipts or timers. Restricted and unknown policies remain
+viewable with Use in BiteStar App; browser usage and native proof initialization
+are blocked. Daily Specials remain display-only. Available genuine app links use
+app.bitestar.app; missing store destinations are stated honestly. Passive browser
+timezone/offset supplies existing calendar validation, not native proof.
+
+Local QR fallback adds Continue in Browser for both customer restaurant paths,
+preserving permanent catalog identity. Existing app-first HTTPS links and secure
+invite fallback are retained. The preview server injects this only locally; no
+published web/ assets or Hosting configuration changed. One demonstrated web
+startup bug was fixed: the random guest-ID bound no longer overflows to zero in
+compiled JavaScript; the existing account/UID model and ID format are preserved.
+
+DOES IT WORK?
+- Final Chrome test run: 26 passed, with website and both bounded selectors on.
+- Focused route-information protocol unit test: 1 passed, covering encoded identity
+  and Forward-preserving replace behavior.
+- Selected native integration run: 194 passed. A broader run produced 194 passed,
+  8 failed: stale legal-screen expectations still demanded unpublished draft text
+  after the approved October 17 publication. Those protected tests/legal assets
+  were not weakened or changed. The final selection excludes these 8 tests.
+- Additional overlapping native runs: 119 passed initially, 36 passed on focused
+  requalification. These overlap and must not be added into a unique test total.
+- Local QR script: 4 passed. Local HTTP preview: 3 passed (customer shortcuts,
+  unchanged secure invites, unchanged legal/association responses). Final HTTP
+  checks also verified local bootstrap disables offline-worker registration while
+  generated deployment bytes stay unchanged.
+- Scoped analysis: 18 items, no issues. Expanded BiteScore files have 6 existing
+  informational diagnostics unrelated to this change.
+- Both final release web builds passed: real app entry and synthetic fixture.
+- Independent reviewers passed source/diff scope and security/Hosting inspection.
+  A focused backend suite had 33 passed and 1 pre-existing formatting-sensitive
+  source assertion failure; the expected indentation already disagrees with HEAD.
+- git diff --check passed. Frozen source and both built JS hashes were rechecked.
+
+Actual Chrome checks used the customer widgets with explicitly labeled synthetic
+public data, without Firebase initialization: BiteSaver/BiteScore navigation,
+permanent QR identity, reload, named Back/Forward, restaurant Back, menus, unlimited
+full-screen display, restricted app-required dialog and responsive 390/768/1440
+layouts (also wide desktop inspection). Literal permanent%2Fidentity remained the
+same catalog ID through the double-encoded URL and reload. Separate real-entry
+startup was checked without sign-in, live searches or production data creation.
+No physical Android/iOS app-link or native redemption qualification was performed.
+
+READ-ONLY PRODUCTION FINDINGS / RELEASE GATES
+The inspected Firebase project has one Hosting site, coupon-app-29446, serving
+six existing go/app aliases. go.bitestar.app and app.bitestar.app have active
+bindings/certificates and genuine Android/iOS association JSON. The October 17
+technical/legal release remains 1792254469691000, version 4a31356a19073baf.
+No live route or deployment was replaced.
+
+bitestar.app and www were absent from inspected project bindings. Apex DNS points
+to 198.185.159.144/.145 and 198.49.23.144/.145 and serves another site's HTML,
+including association paths. Current HTTPS works. Future authorized Firebase
+binding/verification, correct DNS cutover and certificate readiness are required;
+exact verification records cannot be established before the binding exists.
+Existing store-link settings are blank; no installation URL was fabricated.
+
+All 12 inspected browsing endpoints exist and were ACTIVE, with Cloud Run
+AUTOMATIC/max10/Ready and 100% latest at 2026-10-17 20:21:59.217Z. This metadata
+is not proof that current source DTO/projection contracts are released or that
+end-to-end search works. Retain source/deployment qualification as a launch gate.
+
+Current backend source requires native proof before usage/receipt writes; safe
+source tests and live Rules deny direct customer-redemption writes. Live Rules
+SHA256 is 8fcae3e7205961bcb2329db4fd7caa44a5814ceee842cb5bae6daff4adeb8a20.
+Proof challenge/use services are held MANUAL/0: safe malformed unauthenticated web
+requests returned 503. That demonstrates unavailable service, not qualified live
+native-proof denial. Existing source deltas and held-service release need separate
+authorized review/release, followed by live negative/native-positive qualification.
+No bypass was demonstrated and no new security architecture is proposed.
+
+REMAINING CUSTOMER PARITY
+Typed city/ZIP search reaches the existing native geocoding plugin without a web
+implementation. An approved public customer location-resolution seam is needed.
+Existing geolocator web integration can request current location, but owner device
+permission and real location search were not exercised. Do not borrow Admin
+geocoding authority or silently substitute a new provider.
+
+Nested menu/coupon/dish routes inherit their parent URL. App Back works, but
+browser Back/Forward restores named public destinations, not each nested detail.
+BiteSaver browse DTO exposes an opaque participant ID and catalogBindingAvailable,
+not the permanent catalog document ID. Browse/Saved details therefore do not yet
+gain permanent URLs. Do not guess the mapping or interchange account/catalog IDs.
+Existing permanent public QR routes do resolve and reload independently.
+
+Real browser provider sign-in/restoration, Saved/favorites and customer upload,
+rating/report flows still need end-to-end qualification against approved services.
+No separate web account, catalog, review or favorite model was introduced.
+
+MATERIAL BUG FILTER
+FIX NOW / DIRECTLY REQUIRED: guest-ID JavaScript overflow; late initial browser
+route handling; percent identity preservation through Flutter route updates.
+All corrected and tested locally.
+FIX SEPARATELY — REAL BUG: dormant bounded native coupon detail can expose Use
+Coupon for unlimited policy. Existing default-active native display behavior was
+preserved. Resolve before an authorized bounded-mobile activation.
+FIX SEPARATELY — REAL BUG: typed city/ZIP browser geocoding and incomplete nested
+browser history/permanent Browse URLs remain documented foundation limitations.
+PRODUCT DECISION REQUIRED: approve the public browser location-resolution contract
+and any missing permanent identity propagation. Canonical-domain cutover, genuine
+store destinations and held backend release require separate owner authorization.
+ACCEPT AND CLOSE: synthetic fixtures prove presentation only; no artificial browser
+proof, installed-app detection, broad catalog reads or fake account documents were
+added to conceal the qualification limits.
+
+GIT / CHANGE RECEIPT
+Branch: main throughout.
+Prompt reference checkpoint: 14b341f61eb3e914a5c450cfb4f92de44e665002.
+Verified actual start, current/end and remote main: 4a3241d722d347067db8a6960763e9e90c2dc665.
+No commits, tags, pushes, branch operations, staging, deployments, production data
+writes, DNS/binding changes, Rules/IAM/secret changes or customer activation occurred.
+Read-only production probes and metadata inspections are described above.
+Existing owner-modified tests and untracked release/fixture work were preserved.
+Protected tracked paths web/, Firebase config, functions/, Firestore/Storage Rules
+have no diff. This assignment owns the following 27 source/test/tool files, plus
+this completion receipt (28 paths total):
+
+lib/main.dart
+lib/screens/bitescore_dish_detail_screen.dart
+lib/screens/bitescore_restaurant_dishes_screen.dart
+lib/screens/coupon_detail_screen.dart
+lib/screens/customer_account_screen.dart
+lib/screens/customer_website_app.dart
+lib/screens/main_navigation_screen.dart
+lib/services/browser_calendar_stub.dart
+lib/services/browser_calendar_web.dart
+lib/services/customer_bitesaver_device_proof_service.dart
+lib/services/customer_session_service.dart
+lib/services/customer_website_runtime.dart
+lib/widgets/customer_browser_offer_actions.dart
+lib/widgets/customer_website_frame.dart
+lib/widgets/persistent_bottom_navigation.dart
+test/customer_website_fixture/data.dart
+test/customer_website_fixture/main.dart
+test/customer_website_fixture/score_data.dart
+test/screens/customer_website_coupon_test.dart
+test/screens/customer_website_navigation_test.dart
+test/services/customer_website_browser_test.dart
+test/services/customer_website_history_test.dart
+tool/customer_website/README.txt
+tool/customer_website/preview.py
+tool/customer_website/preview_test.py
+tool/customer_website/qr-preview.js
+tool/customer_website/qr-preview.test.js
+CUSTOMER_WEBSITE_FOUNDATION_001_COMPLETION.txt
+
+LOCAL HANDOFF
+Real current-source preview: http://localhost:8769/
+Safe synthetic preview: http://localhost:8768/ (LOCAL SYNTHETIC DATA banner).
+Rebuild/run commands and limitations: tool/customer_website/README.txt.
+Durable logs, independent review, screenshots, source/build SHA256 manifest,
+reviewed diff and worktree snapshot: /Users/colesmart/.codex/reports/BS-CUSTOMER-WEBSITE-FOUNDATION-001-20261017
+
+Smallest coherent next assignment: complete public browser city/ZIP resolution
+and detail URL/history behavior at existing customer service/identity boundaries,
+then qualify real customer search/account/Saved/UGC flows. Keep backend release,
+domain/store readiness and eventual coordinated website publication separate.

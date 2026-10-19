@@ -1,0 +1,166 @@
+BiteStar Customer Website Location & Browser History 002
+Run ID: BS-CUSTOMER-WEBSITE-FOUNDATION-002
+Role: bounded client implementation and local qualification
+Prompt timestamp: not supplied; prompt received October 17, 2026.
+Baseline captured: 2026-10-17T20:44:21.435550+00:00
+Completion timestamp: 2026-10-17T21:13:39.280769+00:00
+Expected previously observed main: 4a3241d722d347067db8a6960763e9e90c2dc665
+Actual starting, final local and final remote main:
+4a3241d722d347067db8a6960763e9e90c2dc665
+Branch: main. No branch/stage/commit/tag/push/deployment/production mutation.
+
+VERDICT
+Nested customer browser history is source-corrected, locally tested and independently
+reviewed. Public nested routes reload with their exact identities. Real typed city/ZIP
+lookup remains blocked on an approved public browser resolver. Its unsupported path
+now produces understandable feedback. The complete desired live discovery experience
+is therefore not claimed complete or production-qualified.
+
+Permitted changes: presentation/client state/navigation/contracts only. Existing
+Foundation001 and concurrent owner work were retained. No backend, schema, Rules,
+Hosting, web assets, IAM, secrets, payment, DNS or PostGIS implementation changed.
+
+LOCATION
+The installed geocoding 4.0.0 plugin registers Android/iOS implementations only.
+SharedLocationStateService previously reached that native-only plugin from browser
+input. Existing server city/ZIP resolution is guarded by Admin invitation access;
+the structured owner-address workflow is also not a public customer resolver.
+There is no existing approved browser/customer resolver to call safely.
+
+The shared service now reports that city/ZIP lookup is unavailable in the browser
+and suggests current location or the app. It does not invent coordinates, change
+search criteria to an unrelated area, or persist a false confirmed center. Existing
+confirmed-location reuse runs first. Native geocoding, current-location handling,
+15-second native timeout, persistence, correction and stale-operation ownership
+remain intact. Injected-resolver tests verify accepted resolution/persistence and
+ownership fences; they do not establish a real browser provider.
+
+Smallest next decision: authorize a bounded public customer location resolver,
+including provider access and cost/abuse controls. Reusing the existing server Google
+geocoding helper could be considered under separate explicit backend authorization.
+No such backend change was implemented. Classification: PRODUCT DECISION REQUIRED.
+
+HISTORY
+The existing Flutter Navigator/router remains. Browser visit state stores an opaque
+session visit key, never restaurant DTOs, user IDs or search access capabilities.
+Back retains the correct parent; Forward builds fresh routes/auth bindings. Stale
+Browse/Saved access cannot replay after account A -> guest -> A replacement.
+Browser startup no longer replaces the initial public deep link with the root.
+
+Public hash routes now include restaurant menu, exact coupon, dish and Reviews:
+/r/coupons/{catalog}/menu
+/r/coupons/{catalog}/offer/{opaqueOfferId}
+/r/bitescore/{catalog}/menu
+/r/bitescore/{catalog}/dish/{dishId}
+/r/bitescore/{catalog}/dish/{dishId}/reviews
+Identifiers are encoded once; dish reload checks its restaurant parent. Coupon
+reload uses existing bounded profile pages, selects only the exact offer, stops on
+nonprogressing cursors, and disposes profile ownership even after late completion.
+Returning from Reviews refreshes visible Dish data and upstream ratings on app Back
+or browser Back (which supplies no changed result). No review was submitted.
+
+Browse/Saved's existing DTO does not expose a permanent catalog ID. Such nested
+visits work within the current session; refreshing an expired opaque session visit
+recovers to its safe parent/Browse. No account/catalog mapping was guessed. This
+remaining durable-link gap requires an explicit contract decision if reload parity
+for those ephemeral visits is required. Classification: PRODUCT DECISION REQUIRED.
+
+Coupon restrictions, unlimited full-screen display, Daily Specials, QR app-first
+fallback/permanent identity, auth/account deletion, protected invitations, mode
+switches and native routes remain. Website and PostGIS defaults stay off; existing
+bounded search switches are unchanged. No catalogs were downloaded and no device
+proof/redemption bypass was introduced.
+
+VERIFICATION
+- Final Chrome Flutter suite: 33 passed, 0 failed. Reuses all original001 Chrome
+  navigation/coupon/browser cases and adds nested replay/auth invalidation/location
+  feedback plus visible review-return data updates for both Back result paths.
+- Native shared location/Home/BiteScore location and history/routes: 42 passed.
+- Expanded native customer screen/runtime regression: 385 passed, 3 failed. Eight
+  known stale legal assertions were excluded explicitly, not counted as passing.
+- Focused new public detail tests: 4 passed. Overlapping requalification: 31 passed.
+  Final provider-history/public-parser tests: 4 passed. Counts overlap; do not sum.
+- Existing local QR JavaScript: 4 passed. Local preview HTTP checks: 3 passed.
+- Final focused analysis: 15 files, no issues. Three larger BiteScore files have
+  9 pre-existing informational deprecation diagnostics; analyzer exits 1 for these,
+  with no error/warning introduced. Their unrelated code was preserved.
+- Final release web builds passed for real entry and synthetic fixture, in separate
+  build/customer_website_002 and build/customer_website_fixture_002 folders.
+- git diff --check passed; protected tracked source/config paths unchanged.
+
+Actual local Chrome, using synthetic data/no Firebase initialization, exercised:
+Browse -> Restaurant -> Coupon -> Back twice -> Browse -> Forward twice -> Coupon;
+public menu reload -> exact encoded parent Back -> menu Forward; public coupon
+reload/Back/Forward; BiteScore Browse -> Restaurant -> Dish -> Reviews -> reload ->
+Back three times -> Browse -> Forward three times -> Reviews. Final rebuilt fixture
+also passed Reviews reload/Back to Dish/Forward. Desktop 1440, tablet 768 and mobile
+390 widths were inspected. Typed Orlando, FL displayed explicit lookup-unavailable
+feedback. Existing local QR fallback preserved literal permanent%2Fidentity and app
+links. No location permission, sign-in, Save Review, proof or production write was
+performed. Screenshot evidence is synthetic, not a live customer qualification.
+
+FAILURE PROVENANCE AND BUG FILTER
+FIX NOW / DIRECTLY REQUIRED: nested visit replay, initial deep-link clobbering,
+encoded identity, late/disposed profile ownership, nonprogressing coupon pagination,
+and stale Dish data after Reviews were corrected and tested.
+
+The three expanded native failures reproduce identically against an isolated copy
+of the exact starting002 baseline (0 pass/3 fail): two historical hero expectations
+and one offscreen action semantics expectation. Owner tests were not edited.
+These are pre-existing test/UI expectation discrepancies, not002 regressions.
+Classification: ACCEPT AND CLOSE for this assignment; preserve for their owner.
+
+The prior001 eight legal failures expect unpublished draft text after the approved
+October17 publication. Prior001 evidence establishes they are stale and independent
+of website work. Protected legal assets/tests remain untouched; not called passing.
+The prior backend suite's 33 pass/1 fail is a formatting-sensitive source assertion
+whose indentation already disagreed with HEAD. It was pre-existing, not reopened
+or fixed in002. Classification: ACCEPT AND CLOSE for both within this assignment.
+
+Independent reviewers /root/security_hosting_review and /root/website_diff_review:
+scoped PASS on affected location/mobile boundaries, navigation/auth privacy,
+identity and feature defaults. Final review findings were corrected before final
+qualification. See independent-review.txt. No external release approval implied.
+
+REMAINING QUALIFICATION / OWNERSHIP
+Live customer qualification still needs authorized browser auth/provider restoration,
+real location/discovery, Saved/favorites, uploads/reviews/moderation and actual
+Android/iOS app links/redemption tests. Browser fixture tests do not prove live DTO
+release compatibility or deployed service availability. Existing001 backend security
+release gates, canonical domain binding/DNS readiness, blank store destinations and
+separately owned search/PostGIS investigation remain separate. Their historical
+production observations were not refreshed or altered in002. Keep native-proof live
+negative/positive qualification as a backend release gate. No backend unlimited
+coupon investigation was reopened.
+
+EXACT INCREMENTAL PATHS (relative to recorded002 starting bytes)
+  lib/screens/customer_website_app.dart
+  lib/screens/customer_website_detail_screen.dart
+  lib/services/customer_website_routes.dart
+  test/customer_website_fixture/main.dart
+  test/screens/customer_website_detail_test.dart
+  test/screens/customer_website_navigation_test.dart
+  test/services/customer_website_history_test.dart
+  test/services/customer_website_location_test.dart
+  test/services/customer_website_routes_test.dart
+  tool/customer_website/README.txt
+  tool/customer_website/preview.py
+  lib/main.dart
+  lib/screens/bitescore_dish_detail_screen.dart
+  lib/screens/bitescore_home_screen.dart
+  lib/screens/bitescore_restaurant_dishes_screen.dart
+  lib/screens/customer_bitesaver_browse_destinations.dart
+  lib/screens/customer_bitesaver_saved_destinations.dart
+  lib/screens/main_navigation_screen.dart
+  lib/services/customer_bitesaver_runtime.dart
+  lib/services/shared_location_state_service.dart
+  CUSTOMER_WEBSITE_FOUNDATION_002_COMPLETION.txt (this report)
+
+GIT / EVIDENCE
+The full pre-existing dirty main worktree remains uncommitted. Exact final status,
+incremental diff, starting hashes, final source/build hashes, durable logs, browser
+receipt, screenshots and independent reviews are in:
+/Users/colesmart/.codex/reports/BS-CUSTOMER-WEBSITE-FOUNDATION-002-20261017
+The original001 report, owner browse/profile tests, and prior001 evidence were
+preserved. No broad staging, cleanup, reset, stash or checkout was performed.
+Loopback synthetic preview: http://localhost:8771/

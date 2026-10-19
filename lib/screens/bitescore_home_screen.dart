@@ -1,3 +1,5 @@
+import '../services/customer_website_runtime.dart';
+import '../services/customer_website_routes.dart';
 import '../widgets/bitescore_terms_gate.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -5,6 +7,7 @@ import 'dart:math' as math;
 import 'dart:io' show Platform;
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
@@ -277,6 +280,11 @@ class BiteScoreHomeScreen extends StatefulWidget {
   final BiteScoreHomeEntriesLoader? testHomeEntriesLoader;
   final BiteScoreHomeDishDetailBuilder? testDishDetailBuilder;
   final CustomerBiteScoreSearchApi? testSearchApi;
+  final Widget Function(
+    BitescoreRestaurant restaurant,
+    List<BiteScoreHomeEntry> entries,
+  )?
+  testRestaurantDetailBuilder;
 
   const BiteScoreHomeScreen({
     super.key,
@@ -284,6 +292,7 @@ class BiteScoreHomeScreen extends StatefulWidget {
     @visibleForTesting this.testHomeEntriesLoader,
     @visibleForTesting this.testDishDetailBuilder,
     @visibleForTesting this.testSearchApi,
+    @visibleForTesting this.testRestaurantDetailBuilder,
   });
 
   @override
@@ -390,7 +399,14 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       )..addListener(_boundedSearchChanged);
       try {
         final initialUser = FirebaseAuth.instance.currentUser;
-        final initialCriteria = jsonEncode(_boundedCriteria());
+        String criteriaIdentity() {
+          final encoded = jsonEncode(_boundedCriteria());
+          return kIsWeb
+              ? sha256.convert(utf8.encode(encoded)).toString()
+              : encoded;
+        }
+
+        final initialCriteria = criteriaIdentity();
         var awaitingInitialNotification = true;
         _boundedAuthSubscription = FirebaseAuth.instance
             .authStateChanges()
@@ -400,7 +416,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                   user?.uid == initialUser?.uid &&
                   user?.isAnonymous == initialUser?.isAnonymous &&
                   user?.tenantId == initialUser?.tenantId &&
-                  jsonEncode(_boundedCriteria()) == initialCriteria;
+                  criteriaIdentity() == initialCriteria;
               awaitingInitialNotification = false;
               if (mounted && !initialEcho) unawaited(_refreshEntries());
             });
@@ -1978,6 +1994,16 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     final distanceLabel = _distanceLabel(entry);
     final refreshed = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
+        settings: CustomerWebsiteRuntime.enabled
+            ? RouteSettings(
+                name: CustomerWebsiteDetailRoute(
+                  'bitescore',
+                  entry.restaurant.id,
+                  CustomerWebsiteDetailKind.dish,
+                  detailId: entry.dish.id,
+                ).location,
+              )
+            : null,
         builder: (context) =>
             widget.testDishDetailBuilder?.call(context, entry, distanceLabel) ??
             BiteScoreDishDetailScreen(
@@ -1995,10 +2021,19 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   }) async {
     final refreshed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => BiteScoreRestaurantDishesScreen(
-          restaurant: restaurant,
-          entries: entries,
-        ),
+        settings: CustomerWebsiteRuntime.enabled
+            ? RouteSettings(
+                name: Uri(
+                  pathSegments: ['', 'r', 'bitescore', restaurant.id],
+                ).toString(),
+              )
+            : null,
+        builder: (_) =>
+            widget.testRestaurantDetailBuilder?.call(restaurant, entries) ??
+            BiteScoreRestaurantDishesScreen(
+              restaurant: restaurant,
+              entries: entries,
+            ),
       ),
     );
 

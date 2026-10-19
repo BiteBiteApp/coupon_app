@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../models/coupon.dart';
 import '../models/customer_bitesaver_search.dart';
@@ -18,6 +19,8 @@ import '../services/customer_bitesaver_search_coordinator.dart';
 import '../services/customer_bitesaver_saved_coordinator.dart';
 import '../services/restaurant_account_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
+import '../widgets/customer_browser_offer_actions.dart';
+import '../services/restaurant_customer_link_service.dart';
 import '../widgets/bitesaver_colors.dart';
 import '../widgets/bitesaver_report_dialog.dart';
 import '../widgets/persistent_bottom_navigation.dart';
@@ -727,23 +730,27 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   MainNavigationAuthLease? _boundedAuthLease;
 
   bool get _supportsRedeemTimer =>
-      (widget.boundedOffer?.offerType == CustomerBiteSaverOfferType.coupon &&
-          widget.boundedOffer?.usagePolicy !=
-              CustomerBiteSaverUsagePolicy.unlimited) ||
-      (widget.boundedOffer == null &&
-          DemoRedemptionStore.supportsRedeemTimer(widget.coupon.usageRule));
+      !kIsWeb &&
+      ((widget.boundedOffer?.offerType == CustomerBiteSaverOfferType.coupon &&
+              widget.boundedOffer?.usagePolicy !=
+                  CustomerBiteSaverUsagePolicy.unlimited) ||
+          (widget.boundedOffer == null &&
+              DemoRedemptionStore.supportsRedeemTimer(
+                widget.coupon.usageRule,
+              )));
 
   bool get _requiresBoundedBrowse =>
       widget.boundedOffer == null && !DemoRedemptionStore.legacyWritesEnabled;
 
   bool get _supportsCouponUse =>
-      _requiresBoundedBrowse ||
-      widget.boundedOffer?.offerType == CustomerBiteSaverOfferType.coupon ||
-      (widget.boundedOffer == null && _supportsRedeemTimer);
+      !kIsWeb &&
+      (_requiresBoundedBrowse ||
+          widget.boundedOffer?.offerType == CustomerBiteSaverOfferType.coupon ||
+          (widget.boundedOffer == null && _supportsRedeemTimer));
 
   CustomerBiteSaverRedemptionPresentation? get _boundedRedemption {
     final offer = widget.boundedOffer;
-    if (offer == null) return null;
+    if (kIsWeb || offer == null) return null;
     final retained =
         _confirmedRedemption ??
         widget.publicProfile?.presentationFor(offer) ??
@@ -893,10 +900,10 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     try {
       final redemptionStoreInitializer = widget.initializeRedemptionStore;
       if (redemptionStoreInitializer == null) {
-        if (DemoRedemptionStore.legacyWritesEnabled) {
+        if (!kIsWeb && DemoRedemptionStore.legacyWritesEnabled) {
           await DemoRedemptionStore.ensureInitialized();
         }
-      } else {
+      } else if (!kIsWeb) {
         await redemptionStoreInitializer();
       }
       final favoriteLoader = widget.loadFavoriteState;
@@ -974,6 +981,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
 
   void _syncCountdownTicker() {
     _countdownTicker?.cancel();
+    if (kIsWeb) return;
 
     final bounded = _boundedRedemption;
     final boundedActive =
@@ -1012,7 +1020,9 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   }
 
   Future<void> _startRedeemTimer() async {
-    if (isRedeeming || _isConfirmingUse || !_supportsCouponUse) return;
+    if (kIsWeb || isRedeeming || _isConfirmingUse || !_supportsCouponUse) {
+      return;
+    }
     if (!_isCustomerVisibleOffer) {
       _showSnackBar('This offer is no longer available.');
       return;
@@ -1707,8 +1717,10 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     final visibleCouponNumberLabel =
         couponNumberLabel != null &&
             BiteSaverCouponNumberVisibility.shouldShow(
-              supportsRedeemTimer:
-                  _supportsRedeemTimer || _requiresBoundedBrowse,
+              supportsRedeemTimer: kIsWeb
+                  ? boundedOffer?.usagePolicy !=
+                        CustomerBiteSaverUsagePolicy.unlimited
+                  : _supportsRedeemTimer || _requiresBoundedBrowse,
               hasActiveTimer: hasActiveTimer || boundedUnlimitedReady,
             )
         ? couponNumberLabel
@@ -1885,6 +1897,91 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                         ),
                       ),
                     ),
+                    if (kIsWeb &&
+                        (boundedOffer == null ||
+                            boundedOffer.offerType ==
+                                CustomerBiteSaverOfferType.coupon)) ...[
+                      const SizedBox(height: 16),
+                      CustomerBrowserOfferActions(
+                        policy: boundedOffer?.usagePolicy,
+                        appLink: widget.publicProfile == null
+                            ? null
+                            : Uri.parse(
+                                RestaurantCustomerLinkService.couponRestaurantUrl(
+                                  widget.publicProfile!.catalogRestaurantId,
+                                ).replaceFirst(
+                                  'go.bitestar.app',
+                                  'app.bitestar.app',
+                                ),
+                              ),
+                        onEnlarge: () => showDialog<void>(
+                          context: context,
+                          builder: (context) => Dialog.fullscreen(
+                            child: Scaffold(
+                              appBar: AppBar(
+                                title: const Text('Show coupon'),
+                                leading: CloseButton(
+                                  onPressed: () => Navigator.pop(context),
+                                ),
+                              ),
+                              body: SingleChildScrollView(
+                                padding: const EdgeInsets.all(24),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (coupon.imageUrl?.trim().isNotEmpty ==
+                                        true)
+                                      Image.network(
+                                        coupon.imageUrl!,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, _, _) =>
+                                            const Icon(Icons.local_offer),
+                                      ),
+                                    Text(
+                                      titleLabel,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.headlineMedium,
+                                    ),
+                                    Text(restaurantLabel),
+                                    if (coupon.details?.trim().isNotEmpty ==
+                                        true)
+                                      Text(coupon.details!),
+                                    if (boundedPresentation
+                                            ?.availabilityLabel !=
+                                        null)
+                                      Text(
+                                        boundedPresentation!.availabilityLabel!,
+                                      ),
+                                    if (boundedPresentation?.scheduleLabel !=
+                                        null)
+                                      Text(boundedPresentation!.scheduleLabel!),
+                                    if (boundedPresentation?.startsLabel !=
+                                        null)
+                                      Text(
+                                        'Starts: ${boundedPresentation!.startsLabel}',
+                                      ),
+                                    if (boundedPresentation?.endsLabel != null)
+                                      Text(
+                                        'Ends: ${boundedPresentation!.endsLabel}',
+                                      ),
+                                    Text(
+                                      boundedPresentation?.expiresLabel ??
+                                          coupon.expires,
+                                    ),
+                                    if (boundedPresentation?.usageLabel != null)
+                                      Text(boundedPresentation!.usageLabel!),
+                                    if (coupon.formattedCouponNumber != null)
+                                      Text(coupon.formattedCouponNumber!),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                     if (_supportsCouponUse) ...[
                       const SizedBox(height: 16),
                       SizedBox(

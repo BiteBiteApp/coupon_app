@@ -1,3 +1,4 @@
+import '../services/customer_website_runtime.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -111,6 +112,7 @@ final class CustomerBiteSaverSavedDestinationHandler {
     await pushMainNavigationPrivateRoute<void>(
       context,
       parentBinding: parentBinding,
+      webCanReplay: () => access.isCurrent,
       originatingAuthRealm: parentBinding == null ? access.authRealmKey : null,
       canPreserveRouteOnAuthChange: () =>
           preserveConfirmedDeviceTimer &&
@@ -121,7 +123,7 @@ final class CustomerBiteSaverSavedDestinationHandler {
       onAuthRealmReplaced: (_, _) =>
           guardKey.currentState?.retireAuthorityForAuthChange(),
       builder: (_) => _CustomerBiteSaverSavedDestinationGuard(
-        key: guardKey,
+        key: CustomerWebsiteRuntime.enabled ? null : guardKey,
         access: access,
         builder: builder,
       ),

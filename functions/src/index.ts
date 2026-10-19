@@ -1,4 +1,5 @@
 import {runBiteSaverProfileTransaction} from "./bitesaver_restaurant_profile_runtime.js";
+import {createCustomerLocationAdmission, customerLocationDailyLimit, resolveCustomerLocationHandler} from "./customer_location.js";
 import {requireBiteScoreTermsInFirestore} from "./bitescore_terms.js";
 import {approveRestaurantNameChangeHandler} from "./restaurant_name_approval.js";
 import {submitScreenedOwnerPhotoHandler, getOwnerScreenedPhotoHandler, useOwnerScreenedPhotoHandler, retireDetachedOwnerPhoto} from "./owner_photo_screening.js";
@@ -402,6 +403,19 @@ const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
+// Source-only and default closed. A future targeted release must approve a
+// provider allowance and verify shared Google quota/billing/key restrictions.
+const customerLocationLimit = defineString("BITESTAR_CUSTOMER_LOCATION_DAILY_LIMIT", {default: "0"});
+export const resolveCustomerLocation = onCall(
+  {region: "us-central1", secrets: [googleMapsApiKey], timeoutSeconds: 15,
+    minInstances: 0, maxInstances: 2, concurrency: 4},
+  (request) => resolveCustomerLocationHandler(request.data, request.auth?.uid ?? null, {
+    getGeocodingApiKey: () => googleMapsApiKey.value(),
+    fetchGeocoding: (url, init) => fetch(url, init),
+    dailyLimit: () => customerLocationDailyLimit(customerLocationLimit.value()),
+    reserve: createCustomerLocationAdmission(db),
+  }),
+);
 const searchPaginationCursorKey = defineSecret(couponAdminCursorSecretName);
 const biteSaverCustomerDiscoveryKey = defineSecret(
   customerBiteSaverSecretName,

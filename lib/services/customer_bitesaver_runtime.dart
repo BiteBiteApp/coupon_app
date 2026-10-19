@@ -1,9 +1,13 @@
+import 'customer_website_runtime.dart';
+import 'customer_website_routes.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'shared_location_state_service.dart';
 
 import '../models/customer_bitesaver_search.dart';
 import '../models/customer_bitesaver_device_usage.dart';
@@ -90,6 +94,11 @@ abstract final class CustomerBiteSaverRuntime {
   static Widget buildPublicProfile(CustomerBiteSaverPublicProfile profile) =>
       _build((composition) => composition.buildPublicProfile(profile));
 
+  static Widget buildPublicOffer(
+    CustomerBiteSaverPublicProfile profile,
+    CustomerBiteSaverOffer offer,
+  ) => _build((composition) => composition.buildPublicOffer(profile, offer));
+
   static Widget buildBrowse(
     BuildContext context,
     int navigationRefreshGeneration,
@@ -170,7 +179,32 @@ final class CustomerBiteSaverComposition extends ChangeNotifier {
       ),
       favoriteStateOwner: _saved,
     );
+    if (kIsWeb) {
+      SharedLocationStateService.changes.addListener(_sharedLocationChanged);
+    }
     _subscription = userChanges().listen(_authChanged);
+  }
+
+  // The process-owned coordinator outlives Browse screens. Release its old
+  // center even when shared-location expiry occurs while only Account is open.
+  void _sharedLocationChanged() {
+    final criteria = browse.criteria;
+    if (criteria == null) return;
+    final location = SharedLocationStateService.state;
+    final current = location.usingCurrentLocation;
+    final latitude = current
+        ? location.currentPosition?.latitude
+        : location.usingTypedSearchLocation ? location.typedLatitude : null;
+    final longitude = current
+        ? location.currentPosition?.longitude
+        : location.usingTypedSearchLocation ? location.typedLongitude : null;
+    final mode = current
+        ? CustomerBiteSaverLocationMode.current
+        : CustomerBiteSaverLocationMode.typed;
+    if (criteria.latitude != latitude || criteria.longitude != longitude ||
+        criteria.locationMode != mode) {
+      browse.invalidateSearchLocation();
+    }
   }
 
   static Future<CustomerBiteSaverComposition> firebase() async {
@@ -471,6 +505,15 @@ final class CustomerBiteSaverComposition extends ChangeNotifier {
         boundedSavedCoordinator: _saved,
         openBoundedMenu: (context) => Navigator.of(context).push<void>(
           MaterialPageRoute(
+            settings: CustomerWebsiteRuntime.enabled
+                ? RouteSettings(
+                    name: CustomerWebsiteDetailRoute(
+                      'coupons',
+                      profile.catalogRestaurantId,
+                      CustomerWebsiteDetailKind.menu,
+                    ).location,
+                  )
+                : null,
             builder: (_) => RestaurantMenuScreen.fromCustomerBiteSaver(
               restaurantName: profile.restaurant!.displayName,
               pageLoader: profile.menu,
@@ -489,23 +532,37 @@ final class CustomerBiteSaverComposition extends ChangeNotifier {
           }
           await Navigator.of(context).push<void>(
             MaterialPageRoute(
-              builder: (_) => AnimatedBuilder(
-                animation: this,
-                builder: (_, _) => CouponDetailScreen.fromPublicProfile(
-                  key: ValueKey('public-coupon-$_authGeneration'),
-                  profile: profile,
-                  offer: offer,
-                  boundedSavedCoordinator: _saved,
-                  useBoundedCoupon: (_) => _useProfileCoupon(profile, offer),
-                  openBoundedRestaurant: (context) async =>
-                      Navigator.of(context).pop(),
-                ),
-              ),
+              settings: CustomerWebsiteRuntime.enabled
+                  ? RouteSettings(
+                      name: CustomerWebsiteDetailRoute(
+                        'coupons',
+                        profile.catalogRestaurantId,
+                        CustomerWebsiteDetailKind.offer,
+                        detailId: offer.offerId.value,
+                      ).location,
+                    )
+                  : null,
+              builder: (_) => buildPublicOffer(profile, offer),
             ),
           );
           profile.viewOffer(null);
         },
       );
+
+  Widget buildPublicOffer(
+    CustomerBiteSaverPublicProfile profile,
+    CustomerBiteSaverOffer offer,
+  ) => AnimatedBuilder(
+    animation: this,
+    builder: (_, _) => CouponDetailScreen.fromPublicProfile(
+      key: ValueKey('public-coupon-$_authGeneration'),
+      profile: profile,
+      offer: offer,
+      boundedSavedCoordinator: _saved,
+      useBoundedCoupon: (_) => _useProfileCoupon(profile, offer),
+      openBoundedRestaurant: (context) async => Navigator.of(context).pop(),
+    ),
+  );
 
   Widget buildBrowse(BuildContext context, int refresh, String authRealm) {
     if (authRealm != _auth.realmKey || _readAuth().realmKey != authRealm) {
@@ -560,6 +617,9 @@ final class CustomerBiteSaverComposition extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (kIsWeb) {
+      SharedLocationStateService.changes.removeListener(_sharedLocationChanged);
+    }
     _authGeneration += 1;
     unawaited(_subscription.cancel());
     for (final profile in _publicProfiles.toList()) {

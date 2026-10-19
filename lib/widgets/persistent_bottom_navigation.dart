@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../screens/main_navigation_screen.dart';
+import '../services/customer_website_runtime.dart';
 import '../services/app_mode_state_service.dart';
 import 'admin_content_insets.dart';
 import 'bitesaver_colors.dart';
@@ -25,6 +26,15 @@ class PersistentBottomNavigation extends StatelessWidget {
   });
 
   void _openDestination(BuildContext context, int index) {
+    if (CustomerWebsiteRuntime.enabled) {
+      if (index == 1) return;
+      Navigator.of(context).pushNamed(
+        index == 2
+            ? '/account'
+            : CustomerWebsiteRuntime.homeRoute(mode == AppMode.biteScore),
+      );
+      return;
+    }
     openMainNavigationDetailDestination(
       context,
       mode: mode,
@@ -54,59 +64,60 @@ class PersistentBottomNavigation extends StatelessWidget {
       child: Row(
         children: [
           for (final item in mainNavigationItems.asMap().entries)
-            Expanded(
-              child: InkWell(
-                onTap: () => _openDestination(context, item.key),
-                borderRadius: BorderRadius.circular(13),
-                child: Center(
-                  child: SizedBox(
-                    height: 43,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          height: 19,
-                          child: Center(
-                            child: Icon(
-                              item.key == selectedIndex
-                                  ? item.value.selectedIcon
-                                  : item.value.icon,
-                              color: item.key == selectedIndex
-                                  ? selectedIconColor
-                                  : BiteSaverColors.mutedInk,
-                              size: item.key == selectedIndex ? 21 : 19.5,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 22,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              item.value.label,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
+            if (!CustomerWebsiteRuntime.enabled || item.key != 1)
+              Expanded(
+                child: InkWell(
+                  onTap: () => _openDestination(context, item.key),
+                  borderRadius: BorderRadius.circular(13),
+                  child: Center(
+                    child: SizedBox(
+                      height: 43,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            height: 19,
+                            child: Center(
+                              child: Icon(
+                                item.key == selectedIndex
+                                    ? item.value.selectedIcon
+                                    : item.value.icon,
                                 color: item.key == selectedIndex
-                                    ? selectedTextColor
+                                    ? selectedIconColor
                                     : BiteSaverColors.mutedInk,
-                                fontWeight: item.key == selectedIndex
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                                fontSize: 11.3,
-                                letterSpacing: 0,
-                                height: 0.96,
+                                size: item.key == selectedIndex ? 21 : 19.5,
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                          SizedBox(
+                            width: double.infinity,
+                            height: 22,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                item.value.label,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: item.key == selectedIndex
+                                      ? selectedTextColor
+                                      : BiteSaverColors.mutedInk,
+                                  fontWeight: item.key == selectedIndex
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  fontSize: 11.3,
+                                  letterSpacing: 0,
+                                  height: 0.96,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
         ],
       ),
     );

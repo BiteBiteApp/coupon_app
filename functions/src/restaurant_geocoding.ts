@@ -704,6 +704,70 @@ export async function geocodeGoogleUsSearchCenter(
   throw geocodingError("malformed-response");
 }
 
+export type CustomerLocationQuery =
+  | {kind: "zip"; query: string; zip: string}
+  | {kind: "city"; query: string; city: string; state: string | null};
+
+/** Customer search inputs never inherit the Admin free-form address policy. */
+export function normalizeCustomerLocationQuery(value: unknown): CustomerLocationQuery {
+  if (typeof value !== "string" || value.length > 120 ||
+      unsupportedControlCharacterPattern.test(value)) {
+    throw geocodingError("invalid-input", "Enter a US ZIP code or city and state.");
+  }
+  const query = normalizedInputText(value);
+  const zip = /^(\d{5})(?:-\d{4})?$/u.exec(query);
+  // Existing customer ZIP+4 semantics use the five-digit postal search center.
+  if (zip) return {kind: "zip", query: zip[1], zip: zip[1]};
+  const city = /^([\p{L}][\p{L}\p{M} .'’\-]{0,79})(?:,\s*([A-Za-z]{2}))?$/u.exec(query);
+  const state = city?.[2]?.toUpperCase() ?? null;
+  if (!city || (state !== null && !usStateCodes.has(state))) {
+    throw geocodingError("invalid-input", "Enter a US ZIP code or city and two-letter state.");
+  }
+  const name = city[1].trim();
+  return {kind: "city", city: name, state, query: state ? `${name}, ${state}` : name};
+}
+
+function customerCityKey(value: string): string {
+  return value.normalize("NFKC").toLowerCase().replace(/[.’']/gu, "").replace(/\s+/gu, " ").trim();
+}
+
+function plausibleUsCenter(coordinates: RestaurantCoordinates, state: string): boolean {
+  const {latitude: lat, longitude: lng} = coordinates;
+  if (state === "AK") return lat >= 51 && lat <= 72 && ((lng >= -180 && lng <= -129) || (lng >= 172 && lng <= 180));
+  if (state === "HI") return lat >= 18 && lat <= 23.5 && lng >= -161 && lng <= -154;
+  return lat >= 24 && lat <= 50 && lng >= -125 && lng <= -66;
+}
+
+/** Same bounded/sanitized Google transport; separate customer result policy. */
+export async function geocodeCustomerUsSearchCenter(
+  input: CustomerLocationQuery,
+  dependencies: RestaurantGeocodingDependencies,
+): Promise<RestaurantCoordinates> {
+  const candidates = await requestGoogleGeocodingCandidates(input.query, dependencies);
+  const matches: RestaurantCoordinates[] = [];
+  for (const candidate of candidates) {
+    const c = candidate.components;
+    if (candidate.malformed || candidate.partialMatch || candidate.partialMatchMalformed ||
+        !c || c.countryCodes.length !== 1 || c.countryCodes[0] !== "US" ||
+        c.stateCodes.length !== 1 || !usStateCodes.has(c.stateCodes[0]) ||
+        !candidate.coordinates || !plausibleUsCenter(candidate.coordinates, c.stateCodes[0]) ||
+        c.routes.length || c.streetNumbers.length ||
+        !["APPROXIMATE", "GEOMETRIC_CENTER"].includes(candidate.locationType ?? "")) continue;
+    const allowedTypes = input.kind === "zip" ? ["postal_code", "political"] : ["locality", "postal_town", "political"];
+    if (!candidate.resultTypes.length || candidate.resultTypes.some((type) => !allowedTypes.includes(type))) continue;
+    const valid = input.kind === "zip"
+      ? candidate.resultTypes.includes("postal_code") && c.zipCodes.length === 1 && c.zipCodes[0] === input.zip
+      : candidate.resultTypes.some((type) => type === "locality" || type === "postal_town") &&
+        c.cityNames.some((name) => customerCityKey(name) === customerCityKey(input.city)) &&
+        (input.state === null || c.stateCodes[0] === input.state);
+    if (valid) matches.push(candidate.coordinates);
+  }
+  if (matches.length !== 1 || candidates.length !== 1) {
+    throw geocodingError(matches.length ? "ambiguous-result" : "no-result");
+  }
+  return matches[0];
+}
+
 function normalizedComparisonTokens(
   value: string,
   aliases: Readonly<Record<string, string>>,

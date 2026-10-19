@@ -1,9 +1,11 @@
+import '../services/customer_website_routes.dart';
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/customer_bitesaver_runtime.dart';
+import '../services/customer_website_runtime.dart';
 
 import '../models/demo_redemption_store.dart';
 import '../services/app_mode_state_service.dart';
@@ -1393,8 +1395,37 @@ Future<T?> pushMainNavigationPrivateRoute<T>(
   bool Function()? canPreserveRouteOnAuthChange,
   MainNavigationAuthRealmReplaced? onAuthRealmReplaced,
   required WidgetBuilder builder,
+  bool Function()? webCanReplay,
 }) async {
   final navigator = Navigator.of(context, rootNavigator: true);
+  if (CustomerWebsiteRuntime.enabled && webCanReplay != null) {
+    final controller = parentBinding?._controller ?? mainNavigationController;
+    final realm =
+        parentBinding?.captureLease().authRealm ?? originatingAuthRealm;
+    Route<T>? createVisit() {
+      if (!webCanReplay() || realm == null) return null;
+      MainNavigationAuthRouteBinding? binding;
+      final route = MaterialPageRoute<T>(
+        settings: CustomerWebsiteVisitSettings(reopen: createVisit),
+        builder: (routeContext) => MainNavigationAuthBoundOverlayScope(
+          binding: binding!,
+          child: builder(routeContext),
+        ),
+      );
+      binding = controller.bindAuthBoundRoute(
+        navigator: navigator,
+        route: route,
+        originatingAuthRealm: realm,
+        allowGuestToSignedUpgrade: allowGuestToSignedUpgrade,
+      );
+      if (binding == null) return null;
+      route.completed.then((_) => controller.unbindAuthBoundRoute(binding!));
+      return route;
+    }
+
+    final route = createVisit();
+    return route == null ? null : await navigator.push<T>(route);
+  }
   MainNavigationAuthRouteBinding? childBinding;
   late final MaterialPageRoute<T> route;
   route = MaterialPageRoute<T>(
@@ -1449,6 +1480,15 @@ void openMainNavigationDestination(
   Widget Function(AppMode mode, int index)? fallbackBuilder,
   AppMode? refreshHomeMode,
 }) {
+  if (CustomerWebsiteRuntime.enabled) {
+    if (index == 1) return;
+    Navigator.of(context, rootNavigator: true).pushNamed(
+      index == 2
+          ? '/account'
+          : CustomerWebsiteRuntime.homeRoute(mode == AppMode.biteScore),
+    );
+    return;
+  }
   final navigator = Navigator.of(context, rootNavigator: true);
   final effectiveController = controller ?? mainNavigationController;
   if (effectiveController.returnToExistingShell(
@@ -1485,6 +1525,15 @@ void openMainNavigationDetailDestination(
   Widget Function(AppMode mode, int index)? fallbackBuilder,
   AppMode? refreshHomeMode,
 }) {
+  if (CustomerWebsiteRuntime.enabled) {
+    if (index == 1) return;
+    Navigator.of(context, rootNavigator: true).pushNamed(
+      index == 2
+          ? '/account'
+          : CustomerWebsiteRuntime.homeRoute(mode == AppMode.biteScore),
+    );
+    return;
+  }
   final navigator = Navigator.of(context, rootNavigator: true);
   final sourceRoute = ModalRoute.of(context);
   if (sourceRoute != null && !sourceRoute.isCurrent) return;
@@ -2041,6 +2090,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   void _listenForAppLinks() {
+    // Browser routes are delivered by Flutter's URL navigation. The native
+    // ingestion coordinator also consumes owner checkout returns; public
+    // customer previews must not claim those events or open owner tools.
+    if (CustomerWebsiteRuntime.enabled) return;
     _appLinkSubscription = SubscriptionReturnService.appLinks.listen(
       _handleIncomingDeepLink,
       onError: (_) {},
@@ -2289,6 +2342,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   void _schedulePendingSubscriptionReturnNavigation() {
+    if (CustomerWebsiteRuntime.enabled) return;
     _subscriptionReturnNavigationRequestGeneration += 1;
     _startPendingSubscriptionReturnNavigationDrainIfNeeded();
   }
@@ -2530,6 +2584,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   void _syncSelectedMode() {
     final nextMode = AppModeStateService.selectedMode.value;
+    if (CustomerWebsiteRuntime.enabled) {
+      if (mounted &&
+          _registeredRoute?.isCurrent == true &&
+          selectedMode != nextMode) {
+        _setMode(nextMode);
+      }
+      return;
+    }
     if (selectedMode == nextMode || !mounted) {
       return;
     }
@@ -2601,7 +2663,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
     return switch (index) {
       0 => _buildModeHomePage(mode),
-      1 => const RestaurantAuthScreen(),
+      1 =>
+        CustomerWebsiteRuntime.enabled
+            ? const SizedBox.shrink()
+            : const RestaurantAuthScreen(),
       2 => const CustomerAccountScreen(),
       _ => const SizedBox.shrink(),
     };
@@ -2609,11 +2674,28 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   void _setMode(AppMode mode) {
     if (selectedMode == mode) return;
+    if (CustomerWebsiteRuntime.enabled) {
+      Navigator.of(
+        context,
+      ).pushNamed(CustomerWebsiteRuntime.homeRoute(mode == AppMode.biteScore));
+      return;
+    }
     _applyPendingHomeRefreshes();
     AppModeStateService.setMode(mode);
   }
 
   void _selectTab(int index) {
+    if (CustomerWebsiteRuntime.enabled) {
+      if (index == 1) return;
+      Navigator.of(context).pushNamed(
+        index == 2
+            ? '/account'
+            : CustomerWebsiteRuntime.homeRoute(
+                selectedMode == AppMode.biteScore,
+              ),
+      );
+      return;
+    }
     final normalizedIndex = normalizeMainNavigationIndex(index);
     _applyPendingHomeRefreshes();
     _rememberDestination(selectedMode, normalizedIndex);
@@ -2647,7 +2729,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       color: const Color(0xFFFFFEFC),
       itemBuilder: (context) => const [
         PopupMenuItem(value: 0, child: Text('Home')),
-        PopupMenuItem(value: 1, child: Text('Restaurant Hub')),
+        if (!CustomerWebsiteRuntime.enabled)
+          PopupMenuItem(value: 1, child: Text('Restaurant Hub')),
         PopupMenuItem(value: 2, child: Text('My Profile')),
         PopupMenuItem(value: 3, child: Text('About Us')),
         PopupMenuItem(value: 4, child: Text('Privacy Policy')),
@@ -2704,73 +2787,74 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       child: Row(
         children: [
           for (final item in mainNavigationItems.asMap().entries)
-            Expanded(
-              child: InkWell(
-                onTap: () => _selectTab(item.key),
-                borderRadius: BorderRadius.circular(13),
-                child: Center(
-                  child: SizedBox(
-                    height: 43,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        IntrinsicWidth(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 1,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  height: 19,
-                                  child: Center(
-                                    child: Icon(
-                                      item.key == selectedIndex
-                                          ? item.value.selectedIcon
-                                          : item.value.icon,
-                                      color: item.key == selectedIndex
-                                          ? selectedIconColor
-                                          : const Color(0xFF766D61),
-                                      size: item.key == selectedIndex
-                                          ? 21
-                                          : 19.5,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(
-                                  height: 22,
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      item.value.label,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
+            if (!CustomerWebsiteRuntime.enabled || item.key != 1)
+              Expanded(
+                child: InkWell(
+                  onTap: () => _selectTab(item.key),
+                  borderRadius: BorderRadius.circular(13),
+                  child: Center(
+                    child: SizedBox(
+                      height: 43,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          IntrinsicWidth(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    height: 19,
+                                    child: Center(
+                                      child: Icon(
+                                        item.key == selectedIndex
+                                            ? item.value.selectedIcon
+                                            : item.value.icon,
                                         color: item.key == selectedIndex
-                                            ? selectedTextColor
+                                            ? selectedIconColor
                                             : const Color(0xFF766D61),
-                                        fontWeight: item.key == selectedIndex
-                                            ? FontWeight.w700
-                                            : FontWeight.w500,
-                                        fontSize: 11.3,
-                                        letterSpacing: 0,
-                                        height: 0.96,
+                                        size: item.key == selectedIndex
+                                            ? 21
+                                            : 19.5,
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                  SizedBox(
+                                    height: 22,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        item.value.label,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: item.key == selectedIndex
+                                              ? selectedTextColor
+                                              : const Color(0xFF766D61),
+                                          fontWeight: item.key == selectedIndex
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
+                                          fontSize: 11.3,
+                                          letterSpacing: 0,
+                                          height: 0.96,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
         ],
       ),
     );
@@ -2848,6 +2932,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       // Local history handles destination Back presses. At the original root,
       // consume Back; routes and dialogs above the shell keep their own pop.
       canPop:
+          CustomerWebsiteRuntime.enabled ||
           _destinationHistory.isNotEmpty ||
           !(_registeredRoute?.isFirst ?? true),
       child: Scaffold(

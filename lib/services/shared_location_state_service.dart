@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'customer_browser_location_service.dart';
 
 class SharedLocationState {
   final bool usingCurrentLocation;
@@ -16,6 +17,9 @@ class SharedLocationState {
   final String searchText;
   final String? detectedCity;
   final String? detectedZip;
+  // In-memory Google provenance belongs to the accepted center, independent of
+  // subsequent pending lookups. Never serialized to preferences.
+  final DateTime? googleExpiresAt;
 
   const SharedLocationState({
     this.usingCurrentLocation = false,
@@ -27,6 +31,7 @@ class SharedLocationState {
     this.searchText = '',
     this.detectedCity,
     this.detectedZip,
+    this.googleExpiresAt,
   });
 }
 
@@ -62,9 +67,27 @@ class SharedLocationStateService {
   static bool _hasPublishedState = false;
   static bool get hasPublishedState => _hasPublishedState;
   static const geocodeTimeout = Duration(seconds: 15);
+  static CustomerBrowserLocationService _browserResolver =
+      CustomerBrowserLocationService.instance;
+  static Timer? _browserCenterExpiry;
+
+  static bool get usesGoogleSearchCenter =>
+      kIsWeb &&
+      _state.usingTypedSearchLocation &&
+      _state.googleExpiresAt != null &&
+      DateTime.now().isBefore(_state.googleExpiresAt!);
 
   static void _publish(SharedLocationState value) {
+    _browserCenterExpiry?.cancel();
     _state = value;
+    if (usesGoogleSearchCenter) {
+      final expires = value.googleExpiresAt!;
+      _browserCenterExpiry = Timer(expires.difference(DateTime.now()), () {
+        if (identical(_state, value)) {
+          _publish(SharedLocationState(searchText: value.searchText));
+        }
+      });
+    }
     _hasRestoredFromStorage = true;
     _hasPublishedState = true;
     _changes.value += 1;
@@ -246,6 +269,17 @@ class SharedLocationStateService {
       }
 
       if (savedZipCode.isNotEmpty) {
+        // Restore the user's text without a paid call on launch/product switch.
+        // Coordinates are intentionally not persisted; Search confirms them.
+        if (kIsWeb && locationGeocoder == null) {
+          return _publishRestoreIfCurrent(
+            restoreRevision,
+            SharedLocationRestoreResult(
+              state: SharedLocationState(searchText: savedZipCode),
+              message: 'Press Search to use your saved city or ZIP.',
+            ),
+          );
+        }
         SharedLocationState restoredState = SharedLocationState(
           searchText: savedZipCode,
         );
@@ -333,6 +367,9 @@ class SharedLocationStateService {
 
     _state = SharedLocationState(
       usingTypedSearchLocation: true,
+      googleExpiresAt: kIsWeb
+          ? _browserResolver.expirationFor(searchText, latitude, longitude)
+          : null,
       typedLatitude: latitude,
       typedLongitude: longitude,
       typedLabel: label.trim(),
@@ -498,6 +535,10 @@ class SharedLocationStateService {
 
   @visibleForTesting
   static void resetForTesting() {
+    _browserCenterExpiry?.cancel();
+    // ignore: invalid_use_of_visible_for_testing_member
+    _browserResolver.resetForTesting();
+    _browserResolver = CustomerBrowserLocationService.instance;
     _operationRevision += 1;
     _persistenceEpoch += 1;
     _state = const SharedLocationState();
@@ -515,6 +556,9 @@ class SharedLocationStateService {
     Future<List<Location>> Function(String query)? locationGeocoder,
   }) {
     final trimmedQuery = query.trim();
+    if (kIsWeb && locationGeocoder == null) {
+      return _browserResolver.resolve(trimmedQuery);
+    }
     final confirmed = _state;
     final latitude = confirmed.typedLatitude;
     final longitude = confirmed.typedLongitude;
@@ -543,6 +587,13 @@ class SharedLocationStateService {
       trimmedQuery,
       locationGeocoder ?? locationFromAddress,
     ).timeout(geocodeTimeout);
+  }
+
+  @visibleForTesting
+  static void setBrowserResolverForTesting(
+    CustomerBrowserLocationService resolver,
+  ) {
+    _browserResolver = resolver;
   }
 
   static Future<List<Location>> _resolveSearchQuery(

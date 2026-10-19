@@ -93,7 +93,7 @@ class CustomerSessionService {
 
     final random = Random();
     final generated =
-        'guest_${DateTime.now().microsecondsSinceEpoch}_${random.nextInt(1 << 32)}';
+        'guest_${DateTime.now().microsecondsSinceEpoch}_${random.nextInt(0x100000000)}';
 
     await prefs.setString(_guestDeviceIdKey, generated);
     return generated;

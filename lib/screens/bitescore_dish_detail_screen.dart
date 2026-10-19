@@ -1,3 +1,4 @@
+import '../services/customer_website_routes.dart';
 import '../widgets/bitescore_terms_gate.dart';
 import '../services/review_text_moderation_service.dart';
 import 'dart:async';
@@ -17,6 +18,7 @@ import '../models/local_expert_badge_celebration.dart';
 import '../models/review_feedback_vote.dart';
 import '../models/rating_destructive_operation_models.dart';
 import '../services/admin_access_service.dart';
+import '../services/customer_website_runtime.dart';
 import '../services/photo_screening_service.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_image_upload_service.dart';
@@ -570,7 +572,8 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       !_currentUser!.isAnonymous &&
       _currentEntry.restaurant.ownerUserId?.trim() == _currentUser!.uid;
   bool get _isAdmin => AdminAccessService.isAdminUser(_currentUser);
-  bool get _canManageDish => _isOwner || _isAdmin;
+  bool get _canManageDish =>
+      !CustomerWebsiteRuntime.enabled && (_isOwner || _isAdmin);
 
   bool _isPrivateLeaseCurrent(MainNavigationAuthLease? lease) {
     return lease == null ||
@@ -882,7 +885,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         actor != mainNavigationAuthRealmForUser(_currentUser)) {
       throw StateError('BiteScore detail request changed.');
     }
-    if (detail.canManage) {
+    if (!CustomerWebsiteRuntime.enabled && detail.canManage) {
       final restaurant = await BiteScoreService.loadRestaurantById(
         entry.restaurant.id,
       );
@@ -1307,6 +1310,27 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     }
   }
 
+  Future<void> _openReviewSection() async {
+    if (CustomerWebsiteRuntime.enabled && !widget.scrollToReviewSection) {
+      await Navigator.of(context).pushNamed<bool>(
+        CustomerWebsiteDetailRoute(
+          'bitescore',
+          _currentEntry.restaurant.id,
+          CustomerWebsiteDetailKind.reviews,
+          detailId: _currentEntry.dish.id,
+        ).location,
+      );
+      if (mounted) {
+        // Browser Back completes the route without the screen's changed flag.
+        // Refresh both parents so a saved review cannot leave stale ratings.
+        _recordHomeChange();
+        setState(_refresh);
+      }
+      return;
+    }
+    await _scrollToReviewSection();
+  }
+
   Future<void> _scrollToReviewSection() async {
     final context = _reviewSectionKey.currentContext;
     if (context == null) {
@@ -1536,6 +1560,18 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
 
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
+        settings: CustomerWebsiteRuntime.enabled
+            ? RouteSettings(
+                name: Uri(
+                  pathSegments: [
+                    '',
+                    'r',
+                    'bitescore',
+                    _currentEntry.restaurant.id,
+                  ],
+                ).toString(),
+              )
+            : null,
         builder: (_) => BiteScoreRestaurantDishesScreen(
           restaurant: _currentEntry.restaurant,
           entries: restaurantEntries,
@@ -4036,7 +4072,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                     SizedBox(
                                       width: double.infinity,
                                       child: _buildBiteScoreActionButton(
-                                        onPressed: _scrollToReviewSection,
+                                        onPressed: _openReviewSection,
                                         label: 'Rate & Review',
                                       ),
                                     ),

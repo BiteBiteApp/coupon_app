@@ -752,6 +752,9 @@ class _CustomerBiteSaverBrowseScreenState
       return;
     }
 
+    // Close the browser text connection before loading disables the field.
+    // Flutter web semantics can otherwise update an already-detached input.
+    if (kIsWeb) FocusScope.of(context).unfocus();
     final token = _beginLocationOperation();
     final generation = _locationGeneration;
     setState(() {

@@ -1,0 +1,178 @@
+BiteStar — Google-Powered Website City/ZIP Resolver 003
+Run ID: BS-CUSTOMER-WEBSITE-GOOGLE-LOCATION-003
+Role: bounded website/backend integration with independent security/regression review
+Prompt prepared: 2026-10-17 20:00:35 EDT (UTC-04:00)
+Recorded execution start: 2026-10-17 20:50:36.756869 EDT (UTC-04:00)
+Completion: 2026-10-17T21:16:26.110450-04:00 (America/New_York)
+Expected reference HEAD: e14b74adeca5088883d7efe7ee208b233be6616d
+Actual starting/current local and remote main: 76281bddc4a76b6e6ed899560eb8d7227024a156
+
+VERDICT
+Source-only resolver implemented, locally tested and independently reviewed. ZIP,
+ZIP+4 (five-digit center), city/state, explicit-submit reuse, radius changes and
+shared BiteSaver/BiteScore centers work through existing search contracts. New
+city-only queries ask for a state; a city name can reuse that user's already
+confirmed city/state in the same tab. Google's ranked result alone does not prove
+nationwide city uniqueness. No guessed center or nationwide dataset was added.
+Not deployed, activated, committed or production-qualified. Paid-call allowance
+is closed by default. No live Google Geocoding request or production write occurred.
+
+IMPLEMENTATION AND BOUNDARIES
+Permitted scope: client location state/presentation plus minimal existing-architecture
+backend logic and qualification fixtures/tests. Existing Admin callable access was
+unsuitable for guests, so resolveCustomerLocation is a new source-only Firebase
+callable. It reuses restaurant_geocoding.ts's bounded Google transport and existing
+GOOGLE_MAPS_API_KEY secret pattern, with a separate strict city/ZIP result policy.
+Existing Admin search-center and owner street-address geocoders are unchanged.
+Only schemaVersion, query and clientInstanceId are accepted; only coordinates and
+cache metadata return. US restriction, exact postal/city/state matching, plausible
+US coordinates, result type, partial-match and ambiguity checks fail conservatively.
+Provider timeout is five seconds, browser deadline ten seconds; no automatic retries.
+
+The key remains server-side. No key values were accessed. Tests assert sanitized
+errors/responses. Browser asset scanning found no server-secret reference or mock
+provider key; the real build's sole key-shaped value matches the unchanged public
+Firebase client configuration. That public configuration is separate from the
+protected Maps server key; no claim depends on reading the server secret.
+
+Before Google, one fixed private Firestore admission document reserves each attempt:
+configured 1..250/day, 20/minute globally, 3/minute and 20/day per actor, four concurrent
+30-second leases. BITESTAR_CUSTOMER_LOCATION_DAILY_LIMIT defaults to zero; invalid
+values fail closed. Rotating guest identifiers cannot bypass the shared provider
+allowance. Failures/replays consume reservations. Guest IDs are not trusted identity.
+This bounds this callable's Google attempts, not Firebase/Firestore request costs,
+shared Admin/owner usage or overall project spend. No new rate-limit service, IAM,
+Rules, infrastructure or authentication policy was introduced.
+
+Browser requests are explicit, deduplicated and bounded. Confirmed centers survive
+radius/mode/detail navigation; stale results cannot replace newer selections, including
+both pending and cached A->B->A races. Resolver coordinates remain in tab memory for
+24 hours, then shared state clears them while retaining user-entered text. Reload
+restores text without an automatic lookup. Existing search sessions carry coordinates
+under their existing 60-minute absolute / 15-minute idle expiry; read-only metadata
+confirms ACTIVE expiresAt TTL for both session collections. Actual deletion latency,
+backups and exports still need launch retention verification.
+
+An unmodified official Google Maps logo identifies the search center at 16dp with
+required clear space and accessible label. No map was added. A browser-only unfocus
+before loading fixes a demonstrated first-submit Flutter semantics input error;
+native input behavior is unchanged. Native Android/iOS geocoding, GPS, timeouts and
+restoration remain. Browser GPS bypass is tested with doubles; no actual device
+location or permission was requested. Search/PostGIS activation, IDs, paging, QR,
+history, profiles/menus, coupon restrictions, Saved/auth, safety, legal/Hosting,
+payments and production configuration remain outside this change.
+
+QUALIFICATION
+- Backend TypeScript build passed; 93 focused customer/strict restaurant geocoder
+  tests passed, zero failed. Includes malformed/partial/non-US results, timeout,
+  missing configuration, sanitized errors, concurrent reservations, actor/global
+  minute/day caps, expired leases, rollover and no refunds.
+- Chrome Flutter: 46 passed, zero failed, including all original 001/002 cases,
+  both ownership races, expiry, restore, GPS bypass and focused-input submission.
+- Native location/Home/BiteScore: 45 passed, zero failed.
+- Expanded native screens/runtime: 385 passed, three known baseline failures.
+  Eight previously established stale legal assertions explicitly excluded.
+  Failures: two historical header expectations (360x640 scale2;640x360 scale1.4)
+  and profile action semantics (width320 scale2). Exact same tests failed in002,
+  which independently reproduced them against its starting baseline; owner tests
+  and affected presentation remained unchanged. Not called new003 regressions.
+- Focused Flutter analysis: eight files, no issues. git diff --check passed.
+- Both release builds passed: build/customer_website_003 and
+  build/customer_website_fixture_003. Prior001/002 artifacts preserved.
+- Actual local Chrome used real handler/admission with synthetic Google/Firestore
+  doubles on loopback. ZIP34461 produced28.86,-82.49;15->5 miles, repeated Search,
+  product switch, dish Back/Forward and confirmed city alias caused no new lookup.
+  Ocala,FL produced29.18,-82.14 using radius5. Unknownville returned clear feedback;
+  Springfield asked for state before another lookup. Reload retained text and waited
+  for explicit Search. Desktop1440,tablet768,mobile390 inspected. Final fresh Chrome
+  Search-button and keyboard submission passed without application console errors.
+  Extension IOContext messages are external to app behavior. No Firebase init, sign-in,
+  review, redemption, production data mutation or live provider call in this fixture.
+
+Independent /root/location_security_review and /root/website_diff_review: scoped
+PASS after fixes and requalification. Reviewers inspected source and safe metadata;
+parent ran suites and Chrome. Findings classified FIX NOW / DIRECTLY REQUIRED:
+selection ownership/provenance races, attribution spacing and browser focus error.
+Known historical tests: ACCEPT AND CLOSE for this assignment, retained for owners.
+Remaining launch choices below: PRODUCT DECISION REQUIRED. No unresolved in-scope
+source defect identified. Mocks do not establish deployed access or Google accuracy.
+
+READ-ONLY LIVE METADATA AND REQUIRED NEXT RELEASE DECISIONS
+Project coupon-app-29446 /253983587346: billing and Geocoding API enabled;
+GOOGLE_MAPS_API_KEY version1 enabled. Listed BiteStar Server Geocoding key is
+API-restricted to Geocoding, with no application/IP restriction shown. Secret-to-key
+identity and runtime access remain unverified because no secret value was retrieved.
+Actual v3 quota:3,000/minute; daily and per-user effective limits are int64 maximum,
+so no meaningful daily cap is currently shown. Seven-day telemetry returned no series:
+shared usage is UNKNOWN, not zero. Budget metadata403: spend/alerts/delivery UNKNOWN.
+A daily project quota exists but would affect Admin/owner geocoding too. Exhaustion
+must produce friendly unavailability; alerts alone are not a hard spending cap.
+
+Before any controlled live qualification, separately authorize the exact project,
+callable/runtime identity, deployment targets, test recipients/inputs, small request
+allowance, monitoring/budget and rollback. Verify key binding/runtime access without
+exposing the value; approve shared daily quota and customer allowance after measuring
+existing usage; verify alert recipients/delivery. Decide whether the bounded public
+guest exposure is acceptable or separately approve supported App Check protection.
+Keep default allowance zero until those gates are met. No spending approved here.
+
+Owner/legal release dependency: published Terms currently lack the Google Maps
+feature notice and applicable Google Maps End User Additional Terms / Google Privacy
+Policy references required by Maps terms3.2.2(a). Review explicit-submit location
+notice/consent, data sharing and retention under4.4, including Google's own provider
+retention, and confirm the applicable agreement/billing region. Existing Privacy
+Policy mentions location/geocoding but is not proof of complete Maps compliance.
+Do not automatically rewrite/publish legal documents. Verify session deletion and
+backup/export retention within the applicable coordinate-storage allowance.
+
+Then separately qualify a minimal live provider lookup and released browser search
+end-to-end. Retain001/002 launch gates for actual auth/Saved/provider restoration,
+QR/app links, customer backend compatibility/native proof, store destinations and
+canonical domain/Hosting ownership. Those prior observations were not re-audited
+or changed. The PostGIS/prespend experiment and its separate approvals are untouched.
+
+Official documentation consulted:
+https://developers.google.com/maps/documentation/geocoding/usage-and-billing
+https://developers.google.com/maps/documentation/geocoding/policies
+https://developers.google.com/maps/api-security-best-practices
+https://developers.google.com/maps/documentation/geocoding/guides-v3/requests-geocoding
+https://cloud.google.com/maps-platform/terms/maps-service-terms
+https://cloud.google.com/maps-platform/terms
+Policy/terms review supports no-map attribution and conservative temporary coordinate
+storage; it does not replace project-specific agreement/legal release review.
+
+GIT AND FROZEN EVIDENCE
+Dirty main preserved; no branches, staging, commits, tags, pushes, resets or stashes.
+No deployment, live Google API traffic, secret/key/quota/billing/DNS/Hosting/IAM/Rules
+change or production database write. No Docker/SQL/paid search experiment action.
+Exact incremental changed paths, complete incremental diff, initial/final hashes,
+full Git status, test/build logs, metadata receipts and screenshots are frozen in:
+/Users/colesmart/.codex/reports/BS-CUSTOMER-WEBSITE-GOOGLE-LOCATION-003-20261017
+See changed-paths.txt and final-source-build-sha256.json. Later edits require affected
+requalification; these statuses do not imply commit/deployment/production readiness.
+
+Exact incremental paths (11 existing files changed;8 new, including this report):
+CUSTOMER_WEBSITE_GOOGLE_LOCATION_003_COMPLETION.txt
+assets/images/google_maps_attribution.png
+functions/src/customer_location.ts
+functions/src/index.ts
+functions/src/restaurant_geocoding.ts
+functions/test/customer_location.test.js
+functions/test/fixtures/customer_location.js
+lib/screens/customer_bitesaver_browse_screen.dart
+lib/services/customer_browser_location_service.dart
+lib/services/shared_location_state_service.dart
+lib/widgets/customer_website_frame.dart
+pubspec.lock
+pubspec.yaml
+test/customer_website_fixture/main.dart
+test/screens/customer_website_navigation_test.dart
+test/services/customer_browser_location_service_test.dart
+test/services/customer_website_location_test.dart
+tool/customer_website/README.txt
+tool/customer_website/location_preview.cjs
+
+All other1,475 baseline files retain their exact starting hashes. No concurrent
+change outside this permitted list was detected. fake_async1.3.3, already locked,
+was declared a direct test dependency for deterministic24-hour expiry testing;
+no package version was upgraded.

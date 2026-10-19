@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/demo_redemption_store.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/admin_access_service.dart';
+import '../services/customer_website_runtime.dart';
 import '../services/app_error_text.dart';
 import '../services/customer_auth_service.dart';
 import '../services/account_provider_service.dart';
@@ -755,7 +756,8 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
       ),
       body: Column(
         children: [
-          if (AdminAccessService.isAdminUser(user))
+          if (!CustomerWebsiteRuntime.enabled &&
+              AdminAccessService.isAdminUser(user))
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: OutlinedButton.icon(

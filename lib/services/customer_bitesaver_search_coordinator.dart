@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/customer_bitesaver_device_usage.dart';
@@ -913,6 +914,10 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
   void invalidateSearchLocation() {
     _ensureAlive();
     _pendingSearch = null;
+    if (kIsWeb) {
+      _criteria = null;
+      _criteriaKey = null;
+    }
     _markFreshSearchRequired();
   }
 
@@ -3781,11 +3786,20 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     _pendingPageReconciliation = false;
     _pendingSignedStart = null;
     _clearRedemption();
+    if (kIsWeb) {
+      _pendingSearch = null;
+      _criteria = null;
+      _criteriaKey = null;
+    }
     super.dispose();
   }
 
-  static String _criteriaIdentity(CustomerBiteSaverSearchCriteria criteria) =>
-      jsonEncode(criteria.toJson());
+  static String _criteriaIdentity(CustomerBiteSaverSearchCriteria criteria) {
+    final encoded = jsonEncode(criteria.toJson());
+    // Opaque browser visits retain comparison keys after their search expires.
+    // Keep equality semantics without retaining Google coordinates in the key.
+    return kIsWeb ? sha256.convert(utf8.encode(encoded)).toString() : encoded;
+  }
 
   static void _validateAuthSnapshot(CustomerBiteSaverAuthSnapshot snapshot) {
     if (snapshot.uid != null && snapshot.uid!.isEmpty) {

@@ -1,3 +1,4 @@
+import '../services/customer_website_routes.dart';
 import '../services/bitescore_terms_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import '../models/bitescore_dish.dart';
 import '../models/bitescore_restaurant.dart';
 import '../models/restaurant.dart';
 import '../services/admin_access_service.dart';
+import '../services/customer_website_runtime.dart';
 import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
@@ -55,6 +57,8 @@ class BiteScoreRestaurantDishesScreen extends StatefulWidget {
   final BiteScoreRestaurantDishesWriteGate? testWriteGate;
   final BiteScoreRestaurantDishesWriteGate? testTermsGate;
   final User? Function()? testCurrentUserProvider;
+  final Widget Function(BiteScoreHomeEntry entry, bool reviews)?
+  testDishDetailBuilder;
 
   const BiteScoreRestaurantDishesScreen({
     super.key,
@@ -66,6 +70,7 @@ class BiteScoreRestaurantDishesScreen extends StatefulWidget {
     @visibleForTesting this.testWriteGate,
     @visibleForTesting this.testTermsGate,
     @visibleForTesting this.testCurrentUserProvider,
+    @visibleForTesting this.testDishDetailBuilder,
   });
 
   @override
@@ -126,7 +131,8 @@ class _BiteScoreRestaurantDishesScreenState
       !_currentUser!.isAnonymous &&
       _restaurant.ownerUserId?.trim() == _currentUser!.uid;
   bool get _isAdmin => AdminAccessService.isAdminUser(_currentUser);
-  bool get _canManageRestaurant => _isOwner || _isAdmin;
+  bool get _canManageRestaurant =>
+      !CustomerWebsiteRuntime.enabled && (_isOwner || _isAdmin);
 
   bool _isPrivateLeaseCurrent(MainNavigationAuthLease? lease) {
     return lease == null ||
@@ -388,10 +394,24 @@ class _BiteScoreRestaurantDishesScreenState
   }) async {
     final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (_) => BiteScoreDishDetailScreen(
-          entry: entry,
-          scrollToReviewSection: scrollToReviewSection,
-        ),
+        settings: CustomerWebsiteRuntime.enabled
+            ? RouteSettings(
+                name: CustomerWebsiteDetailRoute(
+                  'bitescore',
+                  _restaurant.id,
+                  scrollToReviewSection
+                      ? CustomerWebsiteDetailKind.reviews
+                      : CustomerWebsiteDetailKind.dish,
+                  detailId: entry.dish.id,
+                ).location,
+              )
+            : null,
+        builder: (_) =>
+            widget.testDishDetailBuilder?.call(entry, scrollToReviewSection) ??
+            BiteScoreDishDetailScreen(
+              entry: entry,
+              scrollToReviewSection: scrollToReviewSection,
+            ),
       ),
     );
 
@@ -417,7 +437,7 @@ class _BiteScoreRestaurantDishesScreenState
         await _boundedDishes!.loadInitial();
         if (_boundedDishes!.error != null) throw _boundedDishes!.error!;
         // Only a server-confirmed owner/Admin enters the separate trusted path.
-        final managed = detail.canManage
+        final managed = !CustomerWebsiteRuntime.enabled && detail.canManage
             ? await BiteScoreService.loadRestaurantById(_restaurant.id)
             : null;
         data = (
@@ -776,6 +796,15 @@ class _BiteScoreRestaurantDishesScreenState
     if (CustomerBiteScoreRuntime.isEnabled) {
       await Navigator.of(context).push(
         MaterialPageRoute(
+          settings: CustomerWebsiteRuntime.enabled
+              ? RouteSettings(
+                  name: CustomerWebsiteDetailRoute(
+                    'bitescore',
+                    _restaurant.id,
+                    CustomerWebsiteDetailKind.menu,
+                  ).location,
+                )
+              : null,
           builder: (_) => RestaurantMenuScreen(
             restaurantName: _restaurant.name,
             mode: AppMode.biteScore,
@@ -997,7 +1026,7 @@ class _BiteScoreRestaurantDishesScreenState
       return SizedBox(width: double.infinity, child: reportIssueButton);
     }
 
-    if (_restaurant.isClaimed) {
+    if (CustomerWebsiteRuntime.enabled || _restaurant.isClaimed) {
       return SizedBox(width: double.infinity, child: reportIssueButton);
     }
 

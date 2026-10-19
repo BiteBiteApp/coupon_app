@@ -29,6 +29,7 @@ const validatorPath = path.resolve(
 const {
   ALLOWED_PARAMETER_NAMES,
   CANONICAL_PORTAL_RETURN_URL,
+  CUSTOMER_LOCATION_LIMIT_PARAMETER,
   PORTAL_RETURN_PARAMETER,
   classifyPortalReturnValue,
   discoverParameterDefinitionsFromSources,
@@ -42,10 +43,12 @@ const {
 
 const expectedSourceAnalysis = Object.freeze({
   nonsecretNames: Object.freeze([
+    "BITESTAR_CUSTOMER_LOCATION_DAILY_LIMIT",
     "STRIPE_CUSTOMER_PORTAL_RETURN_URL",
   ]),
   secretNames: Object.freeze([
     "GOOGLE_MAPS_API_KEY",
+    "OPENAI_REVIEW_MODERATION_API_KEY",
     "STRIPE_SECRET_KEY",
     "STRIPE_WEBHOOK_SECRET",
   ]),
@@ -284,9 +287,10 @@ function createTrackedSourceRepository(repositoryRoot) {
   return {sourceRoot, retainedPath};
 }
 
-test("the source-derived deployment allowlist contains only the nonsecret portal parameter", () => {
+test("the source-derived deployment allowlist contains only the approved nonsecret parameters", () => {
   assert.deepEqual(ALLOWED_PARAMETER_NAMES, [
     "STRIPE_CUSTOMER_PORTAL_RETURN_URL",
+    "BITESTAR_CUSTOMER_LOCATION_DAILY_LIMIT",
   ]);
   const discovered = discoverTrackedParameterDefinitions();
   assert.deepEqual(discovered, expectedSourceAnalysis);
@@ -831,6 +835,34 @@ test("a canonical single-key file passes without exposing its value", () => {
       JSON.stringify(result),
       /https:\/\/app\.bitestar\.app/,
     );
+  });
+});
+
+test("optional customer location allowance is bounded and never changes the portal contract", () => {
+  withFixture((directory) => {
+    for (const value of [null, "0", "25", "250"]) {
+      const extra = value === null ? "" : `${CUSTOMER_LOCATION_LIMIT_PARAMETER}=${value}\n`;
+      const filePath = writeFixture(directory, canonicalSource() + extra);
+      const result = validateDeploymentEnv(filePath, fixtureOptions(directory));
+      assert.equal(result.ok, true);
+      assert.equal(result.parameters[0].validationCategory, "exact_canonical_match");
+      if (value !== null) assert.equal(result.parameters[1].validationCategory, "bounded_daily_limit");
+      assert.deepEqual(readFileSync(filePath, "utf8"), canonicalSource() + extra);
+    }
+    for (const value of ["251", "-1", "1.5", "", "1000", "NaN"]) {
+      const source = legacySource() + `${CUSTOMER_LOCATION_LIMIT_PARAMETER}=${value}\n`;
+      const filePath = writeFixture(directory, source);
+      assert.equal(validateDeploymentEnv(filePath, fixtureOptions(directory)).ok, false);
+      const update = updateDeploymentEnvToCanonical(filePath, fixtureOptions(directory));
+      assert.equal(update.ok, false);
+      assert.equal(update.replacementOccurred, false);
+      assert.equal(readFileSync(filePath, "utf8"), source);
+    }
+    const extra = `${CUSTOMER_LOCATION_LIMIT_PARAMETER}=25\n`;
+    const filePath = writeFixture(directory, legacySource() + extra);
+    assert.equal(updateDeploymentEnvToCanonical(filePath, fixtureOptions(directory)).ok, true);
+    assert.equal(readFileSync(filePath, "utf8"), canonicalSource() + extra);
+    assertNoUpdateArtifacts(directory);
   });
 });
 

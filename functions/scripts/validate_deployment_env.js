@@ -23,7 +23,13 @@ const ts = require("typescript");
 const PORTAL_RETURN_PARAMETER = "STRIPE_CUSTOMER_PORTAL_RETURN_URL";
 const CANONICAL_PORTAL_RETURN_URL =
   "https://app.bitestar.app/subscription/portal-return";
-const ALLOWED_PARAMETER_NAMES = Object.freeze([PORTAL_RETURN_PARAMETER]);
+const CUSTOMER_LOCATION_LIMIT_PARAMETER = "BITESTAR_CUSTOMER_LOCATION_DAILY_LIMIT";
+const ALLOWED_PARAMETER_NAMES = Object.freeze([
+  PORTAL_RETURN_PARAMETER,
+  CUSTOMER_LOCATION_LIMIT_PARAMETER,
+]);
+// Location is optional: its source default is zero. The portal remains required.
+const REQUIRED_PARAMETER_NAMES = Object.freeze([PORTAL_RETURN_PARAMETER]);
 const FIREBASE_PARAMETER_MODULE = "firebase-functions/params";
 const SUPPORTED_NONSECRET_FACTORIES = new Set([
   "defineBoolean",
@@ -814,6 +820,10 @@ function validateParameterName(name) {
   return null;
 }
 
+function validCustomerLocationLimit(value) {
+  return /^[0-9]{1,3}$/.test(value) && Number(value) <= 250;
+}
+
 function parseDeploymentEnv(source) {
   const issues = [];
   const parameterLines = new Map();
@@ -879,9 +889,13 @@ function parseDeploymentEnv(source) {
       index,
       value,
     });
+    if (name === CUSTOMER_LOCATION_LIMIT_PARAMETER &&
+        !validCustomerLocationLimit(value)) {
+      issues.push(safeIssue("parameter_value_rejected", name));
+    }
   }
 
-  for (const allowedName of ALLOWED_PARAMETER_NAMES) {
+  for (const allowedName of REQUIRED_PARAMETER_NAMES) {
     if (!parameterLines.has(allowedName)) {
       issues.push(safeIssue("missing_required_parameter", allowedName));
     }
@@ -922,7 +936,9 @@ function analyzeDeploymentEnv(filePath, options = {}) {
       parameters.push(
         Object.freeze({
           name,
-          validationCategory: classifyPortalReturnValue(record.value),
+          validationCategory: name === CUSTOMER_LOCATION_LIMIT_PARAMETER
+            ? (validCustomerLocationLimit(record.value) ? "bounded_daily_limit" : "invalid_daily_limit")
+            : classifyPortalReturnValue(record.value),
         }),
       );
     }
@@ -939,8 +955,8 @@ function analyzeDeploymentEnv(filePath, options = {}) {
 
 function safeResultFromAnalysis(analysis) {
   const canonicalMismatch = analysis.parameters.some(
-    ({validationCategory}) =>
-      validationCategory !== "exact_canonical_match",
+    ({name, validationCategory}) => validationCategory !==
+      (name === CUSTOMER_LOCATION_LIMIT_PARAMETER ? "bounded_daily_limit" : "exact_canonical_match"),
   );
   const issues = [...analysis.issues];
   if (canonicalMismatch) {
@@ -1309,6 +1325,7 @@ function main(argv, options = {}) {
 module.exports = {
   ALLOWED_PARAMETER_NAMES,
   CANONICAL_PORTAL_RETURN_URL,
+  CUSTOMER_LOCATION_LIMIT_PARAMETER,
   PORTAL_RETURN_PARAMETER,
   classifyPortalReturnValue,
   discoverParameterDefinitionsFromSources,

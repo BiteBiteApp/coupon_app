@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../models/customer_bitesaver_device_usage.dart';
+import 'browser_calendar_stub.dart'
+    if (dart.library.js_interop) 'browser_calendar_web.dart';
 
 typedef CustomerBiteSaverDevicePlatformResolver =
     CustomerBiteSaverDevicePlatform? Function();
@@ -62,7 +64,16 @@ final class CustomerBiteSaverDeviceProofService {
   /// Passive OS calendar context. No device timestamp is sent to the server,
   /// and unavailable context must never be replaced with an assumed UTC zone.
   Future<({String timeZone, int utcOffsetMinutes})> getTimeContext() async {
-    final value = await _invoke(timeContextMethod, null);
+    final Object? value;
+    if (kIsWeb) {
+      final calendar = browserCalendarContext();
+      value = {
+        'timeZone': calendar.timeZone,
+        'utcOffsetMinutes': calendar.utcOffsetMinutes,
+      };
+    } else {
+      value = await _invoke(timeContextMethod, null);
+    }
     if (value is! Map || value.length != 2) {
       throw const CustomerBiteSaverDeviceProofException(
         kind: CustomerBiteSaverDeviceProofFailureKind.invalidProtocol,
