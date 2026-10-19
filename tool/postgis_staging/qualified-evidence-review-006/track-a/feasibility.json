@@ -1,0 +1,94 @@
+{
+  "kind": "report-only complete conservative recall plus native bounded-heap feasibility; not serving code",
+  "runtime": {
+    "node": "v24.21.0",
+    "v8": "13.6.233.17-node.53"
+  },
+  "startedAt": "2026-10-19T20:42:21.051Z",
+  "cases": [
+    {
+      "name": "radius-0-1",
+      "exactExpectedCount": 19,
+      "queries": 5,
+      "rows": 558,
+      "bytes": 1071389,
+      "elapsedMs": 127.05962499999987,
+      "rounds": [
+        {
+          "queries": 5,
+          "elapsedMs": 127.0532919999996,
+          "ready": true
+        }
+      ],
+      "heapMaximum": 27,
+      "firstUsefulResultRequiresCompleteEnumeration": true
+    },
+    {
+      "name": "radius-0-15",
+      "exactExpectedCount": 458,
+      "queries": 9,
+      "rows": 1142,
+      "bytes": 2199241,
+      "elapsedMs": 44.988292,
+      "rounds": [
+        {
+          "queries": 9,
+          "elapsedMs": 44.98545800000011,
+          "ready": true
+        }
+      ],
+      "heapMaximum": 27,
+      "firstUsefulResultRequiresCompleteEnumeration": true
+    },
+    {
+      "name": "radius-4-30",
+      "exactExpectedCount": 1154,
+      "queries": 10,
+      "rows": 1168,
+      "bytes": 2256346,
+      "elapsedMs": 33.594874999999774,
+      "rounds": [
+        {
+          "queries": 10,
+          "elapsedMs": 33.59300000000076,
+          "ready": true
+        }
+      ],
+      "heapMaximum": 27,
+      "firstUsefulResultRequiresCompleteEnumeration": true
+    },
+    {
+      "name": "finder-close",
+      "exactExpectedCount": 50,
+      "queries": 202,
+      "rows": 25842,
+      "bytes": 49450780,
+      "elapsedMs": 687.0097919999998,
+      "rounds": [
+        {
+          "queries": 64,
+          "elapsedMs": 221.05375000000004,
+          "ready": false
+        },
+        {
+          "queries": 64,
+          "elapsedMs": 222.3607919999995,
+          "ready": false
+        },
+        {
+          "queries": 64,
+          "elapsedMs": 213.4427080000005,
+          "ready": false
+        },
+        {
+          "queries": 10,
+          "elapsedMs": 30.143750000000182,
+          "ready": true
+        }
+      ],
+      "heapMaximum": 9,
+      "firstUsefulResultRequiresCompleteEnumeration": true
+    }
+  ],
+  "finishedAt": "2026-10-19T20:42:28.430Z"
+}

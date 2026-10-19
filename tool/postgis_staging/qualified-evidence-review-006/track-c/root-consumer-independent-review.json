@@ -1,0 +1,26 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006",
+  "role": "Track C independent review of root consumer/measurement harness and B workload entrypoint integration",
+  "createdAt": "2026-10-19T20:57:06.054739+00:00",
+  "verdict": "PASS within reviewed source scope",
+  "hashes": {
+    "test/services/postgis_flutter_integration_test.dart": "ce7497a3896b5dd4a1a533074d4f639c6ac17eb8f8c96389328b6ac4f2ad7884",
+    "functions/test/support/postgis_flutter_host.cjs": "b4c93a6b70dbb6ad85cd741500c683ec52045a3e2454551fd99b18686d4d9770",
+    "tool/postgis_staging/REVIEW-CORRECTIONS-006-QUALIFICATION-PLAN.md": "0819c9d87ed837792bcd6822145567292f77a3f961adefb44630bf657973cdf1",
+    "functions/src/postgis_hosted_job_entrypoint.ts": "3cb7e87e71205382818a21e9c229f9471654efb6ac25d188f19f97bdb56a1c45"
+  },
+  "findings": [],
+  "reviewedContracts": [
+    "Real CustomerSearchHttpTransport is explicitly injected into unchanged native service/coordinator and real widgets; loopback exception is explicit and literal. Signed actor tokens come from local Auth emulator and host verifies authority.",
+    "Useful-render timers start after accepted coordinates and actor setup, include actual HTTP and client retry/debounce waits, and retain failures and all attempted samples. Five-configurable Saver samples are separate from fixed three Score/Finder samples; first observation is not claimed provider cold start.",
+    "Host instrumentation delegates every actual SDK/SQL operation unchanged; source fence reads and customer authority counters are separately identified; no request bodies, cursor contents, identity paths or auth material are logged. Counters are not billing.",
+    "Source fixture writes raw source and runs actual maintenance and source publication before serving. Derived fixture rating values become raw aggregates and pass native writer; no fabricated SQL result responses.",
+    "Qualification plan includes all attempts, errors, incomplete outcomes, exact native oracle outside timing, targeted rather than Cartesian cells, first/cold distinction and later hosted prerequisites. Statistical sample goals do not override immutable cost/runtime stops.",
+    "Fixture-stream immutable plan and exact execution identity validated before opening hosted resources; genuine execution approval covers full600s at startup,540s work deadline and permit callback passed to runner. Existing ordinary fixture remains separately bounded."
+  ],
+  "limitations": [
+    "This receipt is source review; root owns current local/Linux execution results and their final image identities.",
+    "Actual App Check/CORS/cloud routing, provider cleanup, alert delivery, national ingestion and tail latency remain unverified.",
+    "Independent SQL/query evidence remains distinct from root raw-source500-pair evidence and actual Flutter smaller fixture."
+  ]
+}

@@ -1,0 +1,24 @@
+✔ opt-in window requests one bounded membership batch; serial stays one row (360.363375ms)
+✔ whole prefetched batch rejected by current parent authority refills privately (88.781375ms)
+✔ whole first history batch rejected refills with exact page cursor and order (182.899166ms)
+✔ 75-ID global cap discards unused private tail and later resumes without loss (127.521125ms)
+✔ unused prefetched authority is rechecked and all-filtered exhaustion is truthful (131.298208ms)
+✔ accepted-answer interruption retains replay and no cross-account cached membership (100.721416ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-expired (1.590334ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-start-submillisecond (0.6735ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-start-submicrosecond (0.685583ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-end-inclusive (0.600167ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-end-submillisecond (0.563542ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-scheduled (0.50175ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-available (0.485875ms)
+✔ SQL JSON round-trip preserves native time eligibility: daily-expired (0.709583ms)
+✔ SQL JSON round-trip preserves native time eligibility: daily-available (0.61975ms)
+﹣ real SQL selector and native membership agree for timestamp schedules and resumptions (0.203917ms) # SKIP
+ℹ tests 16
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 1282.4975

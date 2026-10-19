@@ -1,0 +1,17 @@
+{
+  "kind": "independent-actual-native-MemoryDatabase-control-flow-not-SQL-timing",
+  "compiledSessionSha256": "bdb8f6530319b469a864ac6f1adb858c89260bc1f130a4cd5a54b59a438aae4e",
+  "firstChallengeIds": 75,
+  "secondChallengeIds": 3,
+  "membershipCalls": [
+    {
+      "limit": 26,
+      "returned": 26
+    },
+    {
+      "limit": 26,
+      "returned": 26
+    }
+  ],
+  "remainingNeed": "first75 accepted IDs cover25restaurants; next request requires only1lookahead parent"
+}

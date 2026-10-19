@@ -1,0 +1,197 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006",
+  "createdAt": "2026-10-19T21:26:57.798683+00:00",
+  "reviewer": "Track C independent final consistency, preservation and frozen-byte review",
+  "verdict": "PASS_WITH_EXPLICIT_PERFORMANCE_POLICY_AND_PROVIDER_LIMITATIONS",
+  "scope": "Read-only final source/evidence/report verification; no test suites rerun, source mutation, Git operation, provider call or authorization granted.",
+  "finalArtifactHashes": {
+    "tool/postgis_staging/REVIEW-CORRECTIONS-006.md": "60461970f0c447b5ee33ac34e9fb1fd52cecd7c4ccb26518235e7ab968d9023b",
+    "tool/postgis_staging/combined-source.review-006.json": "22418abd7e05709ecfabbaa7a242d6d94bf088341777d343d8505292f61f144d",
+    "tool/postgis_staging/qualified-evidence-review-006/evidence-index.json": "7295e8c01e1ecda5c6b5c250c14ad4ecf01f795ce193329bd6dbaa5e11c21692"
+  },
+  "sourceIntegrity": {
+    "candidateDigest": "ec2b0a93697830915129739b341cf21ec6b61e6eb721c3ed15dfea8ccab04319",
+    "sourcePathsVerified": 687,
+    "sourceMismatches": [],
+    "exactChangedPathsFrom005": 45,
+    "removedPriorSelectedPaths": 0,
+    "previousDigest": "ab1bbfd467177708d47f69ec98021930dda42f99a48162a27cadec8f0d100be6",
+    "reviewedPathMapMatches": true,
+    "independentReviewCoverage": {
+      "functions/src/postgis_store.ts": "track-a/review-b/independent-b-review.json",
+      "functions/search_candidate/schema.sql": "track-a/review-b/independent-b-review.json",
+      "functions/src/postgis_source_recovery.ts": "track-a/review-b/independent-b-review.json",
+      "functions/src/postgis_source_sha256.ts": "track-a/review-b/independent-b-review.json",
+      "functions/src/postgis_source_firestore.ts": "track-a/review-b/independent-b-review.json",
+      "functions/src/postgis_snapshot.ts": "track-a/review-b/independent-b-review.json",
+      "functions/src/postgis_snapshot_gcs.ts": "track-a/review-b/independent-b-review.json",
+      "functions/src/postgis_hosted_job_entrypoint.ts": "track-c/root-consumer-independent-review.json",
+      "lib/services/customer_search_http_transport.dart": "track-b/track-c-independent-review.json",
+      "test/services/customer_search_http_transport_test.dart": "track-b/track-c-independent-review.json",
+      "functions/src/postgis_synthetic_workload.ts": "track-b/track-c-independent-review.json",
+      "functions/src/postgis_hosted_jobs.ts": "track-b/track-c-independent-review.json",
+      "functions/test/postgis_synthetic_workload.test.cjs": "track-b/track-c-independent-review.json",
+      "functions/test/postgis_synthetic_workload_emulator.test.cjs": "track-b/track-c-independent-review.json",
+      "functions/src/postgis_phase_transition_approval.ts": "track-b/track-c-independent-review.json",
+      "functions/test/postgis_phase_transition_approval.test.cjs": "track-b/track-c-independent-review.json",
+      "tool/postgis_staging/verify-approval.cjs": "track-b/track-c-independent-review.json",
+      "tool/postgis_staging/scripts/cloud_controller.py": "track-b/track-c-independent-review.json",
+      "tool/postgis_staging/scripts/cloud_provider.py": "track-b/track-c-independent-review.json",
+      "tool/postgis_staging/scripts/phase_transition.py": "track-b/track-c-independent-review.json",
+      "tool/postgis_staging/scripts/provider_entrypoint.py": "track-b/track-c-independent-review.json",
+      "tool/postgis_staging/scripts/render_provider_descriptors.py": "track-b/track-c-independent-review.json",
+      "tool/postgis_staging/scripts/test_phase_transition.py": "track-b/track-c-independent-review.json",
+      "tool/postgis_staging/scripts/test_job_reservations.py": "track-b/track-c-independent-review.json",
+      "tool/postgis_staging/Controller.Dockerfile": "track-b/track-c-independent-review.json",
+      "tool/postgis_staging/PHASE-WORKLOAD-TRANSPORT-006.md": "track-b/track-c-independent-review.json",
+      "test/services/postgis_flutter_integration_test.dart": "track-c/root-consumer-independent-review.json",
+      "functions/test/support/postgis_flutter_host.cjs": "track-c/root-consumer-independent-review.json",
+      "tool/postgis_staging/REVIEW-CORRECTIONS-006-QUALIFICATION-PLAN.md": "track-c/root-consumer-independent-review.json",
+      "functions/src/customer_bitesaver_search_session.ts": "track-c/track-a-independent-review.v2.json",
+      "functions/src/postgis_query.ts": "track-c/track-a-independent-review.v2.json",
+      "functions/src/postgis_semantics.ts": "track-c/track-a-independent-review.v2.json",
+      "functions/test/postgis_guest_membership_batching_006.test.cjs": "track-c/track-a-independent-review.v2.json",
+      "functions/test/postgis_query_006.test.cjs": "track-c/track-a-independent-review.v2.json",
+      "functions/test/postgis_offer_time_006.test.cjs": "track-c/track-a-independent-review.v2.json",
+      "functions/test/postgis_guest_boundary_006.test.cjs": "track-c/track-a-independent-review.v2.json",
+      "functions/search_candidate/recall-envelope-006.md": "track-c/track-a-independent-review.v2.json",
+      "functions/search_candidate/recall-envelope-006-audit.py": "track-c/track-a-independent-review.v2.json",
+      "functions/test/postgis_integration.test.js": "integration-reset-root-review.json",
+      "functions/test/postgis_b006_job_pages.test.cjs": "this final review: bounded test-source/assertion review; recorded execution evidence reused",
+      "functions/test/postgis_b006_recovery_checkpoint.test.cjs": "this final review: bounded test-source/assertion review; recorded execution evidence reused",
+      "functions/test/postgis_b006_sha256.test.cjs": "this final review: bounded test-source/assertion review; recorded execution evidence reused",
+      "functions/test/postgis_b006_sync.test.cjs": "this final review: bounded test-source/assertion review; recorded execution evidence reused",
+      "functions/test/postgis_snapshot_integration.test.js": "this final review: bounded test-source/assertion review; recorded execution evidence reused",
+      "functions/test/postgis_source_emulator.test.js": "this final review: bounded test-source/assertion review; recorded execution evidence reused"
+    },
+    "existingReviewReceiptHashes": {
+      "track-a/review-b/independent-b-review.json": "829835db7b26994b87c5d7c2e37dfd728e615cacdf838c579dcffee81021aa09",
+      "track-b/track-c-independent-review.json": "6f13a8a8295707e2567e253771a7edda43839abfd77f7c5beb55739a3653b090",
+      "track-c/root-consumer-independent-review.json": "e2bd21153e6bf4f0c9123e00e05f6d013bf220be42005e7cb22753e5bf08fab3",
+      "track-c/track-a-independent-review.v2.json": "294b97baf9634270265727f781a435e38db72df88fc03500d49a24675b5fa080",
+      "integration-reset-root-review.json": "0b99a0f235807e549f44e00d72326355d767b692dcabb3a1846c134f8abefce7"
+    }
+  },
+  "additionalTestSourceReview": {
+    "hashes": {
+      "functions/test/postgis_b006_job_pages.test.cjs": "0c29c6ece092cc25c907a7fb8e5f5b12fe250f31492c1db860788362066169ab",
+      "functions/test/postgis_b006_recovery_checkpoint.test.cjs": "791dfb78f3cb53f0a4917f7653b059737fd3d47f3537d26a1bd0ac0ce58aa5f0",
+      "functions/test/postgis_b006_sha256.test.cjs": "01fe5ded5b64f120fb6987bfe2e96120cf901fa340f609dcb2a1c340da6ef79f",
+      "functions/test/postgis_b006_sync.test.cjs": "641a5cf743ce275792668d8c04a9554b01e7aa896a501d8be2dee8b9ad27d8e0",
+      "functions/test/postgis_snapshot_integration.test.js": "d64e351c3c95b88bb0650091486fe3ccacbbc9557333060681ea13ded11adb48",
+      "functions/test/postgis_source_emulator.test.js": "cc79ea1e28723dca9dc4400aaeb18ca60ee90208e3220110462de24d707f8bd8"
+    },
+    "finding": "No material assertion weakening. Genuine approval/job bounds and missing execution identity refusal, SHA256 crypto oracle, corrupt/mutable/missing artifact refusal, fixed48 SQL audit and finite-target strict expiry, actual concurrent Firestore admission and database-loss recovery remain asserted. Existing snapshot fixture now uses verified reader/readonly identity; original retained artifact replacement must requalify. Restore page cap reflects added bounded validation phase; exact row/count/publication assertions remain."
+  },
+  "preservation": {
+    "workspaceProtectedFilesVerified": 1565,
+    "mismatches": [],
+    "priorOwnerVersionExclusionsRetained": 21,
+    "currentIndexAndCheckpoint": "Not independently modified or queried via Git; root owns final index/commit/remote verification. Prior preservation receipt records unchanged index entries. CHECKPOINT.json is explicitly future post-checkpoint output."
+  },
+  "evidenceIntegrity": {
+    "copiedArtifactsVerified": 215,
+    "mismatches": [],
+    "indexSelfHashIntentionallyExcluded": true,
+    "linkedEvidenceFilesExist": true,
+    "futureCheckpointLinkNotYetPresent": true,
+    "appendOnlyNote": "Root may append this receipt, B final receipt and resource-closure evidence to a separately indexed final evidence set. This receipt binds the reviewed215-artifact index bytes; source digest and report remain separately bound."
+  },
+  "imageReuse": {
+    "searchFinal": {
+      "localTag": "bitestar-postgis-search-006:local",
+      "identity": "sha256:27c2d961ba5aac75437dc81b8940345e08315c18a836714afbcd3a73526f874a",
+      "platform": "linux/amd64",
+      "priorCapIdentity": "sha256:2ed5837644b6a2e0957536f462a2e276b06a4557b9b81095db216c0e57cb1a46",
+      "compiledImplementationFilesUnchangedFromCapImage": 328
+    },
+    "controller": {
+      "localTag": "bitestar-postgis-controller-006:local",
+      "identity": "sha256:33392f93c5dbf5125d8379a1d28607de67a5ceacac3652a7d3bb116bf4daeabb",
+      "platform": "linux/amd64"
+    },
+    "compiledV2V3CurrentMacFilesVerified": 328,
+    "mismatches": [],
+    "scope": "Final-image integration9/9 is distinct from retained broad147/8fail/12skip, isolatedtransport8/8, finalcap317 affected cases and controller104/104. Earlier failed repeated fixture remains preserved. Test reset changes no compiled production implementation."
+  },
+  "selectedEvidenceChecked": {
+    "buildChecks": 49,
+    "controllerImageTests": 104,
+    "retainedBroadLinux": {
+      "pass": 147,
+      "fail": 8,
+      "skip": 12
+    },
+    "transportWithCorrectIsolatedEnvironment": 8,
+    "v2Combined": {
+      "pass": 324,
+      "fail": 2
+    },
+    "finalCapAffectedCases": 317,
+    "v3Integration": {
+      "pass": 9,
+      "fail": 0
+    },
+    "dartClientRegression": 129,
+    "linuxFlutterWidgetTests": 4,
+    "linuxFlutterIntents": 16,
+    "linuxFlutterStats": {
+      "bitesaver-guest": {
+        "samples": 5,
+        "medianMs": 6764.15,
+        "minMs": 6172.915,
+        "maxMs": 7589.388
+      },
+      "bitesaver-signed": {
+        "samples": 5,
+        "medianMs": 1959.895,
+        "minMs": 1418.795,
+        "maxMs": 2486.989
+      },
+      "bitescore-dish-home": {
+        "samples": 3,
+        "medianMs": 748.859,
+        "minMs": 737.116,
+        "maxMs": 834.868
+      },
+      "create-rate-finder": {
+        "samples": 3,
+        "medianMs": 1001.576,
+        "minMs": 924.393,
+        "maxMs": 1018.939
+      }
+    },
+    "finalHistory": {
+      "pagesMs": [
+        7021.666375000001,
+        3149.185707999999
+      ],
+      "exactOrderedParity": true,
+      "challengeRounds": 26,
+      "candidateOccurrences": 435,
+      "unavailableAnswers": 360,
+      "maxChallengeIds": 54,
+      "unavailableCheckpointCalls": 1,
+      "injectedWaitMs": 200
+    },
+    "rawSource": {
+      "saverParents": 500,
+      "scoreParents": 500,
+      "rawDocuments": 4450,
+      "publishedHeads": 3300
+    }
+  },
+  "resolvedReportCorrection": {
+    "classification": "FIX NOW / DIRECTLY REQUIRED",
+    "description": "Pre-checkpoint wording clarified to planned tag and explicit later CHECKPOINT.json verification; final report SHA above binds corrected text. No source/evidence alteration."
+  },
+  "unresolvedMaterialReviewFindings": [],
+  "requiredDistinctions": [
+    "Source corrections and bounded local correctness pass do not establish performance targets, hosted deployment or spending readiness.",
+    "Heavy-history7.0217s/3.1492s and Linuxguest median6.76415s remain explicit failures/limitations against unchanged target; small timings and emulation cannot establish p95/p99 or truecold.",
+    "Actual raw source500pairs/1000roots remains distinct from50,842 derivedquery parents, injectedlargerprunecounters and future25,000pair budget arithmetic.",
+    "F5 locked retention/liability, F6/F9 strategy/policy and unapproved005 bootstrap/attended/email/DataAPI changes require explicit decisions plus stated contingent source work. Existing900s/bootstrap5USD/twochannels/originalT0/cumulativecaps/cleanuptrust remain.",
+    "Later exact signed whole-workload plan, IAM/certificate-refresh test composition, actual managed numericaltuple/rebuild, routing/auth/CORS/retention/recovery, alertdelivery and independent cleanup drill remain unqualified.",
+    "HistoricalF10/F12 failures remain scoped and preserved. No production-default, billable-resource, providerpermission, notification or paidclock activation is inferred."
+  ]
+}

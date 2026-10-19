@@ -231,8 +231,10 @@ export class PostgisReadModel {
             if ((await client.query("SELECT index_path FROM projection_poison LIMIT 1")).rowCount > 0) {
                 throw new PostgisCandidateError("failed-precondition", "Search publication has a poisoned projection. Repair the source, then resume.");
             }
-            const actual = (await client.query(`SELECT shard,payload->>'collection' AS collection,count(*)::int AS count,
-        bit_xor(('x'||digest)::bit(256))::text AS xor FROM source_heads GROUP BY shard,payload->>'collection'`)).rows;
+            // Exactly 48 transactionally maintained partitions; catalog-wide
+            // recomputation is an explicit independent audit, never a publish lock.
+            const actual = (await client.query("SELECT shard,collection,count::int,xor::text FROM source_manifest_partitions")).rows;
+      if (actual.length !== 48) throw new Error("Incomplete source manifest metadata.");
             for (let shard = 0; shard < 16; shard++)
                 for (const collection of postgisSourceCollections) {
                     const entry = actual.find(row => row.shard === shard && row.collection === collection);
@@ -273,34 +275,78 @@ export class PostgisReadModel {
             await client.query("UPDATE ingestion_progress SET target=$1,state='receiving',failure=NULL WHERE singleton", [fence]);
         });
     }
+    /** Independent MVCC full recomputation, deliberately outside publication locks.
+     * Run explicitly during qualification/maintenance to detect metadata drift.
+     */
+    async auditSourceManifest(): Promise<{heads: number; partitions: number; fence: number[]}> {
+        const client = await this.pool.connect();
+        try {
+            await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+            const actual = (await client.query(`SELECT shard,payload->>'collection' AS collection,count(*)::int AS count,
+                bit_xor(('x'||digest)::bit(256))::text AS xor FROM source_heads GROUP BY shard,payload->>'collection'`)).rows;
+            const saved = (await client.query("SELECT shard,collection,count::int,xor::text FROM source_manifest_partitions")).rows;
+            if (saved.length !== 48) throw new Error("Search manifest partition metadata is incomplete.");
+            for (const partition of saved) {
+                const full = actual.find(row => row.shard === partition.shard && row.collection === partition.collection);
+                if (partition.count !== (full?.count ?? 0) || partition.xor !== (full?.xor ?? "0".repeat(256))) {
+                    throw new Error("Search incremental manifest differs from independent source-head audit.");
+                }
+            }
+            const progress = (await client.query("SELECT fence,target FROM ingestion_progress WHERE singleton")).rows[0];
+            if (progress.target !== null) throw new Error("Independent full audit requires a complete published revision.");
+            const expected = (await client.query("SELECT r.source_manifest FROM revisions r JOIN publication p ON r.revision=p.revision WHERE p.singleton")).rows[0].source_manifest as PostgisSourceFence;
+            validateFence(expected);
+            for (const partition of saved) {
+                const wanted = expected.shards[partition.shard].partitions[partition.collection as keyof typeof expected.shards[0]["partitions"]];
+                if (partition.count !== wanted.count || BigInt("0b" + partition.xor).toString(16).padStart(64,"0") !== wanted.xor) {
+                    throw new Error("Independent source-head audit differs from published source manifest.");
+                }
+            }
+            const fence = progress.fence;
+            await client.query("COMMIT");
+            return {heads: actual.reduce((total, row) => total + row.count, 0), partitions: saved.length, fence};
+        } catch (error) {await client.query("ROLLBACK").catch(() => undefined); throw error;}
+        finally {client.release();}
+    }
     async pinRevision(value: {
         pinId: string;
         expiresAtMs: number;
-    }): Promise<{
-        revision: string;
-    }> {
-        const now = Date.now();
-        if (!/^[a-zA-Z0-9_-]{16,200}$/u.test(value.pinId) || !Number.isSafeInteger(value.expiresAtMs) ||
-            value.expiresAtMs <= now || value.expiresAtMs > now + 24 * 60 * 60000)
+    }): Promise<{revision: string}> {
+        // Own the request's identity before any asynchronous source read.
+        const {pinId, expiresAtMs} = value, now = Date.now();
+        if (!/^[a-zA-Z0-9_-]{16,200}$/u.test(pinId) || !Number.isSafeInteger(expiresAtMs) ||
+            expiresAtMs <= now || expiresAtMs > now + 24 * 60 * 60000)
             throw new Error("Invalid search revision pin.");
-        const fence = await this.source.readFence();
-        validateFence(fence);
-        return transaction(this.pool, async (client) => {
+        const saved = (await this.pool.query("SELECT target,expires_ms FROM admission_targets WHERE id=$1", [pinId])).rows[0];
+        if (saved && Number(saved.expires_ms) !== expiresAtMs) throw new Error("Search admission replay changed.");
+        const captured = saved?.target ?? await this.source.readFence();
+        validateFence(captured);
+        const result = await transaction(this.pool, async (client) => {
             const publication = (await client.query("SELECT * FROM publication WHERE singleton FOR SHARE")).rows[0];
-            const progress = (await client.query("SELECT * FROM ingestion_progress WHERE singleton")).rows[0];
-            const prior = (await client.query("SELECT * FROM revision_pins WHERE id=$1", [value.pinId])).rows[0];
+            const prior = (await client.query("SELECT * FROM revision_pins WHERE id=$1", [pinId])).rows[0];
             if (prior) {
-                if (Number(prior.expires_ms) <= now || Number(prior.expires_ms) !== value.expiresAtMs)
+                if (Number(prior.expires_ms) <= Date.now() || Number(prior.expires_ms) !== expiresAtMs)
                     throw new Error("Search pin replay changed.");
-                return { revision: String(prior.revision) };
+                return {revision: String(prior.revision)};
             }
+            // Commit the captured watermark even when this attempt must wait.
+            // Concurrent first attempts retain the first committed exact target.
+            await client.query("INSERT INTO admission_targets(id,expires_ms,target) VALUES($1,$2,$3) ON CONFLICT(id) DO NOTHING",
+                [pinId, expiresAtMs, captured]);
+            const target = (await client.query("SELECT * FROM admission_targets WHERE id=$1", [pinId])).rows[0];
+            if (Number(target.expires_ms) !== expiresAtMs || expiresAtMs <= Date.now()) throw new Error("Search admission replay changed or expired.");
+            const fence = target.target as PostgisSourceFence;
+            validateFence(fence);
+            const progress = (await client.query("SELECT epoch FROM ingestion_progress WHERE singleton")).rows[0];
             if (progress.epoch !== fence.epoch || !(await client.query("SELECT ready FROM bootstrap WHERE singleton")).rows[0].ready ||
-                vector(fence).some((seq, shard) => seq > publication.fence[shard])) {
-                throw new PostgisCandidateError("unavailable", "The search index is catching up. Retry this search.");
-            }
-            await client.query("INSERT INTO revision_pins(id,revision,expires_ms) VALUES($1,$2,$3)", [value.pinId, publication.revision, value.expiresAtMs]);
-            return { revision: String(publication.revision) };
+                vector(fence).some((seq, shard) => seq > publication.fence[shard])) return null;
+            await client.query("INSERT INTO revision_pins(id,revision,expires_ms) VALUES($1,$2,$3) ON CONFLICT(id) DO NOTHING", [pinId, publication.revision, expiresAtMs]);
+            const pin = (await client.query("SELECT revision,expires_ms FROM revision_pins WHERE id=$1", [pinId])).rows[0];
+            if (Number(pin.expires_ms) !== expiresAtMs) throw new Error("Search pin replay changed.");
+            return {revision: String(pin.revision)};
         });
+        if (result === null) throw new PostgisCandidateError("unavailable", "The search index is catching up to this search's captured source watermark. Retry this search.");
+        return result;
     }
     async withPinnedRevision<T>(revision: string, expiresAtMs: number, action: (client: PostgisConnection) => Promise<T>): Promise<T> {
         return transaction(this.pool, async (client) => {
@@ -328,6 +374,8 @@ export class PostgisReadModel {
             // publication lock while customer requests wait.
             const pins = await client.query(`DELETE FROM revision_pins WHERE id IN
         (SELECT id FROM revision_pins WHERE expires_ms<=$1 AND lease_ms<=$1 ORDER BY expires_ms,id LIMIT $2)`, [nowMs, batchSize]);
+            await client.query(`DELETE FROM admission_targets WHERE id IN
+                (SELECT id FROM admission_targets WHERE expires_ms<=$1 ORDER BY expires_ms,id LIMIT $2)`, [nowMs, batchSize]);
             const work = await client.query(`DELETE FROM refinement_work WHERE id IN
         (SELECT id FROM refinement_work WHERE expires_ms<=$1 ORDER BY expires_ms,id LIMIT $2)`, [nowMs, batchSize]);
             const minimum = (await client.query("SELECT coalesce(min(revision),$1::bigint) AS revision FROM revision_pins", [publication.revision])).rows[0].revision;

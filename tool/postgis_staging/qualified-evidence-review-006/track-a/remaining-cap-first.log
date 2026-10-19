@@ -1,0 +1,35 @@
+✔ opt-in window requests one bounded membership batch; serial stays one row (292.04425ms)
+✔ whole prefetched batch rejected by current parent authority refills privately (77.659209ms)
+✖ whole first history batch rejected refills with exact page cursor and order (153.787667ms)
+✔ 75-ID global cap discards unused private tail and later resumes without loss (117.710042ms)
+✔ unused prefetched authority is rechecked and all-filtered exhaustion is truthful (113.79125ms)
+✔ accepted-answer interruption retains replay and no cross-account cached membership (88.611542ms)
+✔ stored ready restaurants cap subsequent membership to missing useful slots plus lookahead (158.134ms)
+✔ one remaining slot refills after whole bounded history or authority rejection batches (368.576583ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1375.253
+
+✖ failing tests:
+
+test at functions/test/postgis_guest_membership_batching_006.test.cjs:59:1
+✖ whole first history batch rejected refills with exact page cursor and order (153.787667ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert(calls.every(c => c.input.limit === 26))
+  
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_membership_batching_006.test.cjs:74:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

@@ -1,0 +1,8 @@
+{
+  "comparison": "final image v3 vs v2",
+  "compiledFiles": 328,
+  "exactMatch": true,
+  "changedImageContent": "test/postgis_integration.test.js fixture reset only; every compiled implementation byte unchanged",
+  "imageV2": "sha256:2ed5837644b6a2e0957536f462a2e276b06a4557b9b81095db216c0e57cb1a46",
+  "imageV3": "sha256:27c2d961ba5aac75437dc81b8940345e08315c18a836714afbcd3a73526f874a"
+}

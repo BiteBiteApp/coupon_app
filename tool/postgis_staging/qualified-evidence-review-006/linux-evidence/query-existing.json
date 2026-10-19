@@ -1,0 +1,70 @@
+{
+  "kind": "real-postgresql-postgis-query-integration",
+  "firestoreTransport": "in-memory-synthetic-events",
+  "flutterRenderingMeasured": false,
+  "hostedEvidence": false,
+  "dataset": {
+    "syntheticOnly": true,
+    "generator": "postgis_gate0.v1",
+    "counts": {
+      "biteSaver:restaurant": 94,
+      "biteSaver:offer": 157,
+      "biteScore:restaurant": 94,
+      "biteScore:dish": 180
+    },
+    "documentCount": 525,
+    "sourceCount": 514,
+    "fingerprint": "9a14eb50469bc1824aabf440f7ccc1e451e2321298f42d5cff0ec28a5828f157",
+    "dimensions": {
+      "saverParents": 90,
+      "scoreParents": 90,
+      "offersPerRestaurant": 2,
+      "dishesPerRestaurant": 2,
+      "noOfferEvery": 7
+    }
+  },
+  "tests": [],
+  "observations": [
+    135.09454199999163,
+    190.88691700001073,
+    176.60475000001315,
+    56.89704100000381,
+    75.02999999999884,
+    201.79329199998756,
+    146.46908299998904,
+    161.15899999999965
+  ],
+  "extensions": [
+    {
+      "extname": "fuzzystrmatch",
+      "extversion": "1.2"
+    },
+    {
+      "extname": "pg_trgm",
+      "extversion": "1.6"
+    },
+    {
+      "extname": "plpgsql",
+      "extversion": "1.0"
+    },
+    {
+      "extname": "postgis",
+      "extversion": "3.6.4"
+    }
+  ],
+  "firstPublishedRevision": "1",
+  "measurement": {
+    "kind": "SQL-selection-completion-ms-including-local-pool-wait",
+    "sampleCount": 8,
+    "minimumMs": 56.89704100000381,
+    "maximumMs": 201.79329199998756,
+    "p95": null,
+    "p99": null,
+    "coldUsefulRenderMs": null,
+    "warmUsefulRenderMs": null,
+    "note": "Insufficient tail samples. This is not Flutter/API end-to-end or hosted useful-page latency."
+  },
+  "peakLocalPoolConnections": 4,
+  "finalRevision": "8",
+  "status": "SQL_SUBTESTS_COMPLETED; inspect TAP for individual failures"
+}

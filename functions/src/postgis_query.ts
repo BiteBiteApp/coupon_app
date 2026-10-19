@@ -24,7 +24,22 @@ export function queryPlan(session: any, after: any = null, limit = 128, { lowerB
             where.push(`${p}.latitude IS NOT NULL AND ${p}.longitude IS NOT NULL`);
             if (radius * 1609.344 < 49499) {
                 const span = (radius * 1609.344 + 1) / (.99 * 111000) + 1e-10;
-                where.push(`${p}.latitude BETWEEN ${v(center.latitude - span)} AND ${v(center.latitude + span)}`);
+                const south = center.latitude - span, north = center.latitude + span;
+                where.push(`${p}.latitude BETWEEN ${v(south)} AND ${v(north)}`);
+                // Broad, conservative recall only; exact Node predicates/ranking
+                // and the existing numerical guard remain authoritative. Outside
+                // this latitude domain keep the existing latitude-only fallback.
+                // Proof and rounding ledger: search_candidate/recall-envelope-006.md.
+                if (south >= -60 && north <= 60) {
+                    const longitudeSpan = 4 + 1e-8;
+                    const west = center.longitude - longitudeSpan;
+                    const east = center.longitude + longitudeSpan;
+                    const ranges = west < -180 ? [[-180, east], [west + 360, 180]] :
+                        east > 180 ? [[west, 180], [-180, east - 360]] : [[west, east]];
+                    where.push(`(${ranges.map(([left, right]) =>
+                        `(${p}.geo::geometry) && ST_MakeEnvelope(${v(left)},${v(south)},${v(right)},${v(north)},4326)`
+                    ).join(' OR ')})`);
+                }
             }
         }
         if (lowerBound && knownDistancePoints.length) {

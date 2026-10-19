@@ -1,0 +1,29 @@
+✔ real Firestore bootstrap survives SQL loss via local-files, bounded resume and post-snapshot replay (35609.5011ms)
+ℹ Qualified 546 real projection rows; recovery evidence /evidence/recovery-snapshot-r8Ei8c/qualification.json
+✔ real Firestore bootstrap survives SQL loss via simulated-gcs-json-api, bounded resume and post-snapshot replay (39681.008602ms)
+ℹ Qualified 546 real projection rows; recovery evidence /evidence/recovery-snapshot-cTdBJ0/qualification.json
+▶ B006 finite admission, transactional incremental manifest and independent audit
+  ✔ one finite target survives process restart and unrelated continuous writes (176.752625ms)
+  ✔ duplicates, deletes, recreate and rollback maintain exact manifest (585.540083ms)
+  ✔ audit detects metadata corruption independently (155.07975ms)
+  ✔ publication aggregates fixed48 while full audit remains explicit (66.148833ms)
+✔ B006 finite admission, transactional incremental manifest and independent audit (4816.986628ms)
+▶ real Firestore source journaling, fenced bootstrap and interruption recovery
+  ✔ default writer remains dormant and pre-existing projections are not mistaken for an empty enrolled source (1415.925168ms)
+  ✔ real maintenance create/update/delete/recreate and duplicate delivery preserve a single identity sequence (576.125126ms)
+  ✔ interrupted source transaction cannot commit an event or advance a shard (96.283583ms)
+  ✔ bootstrap resumes after interruption, re-reads raced scan rows and captures an end fence only after every collection (1798.052042ms)
+  ✔ concurrent identity writes on the same shard cannot lose a committed sequence or count (3986.37621ms)
+  ✔ actual BiteSaver account/coupon/special and BiteScore dish/aggregate paths journal parent fanout and independent identities (1808.506917ms)
+  ✔ poison and missing-event gaps block delivery; restoring exact immutable evidence permits retry (286.832208ms)
+  ✔ epoch replacement and incomplete enrollment owner changes fail closed (55.954584ms)
+  ✔ source retention requires actual intact recovery files and preserves every change beyond the acknowledged fence (5050.403502ms)
+✔ real Firestore source journaling, fenced bootstrap and interruption recovery (15153.500424ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 95693.374836

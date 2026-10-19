@@ -1,0 +1,390 @@
+{
+  "kind": "actual local PostgreSQL/PostGIS selector baseline; real runtime guard; synthetic event transport",
+  "startedAt": "2026-10-19T20:28:57.343Z",
+  "runtime": {
+    "node": "v24.21.0",
+    "v8": "13.6.233.17-node.53",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "queryHash": "2c20fd3a37946f18909171b468559fbd24f6d982daca98b7b994a071d99cb471",
+  "fixture": {
+    "syntheticOnly": true,
+    "generator": "postgis_gate0.v1",
+    "counts": {
+      "biteSaver:restaurant": 35,
+      "biteSaver:offer": 60,
+      "biteScore:restaurant": 30,
+      "biteScore:dish": 60
+    },
+    "documentCount": 185,
+    "sourceCount": 185,
+    "fingerprint": "c0d2864f294a274ff3570dc9a8128d19f920ec7e86b1884a62735e43da87eb65",
+    "dimensions": {
+      "saverParents": 35,
+      "scoreParents": 30,
+      "offersPerRestaurant": 2,
+      "dishesPerRestaurant": 2,
+      "noOfferEvery": 7
+    }
+  },
+  "measurements": [
+    {
+      "mode": "26 separate one-row selects",
+      "ids": [
+        "gate0-saver-0000001",
+        "gate0-saver-0000002",
+        "gate0-saver-0000003",
+        "gate0-saver-0000004",
+        "gate0-saver-0000005",
+        "gate0-saver-0000006",
+        "gate0-saver-0000008",
+        "gate0-saver-0000009",
+        "gate0-saver-0000010",
+        "gate0-saver-0000011",
+        "gate0-saver-0000012",
+        "gate0-saver-0000013",
+        "gate0-saver-0000015",
+        "gate0-saver-0000016",
+        "gate0-saver-0000017",
+        "gate0-saver-0000018",
+        "gate0-saver-0000019",
+        "gate0-saver-0000020",
+        "gate0-saver-0000022",
+        "gate0-saver-0000023",
+        "gate0-saver-0000024",
+        "gate0-saver-0000025",
+        "gate0-saver-0000026",
+        "gate0-saver-0000027",
+        "gate0-saver-0000029",
+        "gate0-saver-0000030"
+      ],
+      "counts": {
+        "sqlStatements": 87,
+        "candidateStatements": 26,
+        "offerProofStatements": 61,
+        "returnedRows": 1014,
+        "returnedJsonBytes": 5920332
+      },
+      "elapsedMs": 218.10037499999999,
+      "metrics": [
+        {
+          "examined": 3,
+          "queries": 4,
+          "sqlMs": 14.2331250000002,
+          "transferBytes": 222891,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 3,
+          "refinementComplete": true
+        },
+        {
+          "examined": 4,
+          "queries": 3,
+          "sqlMs": 6.143208000000186,
+          "transferBytes": 222877,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 4,
+          "refinementComplete": true
+        },
+        {
+          "examined": 5,
+          "queries": 3,
+          "sqlMs": 6.203418000000056,
+          "transferBytes": 222817,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 5,
+          "refinementComplete": true
+        },
+        {
+          "examined": 6,
+          "queries": 3,
+          "sqlMs": 5.1446679999999105,
+          "transferBytes": 222889,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 6,
+          "refinementComplete": true
+        },
+        {
+          "examined": 7,
+          "queries": 3,
+          "sqlMs": 3.7312930000000506,
+          "transferBytes": 222943,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 7,
+          "refinementComplete": true
+        },
+        {
+          "examined": 9,
+          "queries": 4,
+          "sqlMs": 4.315916000000016,
+          "transferBytes": 222945,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 9,
+          "refinementComplete": true
+        },
+        {
+          "examined": 10,
+          "queries": 4,
+          "sqlMs": 3.8031250000001364,
+          "transferBytes": 222879,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 10,
+          "refinementComplete": true
+        },
+        {
+          "examined": 11,
+          "queries": 3,
+          "sqlMs": 3.2044999999998254,
+          "transferBytes": 222811,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 11,
+          "refinementComplete": true
+        },
+        {
+          "examined": 12,
+          "queries": 3,
+          "sqlMs": 3.9637510000002294,
+          "transferBytes": 222883,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 12,
+          "refinementComplete": true
+        },
+        {
+          "examined": 13,
+          "queries": 3,
+          "sqlMs": 3.6086250000000746,
+          "transferBytes": 222877,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 13,
+          "refinementComplete": true
+        },
+        {
+          "examined": 14,
+          "queries": 3,
+          "sqlMs": 3.4774180000001707,
+          "transferBytes": 222817,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 14,
+          "refinementComplete": true
+        },
+        {
+          "examined": 16,
+          "queries": 4,
+          "sqlMs": 3.5349169999999503,
+          "transferBytes": 222819,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 16,
+          "refinementComplete": true
+        },
+        {
+          "examined": 17,
+          "queries": 4,
+          "sqlMs": 3.4559989999997924,
+          "transferBytes": 222819,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 17,
+          "refinementComplete": true
+        },
+        {
+          "examined": 18,
+          "queries": 3,
+          "sqlMs": 3.8390420000002905,
+          "transferBytes": 222889,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 18,
+          "refinementComplete": true
+        },
+        {
+          "examined": 19,
+          "queries": 3,
+          "sqlMs": 4.027456999999913,
+          "transferBytes": 222877,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 19,
+          "refinementComplete": true
+        },
+        {
+          "examined": 20,
+          "queries": 3,
+          "sqlMs": 3.286250000000109,
+          "transferBytes": 222817,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 20,
+          "refinementComplete": true
+        },
+        {
+          "examined": 21,
+          "queries": 3,
+          "sqlMs": 3.510332999999946,
+          "transferBytes": 222883,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 21,
+          "refinementComplete": true
+        },
+        {
+          "examined": 23,
+          "queries": 4,
+          "sqlMs": 4.023667000000387,
+          "transferBytes": 222951,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 23,
+          "refinementComplete": true
+        },
+        {
+          "examined": 24,
+          "queries": 4,
+          "sqlMs": 3.63154099999997,
+          "transferBytes": 222957,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 24,
+          "refinementComplete": true
+        },
+        {
+          "examined": 25,
+          "queries": 3,
+          "sqlMs": 2.8710419999999885,
+          "transferBytes": 222877,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 25,
+          "refinementComplete": true
+        },
+        {
+          "examined": 26,
+          "queries": 3,
+          "sqlMs": 3.2725829999999405,
+          "transferBytes": 222817,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 26,
+          "refinementComplete": true
+        },
+        {
+          "examined": 27,
+          "queries": 3,
+          "sqlMs": 5.017166000000088,
+          "transferBytes": 222889,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 27,
+          "refinementComplete": true
+        },
+        {
+          "examined": 28,
+          "queries": 3,
+          "sqlMs": 4.903331999999864,
+          "transferBytes": 222877,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 28,
+          "refinementComplete": true
+        },
+        {
+          "examined": 30,
+          "queries": 4,
+          "sqlMs": 3.588126000000102,
+          "transferBytes": 222879,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 30,
+          "refinementComplete": true
+        },
+        {
+          "examined": 31,
+          "queries": 4,
+          "sqlMs": 3.532749999999851,
+          "transferBytes": 222873,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 31,
+          "refinementComplete": true
+        },
+        {
+          "examined": 32,
+          "queries": 3,
+          "sqlMs": 6.477041999999528,
+          "transferBytes": 222811,
+          "maxOfferRows": 2,
+          "heapMaximum": 2,
+          "distanceMemoPoints": 32,
+          "refinementComplete": true
+        }
+      ]
+    },
+    {
+      "mode": "one bounded 26-row select",
+      "ids": [
+        "gate0-saver-0000001",
+        "gate0-saver-0000002",
+        "gate0-saver-0000003",
+        "gate0-saver-0000004",
+        "gate0-saver-0000005",
+        "gate0-saver-0000006",
+        "gate0-saver-0000008",
+        "gate0-saver-0000009",
+        "gate0-saver-0000010",
+        "gate0-saver-0000011",
+        "gate0-saver-0000012",
+        "gate0-saver-0000013",
+        "gate0-saver-0000015",
+        "gate0-saver-0000016",
+        "gate0-saver-0000017",
+        "gate0-saver-0000018",
+        "gate0-saver-0000019",
+        "gate0-saver-0000020",
+        "gate0-saver-0000022",
+        "gate0-saver-0000023",
+        "gate0-saver-0000024",
+        "gate0-saver-0000025",
+        "gate0-saver-0000026",
+        "gate0-saver-0000027",
+        "gate0-saver-0000029",
+        "gate0-saver-0000030"
+      ],
+      "counts": {
+        "sqlStatements": 33,
+        "candidateStatements": 1,
+        "offerProofStatements": 32,
+        "returnedRows": 89,
+        "returnedJsonBytes": 581445
+      },
+      "elapsedMs": 18.88562500000012,
+      "metrics": [
+        {
+          "examined": 32,
+          "queries": 33,
+          "sqlMs": 18.131540999999743,
+          "transferBytes": 568260,
+          "maxOfferRows": 2,
+          "heapMaximum": 27,
+          "distanceMemoPoints": 32,
+          "refinementComplete": true
+        }
+      ]
+    }
+  ],
+  "server": {
+    "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+    "postgis_full_version": "POSTGIS=\"3.6.4 94d984b\" [EXTENSION] PGSQL=\"180\" GEOS=\"3.14.1-CAPI-1.20.5\" (compiled against GEOS 3.13.1) PROJ=\"9.8.1 NETWORK_ENABLED=OFF URL_ENDPOINT=https://cdn.proj.org USER_WRITABLE_DIRECTORY=/var/lib/postgresql/.local/share/proj DATABASE_PATH=/usr/share/proj/proj.db\" (compiled against PROJ 9.6.0) LIBXML=\"2.9.14\" LIBJSON=\"0.18\" LIBPROTOBUF=\"1.5.1\" WAGYU=\"0.5.0 (Internal)\""
+  },
+  "finishedAt": "2026-10-19T20:28:58.637Z"
+}

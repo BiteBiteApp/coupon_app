@@ -1,0 +1,14 @@
+✔ separate genuine Ed25519 phase approval binds both artifacts, evidence and original clock (3.217875ms)
+✔ forged/noncanonical/expired/out-of-order/production and new-timer approvals fail closed (1.104209ms)
+✔ offline shared CLI dispatches only separately signed phase claims and keeps trust outside input (49.160375ms)
+✔ 50k parent roots fit finite work/reservation bounds without claiming elapsed qualification (377.589917ms)
+✔ deterministic scenarios include distinct namespaces, variable children, actual usage rules, aliases and long suppressed cohort (39.443542ms)
+✔ offset/reservation/operation/byte/shape guards stay finite (0.255583ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 547.386292

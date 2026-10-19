@@ -136,7 +136,9 @@ test("real Firestore maintenance → journal → PostGIS → native customer del
         const cleared = await fetch(`http://127.0.0.1:8088/emulator/v1/projects/${projectId}/databases/(default)/documents`, {method: "DELETE"});
         assert(cleared.ok);
         await model.initializeLocalSchema();
-        await model.pool.query("TRUNCATE receipts,admissions,sessions,revision_pins,refinement_work,projection_poison,inbox,entities,source_heads,ingestion_progress,bootstrap,publication,revisions CASCADE");
+        // Fixed Score request identities are reused across isolated test runs;
+        // reset their finite admission targets together with revision pins.
+        await model.pool.query("TRUNCATE receipts,admissions,sessions,revision_pins,admission_targets,refinement_work,projection_poison,inbox,entities,source_heads,ingestion_progress,bootstrap,publication,revisions CASCADE");
         await model.initializeLocalSchema();
         await writeAll([...fixture.sources, ...fixture.documents.map(row => ({path: `${row.collection}/${row.id}`, data: row.data}))]);
         await source.initialize();

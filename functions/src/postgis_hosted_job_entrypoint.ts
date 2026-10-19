@@ -5,9 +5,10 @@ import {createHostedPostgisRuntime, type HostedPostgisConfiguration} from "./pos
 import {cloudSqlPostgisIdentity, createCloudSqlPostgisPool} from "./postgis_cloudsql.js";
 import {GcsPostgisSnapshotStore} from "./postgis_snapshot_gcs.js";
 import {publishHostedPostgisSnapshot, restoreHostedPostgisSnapshot} from "./postgis_snapshot.js";
+import {validatePostgisSyntheticWorkload} from "./postgis_synthetic_workload.js";
 import {PostgisReadModel} from "./postgis_store.js";
 import {requirePostgisSyntheticBatchesComplete, runHostedPostgisNativeJob, type HostedPostgisJob} from "./postgis_hosted_jobs.js";
-import {verifyPostgisExecutionApproval, type PostgisApprovalEnvelope} from "./postgis_execution_approval.js";
+import {verifyPostgisExecutionApproval, requirePostgisExecutionPermit, type PostgisApprovalEnvelope} from "./postgis_execution_approval.js";
 function json(path: string): any {
   if (!isAbsolute(path) || statSync(path).size > 256 * 1024) throw new Error("Invalid bounded job input.");
   return JSON.parse(readFileSync(path, "utf8"));
@@ -19,18 +20,30 @@ export async function runApprovedHostedPostgisJob(options: Parameters<typeof ope
   if (!Array.isArray(jobs) || jobs.length < 1 || jobs.length > 12 || new Set(jobs.map(job => job.id)).size !== jobs.length) throw new Error("Invalid approved job plan.");
   const job = jobs.find(item => item.id === options.jobId);
   if (!job || !/^[a-z][a-z0-9-]{1,61}[a-z0-9]$/u.test(job.id) ||
-      !["initialize", "fixture", "enroll", "catchup", "lifecycle", "snapshot", "restore", "prune"].includes(job.action) ||
+      !["initialize", "fixture", "fixture-stream", "enroll", "catchup", "lifecycle", "snapshot", "restore", "prune"].includes(job.action) ||
       !Number.isInteger(job.maxPages ?? 8) || (job.maxPages ?? 8) < 1 || (job.maxPages ?? 8) > 64) throw new Error("Unapproved bounded job.");
   // Provider admission can precede a delayed container start. Reverify here,
   // before any keys or credentials, for the entire 600s platform task lifetime.
   const permit = verifyPostgisExecutionApproval(options.approval, options.trustedKeys, cloudSqlPostgisIdentity(config));
   if (permit.validUntilMs - Date.now() < 600_000) throw new Error("Execution approval cannot cover the full hosted job lifetime.");
+  if (job.action === "fixture-stream") {
+    if (!job.workload) throw new Error("Missing synthetic workload plan.");
+    validatePostgisSyntheticWorkload(config.runId,job.workload);
+  }
+  const invocationId = process.env.CLOUD_RUN_EXECUTION;
+  if (job.action === "fixture-stream" && (typeof invocationId !== "string" ||
+    !invocationId.startsWith(job.id + "-") || !/^[a-z][a-z0-9-]{1,99}$/u.test(invocationId))) {
+    throw new Error("Synthetic workload requires its exact provider execution identity.");
+  }
   const opened = await openApprovedHostedPostgisResources({...options, configuration: config});
   let restorePool: Awaited<ReturnType<typeof createCloudSqlPostgisPool>> | undefined;
   try {
     const runtime = createHostedPostgisRuntime(config, opened.permit, opened.resources), deadline = Date.now() + 540_000;
-    if (["initialize", "fixture", "lifecycle"].includes(job.action)) return await runHostedPostgisNativeJob(runtime, opened.resources.database,
-      opened.resources.identityKeyV1, config.runId, job);
+    if (["initialize", "fixture", "fixture-stream", "lifecycle"].includes(job.action)) return await runHostedPostgisNativeJob(runtime, opened.resources.database,
+      opened.resources.identityKeyV1, config.runId, job, job.action === "fixture-stream" ? {
+        invocationId:invocationId as string,deadlineMs:deadline,
+        authorize:() => requirePostgisExecutionPermit(opened.permit,cloudSqlPostgisIdentity(config)),
+      } : undefined);
     await requirePostgisSyntheticBatchesComplete(opened.resources.database, config.runId);
     if (job.action === "snapshot" || job.action === "restore" || job.action === "prune") {
       const snapshot = config.hosted.snapshot as {snapshotId: string}, store = new GcsPostgisSnapshotStore(config, opened.permit);
@@ -38,8 +51,22 @@ export async function runApprovedHostedPostgisJob(options: Parameters<typeof ope
       if (job.action === "prune") {
         const manifest = await store.readRecoveryManifest(snapshot.snapshotId);
         if (!manifest) throw new Error("Retained recovery snapshot is missing.");
-        await runtime.source.acknowledgePublishedFence(manifest.fence, manifest, store);
-        return await runtime.source.pruneAcknowledgedEvents(store, 100);
+        let result: unknown = {ready:false,phase:"validate-recovery"};
+        let validated = false, deleted = 0;
+        for (let page=0;page<(job.maxPages ?? 8)&&Date.now()<deadline;page++) {
+          requirePostgisExecutionPermit(opened.permit,cloudSqlPostgisIdentity(config));
+          if (!validated) {
+            const validation = await runtime.source.acknowledgePublishedFence(manifest.fence,manifest,store);
+            result={...validation,phase:"validate-recovery"};
+            if (!validation.ready) continue;
+            validated=true;
+          }
+          const batch=await runtime.source.pruneAcknowledgedEvents(store,400);deleted+=batch.deleted;
+          const ready=batch.prunedThrough.every((seq,index)=>seq===manifest.fence.shards[index].seq);
+          result={ready,phase:ready?"complete":"prune",deleted,prunedThrough:batch.prunedThrough};
+          if(ready)return result;
+        }
+        return result;
       }
       restorePool = await createCloudSqlPostgisPool(config, opened.permit, "restore");
       await new PostgisReadModel(restorePool, runtime.source).initializeLocalSchema();

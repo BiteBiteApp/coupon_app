@@ -13,6 +13,7 @@ import {
   createCustomerBiteSaverCriteriaFingerprint,
   createCustomerBiteSaverMembershipFingerprint,
   customerBiteSaverAbsoluteExpiryMilliseconds,
+  customerBiteSaverBinary64,
   customerBiteSaverCatalogGenerationShardCount,
   customerBiteSaverCursorLifetimeMilliseconds,
   customerBiteSaverGenerationShardId,
@@ -11649,9 +11650,27 @@ function guestCheckOperationFingerprint(
 function guestCheckBoundaryFingerprint(
   progress: CustomerBiteSaverGuestProgress,
 ): string {
+  // The generic fingerprint contract accepts only integer numbers. Restaurant
+  // distances are validated finite binary64 values; spell only fractional
+  // distances losslessly here, preserving existing integer-progress tokens.
+  const tuple = (value: RestaurantResultSortTuple | null) => value === null
+    ? null
+    : [value[0], Number.isSafeInteger(value[1]) ? value[1] :
+      `binary64:${customerBiteSaverBinary64(value[1])}`, value[2], value[3]];
+  const canonicalProgress = progress.kind === "restaurantPage" ? {
+    ...progress,
+    outerBoundary: tuple(progress.outerBoundary),
+    currentRestaurant: progress.currentRestaurant === null ? null : {
+      ...progress.currentRestaurant, sortTuple: tuple(progress.currentRestaurant.sortTuple),
+    },
+    readyRestaurants: progress.readyRestaurants.map(row => ({...row, sortTuple: tuple(row.sortTuple)})),
+    ...(progress.pendingRestaurants === undefined ? {} : {
+      pendingRestaurants: progress.pendingRestaurants.map(row => ({...row, sortTuple: tuple(row.sortTuple)})),
+    }),
+  } : progress;
   return createQueryFingerprint({
     kind: progress.kind,
-    progress,
+    progress: canonicalProgress,
   });
 }
 
@@ -13497,6 +13516,40 @@ async function finalizeGuestRestaurantPage(value: {
   });
 }
 
+/** Request-local membership only. Prefetching never advances guest progress or
+ * caches current authority. Discard the unused tail when this invocation ends. */
+function guestRestaurantMembershipReader(value: {
+  session: CustomerBiteSaverSessionDocument;
+  context: CustomerBiteSaverSessionContext;
+  batchSize: number;
+}): (after: RestaurantResultSortTuple | null, missingSlots: number) =>
+    Promise<CustomerBiteSaverStoredDocument | null> {
+  let rows: readonly CustomerBiteSaverStoredDocument[] = [];
+  let expectedAfter: RestaurantResultSortTuple | null = null;
+  let initialized = false;
+  let exhausted = false;
+  return async (after, missingSlots) => {
+    const sameBoundary = initialized && (after === null ? expectedAfter === null :
+      expectedAfter !== null && compareGuestRestaurantSortTuples(after, expectedAfter) === 0);
+    if (!sameBoundary) {
+      rows = [];
+      exhausted = false;
+    }
+    if (rows.length === 0 && !exhausted) {
+      const limit = Math.min(value.batchSize, missingSlots);
+      rows = await value.context.database.queryDocuments(
+        customerBiteSaverOrderedResultQuery({session: value.session,
+          ...(after === null ? {} : {startAfter: after}), limit}));
+      exhausted = rows.length < limit;
+    }
+    initialized = true;
+    const next = rows[0] ?? null;
+    rows = rows.slice(1);
+    expectedAfter = next === null ? after : resultSortTupleFromStored(next);
+    return next;
+  };
+}
+
 /** Collect only the next check from still-needed ordered parents. This is one
  * challenge, not parallel continuations. Progress commits in the ordinary loop. */
 async function expandGuestRestaurantChallenge(value: {
@@ -13504,6 +13557,8 @@ async function expandGuestRestaurantChallenge(value: {
   session: CustomerBiteSaverSessionDocument;
   context: CustomerBiteSaverSessionContext;
   workRemaining: number;
+  nextMembership: (after: RestaurantResultSortTuple | null, missingSlots: number) =>
+    Promise<CustomerBiteSaverStoredDocument | null>;
 }): Promise<CustomerBiteSaverGuestCheckDocument> {
   let document = value.document;
   const progress = document.progress;
@@ -13525,13 +13580,12 @@ async function expandGuestRestaurantChallenge(value: {
       index < customerBiteSaverPageSize + 1 - progress.readyRestaurants.length) {
     let row = rows[index];
     if (row === undefined) {
-      const results = await value.context.database.queryDocuments(
-        customerBiteSaverOrderedResultQuery({session: value.session,
-          startAfter: boundary, limit: 1}));
+      const membership = await value.nextMembership(boundary,
+        customerBiteSaverPageSize + 1 - progress.readyRestaurants.length - index);
       work += 1;
-      if (results.length === 0) break;
-      boundary = resultSortTupleFromStored(results[0]);
-      const result = parseResultDocument(results[0], value.session,
+      if (membership === null) break;
+      boundary = resultSortTupleFromStored(membership);
+      const result = parseResultDocument(membership, value.session,
         value.context.discoveryKey, requireCustomerBiteSaverIdentityKey(value.context));
       if (result === null) continue;
       const parent = currentParentFromRaw({result,
@@ -13610,6 +13664,14 @@ async function processGuestRestaurantPage(value: {
   if (document.state === "awaitingAnswer") {
     return Object.freeze({document, response: guestCheckResponse(document)});
   }
+  // The opt-in PostGIS window can privately retrieve up to one useful page
+  // plus lookahead at once. Every consumed row still uses the existing work
+  // budget and current-parent/offer/history checks; exhausted batches refill.
+  const nextMembership = guestRestaurantMembershipReader({
+    session: value.session, context: value.context,
+    batchSize: value.context.searchBackend === "postgis" && progress.windowVersion === 1
+      ? customerBiteSaverPageSize + 1 : 1,
+  });
   let work = 0;
   while (
     progress.readyRestaurants.length < customerBiteSaverPageSize + 1 &&
@@ -13630,7 +13692,7 @@ async function processGuestRestaurantPage(value: {
         if (progress.windowVersion === 1 && document.state === "awaitingAnswer") {
           document = await expandGuestRestaurantChallenge({document,
             session: value.session, context: value.context,
-            workRemaining: customerBiteSaverPageConsumeLimit - work});
+            workRemaining: customerBiteSaverPageConsumeLimit - work, nextMembership});
         }
         return Object.freeze({
           document,
@@ -13651,22 +13713,14 @@ async function processGuestRestaurantPage(value: {
       document = Object.freeze({...document, progress});
       continue;
     }
-    const resultDocuments = await value.context.database.queryDocuments(
-      customerBiteSaverOrderedResultQuery({
-        session: value.session,
-        ...(progress.outerBoundary === null
-          ? {}
-          : {startAfter: progress.outerBoundary}),
-        limit: 1,
-      }),
-    );
+    const resultDocument = await nextMembership(progress.outerBoundary,
+      customerBiteSaverPageSize + 1 - progress.readyRestaurants.length);
     work += 1;
-    if (resultDocuments.length === 0) {
+    if (resultDocument === null) {
       progress = Object.freeze({...progress, resultSourceExhausted: true});
       document = Object.freeze({...document, progress});
       break;
     }
-    const resultDocument = resultDocuments[0];
     const sortTuple = resultSortTupleFromStored(resultDocument);
     const result = parseResultDocument(
       resultDocument,

@@ -1,0 +1,6 @@
+{
+  "compiledFiles": 328,
+  "MacCompiledMatchesFinalLinuxImage": true,
+  "mismatched": [],
+  "note": "Final-cap Mac500-pair probe and LinuxFlutter used exact final compiled implementation; final image fixture reset is test-only."
+}

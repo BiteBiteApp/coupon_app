@@ -1,0 +1,16 @@
+✔ opt-in window requests one bounded membership batch; serial stays one row (316.2085ms)
+✔ whole prefetched batch rejected by current parent authority refills privately (78.233167ms)
+✔ whole first history batch rejected refills with exact page cursor and order (156.449208ms)
+✔ 75-ID global cap discards unused private tail and later resumes without loss (116.366375ms)
+✔ unused prefetched authority is rechecked and all-filtered exhaustion is truthful (114.892708ms)
+✔ accepted-answer interruption retains replay and no cross-account cached membership (89.183917ms)
+✔ stored ready restaurants cap subsequent membership to missing useful slots plus lookahead (156.573ms)
+✔ one remaining slot refills after whole bounded history or authority rejection batches (358.265042ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1391.780333

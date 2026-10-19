@@ -1,0 +1,41 @@
+✔ serialized SHA256 matches native crypto including NIST and every block boundary (1402.132708ms)
+✔ malformed serialized hash state fails closed and shaped corruption cannot match digest (0.327208ms)
+✔ bounded recovery validation resumes across every page and process boundary with the original digest (52.634209ms)
+✔ partial hash corruption never publishes a successful validation (37.816459ms)
+✔ changed readonly file identity, missing files and writable artifacts cannot reuse proof (67.288709ms)
+✔ arbitrary reader success claims cannot supply immutable proof (24.1025ms)
+✖ GCS reusable validation requires actual locked retention and exact-generation bytes; ordinary reads remain available (48.698458ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 6
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1779.144708
+
+✖ failing tests:
+
+test at test/postgis_b006_recovery_checkpoint.test.cjs:50:1
+✖ GCS reusable validation requires actual locked retention and exact-generation bytes; ordinary reads remain available (48.698458ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /locked.*retention/. Input:
+  
+  'Error: Bounded recovery requires a verified immutable artifact reader.'
+  
+      at async TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_recovery_checkpoint.test.cjs:54:2)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: Bounded recovery requires a verified immutable artifact reader.
+        at checkPostgisRecoveryArtifact (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/review-b/compiled/lib/postgis_source_recovery.js:108:15)
+        at Object.advancePostgisRecoveryValidation (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/review-b/compiled/lib/postgis_source_recovery.js:133:28)
+        at async waitForActual (node:assert:646:5)
+        at async strict.rejects (node:assert:769:25)
+        at async TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_recovery_checkpoint.test.cjs:54:2)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    expected: /locked.*retention/,
+    operator: 'rejects',
+    diff: 'simple'
+  }

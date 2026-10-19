@@ -1,0 +1,14 @@
+✔ opt-in window requests one bounded membership batch; serial stays one row (292.7ms)
+✔ whole prefetched batch rejected by current parent authority refills privately (78.388625ms)
+✔ whole first history batch rejected refills with exact page cursor and order (154.397417ms)
+✔ 75-ID global cap discards unused private tail and later resumes without loss (116.883458ms)
+✔ unused prefetched authority is rechecked and all-filtered exhaustion is truthful (115.585ms)
+✔ accepted-answer interruption retains replay and no cross-account cached membership (89.65425ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 850.568917

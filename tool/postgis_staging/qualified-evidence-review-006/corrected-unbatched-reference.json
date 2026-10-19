@@ -1,0 +1,11 @@
+{
+  "referenceOnly": true,
+  "originalBaselineCommit": "a8c056c90e0e0fff8e39dac8d407087d3137ad25",
+  "changes": "Canonical timestamp decoding and fractional guest boundary fingerprint repair only; two diagnostic error log additions. No membership batching. Used only after true baseline failed; never labeled pristine baseline.",
+  "sha256": {
+    "postgis_semantics.js": "c06e1f2e43ec75d376e7f9898415c7e405fbe92e5927b2d2bcc93a6b663f6106",
+    "customer_bitesaver_search_session.js": "2ac857630678f0ec945028bd937d907b81b71a3b66d08538d037c19465e0a461",
+    "postgis_membership.js": "d7967eb746787328e187fedf3aed1281751b5515fe764db4f233d96fcc6093bb",
+    "query_fingerprint.js": "35336fa560b5960b33d6689302ae3f77300cb07bf4db32c9e23202f9c986c941"
+  }
+}

@@ -8,8 +8,8 @@ import {
   type PostgisSourceFence, type PostgisSourcePayload, type PostgisSourceShard, type PostgisJson,
 } from "./postgis_source.js";
 import {
-  validatePostgisRecoverySnapshot, validatePostgisSourceFence,
-  type PostgisRecoveryManifest, type PostgisRecoverySnapshotReader,
+  advancePostgisRecoveryValidation, checkPostgisRecoveryArtifact, validatePostgisSourceFence, validateCompletePostgisRecoveryCheckpoint,
+  type PostgisRecoveryManifest, type PostgisRecoverySnapshotReader, type PostgisRecoveryValidation,
 } from "./postgis_source_recovery.js";
 
 export const postgisSourceControlPath = "private_postgis_source_control/active";
@@ -17,6 +17,7 @@ export const postgisSourceEventsCollection = "private_postgis_source_events";
 export const postgisSourceShardsCollection = "private_postgis_source_shards";
 export const postgisSourceHeadsCollection = "private_postgis_source_heads";
 export const postgisSourceBootstrapsCollection = "private_postgis_source_bootstraps";
+export const postgisSourceValidationsCollection = "private_postgis_source_validations";
 export const postgisSourceRetentionPath = "private_postgis_source_retention/acknowledged";
 
 export type PostgisSourceConfiguration = Readonly<{
@@ -263,15 +264,36 @@ export class FirestorePostgisSource {
     });
   }
 
+  /** Durable one-page validation. Recreating the worker/reader resumes exact hash,
+   * order and partition state; a different artifact can never reuse the proof. */
+  async advanceRecoveryValidation(manifest: PostgisRecoveryManifest, reader: PostgisRecoverySnapshotReader,
+    limit = 64): Promise<PostgisRecoveryValidation> {
+    if (manifest.fence.epoch !== this.config.epoch) throw new Error("Recovery snapshot epoch mismatch.");
+    const key = postgisSourceDigest(manifest as unknown as PostgisJson);
+    const reference = this.database.doc(`${postgisSourceValidationsCollection}/${key}`);
+    const prior = (await reference.get()).data() as PostgisRecoveryValidation | undefined;
+    const next = await advancePostgisRecoveryValidation(reader, manifest, prior ?? null, limit);
+    await this.database.runTransaction(async transaction => {
+      const [saved, control] = await transaction.getAll(reference, this.database.doc(postgisSourceControlPath));
+      requireControl(control.data(), this.config);
+      if (postgisSourceDigest((saved.data() ?? null) as PostgisJson) !== postgisSourceDigest((prior ?? null) as unknown as PostgisJson)) {
+        throw new Error("Recovery validation advanced concurrently; resume its durable checkpoint.");
+      }
+      transaction.set(reference, next);
+    });
+    return next;
+  }
+
   async acknowledgePublishedFence(
     fence: PostgisSourceFence,
     recoveryManifest: PostgisRecoveryManifest,
     reader: PostgisRecoverySnapshotReader,
-  ): Promise<void> {
+  ): Promise<{ready: boolean; validatedRows: number}> {
     validatePostgisSourceFence(fence);
     if (fence.epoch !== this.config.epoch || postgisSourceDigest(fence as unknown as PostgisJson) !==
         postgisSourceDigest(recoveryManifest.fence as unknown as PostgisJson)) throw new Error("Recovery snapshot epoch/fence does not match publication.");
-    await validatePostgisRecoverySnapshot(reader, recoveryManifest);
+    const validation = await this.advanceRecoveryValidation(recoveryManifest, reader);
+    if (!validation.complete) return {ready:false,validatedRows:validation.count};
     await this.database.runTransaction(async (transaction) => {
       const reference = this.database.doc(postgisSourceRetentionPath);
       const existing = (await transaction.get(reference)).data();
@@ -284,10 +306,11 @@ export class FirestorePostgisSource {
         throw new Error("An older recovery snapshot cannot replace the acknowledged source fence.");
       }
       transaction.set(reference, {
-        epoch: fence.epoch, fence, recoveryManifest,
+        epoch: fence.epoch, fence, recoveryManifest, validation,
         prunedThrough: existing?.prunedThrough ?? Array.from({length: 16}, () => 0),
       });
     });
+    return {ready:true,validatedRows:validation.count};
   }
 
   /**
@@ -302,13 +325,19 @@ export class FirestorePostgisSource {
     const saved = (await reference.get()).data();
     if (saved === undefined || saved.epoch !== this.config.epoch) throw new Error("No acknowledged durable recovery snapshot; source events cannot be pruned.");
     const manifest = saved.recoveryManifest as PostgisRecoveryManifest;
-    await validatePostgisRecoverySnapshot(reader, manifest);
+    const validation = saved.validation as PostgisRecoveryValidation | undefined;
+    if (!validation?.complete || validation.manifestDigest !== postgisSourceDigest(manifest as unknown as PostgisJson)) throw new Error("Recovery validation is incomplete.");
+    validateCompletePostgisRecoveryCheckpoint(manifest,validation);
+    const retained = await reader.readRecoveryManifest(manifest.snapshotId);
+    if (!retained || postgisSourceDigest(retained as unknown as PostgisJson) !== validation.manifestDigest) throw new Error("Recovery snapshot is unavailable.");
+    await checkPostgisRecoveryArtifact(reader, manifest.snapshotId, validation.artifact);
     return this.database.runTransaction(async (transaction) => {
       const [snapshot, control] = await transaction.getAll(reference, this.database.doc(postgisSourceControlPath));
       requireControl(control.data(), this.config);
       const current = snapshot.data();
       if (control.get("enrolled") !== true || current === undefined || current.epoch !== this.config.epoch ||
-          postgisSourceDigest(current.recoveryManifest) !== postgisSourceDigest(manifest as unknown as PostgisJson)) {
+          postgisSourceDigest(current.recoveryManifest) !== postgisSourceDigest(manifest as unknown as PostgisJson) ||
+          postgisSourceDigest(current.validation) !== postgisSourceDigest(validation as unknown as PostgisJson)) {
         throw new Error("Source recovery acknowledgement changed; retry pruning.");
       }
       const through = current.prunedThrough as number[];

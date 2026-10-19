@@ -1,0 +1,96 @@
+{
+  "scope": "Actual local readonly files, native projection builders, exact manifest validation and production prune method with injected bounded Firestore adapter; no cloud/SQL/emulator I/O.",
+  "validationPageLimit": 64,
+  "pruneEventLimit": 400,
+  "hostedJobMaxPagesMaximum": 64,
+  "hostedWorkDeadlineSeconds": 540,
+  "records": [
+    {
+      "snapshotRows": 128,
+      "snapshotBytes": 188291,
+      "validationPages": 3,
+      "validationMs": 14.128417000000013,
+      "validationWork": {
+        "rowCalls": 3,
+        "returnedRows": 128,
+        "returnedSerializedBytes": 188291,
+        "maxRows": 64
+      },
+      "pruneEvents": 128,
+      "pruneCalls": 17,
+      "pruneSnapshotRowReads": 0,
+      "pruneReturnedRowBytes": 0,
+      "pruneDatabaseWork": {
+        "transactions": 17,
+        "metadataDocumentReads": 51,
+        "eventDocumentReads": 128,
+        "eventDeletes": 128,
+        "checkpointWrites": 16,
+        "maxEventReadsPerTransaction": 13,
+        "maxWritesPerTransaction": 14
+      },
+      "preservedAboveFenceEvents": 48,
+      "artifactDirectory": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-b/work-scaling/128"
+    },
+    {
+      "snapshotRows": 1024,
+      "snapshotBytes": 1507198,
+      "validationPages": 17,
+      "validationMs": 62.968417000000045,
+      "validationWork": {
+        "rowCalls": 17,
+        "returnedRows": 1024,
+        "returnedSerializedBytes": 1507198,
+        "maxRows": 64
+      },
+      "pruneEvents": 1024,
+      "pruneCalls": 17,
+      "pruneSnapshotRowReads": 0,
+      "pruneReturnedRowBytes": 0,
+      "pruneDatabaseWork": {
+        "transactions": 17,
+        "metadataDocumentReads": 51,
+        "eventDocumentReads": 1024,
+        "eventDeletes": 1024,
+        "checkpointWrites": 16,
+        "maxEventReadsPerTransaction": 81,
+        "maxWritesPerTransaction": 82
+      },
+      "preservedAboveFenceEvents": 48,
+      "artifactDirectory": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-b/work-scaling/1024"
+    },
+    {
+      "snapshotRows": 8192,
+      "snapshotBytes": 12065424,
+      "validationPages": 129,
+      "validationMs": 478.06375,
+      "validationWork": {
+        "rowCalls": 129,
+        "returnedRows": 8192,
+        "returnedSerializedBytes": 12065424,
+        "maxRows": 64
+      },
+      "pruneEvents": 8192,
+      "pruneCalls": 33,
+      "pruneSnapshotRowReads": 0,
+      "pruneReturnedRowBytes": 0,
+      "pruneDatabaseWork": {
+        "transactions": 33,
+        "metadataDocumentReads": 99,
+        "eventDocumentReads": 8192,
+        "eventDeletes": 8192,
+        "checkpointWrites": 32,
+        "maxEventReadsPerTransaction": 400,
+        "maxWritesPerTransaction": 401
+      },
+      "preservedAboveFenceEvents": 48,
+      "artifactDirectory": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-b/work-scaling/8192"
+    }
+  ],
+  "limits": [
+    "Returned serialized bytes are not total filesystem read traffic; sparse reader may scan at most its preceding 500-row offset segment.",
+    "Injected Firestore counters validate operation scaling and safety boundaries, not provider latency, cost or transaction retries.",
+    "Real emulator deletion, missing/gap/epoch and fresh SQL restore are separately qualified by retained actual recovery tests.",
+    "Exact multiples of 64 require a final empty validation page to prove EOF."
+  ]
+}

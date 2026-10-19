@@ -1,0 +1,13 @@
+QueryFingerprintError: Search criteria could not be fingerprinted.
+    at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/query_fingerprint.js:34:19)
+    at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/query_fingerprint.js:44:57
+    at Array.map (<anonymous>)
+    at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/query_fingerprint.js:44:35)
+    at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/query_fingerprint.js:64:17
+    at Array.map (<anonymous>)
+    at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/query_fingerprint.js:62:18)
+    at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/query_fingerprint.js:64:17
+    at Array.map (<anonymous>)
+    at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/query_fingerprint.js:62:18) {
+  code: 'query_fingerprint_error'
+}

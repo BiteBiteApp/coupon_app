@@ -1,0 +1,26 @@
+{
+  "capturedAt": "2026-10-19T20:57:09.522808+00:00",
+  "onlyOwnGeneratedOrTemporaryFiles": true,
+  "moves": [
+    {
+      "from": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/lib-b006",
+      "to": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-b/compiled-root-accidental",
+      "type": "generated compiler output directory"
+    },
+    {
+      "from": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib-b006",
+      "to": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-b/compiled-qualified",
+      "type": "generated compiler output directory"
+    },
+    {
+      "from": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_recovery.test.cjs",
+      "to": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-b/retained-temporary-tests/postgis_b006_recovery.test.cjs",
+      "sha256": "3f259a0377291519c49a4957461ac28b105631d32adfa835b91fc388d23d778f"
+    },
+    {
+      "from": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/support/postgis_b006_gcs_fixture.cjs",
+      "to": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-b/retained-temporary-tests/support/postgis_b006_gcs_fixture.cjs",
+      "sha256": "030d6552d39b0a2f16dae8f4c4bbbc6310ef4ec4427df857c97e92f4abf9b991"
+    }
+  ]
+}

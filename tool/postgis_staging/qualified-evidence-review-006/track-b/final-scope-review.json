@@ -1,0 +1,80 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006",
+  "reviewer": "Track B independent final pre-integration scope check",
+  "capturedAt": "2026-10-19T21:25:52.473748+00:00",
+  "verdict": "PASS \u2014 no unresolved source-scope or owner-preservation blocker",
+  "expectedHead": "a8c056c90e0e0fff8e39dac8d407087d3137ad25",
+  "observedHead": "a8c056c90e0e0fff8e39dac8d407087d3137ad25",
+  "branch": "main",
+  "sourceManifest": {
+    "path": "reviewed-source-paths.final.json",
+    "sha256": "03997a1d899aa02ef9ef9d91568e2ec8c7a1fe5b58d5071795dcf0f14fdaf2e9",
+    "paths": 45,
+    "currentHashMismatches": {},
+    "allPathsMatchNamedQualificationReceipts": true
+  },
+  "combinedFreeze": {
+    "path": "selected-source/tool/postgis_staging/combined-source.review-006.json",
+    "sourceFiles": 687,
+    "candidateDigest": "ec2b0a93697830915129739b341cf21ec6b61e6eb721c3ed15dfea8ccab04319",
+    "requestedDigestMatches": true,
+    "allFrozenFileBytesMatch": true
+  },
+  "completeDiffScope": {
+    "comparison": "All nonignored selected-source files compared with expected HEAD blobs; every tracked HEAD path also checked present",
+    "changedReviewedSourcePaths": 45,
+    "changed006ReportOrEvidencePaths": 105,
+    "unexpectedSourceOrGeneratedPaths": [],
+    "trackedDeletions": [],
+    "diffFile": "track-b/final-complete-source.diff",
+    "diffSha256": "1421a2a94f3420a4f9c2c258cc1d4a3472fb600f142f1a6b41403354207ccd95",
+    "diffLines": 4273,
+    "generatedBuildOutput": "node_modules, .dart_tool, build, __pycache__ and functions/lib are not source selection or proposed exact-path integration. The earlier B temporary lib/test duplicates are absent; no compiled output appears among45 or687 frozen paths.",
+    "reviewMethod": "Reconciled current exact bytes with prior focused independent reviews for A/B/C; inspected the complete45-path diff scope and the four integration-only diffs directly. New whole-call transport instrumentation, retained failed-sample assertions, qualification plan and isolated admission_targets fixture reset remain in authorized scope."
+  },
+  "ownerPreservation": {
+    "protectedFilesChecked": 1565,
+    "modifiedProtectedFiles": [],
+    "stagedPaths": 56,
+    "unstagedPaths": 2,
+    "untrackedFiles": 11,
+    "overlapWith45ReviewedPaths": {
+      "staged": [],
+      "unstaged": [],
+      "untracked": []
+    },
+    "originalIndexEntriesIdentical": true,
+    "indexBaseline": "original-index.entries",
+    "byteBaseline": "starting-state.json protectedSha256",
+    "originalSourceWrittenByThisReview": false,
+    "gitStateMutatedByThisReview": false
+  },
+  "evidenceIndex": {
+    "path": "selected-source/tool/postgis_staging/qualified-evidence-review-006/evidence-index.json",
+    "indexedFiles": 215,
+    "hashMismatches": []
+  },
+  "receiptHashes": {
+    "track-a/track-a-qualified-addendum-v2.json": "978e9975c796d266efd8c711f0c3621e1934db4ec500f05c1ca13ec9a3d61ba8",
+    "track-b/source-qualified.v2.json": "74cb17246761bbc1528bbc4b90f0a1dc9225c566a370ca68fa9cea0f5d891dcc",
+    "track-c/source-qualified.json": "f031f68e04e4f6ff86d9cfe5d274534be14248eafa02400c0ee95a936aae8e71",
+    "track-c/root-consumer-independent-review.json": "e2bd21153e6bf4f0c9123e00e05f6d013bf220be42005e7cb22753e5bf08fab3",
+    "integration-reset-root-review.json": "0b99a0f235807e549f44e00d72326355d767b692dcabb3a1846c134f8abefce7",
+    "track-c/track-a-independent-review.v2.json": "294b97baf9634270265727f781a435e38db72df88fc03500d49a24675b5fa080",
+    "track-a/review-b/independent-b-review.json": "829835db7b26994b87c5d7c2e37dfd728e615cacdf838c579dcffee81021aa09",
+    "track-b/track-c-independent-review.json": "6f13a8a8295707e2567e253771a7edda43839abfd77f7c5beb55739a3653b090"
+  },
+  "integrationOnlyReview": {
+    "test/services/postgis_flutter_integration_test.dart": "Uses actual explicit transport and preserves every attempted outcome; failed samples still fail the test.",
+    "functions/test/support/postgis_flutter_host.cjs": "Test-only opt-in SDK/SQL work counters delegate real operations; dedicated database name guard remains.",
+    "tool/postgis_staging/REVIEW-CORRECTIONS-006-QUALIFICATION-PLAN.md": "Preserves targets, all attempts, homogeneous sample requirements, costs and provider-only limitations.",
+    "functions/test/postgis_integration.test.js": "Only two comments and admission_targets added to existing guarded fixture TRUNCATE. Production expiry replay checks unchanged. Final image integration log records9/9PASS."
+  },
+  "unresolvedScopeBlockers": [],
+  "notAnExecutionReadinessVerdict": [
+    "Heavy-history and local Linux useful-render target failures remain reported; this scope review does not alter those results.",
+    "F5 retention decision, F6 portability choice, F7/F9 operating exceptions, exact setup/spend approval and provider-only checks remain separate.",
+    "No build/test/cloud/Git mutation was executed by this scope check; existing final execution receipts were read."
+  ],
+  "plannedGitMethodAssessment": "The stated alternate-index commit can preserve owner work because the45paths and006report/evidence additions are disjoint from current staged/unstaged/untracked owner paths. Initialize alternate index from expected HEAD, add only exact approved source/report paths, preserve the real index non006 entries, then update only006 entries after commit. The integrator must still verify resulting tree, index preservation, remote main and peeled tag; this review performs none of those mutations."
+}

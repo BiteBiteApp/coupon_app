@@ -1,0 +1,48 @@
+test_three_exact_independent_conditions_and_two_channels_remain_required (test_phase_transition.NotificationDescriptors) ... ok
+test_lost_transition_cas_reply_reconciles_next_config_without_new_timer (test_phase_transition.Phases) ... ok
+test_new_phase_requires_new_config_control_receipt_before_paid_admission (test_phase_transition.Phases) ... ok
+test_new_sql_preflight_policy_staleness_identity_and_signature_refuse_before_cas (test_phase_transition.Phases) ... FAIL
+test_policy_clock_trust_and_resource_name_changes_refuse_without_mutation (test_phase_transition.Phases) ... ok
+test_real_prior_configuration_and_ledger_must_both_be_diagnostic (test_phase_transition.Phases) ... ok
+test_signed_phase_refresh_qualifies_exact_new_sql_incarnation_and_cleanup (test_phase_transition.Phases) ... ERROR
+test_transition_preserves_original_clock_every_liability_and_prior_receipt (test_phase_transition.Phases) ... ok
+test_unresolved_or_reappeared_resources_and_pending_cancellation_refuse (test_phase_transition.Phases) ... ok
+test_wrong_signature_old_config_replay_and_new_phase_replay_refuse (test_phase_transition.Phases) ... ok
+test_cleanup_cannot_treat_old_execution_as_missing_new_execution_completion (test_job_reservations.FiniteJobReservations) ... ok
+test_exact_sequence_prior_terminal_receipt_and_global_reservations_are_preserved (test_job_reservations.FiniteJobReservations) ... ok
+test_fixture_stream_must_reserve_actual_per_invocation_source_bounds (test_job_reservations.FiniteJobReservations) ... ok
+test_lost_second_reply_retains_intent_and_does_not_match_old_completed_execution (test_job_reservations.FiniteJobReservations) ... ok
+test_no_unsigned_extra_or_duplicate_reservation_and_existing_global_cap_remains (test_job_reservations.FiniteJobReservations) ... ok
+
+======================================================================
+ERROR: test_signed_phase_refresh_qualifies_exact_new_sql_incarnation_and_cleanup (test_phase_transition.Phases)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/tool/postgis_staging/scripts/test_phase_transition.py", line 145, in test_signed_phase_refresh_qualifies_exact_new_sql_incarnation_and_cleanup
+    self.transition()
+  File "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/tool/postgis_staging/scripts/test_phase_transition.py", line 43, in transition
+    return self.c.transition_to_serving(self.next, self.next_approval, self.envelope, 'e' * 64)
+  File "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/tool/postgis_staging/scripts/cloud_controller.py", line 166, in transition_to_serving
+    return transition_to_serving(self, next_config, next_approval, transition_envelope, evidence_digest)
+  File "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/tool/postgis_staging/scripts/phase_transition.py", line 58, in transition_to_serving
+    need(old_config['provider'].get(key) == next_config['provider'].get(key), 'phase control identity/policy changed: ' + key)
+  File "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/tool/postgis_staging/scripts/guard.py", line 7, in need
+    if not condition: raise Rejected(reason)
+guard.Rejected: phase control identity/policy changed: controllerServiceAccount
+
+======================================================================
+FAIL: test_new_sql_preflight_policy_staleness_identity_and_signature_refuse_before_cas (test_phase_transition.Phases)
+----------------------------------------------------------------------
+guard.Rejected: phase control identity/policy changed: controllerServiceAccount
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/tool/postgis_staging/scripts/test_phase_transition.py", line 181, in test_new_sql_preflight_policy_staleness_identity_and_signature_refuse_before_cas
+    with self.assertRaisesRegex(Rejected,'signature'):self.transition()
+AssertionError: "signature" does not match "phase control identity/policy changed: controllerServiceAccount"
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.048s
+
+FAILED (failures=1, errors=1)

@@ -1,0 +1,12 @@
+✔ real Firestore bootstrap survives SQL loss via local-files, bounded resume and post-snapshot replay (29596.798097ms)
+ℹ Qualified 546 real projection rows; recovery evidence /evidence/recovery-snapshot-iVGSQ4/qualification.json
+✔ real Firestore bootstrap survives SQL loss via simulated-gcs-json-api, bounded resume and post-snapshot replay (44074.395895ms)
+ℹ Qualified 546 real projection rows; recovery evidence /evidence/recovery-snapshot-FPVgmb/qualification.json
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 74088.728201

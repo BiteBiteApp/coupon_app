@@ -202,13 +202,11 @@ if (process.env.POSTGIS_SOURCE_EMULATOR_TEST !== "1") {
         const fs = require("node:fs/promises"), os = require("node:os"), path = require("node:path");
         const R = require("../lib/postgis_source_recovery.js");
         const directory = await fs.mkdtemp(path.join(os.tmpdir(), "bs-source-recovery-"));
-        const manifestPath = (id) => path.join(directory, `${id}.json`);
-        const rowPath = (id) => path.join(directory, `${id}.jsonl`);
-        const reader = {
-          async readRecoveryManifest(id) {try {return JSON.parse(await fs.readFile(manifestPath(id), "utf8"));} catch (error) {if (error.code === "ENOENT") return null; throw error;}},
-          async readRecoveryRows(id, after, limit) {return (await fs.readFile(rowPath(id), "utf8")).split("\n").filter(Boolean)
-            .map((line) => JSON.parse(line)).filter((row) => after === null || R.postgisRecoveryIdentity(row) > after).slice(0, limit);},
-        };
+        const {LocalPostgisSnapshotReader} = require("../lib/postgis_snapshot.js");
+        const reader = new LocalPostgisSnapshotReader(directory);
+        const manifestPath = id => reader.path(id,"manifest.json"), rowPath=id=>reader.path(id,"rows.jsonl");
+        async function replace(file,bytes) {await fs.chmod(file,0o600);await fs.writeFile(file,bytes);await fs.chmod(file,0o400);}
+        async function acknowledge(fence,manifest) {while (!(await source.acknowledgePublishedFence(fence,manifest,reader)).ready) {}}
         async function saveSnapshot(id, fence) {
           const latest = new Map();
           for (const event of await allEvents(fence)) {
@@ -218,8 +216,11 @@ if (process.env.POSTGIS_SOURCE_EMULATOR_TEST !== "1") {
           }
           const rows = [...latest.values()].sort((a, b) => R.postgisRecoveryIdentity(a) < R.postgisRecoveryIdentity(b) ? -1 : 1);
           const manifest = R.createPostgisRecoveryManifest(id, fence, rows);
-          await fs.writeFile(manifestPath(id), JSON.stringify(manifest));
-          await fs.writeFile(rowPath(id), rows.map((row) => JSON.stringify(row)).join("\n") + "\n");
+          const content=rows.map(row=>JSON.stringify(row)+"\n").join("");
+          let bytes=0;const offsets=[];for(let i=0;i<rows.length;i++) {if(i%500===0)offsets.push({identity:R.postgisRecoveryIdentity(rows[i]),offset:bytes});bytes+=Buffer.byteLength(JSON.stringify(rows[i])+"\n");}
+          await fs.writeFile(manifestPath(id), JSON.stringify(manifest),{mode:0o400});
+          await fs.writeFile(rowPath(id), content,{mode:0o400});
+          await fs.writeFile(reader.path(id,"offsets.json"),JSON.stringify({rowCount:rows.length,dataBytes:bytes,offsets}),{mode:0o400});
           return {manifest, rows};
         }
         try {
@@ -227,22 +228,25 @@ if (process.env.POSTGIS_SOURCE_EMULATOR_TEST !== "1") {
           const firstFence = await source.readFence();
           const first = await saveSnapshot("first", firstFence);
           const exactRows = await fs.readFile(rowPath("first"), "utf8");
-          await fs.writeFile(rowPath("first"), "");
-          await assert.rejects(source.acknowledgePublishedFence(firstFence, first.manifest, reader), /incomplete/);
-          await fs.writeFile(rowPath("first"), exactRows);
+          await replace(rowPath("first"), "");
+          await assert.rejects(source.acknowledgePublishedFence(firstFence, first.manifest, reader), /incomplete|sparse index/);
+          await replace(rowPath("first"), exactRows);
           await assert.rejects(source.acknowledgePublishedFence({...firstFence, epoch: "wrong"}, first.manifest, reader), /epoch/);
-          await source.acknowledgePublishedFence(firstFence, first.manifest, reader);
+          await acknowledge(firstFence, first.manifest);
           await put("newer-snapshot", restaurant("Newer"));
           const secondFence = await source.readFence();
           const second = await saveSnapshot("second", secondFence);
-          await source.acknowledgePublishedFence(secondFence, second.manifest, reader);
+          await acknowledge(secondFence, second.manifest);
           await assert.rejects(source.acknowledgePublishedFence(firstFence, first.manifest, reader), /older/);
           await put("must-survive-prune", restaurant("After acknowledged snapshot"));
           const finalFence = await source.readFence();
           const durableFile = await fs.readFile(manifestPath("second"), "utf8");
           await fs.unlink(manifestPath("second"));
           await assert.rejects(source.pruneAcknowledgedEvents(reader, 2), /unavailable/);
-          await fs.writeFile(manifestPath("second"), durableFile);
+          await fs.writeFile(manifestPath("second"), durableFile,{mode:0o400});
+          await assert.rejects(source.pruneAcknowledgedEvents(reader,2),/changed/);
+          const replacement = await saveSnapshot("second-requalified",secondFence);
+          await acknowledge(secondFence,replacement.manifest);
           let deleted = 0;
           while (true) {
             const batch = await source.pruneAcknowledgedEvents(reader, 2);

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:http/io_client.dart';
 
 import 'package:coupon_app/screens/bitescore_create_rate_screen.dart';
 import 'package:coupon_app/screens/bitescore_home_screen.dart';
@@ -12,6 +14,7 @@ import 'package:coupon_app/services/customer_bitesaver_search_coordinator.dart';
 import 'package:coupon_app/services/customer_bitesaver_service.dart';
 import 'package:coupon_app/services/customer_bitescore_search_service.dart';
 import 'package:coupon_app/services/customer_search_candidate_runtime.dart';
+import 'package:coupon_app/services/customer_search_http_transport.dart';
 import 'package:coupon_app/services/shared_location_state_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -38,6 +41,8 @@ class _Preferences implements CustomerBiteSaverGuestUsagePreferences {
 void main() {
   final observations = <Map<String, Object?>>[];
   HttpClient? http;
+  CustomerSearchHttpTransport? guestTransport;
+  CustomerSearchHttpTransport? signedTransport;
   Zone? networkZone;
   String? bearer;
   String? userId;
@@ -49,14 +54,10 @@ void main() {
   Future<Map<String, dynamic>> post(
     Uri uri,
     Object body, {
-    bool signed = false,
     bool emulatorOwner = false,
   }) => networkZone!.run(() async {
     final request = await http!.postUrl(uri);
     request.headers.contentType = ContentType.json;
-    if (signed) {
-      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearer');
-    }
     if (emulatorOwner) {
       if (uri.host != "127.0.0.1" || uri.port != 9099) {
         throw StateError("Emulator owner is local-only.");
@@ -80,17 +81,9 @@ void main() {
     final timing = <String, Object?>{'endpoint': name, 'sequence': calls};
     callTimings.add(timing);
     try {
-      final response = await post(Uri.parse('$_url/$name'), {
-        'data': data,
-      }, signed: signed);
-      if (response['error'] case final Map error) {
-        timing['errorCode'] = error['status'];
-        throw CustomerBiteSaverCallableTransportException(
-          code: (error['status'] as String).toLowerCase().replaceAll('_', '-'),
-          message: error['message'] as String,
-        );
-      }
-      final result = response['result'];
+      final result = await networkZone!.run(
+        () => (signed ? signedTransport! : guestTransport!).call(name, data),
+      );
       timing['status'] = 'success';
       if (result is Map) {
         timing['challengeCandidates'] = result['candidates'] is List
@@ -98,9 +91,10 @@ void main() {
             : 0;
       }
       return result;
-    } catch (_) {
+    } catch (error) {
       errors++;
       timing['status'] = 'failure';
+      if (error is FirebaseFunctionsException) timing['errorCode'] = error.code;
       rethrow;
     } finally {
       watch.stop();
@@ -120,13 +114,19 @@ void main() {
     SharedLocationStateService.resetForTesting();
   });
   tearDownAll(() {
+    guestTransport?.close();
+    signedTransport?.close();
     http?.close(force: true);
     if (_evidencePath.isNotEmpty) {
       File(_evidencePath).writeAsStringSync(
         const JsonEncoder.withIndent('  ').convert({
           'kind': 'actual-flutter-widget-local-http-firestore-auth-postgis',
           'hostedEvidence': false,
+          'transport':
+              'CustomerSearchHttpTransport with explicit loopback test opt-in',
           'sampleCountsDoNotSupportHostedTailLatencyClaims': true,
+          'timingBoundary':
+              'accepted center through useful render; geocoding excluded',
           'observations': observations,
         }),
       );
@@ -142,6 +142,18 @@ void main() {
       http ??= HttpOverrides.runWithHttpOverrides(
         () => HttpClient(),
         _RealHttpOverrides(),
+      );
+      guestTransport ??= CustomerSearchHttpTransport(
+        serviceUrl: Uri.parse(_url),
+        idToken: () async => null,
+        client: IOClient(http!),
+        allowLoopbackForTesting: true,
+      );
+      signedTransport ??= CustomerSearchHttpTransport(
+        serviceUrl: Uri.parse(_url),
+        idToken: () async => bearer,
+        client: IOClient(http!),
+        allowLoopbackForTesting: true,
       );
       final credentials = {
         'targetProjectId': 'demo-bs-postgis-flutter',
@@ -364,29 +376,38 @@ void main() {
     tester.view.physicalSize = const Size(1000, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    final failures = <int>[];
     for (var run = 0; run < 3; run++) {
       resetObservation();
       SharedLocationStateService.resetForTesting();
       location();
       final api = CustomerBiteScoreSearchService(transport: invoke);
       final watch = Stopwatch()..start();
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MediaQuery(
-            data: const MediaQueryData(textScaler: TextScaler.linear(0.5)),
-            child: BiteScoreHomeScreen(
-              testSearchApi: api,
-              testHomeEntriesLoader: () =>
-                  throw StateError('Unexpected legacy directory read.'),
+      var status = 'failure';
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MediaQuery(
+              data: const MediaQueryData(textScaler: TextScaler.linear(0.5)),
+              child: BiteScoreHomeScreen(
+                testSearchApi: api,
+                testHomeEntriesLoader: () =>
+                    throw StateError('Unexpected legacy directory read.'),
+              ),
             ),
           ),
-        ),
-      );
-      await untilUseful(tester, find.text('Synthetic Hoagie'));
-      record('bitescore-dish-home', watch, run);
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump();
+        );
+        await untilUseful(tester, find.text('Synthetic Hoagie'));
+        status = 'success';
+      } catch (_) {
+        failures.add(run);
+      } finally {
+        record('bitescore-dish-home', watch, run, status: status);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+      }
     }
+    expect(failures, isEmpty, reason: 'Every attempted sample is retained.');
   }, skip: _url.isEmpty);
 
   testWidgets(
@@ -396,6 +417,7 @@ void main() {
       tester.view.physicalSize = const Size(1000, 1600);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
+      final failures = <int>[];
       for (var run = 0; run < 3; run++) {
         resetObservation();
         final api = CustomerBiteScoreSearchService(transport: invoke);
@@ -419,24 +441,32 @@ void main() {
               widget.decoration?.labelText == 'Restaurant Name',
         );
         final watch = Stopwatch()..start();
-        await tester.enterText(field, 'Synthetic Gate0 Catalog');
-        // Widget tests advance timers virtually. Include the real debounce
-        // wait in elapsed-time evidence instead of claiming it was free.
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 300)),
-        );
-        await tester.pump(const Duration(milliseconds: 300));
-        await untilUseful(
-          tester,
-          find.textContaining(
-            'Synthetic Gate0 Catalog 0000000',
-            findRichText: true,
-          ),
-        );
-        record('create-rate-finder', watch, run);
-        await tester.pumpWidget(const SizedBox());
-        await tester.pump();
+        var status = 'failure';
+        try {
+          await tester.enterText(field, 'Synthetic Gate0 Catalog');
+          // Widget tests advance timers virtually. Include the real debounce
+          // wait in elapsed-time evidence instead of claiming it was free.
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 300)),
+          );
+          await tester.pump(const Duration(milliseconds: 300));
+          await untilUseful(
+            tester,
+            find.textContaining(
+              'Synthetic Gate0 Catalog 0000000',
+              findRichText: true,
+            ),
+          );
+          status = 'success';
+        } catch (_) {
+          failures.add(run);
+        } finally {
+          record('create-rate-finder', watch, run, status: status);
+          await tester.pumpWidget(const SizedBox());
+          await tester.pump();
+        }
       }
+      expect(failures, isEmpty, reason: 'Every attempted sample is retained.');
     },
     skip: _url.isEmpty,
   );

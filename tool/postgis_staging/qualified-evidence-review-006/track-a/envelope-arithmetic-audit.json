@@ -1,0 +1,20 @@
+{
+  "kind": "whole-interval exact-rational branch audit; not sampling",
+  "retained_audit_sha256": "b0445dca0915ceb2938085cdf7bd0bd0702bc967a9e45ede71364ea247d0d94d",
+  "native_ieee754_source_sha256": "1bf999809d4c4c1d31ad5ff3578d32614796f159e08b9e7782560d017721a0c2",
+  "script_sha256": "768083a9140efd8b78509e0b5b2954700fa6e52c68df676cc34b77c09ee1bd60",
+  "longitude_fence_degrees": 4,
+  "envelope_rounding_slack_degrees": "1e-8",
+  "latitude_domain_degrees": [
+    -60,
+    60
+  ],
+  "excluded_sine_absolute_lower": ".02",
+  "direct_sine_lower": "0.0313112067025002549646390035699082825389391547",
+  "cosine_branch_lower": "0.690999999999998930985456446762786929499439653",
+  "reduced_sine_lower": "0.0313112067025002447571457811668749921633595361",
+  "excluded_native_distance_lower_meters": "102050.191999999977340305434836410661808257247",
+  "maximum_supported_radius_meters": "48280.32",
+  "runtime_guard_unchanged": true,
+  "assertions": "all passed"
+}

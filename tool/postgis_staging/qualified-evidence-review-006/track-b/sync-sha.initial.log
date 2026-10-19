@@ -1,0 +1,29 @@
+✔ serialized SHA256 matches native crypto including NIST and every block boundary (1401.751167ms)
+✔ malformed serialized hash state fails closed and shaped corruption cannot match digest (0.308208ms)
+▶ B006 finite admission, transactional incremental manifest and independent audit
+  ✖ one finite target survives process restart and unrelated continuous writes (110.861875ms)
+  ✔ duplicates, deletes, recreate and rollback maintain exact manifest (206.61025ms)
+  ✔ audit detects metadata corruption independently (10.68675ms)
+  ✔ publication aggregates fixed48 while full audit remains explicit (8.879041ms)
+✖ B006 finite admission, transactional incremental manifest and independent audit (4089.194625ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 5
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5619.116209
+
+✖ failing tests:
+
+test at test/postgis_b006_sync.test.cjs:24:10
+✖ one finite target survives process restart and unrelated continuous writes (110.861875ms)
+  SyntaxError: Cannot convert [object Object] to a BigInt
+      at BigInt (<anonymous>)
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_sync.test.cjs:38:61)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_sync.test.cjs:24:2)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

@@ -1,0 +1,26 @@
+✔ 2D recall emits wrapped envelopes only in its proved latitude domain (0.548167ms)
+✖ actual 50k-parent SQL plans, conservative recall and exhaustive native oracle (35964.829875ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35974.331292
+
+✖ failing tests:
+
+test at ../../.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_query_006.test.cjs:154:1
+✖ actual 50k-parent SQL plans, conservative recall and exhaustive native oracle (35964.829875ms)
+  CustomerBiteScoreSearchError: Invalid BiteScore search request.
+      at invalid (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/customer_bitescore_search_contract.js:58:11)
+      at Object.parseCustomerBiteScoreCriteria (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/customer_bitescore_search_contract.js:106:9)
+      at score (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_query_006.test.cjs:73:50)
+      at cases (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_query_006.test.cjs:81:52)
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_query_006.test.cjs:165:21)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'invalid-argument'
+  }

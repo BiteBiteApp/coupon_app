@@ -75,7 +75,7 @@ class MetadataToken:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--mode', choices=['dry-run', 'execute'], default='dry-run')
-    parser.add_argument('--action', choices=['start', 'watchdog', 'create', 'run-job', 'job-status', 'poll', 'cleanup-poll', 'absence', 'delete', 'confirm-controls', 'begin-work', 'confirm-checkpoint', 'complete-gate', 'heartbeat'], default='watchdog')
+    parser.add_argument('--action', choices=['start', 'watchdog', 'create', 'run-job', 'job-status', 'poll', 'cleanup-poll', 'absence', 'delete', 'confirm-controls', 'begin-work', 'confirm-checkpoint', 'complete-gate', 'heartbeat', 'transition-serving', 'confirm-phase-controls'], default='watchdog')
     parser.add_argument('--config', type=Path, required=True)
     parser.add_argument('--approval', type=Path)
     parser.add_argument('--trusted-keys', type=Path)
@@ -105,6 +105,11 @@ def main():
     if args.action == 'watchdog': result = controller.safety_tick()
     elif args.action == 'start': result = controller.start()
     elif args.action == 'confirm-controls': result = controller.confirm_controls(request)
+    elif args.action == 'confirm-phase-controls': result = controller.confirm_phase_controls(request)
+    elif args.action == 'transition-serving':
+        result = controller.transition_to_serving(request['nextConfiguration'],
+            SignedApproval(request['nextConfiguration'], request['nextApproval'], args.node, args.verifier, args.trusted_keys, clock),
+            request['transitionApproval'], request['evidenceDigest'])
     elif args.action == 'confirm-checkpoint':
         result = controller.confirm_early_checkpoint(SignedApproval(config, request, args.node,
             args.verifier, args.trusted_keys, clock))

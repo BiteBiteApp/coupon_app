@@ -1,0 +1,66 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.51kB done
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 3)
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 6)
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 27)
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12.13-slim-bookworm@sha256:6e13e65c55e33adf203d77ee371cf8bf5d81bd4902ef07565721f46bf44917af
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [build  1/20] FROM docker.io/library/python:3.12.13-slim-bookworm@sha256:6e13e65c55e33adf203d77ee371cf8bf5d81bd4902ef07565721f46bf44917af
+#5 resolve docker.io/library/python:3.12.13-slim-bookworm@sha256:6e13e65c55e33adf203d77ee371cf8bf5d81bd4902ef07565721f46bf44917af done
+#5 DONE 0.0s
+
+#6 [node 1/1] FROM docker.io/library/node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd
+#6 resolve docker.io/library/node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd done
+#6 DONE 0.0s
+
+#7 [build  3/20] COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+#7 CACHED
+
+#8 [build  2/20] COPY --from=node /usr/local/bin/node /usr/local/bin/node
+#8 CACHED
+
+#9 [build  4/20] COPY --from=node /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+#9 CACHED
+
+#10 [build  5/20] COPY --from=node /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/libgcc_s.so.1
+#10 CACHED
+
+#11 [internal] load build context
+#11 transferring context: 9.16MB 0.1s done
+#11 DONE 0.1s
+
+#12 [build  6/20] RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
+#12 DONE 0.1s
+
+#13 [build  7/20] RUN node --version && npm --version && python3 --version && python3 -c "import ssl, sqlite3"
+#13 0.083 v24.21.0
+#13 0.542 11.19.0
+#13 0.573 Python 3.12.13
+#13 DONE 0.7s
+
+#14 [build  8/20] WORKDIR /app/functions
+#14 DONE 0.0s
+
+#15 [build  9/20] COPY functions/package.json functions/package-lock.json ./
+#15 DONE 0.0s
+
+#16 [build 10/20] RUN npm ci --ignore-scripts --no-audit --no-fund
+#16 CANCELED
+
+ [33m3 warnings found (use docker --debug to expand):
+[0m - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 3)
+ - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 6)
+ - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 27)
+ERROR: failed to build: failed to solve: Canceled: context canceled

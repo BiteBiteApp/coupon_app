@@ -1,0 +1,39 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006",
+  "createdAt": "2026-10-19T21:18:59.494164+00:00",
+  "role": "Track C targeted independent diagnosis and authorized test-only repair",
+  "classification": "FIX NOW / DIRECTLY REQUIRED",
+  "verdict": "CAUSE_CONFIRMED_TEST_RESET_CORRECTED; parent real integration rerun pending",
+  "changedFile": "functions/test/postgis_integration.test.js",
+  "beforeSha256": "01f7f4c9e8a6ba0a1c81035867ee1008adbcc5a3623538d72b400113a49392e0",
+  "afterSha256": "504dcda5cd05c6eee6f761c68d8fbd32466ec427446aca24ed3a9d8e5f519c86",
+  "exactChange": "Add admission_targets to existing guarded isolated fixture TRUNCATE; two explanatory comment lines. No request IDs, assertions, retries, native validation or product behavior changed.",
+  "failureEvidence": {
+    "file": "../search-image-tests.v2.log",
+    "sha256": "a4a050de52b07b3e82738431d0b4cd8cd5a3b88c35b95b8c32245672efce8ad6",
+    "counts": {
+      "passed": 324,
+      "failed": 2
+    },
+    "reason": "Failed Score/Finder subtest and its enclosing test; original bytes retained."
+  },
+  "readOnlyConfirmation": {
+    "file": "integration-reset-observation.v2.json",
+    "sha256": "6dee2f28088b6f1b03d18c13daa82a49cd80754e3ae03c7aaa8344b5b770a7a9",
+    "facts": "The preparing Score binding and existing SQL target had the exact same pin with different expiries. The independently defined admission_targets table has no FK that would include it in existing TRUNCATE CASCADE. Recreated Firestore and revision pins therefore left a stale finite admission target. pinRevision intentionally rejects this changed replay."
+  },
+  "productionDependenciesUnchanged": {
+    "functions/src/postgis_store.ts": "1c97a55c9d9b1780a3e8aec33afb65ec9c5247e4e10d9de93278192a794899cb",
+    "functions/src/postgis_handlers.ts": "94eb93a362b84132d886c60827a6c797b57884d1f4830bf9343fdf70a5a37021",
+    "functions/src/postgis_search_binding.ts": "659edbdbce094605826d1cba88d194ca86e96c185380c91361b6e4ad041d1a9c",
+    "functions/search_candidate/schema.sql": "99f22dfcebe89c377d1348473b6acc75e41352ae7d48201d779dc268ce7b537d"
+  },
+  "verification": {
+    "javascriptSyntax": "node --check PASS",
+    "exactDiff": "asserted only expected reset token/comment addition",
+    "sqlActivity": "Read-only bounded metadata counts and exact pending-pin match; no database mutation or integration/SQL load test run during Flutter measurement"
+  },
+  "failedInspectionAttempt": "First unauthenticated emulator REST read returned non-success and the assertion stopped before documents or SQL matching. Explicit loopback emulator-owner read then succeeded; no real credential or provider was used. Empty initial observation file retained.",
+  "preservation": "All earlier frozen C/A/root review receipts and failed image log unchanged; new test-only source correction is separate.",
+  "remaining": "Root reruns affected integration using final test bytes and existing image runtime, recording exact image/test identities."
+}

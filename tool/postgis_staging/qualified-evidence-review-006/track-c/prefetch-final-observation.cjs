@@ -1,0 +1,13 @@
+const fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),crypto=require('node:crypto'),assert=require('node:assert/strict');
+const root='/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source';
+const fixturePath=path.join(root,'functions/test/customer_bitesaver_search_handlers.test.js');
+const fixture=new Module(fixturePath,module);fixture.filename=fixturePath;fixture.paths=Module._nodeModulePaths(path.dirname(fixturePath));
+const actual=Module.createRequire(fixturePath);fixture.require=id=>id==='node:test'?()=>undefined:actual(id);
+fixture._compile(fs.readFileSync(fixturePath,'utf8')+'\nmodule.exports.boundary={restaurantWindowFixture,finishRestaurantWindow,guestAnswerRequest};',fixturePath);
+const F=fixture.exports.boundary,C=actual('../lib/customer_bitesaver_search_contract.js');
+(async()=>{const f=await F.restaurantWindowFixture({count:60,offers:3}),query=f.database.queryDocuments.bind(f.database),calls=[];
+ f.database.queryDocuments=async input=>{const rows=await query(input);if(input.collectionPath===C.privateCustomerBiteSaverResultCollection)calls.push({limit:input.limit,returned:rows.length});return rows;};
+ const first=await f.page();assert.equal(first.candidates.length,75);
+ const second=await f.answer(F.guestAnswerRequest(f.started,first,[]));assert.equal(second.candidates.length,3);
+ console.log(JSON.stringify({kind:'independent-actual-native-MemoryDatabase-control-flow-not-SQL-timing',compiledSessionSha256:crypto.createHash('sha256').update(fs.readFileSync(actual.resolve('../lib/customer_bitesaver_search_session.js'))).digest('hex'),firstChallengeIds:first.candidates.length,secondChallengeIds:second.candidates.length,membershipCalls:calls,remainingNeed:'first75 accepted IDs cover25restaurants; next request requires only1lookahead parent'},null,2));
+})().catch(e=>{console.error(e);process.exitCode=1;});

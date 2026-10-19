@@ -1,0 +1,58 @@
+✔ integer-only guest progress keeps the existing fingerprint bytes (0.443834ms)
+✖ each permitted distance field is lossless, bounded and fingerprint-sensitive (0.14775ms)
+✖ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=false) (40.721167ms)
+✖ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=true) (13.147292ms)
+✖ one-ULP fractional progress tampering cannot reuse an accepted challenge token (0.910833ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 1
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 57.493125
+
+✖ failing tests:
+
+test at functions/test/postgis_guest_boundary_006.test.cjs:19:1
+✖ each permitted distance field is lossless, bounded and fingerprint-sensitive (0.14775ms)
+  QueryFingerprintError: Search criteria could not be fingerprinted.
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/query_fingerprint.js:34:19)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/query_fingerprint.js:44:57
+      at Array.map (<anonymous>)
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/query_fingerprint.js:44:35)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/query_fingerprint.js:64:17
+      at Array.map (<anonymous>)
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/query_fingerprint.js:62:18)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/query_fingerprint.js:64:17
+      at Array.map (<anonymous>)
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/query_fingerprint.js:62:18) {
+    code: 'query_fingerprint_error'
+  }
+
+test at functions/test/postgis_guest_boundary_006.test.cjs:30:35
+✖ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=false) (40.721167ms)
+  RangeError: Valid restaurant coordinates are required.
+      at exactCustomerBiteSaverDistanceMeters (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/restaurant_geo_helpers.js:129:15)
+      at exactCustomerBiteSaverDistanceMiles (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/restaurant_geo_helpers.js:144:12)
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_boundary_006.test.cjs:32:17)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at functions/test/postgis_guest_boundary_006.test.cjs:30:35
+✖ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=true) (13.147292ms)
+  RangeError: Valid restaurant coordinates are required.
+      at exactCustomerBiteSaverDistanceMeters (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/restaurant_geo_helpers.js:129:15)
+      at exactCustomerBiteSaverDistanceMiles (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/restaurant_geo_helpers.js:144:12)
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_boundary_006.test.cjs:32:17)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at functions/test/postgis_guest_boundary_006.test.cjs:49:1
+✖ one-ULP fractional progress tampering cannot reuse an accepted challenge token (0.910833ms)
+  RangeError: Valid restaurant coordinates are required.
+      at exactCustomerBiteSaverDistanceMeters (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/restaurant_geo_helpers.js:129:15)
+      at exactCustomerBiteSaverDistanceMiles (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/restaurant_geo_helpers.js:144:12)
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_boundary_006.test.cjs:51:17)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

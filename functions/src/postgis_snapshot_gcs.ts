@@ -5,8 +5,8 @@ import {
 } from "./postgis_execution_approval.js";
 import {postgisCanonicalJson, type PostgisJson} from "./postgis_source.js";
 import {
-  postgisRecoveryIdentity, validatePostgisRecoverySnapshot, validatePostgisSourceFence,
-  type PostgisRecoveryManifest, type PostgisRecoveryRow, type PostgisRecoverySnapshotReader,
+  postgisRecoveryIdentity, validatePostgisRecoverySnapshot, validatePostgisSourceFence, registerPostgisRecoveryArtifactReader,
+  type PostgisRecoveryManifest, type PostgisRecoveryRow, type PostgisRecoverySnapshotReader, type PostgisRecoveryArtifactProof,
 } from "./postgis_source_recovery.js";
 
 const protocol = "bitestar.postgis-gcs-snapshot.v1";
@@ -104,6 +104,7 @@ export class GcsPostgisSnapshotStore implements PostgisRecoverySnapshotReader {
   private readonly expected: PostgisApprovalExpectation;
   private readonly transport: PostgisSnapshotTransport;
   private readonly pinned = new Map<string, string>();
+  private protectedUntilMs: number | null = null;
   constructor(
     configuration: Readonly<Record<string, unknown>>, permit: VerifiedPostgisExecutionPermit,
     options: Readonly<{transport?: PostgisSnapshotTransport; now?: () => number}> = {},
@@ -130,6 +131,20 @@ export class GcsPostgisSnapshotStore implements PostgisRecoverySnapshotReader {
     this.check();
     this.transport = options.transport ?? googleTransport(this.check, c.serviceAccountEmail);
     approvedStores.set(this, Object.freeze({check: this.check, configDigest: this.expected.configDigest, snapshotId: c.snapshotId}));
+    registerPostgisRecoveryArtifactReader(this, async (id, previous) => {
+      // Optional fast path only. No bucket policy is created or modified here.
+      // Generation pinning alone cannot promise an object survives deletion.
+      const bucket = await this.bucket();
+      if (bucket.retentionPolicy?.isLocked !== true) throw new Error("Bounded source pruning requires separately approved locked snapshot retention; ordinary snapshot reads remain available.");
+      const until = previous?.validUntilMs ?? Math.max(permit.cleanupUntilMs, now() + 24 * 60 * 60_000);
+      if (!Number.isSafeInteger(until) || until === null || until <= now() || until < permit.cleanupUntilMs) throw new Error("Snapshot retention proof expired before the recovery/cleanup horizon.");
+      this.protectedUntilMs = until;
+      const envelope = await this.envelope(id);
+      if (!envelope) throw new Error("Retained recovery snapshot is unavailable.");
+      const identity = sha256(Buffer.from(json({bucket:this.config.bucket,bucketCreatedAt:this.config.bucketCreatedAt,
+        generation:this.pinned.get(id),envelope,until})));
+      return {kind:"gcs-locked-retention",identity,validUntilMs:until} as PostgisRecoveryArtifactProof;
+    });
   }
   private readonly check: () => void;
   assertConfiguration(configuration: Readonly<Record<string, unknown>>, id: string): void {
@@ -149,7 +164,7 @@ export class GcsPostgisSnapshotStore implements PostgisRecoverySnapshotReader {
     }
     return result;
   }
-  private async bucket(): Promise<void> {
+  private async bucket(): Promise<any> {
     const result = await this.request({method: "GET", url: `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(this.config.bucket)}`,
       maxResponseBytes: 128 * 1024});
     if (result.status !== 200) throw new Error(`Snapshot bucket unavailable (${result.status}).`);
@@ -157,6 +172,7 @@ export class GcsPostgisSnapshotStore implements PostgisRecoverySnapshotReader {
     if (data.name !== this.config.bucket || data.projectNumber !== this.expected.projectNumber || data.timeCreated !== this.config.bucketCreatedAt) {
       throw new Error("Snapshot bucket ownership/incarnation mismatch.");
     }
+    return data;
   }
   private metadataMatches(data: any, receipt: ObjectReceipt): boolean {
     return data.name === receipt.name && data.bucket === this.config.bucket && data.generation === receipt.generation &&
@@ -168,6 +184,10 @@ export class GcsPostgisSnapshotStore implements PostgisRecoverySnapshotReader {
     const parameters = `generation=${receipt.generation}&ifGenerationMatch=${receipt.generation}`;
     const meta = await this.request({method: "GET", url: `${this.objectUrl(receipt.name)}?${parameters}`, maxResponseBytes: 128 * 1024});
     if (meta.status !== 200 || !this.metadataMatches(parse(meta.body), receipt)) throw new Error("Snapshot object generation/metadata unavailable.");
+    if (this.protectedUntilMs !== null) {
+      const expiration = Date.parse(parse(meta.body).retentionExpirationTime);
+      if (!Number.isFinite(expiration) || expiration < this.protectedUntilMs) throw new Error("Snapshot object retention does not cover the validated recovery horizon.");
+    }
     const media = await this.request({method: "GET", url: `${this.objectUrl(receipt.name)}?alt=media&${parameters}`, maxResponseBytes: receipt.bytes});
     if (media.status !== 200 || media.body.length !== receipt.bytes || sha256(media.body) !== receipt.sha256 ||
         parse(meta.body).md5Hash !== md5(media.body)) throw new Error("Snapshot object missing or checksum mismatch.");

@@ -1,0 +1,31 @@
+✔ integer-only guest progress keeps the existing fingerprint bytes (0.793292ms)
+✔ each permitted distance field is lossless, bounded and fingerprint-sensitive (0.904167ms)
+✔ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=false) (650.27225ms)
+✔ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=true) (305.950708ms)
+✔ one-ULP fractional progress tampering cannot reuse an accepted challenge token (8.425541ms)
+✔ opt-in window requests one bounded membership batch; serial stays one row (246.176291ms)
+✔ whole prefetched batch rejected by current parent authority refills privately (78.371666ms)
+✔ whole first history batch rejected refills with exact page cursor and order (156.382042ms)
+✔ 75-ID global cap discards unused private tail and later resumes without loss (115.957417ms)
+✔ unused prefetched authority is rechecked and all-filtered exhaustion is truthful (115.2585ms)
+✔ accepted-answer interruption retains replay and no cross-account cached membership (92.349ms)
+✔ stored ready restaurants cap subsequent membership to missing useful slots plus lookahead (162.474875ms)
+✔ one remaining slot refills after whole bounded history or authority rejection batches (379.022875ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-expired (1.541917ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-start-submillisecond (0.635292ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-start-submicrosecond (0.58475ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-end-inclusive (0.500792ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-end-submillisecond (0.522ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-scheduled (0.465958ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-available (0.548292ms)
+✔ SQL JSON round-trip preserves native time eligibility: daily-expired (0.718ms)
+✔ SQL JSON round-trip preserves native time eligibility: daily-available (0.570958ms)
+﹣ real SQL selector and native membership agree for timestamp schedules and resumptions (0.195334ms) # SKIP
+ℹ tests 23
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 2539.319209

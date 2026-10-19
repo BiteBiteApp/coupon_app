@@ -1,0 +1,35 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006",
+  "createdAt": "2026-10-19T20:57:55.960367+00:00",
+  "verdict": "SOURCE_CORRECTED_LOCALLY_TESTED_INDEPENDENTLY_REVIEWED",
+  "sourceReceipt": {
+    "file": "source-qualified.json",
+    "sha256": "f031f68e04e4f6ff86d9cfe5d274534be14248eafa02400c0ee95a936aae8e71"
+  },
+  "independentReview": {
+    "file": "../track-b/track-c-independent-review.json",
+    "sha256": "6f13a8a8295707e2567e253771a7edda43839abfd77f7c5beb55739a3653b090"
+  },
+  "diffSha256": "6e4b9b23d6a97ce855ef678cec358b07a7388446adf68c27d9d0798838de9d07",
+  "current18SourceHashesStillMatch": true,
+  "tests": {
+    "pythonDiscovery": {
+      "pass": 104,
+      "log": "python-final-v2.log"
+    },
+    "nodeSyntheticAndGenuineApprovals": {
+      "pass": 13,
+      "log": "node-final-v3.log"
+    },
+    "actualFirestoreLease": {
+      "pass": 1,
+      "log": "seed-lease-emulator-v2.log",
+      "clock": "injected integer clock, actual Firestore emulator/native writers; no waited 600s/provider"
+    },
+    "dartTransport": {
+      "pass": 5,
+      "log": "dart-transport-final.log"
+    }
+  },
+  "remaining": "Parent combined Linux/client execution and final evidence freeze; no cloud, paid runtime, cleanup delivery or production readiness claim."
+}

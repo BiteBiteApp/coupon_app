@@ -1,0 +1,89 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006",
+  "createdAt": "2026-10-19T21:02:20.397222+00:00",
+  "role": "Track A implementation qualification amendment",
+  "status": "SOURCE_CORRECTED_TESTED_PENDING_PARENT_IMAGE_FREEZE",
+  "amendsWithoutReplacing": "track-a/track-a-report.json",
+  "originalReceiptSha256": "4441e614422b9225147d7add03fa975f45c32c606b1e964e42c05e523e770a02",
+  "scope": "Only selected-source backend search logic, exact recall evidence and focused tests. No primary worktree/Git/cloud mutation.",
+  "sourceHashes": {
+    "functions/src/customer_bitesaver_search_session.ts": "fe6f32539a9fd8aaa8ac5e4d0a88f01b3835d0abedf5dd90e128320a71c6ba64",
+    "functions/src/postgis_query.ts": "6d47101b97599eae2361e5edf62145b1bf4350c6b5ba242648a89f447be9b736",
+    "functions/src/postgis_semantics.ts": "24e18dae7e6b5fc07f5ff97097d4a2bacfe4670ff9cf503bb2b84a45c62e370a",
+    "functions/test/postgis_guest_membership_batching_006.test.cjs": "2a7a4de1d2f3984b977ede92cefd80e2d9a6be8f003ad7cfeba036da56185b7b",
+    "functions/test/postgis_query_006.test.cjs": "32c650bb29fda3d8ef719da1f5df161dcd52c52795547b37e10a3788ba2ac3df",
+    "functions/test/postgis_offer_time_006.test.cjs": "2b901229235ca1c13e1767a005a18e71ca643ffb380bd2c3fff8a91315421c58",
+    "functions/test/postgis_guest_boundary_006.test.cjs": "f971bd6946f509be65c12cb88cbaa77b7a4e28712728463f28693c2aac3d44ea",
+    "functions/search_candidate/recall-envelope-006.md": "309fcbd715272bbc18674552f00fafe2e3f5084031f0f1671118b9154a4d5b2d",
+    "functions/search_candidate/recall-envelope-006-audit.py": "768083a9140efd8b78509e0b5b2954700fa6e52c68df676cc34b77c09ee1bd60"
+  },
+  "findings": [
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "status": "resolved",
+      "issue": "SQL JSON DTO timestamps lose native methods, so selector and native result builder disagree on expired/scheduled offers.",
+      "consequence": "An expired/scheduled-only parent can fail the whole search page; current native authority still rejects it.",
+      "repair": "Decode the existing canonical offer projection before calling unchanged native availability. No schema/data migration or native eligibility relaxation.",
+      "evidence": "offer-time-baseline.log:9 exact native availability mismatches; final10/10 includes real SQL/native provider and durable bounded resume."
+    },
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "status": "resolved",
+      "issue": "Guest progress fingerprints pass fractional restaurant distance into an integer-only canonical serializer.",
+      "consequence": "Nonzero-distance serial/window guest history continuation can fail, including later pages.",
+      "repair": "Only permitted restaurant distance positions use existing lossless binary64 spelling when not safe integers; original integer hash bytes and generic validator remain unchanged. Numeric stored/public tuples remain unchanged.",
+      "evidence": "guest-boundary-baseline-correct-fixture.log:1PASS4FAIL. Final5/5 covers integer compatibility, adjacent binary64, strict other fields,110parents/76history suppressions,first25/later9,replay,tamper."
+    }
+  ],
+  "tests": {
+    "cases": 370,
+    "passed": 370,
+    "failed": 0,
+    "logs": {
+      "native-304-addendum.log": {
+        "passed": 304,
+        "sha256": "a3d3294e16524b88708bcfed93856a460e1cd118850a6264d19afa62e256f49c"
+      },
+      "f1-tests-addendum.log": {
+        "passed": 6,
+        "sha256": "02ae699d207e1463fae62be014bf1da92e875af3221f3903910cba05bb6940f4"
+      },
+      "independent-window-diagnostics-addendum.log": {
+        "passed": 22,
+        "sha256": "147edad5cee7f5b87dbbf86101a4d5c7dad63113fd5dcdf8b9f732becaf8b139"
+      },
+      "independent-window-supplement-addendum.log": {
+        "passed": 2,
+        "sha256": "4733c6409dfec3abe39678f1f436d51eaf7df7eae3e214c9835fc4cc26994651"
+      },
+      "existing-query-addendum-fresh.log": {
+        "passed": 18,
+        "sha256": "7a77ed432e805b8014c446b015a831532e5177abe0b74ceeceb910201ac411b2"
+      },
+      "query-50k-addendum.log": {
+        "passed": 3,
+        "sha256": "580e5356699894c63de54134ae15432e8e15396e1fb9a26544856a2fff5a2b1d"
+      },
+      "offer-time-addendum-final.log": {
+        "passed": 10,
+        "sha256": "a9a3aec9fc71a00f74fdef97ac2a237598779f782d58ac77309c44ed2f5398a1"
+      },
+      "guest-boundary-final.log": {
+        "passed": 5,
+        "sha256": "c3c00d1955b5e1ef0206adf15d94ab7a87bdbab2ba9da33db1bf56380fbd88f1"
+      }
+    }
+  },
+  "retainedFailures": {
+    "offer-time-baseline.log": "real native DTO timestamp parity defect",
+    "guest-boundary-baseline.log": "first fixture had inconsistent latitude/geohash in three cases; scalar test reproduced actual serializer defect",
+    "guest-boundary-baseline-correct-fixture.log": "corrected coherent source fixture reproduces four QueryFingerprintError failures",
+    "existing-query-addendum.log": "reused deterministic pin IDs with new expiry were correctly rejected; fresh dedicated DB rerun18/18 passed, without test/assertion or guard weakening"
+  },
+  "limitations": [
+    "Final50k rerun is correctness evidence and overlapped independent local recovery; do not use it to establish latency tails.",
+    "Earlier before/after UI fixture remains small; parent owns final500-history integration and full final image qualification.",
+    "True baseline failed the two newly exposed defects. A corrected serial comparison must be labeled as such; it is not the pristine baseline.",
+    "Runtime strategy and exact runtime guard remain unchanged; no runtime generalization or hosted/billing claim."
+  ]
+}

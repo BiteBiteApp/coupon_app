@@ -1,0 +1,32 @@
+✔ opt-in window requests one bounded membership batch; serial stays one row (294.901125ms)
+✔ whole prefetched batch rejected by current parent authority refills privately (78.903916ms)
+✖ whole first history batch rejected refills with exact page cursor and order (144.4265ms)
+✔ 75-ID global cap discards unused private tail and later resumes without loss (115.002542ms)
+✔ unused prefetched authority is rechecked and all-filtered exhaustion is truthful (115.149542ms)
+✔ accepted-answer interruption retains replay and no cross-account cached membership (91.17725ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 842.155791
+
+✖ failing tests:
+
+test at ../../.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_membership_batching_006.test.cjs:59:1
+✖ whole first history batch rejected refills with exact page cursor and order (144.4265ms)
+  CustomerBiteSaverContractError: The client request ID was already used for a different request.
+      at reusedRequestId (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/customer_bitesaver_request_replay.js:57:11)
+      at reserveCustomerBiteSaverRequestReplayInTransaction (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/customer_bitesaver_request_replay.js:220:20)
+      at async /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/customer_bitesaver_search_session.js:10858:21
+      at async InMemoryCustomerBiteSaverSearchDatabase.runTransaction (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/customer_bitesaver_search_handlers.test.js:248:20)
+      at async Object.operation (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/customer_bitesaver_search_session.js:10790:30)
+      at async withCustomerBiteSaverRequestGate (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/compiled/lib/customer_bitesaver_search_session.js:1827:16)
+      at async Object.finishRestaurantWindow (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/customer_bitesaver_search_handlers.test.js:13418:18)
+      at async TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_membership_batching_006.test.cjs:68:16)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'invalid-argument'
+  }

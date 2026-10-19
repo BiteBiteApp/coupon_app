@@ -6,6 +6,7 @@ import {reconcileBiteSaverRestaurantIndex, reconcileBiteScoreRestaurantIndex, re
 import type {CustomerBiteSaverIdentityKeyV1} from "./customer_bitesaver_public_identity.js";
 import type {createHostedPostgisRuntime} from "./postgis_hosted_runtime.js";
 import type {createFirestoreSearchIndexDatabase} from "./search_index_maintenance.js";
+import {runPostgisSyntheticWorkload, type PostgisSyntheticWorkload} from "./postgis_synthetic_workload.js";
 
 export type PostgisSyntheticBatch = Readonly<{offset: number; count: number; nowMs: number;
   operation: "seed" | "edit-offer" | "delete-offer" | "hide-parent"}>;
@@ -72,12 +73,15 @@ export async function requirePostgisSyntheticBatchesComplete(database: Firestore
   const pending = await database.collection("private_postgis_fixture_batches").where("complete", "==", false).limit(1).get();
   if (!pending.empty || !/^bs-postgis-[a-z0-9-]{1,60}$/u.test(runId)) throw new Error("Synthetic fixture mutation is incomplete; reconcile before publication.");
 }
-export type HostedPostgisJob = Readonly<{id: string; action: "initialize" | "fixture" | "enroll" | "catchup" | "lifecycle" | "snapshot" | "restore" | "prune";
-  batch?: PostgisSyntheticBatch; bootstrapId?: string}>;
+export type HostedPostgisJob = Readonly<{id: string; action: "initialize" | "fixture" | "fixture-stream" | "enroll" | "catchup" | "lifecycle" | "snapshot" | "restore" | "prune";
+  batch?: PostgisSyntheticBatch; workload?: PostgisSyntheticWorkload; bootstrapId?: string}>;
 export async function runHostedPostgisNativeJob(runtime: ReturnType<typeof createHostedPostgisRuntime>,
-  database: Firestore, identityKey: CustomerBiteSaverIdentityKeyV1, runId: string, job: HostedPostgisJob): Promise<unknown> {
+  database: Firestore, identityKey: CustomerBiteSaverIdentityKeyV1, runId: string, job: HostedPostgisJob,
+  workloadOptions?: Parameters<typeof runPostgisSyntheticWorkload>[5]): Promise<unknown> {
   if (job.action === "initialize") {await runtime.initializeDerived();return {initialized: true};}
   if (job.action === "fixture" && job.batch) return writePostgisSyntheticBatch(database, runtime.maintenanceDatabase, identityKey, runId, job.batch);
+  if (job.action === "fixture-stream" && job.workload && workloadOptions) return runPostgisSyntheticWorkload(database,
+    runtime.maintenanceDatabase, identityKey, runId, job.workload, workloadOptions);
   await requirePostgisSyntheticBatchesComplete(database, runId);
   if (job.action === "enroll" && job.bootstrapId) return runtime.source.advanceEnrollment(job.bootstrapId, 100);
   if (job.action === "catchup") return runtime.model.catchUp(75);

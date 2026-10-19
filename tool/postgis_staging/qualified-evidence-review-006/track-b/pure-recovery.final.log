@@ -1,0 +1,30 @@
+✔ bounded recovery validation resumes across every page and process boundary with the original digest (239.247708ms)
+✔ partial hash corruption never publishes a successful validation (148.674083ms)
+✔ changed readonly file identity, missing files and writable artifacts cannot reuse proof (149.512459ms)
+✔ arbitrary reader success claims cannot supply immutable proof (54.078542ms)
+✔ GCS reusable validation requires actual locked retention and exact-generation bytes; ordinary reads remain available (177.586791ms)
+✔ serialized SHA256 matches native crypto including NIST and every block boundary (2852.673418ms)
+✔ malformed serialized hash state fails closed and shaped corruption cannot match digest (0.868209ms)
+✔ construction and missing/forged approval are inert; production/mismatched config refused (1.379791ms)
+✔ immutable generation-pinned chunks round-trip beyond500 rows; retry is identical (54.1335ms)
+✔ lost upload acknowledgements reconcile verified bytes and do not duplicate (23.943375ms)
+✔ interrupted upload never publishes completeness and resumes create-if-absent (29.785042ms)
+✔ missing chunk rejects recovery evidence (24.6475ms)
+✔ corrupt chunk rejects recovery evidence (35.835541ms)
+✔ generation chunk rejects recovery evidence (21.893458ms)
+✔ metadata chunk rejects recovery evidence (21.423958ms)
+✔ terminal generation replacement/removal after pin is rejected even for identical bytes (20.448334ms)
+✔ conflicting create cannot overwrite previously durable rows (33.217625ms)
+✔ permission and timeout failures are not absence; bucket incarnation/scope and expiry fail closed (1.359ms)
+✔ unverified source and storage overflow never produce a terminal manifest (17.245917ms)
+✔ empty complete snapshot retains fence and validates without data objects (2.515291ms)
+✔ malformed provider JSON and transport errors never expose response fragments (1.274916ms)
+✔ hosted streaming export uses branded approved SQL and no filesystem; restore binds exact store and ID (32.382375ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4333.487502

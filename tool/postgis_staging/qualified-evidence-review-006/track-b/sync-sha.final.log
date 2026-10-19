@@ -1,0 +1,16 @@
+✔ serialized SHA256 matches native crypto including NIST and every block boundary (1484.0365ms)
+✔ malformed serialized hash state fails closed and shaped corruption cannot match digest (0.458458ms)
+▶ B006 finite admission, transactional incremental manifest and independent audit
+  ✔ one finite target survives process restart and unrelated continuous writes (122.048667ms)
+  ✔ duplicates, deletes, recreate and rollback maintain exact manifest (221.7135ms)
+  ✔ audit detects metadata corruption independently (10.022958ms)
+  ✔ publication aggregates fixed48 while full audit remains explicit (7.79275ms)
+✔ B006 finite admission, transactional incremental manifest and independent audit (4533.64975ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6098.445291

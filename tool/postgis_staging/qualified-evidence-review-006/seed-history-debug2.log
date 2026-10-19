@@ -1,0 +1,27 @@
+{
+  operation: 'continueCustomerBiteSaverGuestOfferCheckV2',
+  sequence: 9
+}
+QueryFingerprintError: Search criteria could not be fingerprinted.
+    at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/query_fingerprint.js:34:19)
+    at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/query_fingerprint.js:44:57
+    at Array.map (<anonymous>)
+    at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/query_fingerprint.js:44:35)
+    at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/query_fingerprint.js:64:17
+    at Array.map (<anonymous>)
+    at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/query_fingerprint.js:62:18)
+    ... collapsed 6 duplicate lines matching above 3 lines 2 times...
+    at canonicalSerializeQueryCriteria (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/query_fingerprint.js:87:27)
+    at createQueryFingerprint (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/query_fingerprint.js:90:23)
+    at guestCheckBoundaryFingerprint (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/customer_bitesaver_search_session.js:8059:62)
+    at createGuestCheckBatch (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/customer_bitesaver_search_session.js:8209:41)
+    at resolveGuestCurrentRestaurant (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/customer_bitesaver_search_session.js:9130:24)
+    at async expandGuestRestaurantChallenge (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/customer_bitesaver_search_session.js:9377:26)
+    at async processGuestRestaurantPage (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/customer_bitesaver_search_session.js:9435:32)
+    at async processAndPersistGuestOperation (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/customer_bitesaver_search_session.js:9858:15)
+    at async withCustomerBiteSaverRequestGate (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/customer_bitesaver_search_session.js:1827:16)
+    at async call (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/seed-history.cjs:23:386)
+    at async pages (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/seed-history.cjs:34:15)
+    at async main (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/seed-history.cjs:41:68) {
+  code: 'query_fingerprint_error'
+}

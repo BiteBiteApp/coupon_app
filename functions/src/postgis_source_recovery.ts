@@ -102,3 +102,98 @@ export async function validatePostgisRecoverySnapshot(
   if (final === null || postgisSourceDigest(final as unknown as PostgisJson) !==
       postgisSourceDigest(expected as unknown as PostgisJson)) throw new Error("Recovery snapshot changed during validation.");
 }
+
+/** An artifact proof is server-generated evidence, never a caller boolean.
+ * Local files use readonly inode/size/nanosecond identity. Cloud reuse additionally
+ * requires provider-enforced retention; generation alone does not prevent loss. */
+export type PostgisRecoveryArtifactProof = Readonly<{
+  kind: "local-readonly" | "gcs-locked-retention"; identity: string; validUntilMs: number | null;
+}>;
+type ArtifactCheck = (id: string, previous?: PostgisRecoveryArtifactProof) => Promise<PostgisRecoveryArtifactProof>;
+const artifactReaders = new WeakMap<PostgisRecoverySnapshotReader, ArtifactCheck>();
+export function registerPostgisRecoveryArtifactReader(reader: PostgisRecoverySnapshotReader, check: ArtifactCheck): void {
+  if (artifactReaders.has(reader)) throw new Error("Recovery artifact reader already registered.");
+  artifactReaders.set(reader, check);
+}
+export async function checkPostgisRecoveryArtifact(reader: PostgisRecoverySnapshotReader, id: string,
+  previous?: PostgisRecoveryArtifactProof): Promise<PostgisRecoveryArtifactProof> {
+  const check = artifactReaders.get(reader);
+  if (!check) throw new Error("Bounded recovery requires a verified immutable artifact reader.");
+  const proof = await check(id, previous);
+  if (!proof || !/^[a-f0-9]{64}$/u.test(proof.identity) ||
+    (proof.kind !== "local-readonly" && proof.kind !== "gcs-locked-retention") ||
+    (proof.kind === "local-readonly" ? proof.validUntilMs !== null : !Number.isSafeInteger(proof.validUntilMs)) ||
+    (previous && postgisSourceDigest(proof as unknown as PostgisJson) !== postgisSourceDigest(previous as unknown as PostgisJson))) {
+    throw new Error("Recovery artifact changed or lacks immutable retention evidence.");
+  }
+  return proof;
+}
+import {PostgisResumableSha256, type PostgisSha256State} from "./postgis_source_sha256.js";
+export type PostgisRecoveryValidation = Readonly<{
+  version: 1; manifestDigest: string; artifact: PostgisRecoveryArtifactProof;
+  after: string | null; count: number; hash: PostgisSha256State;
+  partitions: readonly PostgisSourceShard[]; complete: boolean;
+}>;
+/** One bounded page, independently serializable between processes. The final
+ * standard SHA-256 and all 48 counts/XORs must equal the immutable manifest. */
+export async function advancePostgisRecoveryValidation(reader: PostgisRecoverySnapshotReader,
+  expected: PostgisRecoveryManifest, previous: PostgisRecoveryValidation | null, limit = 64): Promise<PostgisRecoveryValidation> {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 64) throw new Error("Invalid recovery validation page bound.");
+  validatePostgisSourceFence(expected.fence);
+  if (!/^[A-Za-z0-9_-]{1,100}$/u.test(expected.snapshotId) || !Number.isSafeInteger(expected.rowCount) ||
+    expected.rowCount < 0 || !/^[a-f0-9]{64}$/u.test(expected.digest)) throw new Error("Invalid recovery manifest.");
+  const manifestDigest = postgisSourceDigest(expected as unknown as PostgisJson);
+  const retained = await reader.readRecoveryManifest(expected.snapshotId);
+  if (!retained || postgisSourceDigest(retained as unknown as PostgisJson) !== manifestDigest) throw new Error("The exact durable recovery snapshot is unavailable.");
+  const artifact = await checkPostgisRecoveryArtifact(reader, expected.snapshotId, previous?.artifact);
+  if (previous && (previous.version !== 1 || previous.manifestDigest !== manifestDigest ||
+    !Number.isSafeInteger(previous.count) || previous.count < 0 || previous.count > expected.rowCount ||
+    (previous.after !== null && typeof previous.after !== "string") || typeof previous.complete !== "boolean")) {
+    throw new Error("Invalid recovery validation checkpoint.");
+  }
+  if (previous) validatePostgisSourceFence({...expected.fence, shards: previous.partitions});
+  if (previous?.complete) {validateCompletePostgisRecoveryCheckpoint(expected,previous); return previous;}
+  const hash = previous ? new PostgisResumableSha256(previous.hash) : new PostgisResumableSha256().update(postgisRecoveryDigestHeader(expected));
+  const actual: PostgisSourceShard[] = JSON.parse(JSON.stringify(previous?.partitions ?? Array.from({length:16},emptyPostgisSourceShard)));
+  let after = previous?.after ?? null, count = previous?.count ?? 0;
+  const rows = await reader.readRecoveryRows(expected.snapshotId, after, limit);
+  if (!Array.isArray(rows) || rows.length > limit) throw new Error("Invalid recovery snapshot page.");
+  let bytes = 0;
+  for (const row of rows as readonly PostgisRecoveryRow[]) {
+    const identity = postgisRecoveryIdentity(row), canonical = postgisCanonicalJson(row);
+    bytes += Buffer.byteLength(canonical) + 1;
+    if (Buffer.byteLength(canonical) > 128 * 1024 || bytes > 8 * 1024 * 1024 ||
+      (after !== null && identity <= after) || row.payload.projection === null || row.digest !== postgisSourceDigest(row.payload)) {
+      throw new Error("Invalid, duplicate or poisoned recovery row.");
+    }
+    const shard = postgisSourceShardFor(row.payload.collection,row.payload.indexDocumentId);
+    const p = actual[shard].partitions[row.payload.collection];
+    actual[shard] = {...actual[shard],partitions:{...actual[shard].partitions,
+      [row.payload.collection]:{count:p.count+1,xor:postgisXorDigest(p.xor,row.digest)}}};
+    hash.update("\n").update(canonical); after = identity;
+    if (++count > expected.rowCount) throw new Error("Recovery snapshot contains unexpected rows.");
+  }
+  const complete = rows.length < limit;
+  if (complete) {
+    if (count !== expected.rowCount || hash.digest() !== expected.digest) throw new Error("Recovery snapshot is incomplete or corrupt.");
+    for (let shard=0;shard<16;shard++) for (const collection of postgisSourceCollections) {
+      const a = actual[shard].partitions[collection], b = expected.fence.shards[shard].partitions[collection];
+      if (a.count !== b.count || a.xor !== b.xor) throw new Error("Recovery snapshot does not match published manifest.");
+    }
+  }
+  await checkPostgisRecoveryArtifact(reader,expected.snapshotId,artifact);
+  const final = await reader.readRecoveryManifest(expected.snapshotId);
+  if (!final || postgisSourceDigest(final as unknown as PostgisJson) !== manifestDigest) throw new Error("Recovery artifact changed during validation.");
+  return {version:1,manifestDigest,artifact,after,count,hash:hash.state(),partitions:actual,complete};
+}
+
+export function validateCompletePostgisRecoveryCheckpoint(expected: PostgisRecoveryManifest, value: PostgisRecoveryValidation): void {
+  if (value.version !== 1 || value.complete !== true || value.count !== expected.rowCount ||
+    value.manifestDigest !== postgisSourceDigest(expected as unknown as PostgisJson) ||
+    new PostgisResumableSha256(value.hash).digest() !== expected.digest) throw new Error("Invalid completed recovery validation checkpoint.");
+  validatePostgisSourceFence({...expected.fence,shards:value.partitions});
+  for (let shard=0;shard<16;shard++) for (const collection of postgisSourceCollections) {
+    const a=value.partitions[shard].partitions[collection],b=expected.fence.shards[shard].partitions[collection];
+    if(a.count!==b.count||a.xor!==b.xor)throw new Error("Invalid completed recovery partition checkpoint.");
+  }
+}

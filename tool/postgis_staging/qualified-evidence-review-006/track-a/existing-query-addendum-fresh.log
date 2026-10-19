@@ -1,0 +1,27 @@
+✔ PostGIS pool refuses any nonlocal or production database target (0.485125ms)
+✔ PostGIS synthetic fixture uses real builders and preserves independent identities (57.416375ms)
+▶ real local PostGIS: mixed query, revision and resource qualification (synthetic event transport)
+  ✔ real extensions, bounded pool, exact float transport and full manifest publication (3.838542ms)
+  ✔ all dish sort modes exhaust in exact current-policy order (1917.203667ms)
+  ✔ alias, spelling, category and parent filters retain exact match semantics (747.658708ms)
+  ✔ radius/near-tie ordering and >64-coordinate refinement have no missing later pages (318.859791ms)
+  ✔ Finder suggestions and close matching use current eight-result contract (122.456542ms)
+  ✔ Saver excludes no-offer/hidden parents and matches current visible offers/Specials (503.362708ms)
+  ✔ zero work budget returns truthful incomplete state with resumable frontier (6.748083ms)
+  ✔ same raw coupon ID under two accounts remains two derived children (92.524167ms)
+  ✔ edited/deleted/recreated source advances atomically while old valid pin protects paging (130.477542ms)
+  ✔ poison/conflicting receipt and missing event cannot publish incomplete revision (57.181042ms)
+  ✔ valid-digest semantic poison cannot publish and only a later source repair or delete recovers (239.574917ms)
+  ✔ native Saver provider translates tied-name/coordinate ID boundaries without losing later parents (547.776417ms)
+  ✔ offer-heavy native summary resumes from durable bounded checkpoints without duplicates (1134.256666ms)
+  ✔ statement/acquisition timeouts release connections and the bounded pool recovers (2026.745667ms)
+  ✔ concurrent real SQL useful selections report observations without hosted/UI claims (134.8565ms)
+✔ real local PostGIS: mixed query, revision and resource qualification (synthetic event transport) (11353.0725ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11427.141209

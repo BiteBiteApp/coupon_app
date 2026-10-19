@@ -1,0 +1,15 @@
+✔ serialized SHA256 matches native crypto including NIST and every block boundary (1397.896333ms)
+✔ malformed serialized hash state fails closed and shaped corruption cannot match digest (0.317167ms)
+✔ bounded recovery validation resumes across every page and process boundary with the original digest (52.293083ms)
+✔ partial hash corruption never publishes a successful validation (42.070083ms)
+✔ changed readonly file identity, missing files and writable artifacts cannot reuse proof (67.819417ms)
+✔ arbitrary reader success claims cannot supply immutable proof (21.282375ms)
+✔ GCS reusable validation requires actual locked retention and exact-generation bytes; ordinary reads remain available (59.62875ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1752.020292

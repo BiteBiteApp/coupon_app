@@ -1,0 +1,11 @@
+{
+  "scope": "in-memory native handler diagnostics; no performance/SQL/cloud claim",
+  "observations": [
+    {
+      "case": "maximum-domain IDs",
+      "maximumPrivateCheckpointBytes": 444772,
+      "maximumTokenBytes": 6573,
+      "continuations": 2
+    }
+  ]
+}

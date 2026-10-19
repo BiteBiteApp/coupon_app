@@ -1,0 +1,19 @@
+WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested
+▶ real Firestore maintenance → journal → PostGIS → native customer delivery
+  ✔ isolated fixture enrollment uses actual projection writes and finite source fence (14618.177215ms)
+  ✔ native Saver pages and Menu use SQL membership with opaque independent identities (2894.489918ms)
+  ✔ HTTP verifies real Auth emulator tokens and rejects malformed client binding (10.7945ms)
+  ✔ typed broad guest paging completes every native history challenge (15555.384256ms)
+  ✔ same-ID signed edit survives pinned membership, then current usage revokes it (1680.017042ms)
+  ✔ guest same-ID edit retains bounded history challenges and history suppression (3559.861293ms)
+  ✔ current withdrawal suppresses pinned membership and journaled SQL publication (1038.557917ms)
+  ✔ actual Score and Finder native protocols consume SQL pages without private fields (1222.315584ms)
+✔ real Firestore maintenance → journal → PostGIS → native customer delivery (41194.896352ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 41291.765769

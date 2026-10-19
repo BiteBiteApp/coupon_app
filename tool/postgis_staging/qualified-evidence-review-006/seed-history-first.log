@@ -1,0 +1,11 @@
+Error: PostGIS/native BiteSaver membership mismatch.
+    at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/postgis_membership.js:116:31
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async transaction (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/postgis_store.js:36:24)
+    at async PostgisMembership.queryResults (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/postgis_membership.js:56:25)
+    at async Object.queryDocuments (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/postgis_handlers.js:95:29)
+    at async expandGuestRestaurantChallenge (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/customer_bitesaver_search_session.js:9347:29)
+    at async processGuestRestaurantPage (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/customer_bitesaver_search_session.js:9435:32)
+    at async processAndPersistGuestOperation (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/customer_bitesaver_search_session.js:9858:15)
+    at async withCustomerBiteSaverRequestGate (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/customer_bitesaver_search_session.js:1827:16)
+    at async pages (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/seed-history.cjs:28:69)

@@ -1,0 +1,12 @@
+✔ signed prune job advances bounded validation pages then prunes in the same allowance (110.258416ms)
+✔ signed maxPages stops before unfinished validation can prune (0.473209ms)
+✔ failed validation closes resources and never prunes (0.504083ms)
+✔ fixture-stream requires provider execution identity before opening resources and forwards bounded permit checks (0.708542ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 116.47525

@@ -1,0 +1,8 @@
+{
+  "reviewer": "root independent of Track C fixture edit",
+  "checkedAt": "2026-10-19T21:18:49.410272+00:00",
+  "file": "functions/test/postgis_integration.test.js",
+  "sha256": "504dcda5cd05c6eee6f761c68d8fbd32466ec427446aca24ed3a9d8e5f519c86",
+  "verdict": "PASS final-byte review; actual repeat execution pending",
+  "reason": "Reset includes exactly the new fixture-owned admission target table; existing expiry replay refusal unchanged. Read-only evidence confirms stale expiry. Comment and TRUNCATE table list only."
+}

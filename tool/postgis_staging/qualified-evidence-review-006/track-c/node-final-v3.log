@@ -1,0 +1,21 @@
+✔ authentic canonical Ed25519 approval creates a non-forgeable immutable permit (2.737583ms)
+✔ signature, key, canonical bytes and exact schemas fail closed (0.482041ms)
+✔ project, run, exact candidate/config digest, gates and lifetime bind the permit (1.505583ms)
+✔ expired execution can only retain signed bounded gate5 cleanup authority (0.181458ms)
+✔ optional early cost checkpoint requires exactly signed literal100 (0.273458ms)
+✔ offline CLI uses a separate trusted file; tampered approvals emit only a safe error (90.065834ms)
+✔ full configuration canonicalization includes lexically sorted numeric-looking keys (31.5475ms)
+✔ separate genuine Ed25519 phase approval binds both artifacts, evidence and original clock (1.870334ms)
+✔ forged/noncanonical/expired/out-of-order/production and new-timer approvals fail closed (1.175166ms)
+✔ offline shared CLI dispatches only separately signed phase claims and keeps trust outside input (90.772708ms)
+✔ 50k parent roots fit finite work/reservation bounds without claiming elapsed qualification (383.730708ms)
+✔ deterministic scenarios include distinct namespaces, variable children, actual usage rules, aliases and long suppressed cohort (38.982125ms)
+✔ offset/reservation/operation/byte/shape guards stay finite (0.286375ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 764.25725

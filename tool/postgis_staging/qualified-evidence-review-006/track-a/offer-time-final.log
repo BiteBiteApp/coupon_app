@@ -1,0 +1,18 @@
+✔ SQL JSON round-trip preserves native time eligibility: coupon-expired (4.136292ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-start-submillisecond (0.773542ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-start-submicrosecond (0.780916ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-end-inclusive (0.620667ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-end-submillisecond (0.661458ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-scheduled (0.519041ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-available (0.534208ms)
+✔ SQL JSON round-trip preserves native time eligibility: daily-expired (0.657834ms)
+✔ SQL JSON round-trip preserves native time eligibility: daily-available (7.873834ms)
+✔ real SQL selector and native membership agree for timestamp schedules and resumptions (710.045875ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 736.8305

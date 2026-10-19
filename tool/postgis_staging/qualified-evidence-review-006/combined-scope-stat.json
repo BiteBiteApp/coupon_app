@@ -1,0 +1,227 @@
+[
+  {
+    "path": "functions/search_candidate/recall-envelope-006-audit.py",
+    "added": 88,
+    "removed": 0
+  },
+  {
+    "path": "functions/search_candidate/recall-envelope-006.md",
+    "added": 84,
+    "removed": 0
+  },
+  {
+    "path": "functions/search_candidate/schema.sql",
+    "added": 56,
+    "removed": 2
+  },
+  {
+    "path": "functions/src/customer_bitesaver_search_session.ts",
+    "added": 73,
+    "removed": 19
+  },
+  {
+    "path": "functions/src/postgis_hosted_job_entrypoint.ts",
+    "added": 33,
+    "removed": 6
+  },
+  {
+    "path": "functions/src/postgis_hosted_jobs.ts",
+    "added": 7,
+    "removed": 3
+  },
+  {
+    "path": "functions/src/postgis_phase_transition_approval.ts",
+    "added": 54,
+    "removed": 0
+  },
+  {
+    "path": "functions/src/postgis_query.ts",
+    "added": 16,
+    "removed": 1
+  },
+  {
+    "path": "functions/src/postgis_semantics.ts",
+    "added": 7,
+    "removed": 2
+  },
+  {
+    "path": "functions/src/postgis_snapshot.ts",
+    "added": 24,
+    "removed": 10
+  },
+  {
+    "path": "functions/src/postgis_snapshot_gcs.ts",
+    "added": 23,
+    "removed": 3
+  },
+  {
+    "path": "functions/src/postgis_source_firestore.ts",
+    "added": 36,
+    "removed": 7
+  },
+  {
+    "path": "functions/src/postgis_source_recovery.ts",
+    "added": 95,
+    "removed": 0
+  },
+  {
+    "path": "functions/src/postgis_source_sha256.ts",
+    "added": 58,
+    "removed": 0
+  },
+  {
+    "path": "functions/src/postgis_store.ts",
+    "added": 70,
+    "removed": 22
+  },
+  {
+    "path": "functions/src/postgis_synthetic_workload.ts",
+    "added": 222,
+    "removed": 0
+  },
+  {
+    "path": "functions/test/postgis_b006_job_pages.test.cjs",
+    "added": 32,
+    "removed": 0
+  },
+  {
+    "path": "functions/test/postgis_b006_recovery_checkpoint.test.cjs",
+    "added": 71,
+    "removed": 0
+  },
+  {
+    "path": "functions/test/postgis_b006_sha256.test.cjs",
+    "added": 17,
+    "removed": 0
+  },
+  {
+    "path": "functions/test/postgis_b006_sync.test.cjs",
+    "added": 75,
+    "removed": 0
+  },
+  {
+    "path": "functions/test/postgis_guest_boundary_006.test.cjs",
+    "added": 59,
+    "removed": 0
+  },
+  {
+    "path": "functions/test/postgis_guest_membership_batching_006.test.cjs",
+    "added": 162,
+    "removed": 0
+  },
+  {
+    "path": "functions/test/postgis_integration.test.js",
+    "added": 3,
+    "removed": 1
+  },
+  {
+    "path": "functions/test/postgis_offer_time_006.test.cjs",
+    "added": 77,
+    "removed": 0
+  },
+  {
+    "path": "functions/test/postgis_phase_transition_approval.test.cjs",
+    "added": 29,
+    "removed": 0
+  },
+  {
+    "path": "functions/test/postgis_query_006.test.cjs",
+    "added": 251,
+    "removed": 0
+  },
+  {
+    "path": "functions/test/postgis_snapshot_integration.test.js",
+    "added": 57,
+    "removed": 4
+  },
+  {
+    "path": "functions/test/postgis_source_emulator.test.js",
+    "added": 19,
+    "removed": 15
+  },
+  {
+    "path": "functions/test/postgis_synthetic_workload.test.cjs",
+    "added": 37,
+    "removed": 0
+  },
+  {
+    "path": "functions/test/postgis_synthetic_workload_emulator.test.cjs",
+    "added": 36,
+    "removed": 0
+  },
+  {
+    "path": "functions/test/support/postgis_flutter_host.cjs",
+    "added": 81,
+    "removed": 12
+  },
+  {
+    "path": "lib/services/customer_search_http_transport.dart",
+    "added": 174,
+    "removed": 0
+  },
+  {
+    "path": "test/services/customer_search_http_transport_test.dart",
+    "added": 202,
+    "removed": 0
+  },
+  {
+    "path": "test/services/postgis_flutter_integration_test.dart",
+    "added": 78,
+    "removed": 48
+  },
+  {
+    "path": "tool/postgis_staging/Controller.Dockerfile",
+    "added": 2,
+    "removed": 1
+  },
+  {
+    "path": "tool/postgis_staging/PHASE-WORKLOAD-TRANSPORT-006.md",
+    "added": 180,
+    "removed": 0
+  },
+  {
+    "path": "tool/postgis_staging/REVIEW-CORRECTIONS-006-QUALIFICATION-PLAN.md",
+    "added": 82,
+    "removed": 0
+  },
+  {
+    "path": "tool/postgis_staging/scripts/cloud_controller.py",
+    "added": 73,
+    "removed": 16
+  },
+  {
+    "path": "tool/postgis_staging/scripts/cloud_provider.py",
+    "added": 41,
+    "removed": 5
+  },
+  {
+    "path": "tool/postgis_staging/scripts/phase_transition.py",
+    "added": 128,
+    "removed": 0
+  },
+  {
+    "path": "tool/postgis_staging/scripts/provider_entrypoint.py",
+    "added": 6,
+    "removed": 1
+  },
+  {
+    "path": "tool/postgis_staging/scripts/render_provider_descriptors.py",
+    "added": 21,
+    "removed": 0
+  },
+  {
+    "path": "tool/postgis_staging/scripts/test_job_reservations.py",
+    "added": 85,
+    "removed": 0
+  },
+  {
+    "path": "tool/postgis_staging/scripts/test_phase_transition.py",
+    "added": 208,
+    "removed": 0
+  },
+  {
+    "path": "tool/postgis_staging/verify-approval.cjs",
+    "added": 4,
+    "removed": 2
+  }
+]

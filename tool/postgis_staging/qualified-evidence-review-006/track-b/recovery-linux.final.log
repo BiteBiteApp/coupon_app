@@ -1,0 +1,54 @@
+✖ real Firestore bootstrap survives SQL loss via local-files, bounded resume and post-snapshot replay (30076.780472ms)
+✖ real Firestore bootstrap survives SQL loss via simulated-gcs-json-api, bounded resume and post-snapshot replay (28401.348805ms)
+✔ bounded recovery validation resumes across every page and process boundary with the original digest (177.767625ms)
+✔ partial hash corruption never publishes a successful validation (96.924375ms)
+✔ changed readonly file identity, missing files and writable artifacts cannot reuse proof (179.706626ms)
+✔ arbitrary reader success claims cannot supply immutable proof (58.061084ms)
+✔ serialized SHA256 matches native crypto including NIST and every block boundary (3653.855126ms)
+✔ malformed serialized hash state fails closed and shaped corruption cannot match digest (1.962667ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 6
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 63052.866404
+
+✖ failing tests:
+
+test at test/postgis_b006_recovery.test.cjs:26:68
+✖ real Firestore bootstrap survives SQL loss via local-files, bounded resume and post-snapshot replay (30076.780472ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  29 !== 1
+  
+      at TestContext.<anonymous> (/app/functions/test/postgis_b006_recovery.test.cjs:133:14)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 29,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/postgis_b006_recovery.test.cjs:26:68
+✖ real Firestore bootstrap survives SQL loss via simulated-gcs-json-api, bounded resume and post-snapshot replay (28401.348805ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  30 !== 1
+  
+      at TestContext.<anonymous> (/app/functions/test/postgis_b006_recovery.test.cjs:133:14)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 30,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,101 @@
+✖ opt-in window requests one bounded membership batch; serial stays one row (260.310375ms)
+✖ whole prefetched batch rejected by current parent authority refills privately (52.560791ms)
+✖ whole first history batch rejected refills with exact page cursor and order (133.264125ms)
+✖ 75-ID global cap discards unused private tail and later resumes without loss (57.189667ms)
+✖ unused prefetched authority is rechecked and all-filtered exhaustion is truthful (119.037709ms)
+✔ accepted-answer interruption retains replay and no cross-account cached membership (94.692625ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 1
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 719.597292
+
+✖ failing tests:
+
+test at ../../.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_membership_batching_006.test.cjs:29:1
+✖ opt-in window requests one bounded membership batch; serial stays one row (260.310375ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  26 !== 1
+  
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_membership_batching_006.test.cjs:35:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 26,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../../.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_membership_batching_006.test.cjs:46:1
+✖ whole prefetched batch rejected by current parent authority refills privately (52.560791ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  52 !== 2
+  
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_membership_batching_006.test.cjs:52:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 52,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../../.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_membership_batching_006.test.cjs:59:1
+✖ whole first history batch rejected refills with exact page cursor and order (133.264125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  52 !== 2
+  
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_membership_batching_006.test.cjs:65:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 52,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../../.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_membership_batching_006.test.cjs:75:1
+✖ 75-ID global cap discards unused private tail and later resumes without loss (57.189667ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  25 !== 1
+  
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_membership_batching_006.test.cjs:80:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 25,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../../.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_membership_batching_006.test.cjs:92:1
+✖ unused prefetched authority is rechecked and all-filtered exhaustion is truthful (119.037709ms)
+  AssertionError [ERR_ASSERTION]: full final batch needs an actual exhaustion read
+  
+  53 !== 3
+  
+      at TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_guest_membership_batching_006.test.cjs:106:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 53,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

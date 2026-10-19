@@ -1,0 +1,20 @@
+{
+  "kind": "read-only-loopback-fixture-observation",
+  "projectId": "demo-bs-postgis-integration",
+  "database": "bsgate0_integration",
+  "counts": {
+    "retained_targets": 12,
+    "unpinned_targets": 7
+  },
+  "pendingBindings": [
+    {
+      "scoreSession": true,
+      "pendingState": "preparing",
+      "existingSqlTarget": true,
+      "expectedExpiryMs": 1792448143652,
+      "existingExpiryMs": 1792447557866,
+      "expiryMismatch": true
+    }
+  ],
+  "conclusion": "Repeated Score pending binding shares an exact pin with retained SQL admission target but has a new expiry. Native pinRevision intentionally rejects this replay."
+}

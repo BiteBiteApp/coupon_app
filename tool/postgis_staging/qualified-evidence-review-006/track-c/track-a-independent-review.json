@@ -1,0 +1,105 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006",
+  "createdAt": "2026-10-19T21:03:23.287451+00:00",
+  "role": "Track C independent final source review of Track A plus directly relevant B schema predicates",
+  "verdict": "PASS within reviewed source and local evidence scope",
+  "sourceHashes": {
+    "functions/src/customer_bitesaver_search_session.ts": "fe6f32539a9fd8aaa8ac5e4d0a88f01b3835d0abedf5dd90e128320a71c6ba64",
+    "functions/src/postgis_query.ts": "6d47101b97599eae2361e5edf62145b1bf4350c6b5ba242648a89f447be9b736",
+    "functions/src/postgis_semantics.ts": "24e18dae7e6b5fc07f5ff97097d4a2bacfe4670ff9cf503bb2b84a45c62e370a",
+    "functions/test/postgis_guest_membership_batching_006.test.cjs": "2a7a4de1d2f3984b977ede92cefd80e2d9a6be8f003ad7cfeba036da56185b7b",
+    "functions/test/postgis_query_006.test.cjs": "32c650bb29fda3d8ef719da1f5df161dcd52c52795547b37e10a3788ba2ac3df",
+    "functions/test/postgis_offer_time_006.test.cjs": "2b901229235ca1c13e1767a005a18e71ca643ffb380bd2c3fff8a91315421c58",
+    "functions/test/postgis_guest_boundary_006.test.cjs": "f971bd6946f509be65c12cb88cbaa77b7a4e28712728463f28693c2aac3d44ea",
+    "functions/search_candidate/recall-envelope-006.md": "309fcbd715272bbc18674552f00fafe2e3f5084031f0f1671118b9154a4d5b2d",
+    "functions/search_candidate/recall-envelope-006-audit.py": "768083a9140efd8b78509e0b5b2954700fa6e52c68df676cc34b77c09ee1bd60"
+  },
+  "dependencyHashes": {
+    "functions/search_candidate/schema.sql": "99f22dfcebe89c377d1348473b6acc75e41352ae7d48201d779dc268ce7b537d",
+    "functions/src/postgis_membership.ts": "75bb996e00cfd1c02ad80e937332a39068afc526c2e73010168a0adffdefdfc0",
+    "functions/src/postgis_source.ts": "db3fa2ffb832ce3d879b730a437bae4777502932838c9aebf2e16815c491e6a4",
+    "functions/src/customer_bitesaver_search_contract.ts": "7757d797f2c3de386c80a9052d3331f50ba79bb6f831344d309296f83c1b0331",
+    "functions/src/query_fingerprint.ts": "7c2282cc27429db95f5b62c5da59b0ce1da153566ec43842b3fc2c315671eff7",
+    "functions/src/customer_bitesaver_offer_availability.ts": "8785383f584da7af475d870275c3dc88e20d349d27f1bfc9f8740dba1e709386",
+    "functions/src/postgis_runtime.ts": "74887f3e8af5546a59402e79b4f18557c340db6c371aa9d2fd7ccb374cdeae85",
+    "functions/src/restaurant_geo_helpers.ts": "8fc56748c811d848b853be0912522b451e1e7c01c0cd1060be2f1cde7ffd9066"
+  },
+  "implementationReceipt": {
+    "path": "../track-a/track-a-qualified-addendum.json",
+    "sha256": "74eabfd29b40bb9b491f7ad1745dfeee297d46b03e8d8d80028d54f98dfa6d9e"
+  },
+  "allFinalImplementationEvidenceHashesVerified": true,
+  "findings": [],
+  "reviewedContracts": [
+    "Request-local26-row membership cache never advances committed progress or caches current authority; changed boundary refetches, unused tail discarded, each consumed row remains charged to native work and75-ID/100-work controls. First/later pages and replay remain exact.",
+    "Four-degree wrapped geometry envelope only in whole-band +/-60 domain; exact native distance/rank/frontier unchanged; high-latitude fallback unchanged. Closed envelopes include dateline representations; geometry index covers parent predicates. Exact-rational retained branch audit independently rerun successfully.",
+    "Finder ASCII<=255 unit-cost Levenshtein computes same edit distance with existing fuzzystrmatch dependency; all token/threshold/float formulas and long/non-ASCII fallback unchanged. Actual native vector/plan evidence retained.",
+    "Canonical projection decoding restores Timestamp methods for native availability, including submillisecond boundaries, while original native visibility and parent eligibility fingerprint remain authoritative.",
+    "Guest boundary fingerprint converts only allowed fractional distance fields to existing finite lossless binary64 spelling. Integer-progress bytes and generic integer-only validator remain unchanged; adjacent representable distance and challenge tampering are distinguished.",
+    "The two newly discovered raw-fixture defects have retained failing baseline evidence and narrow source repairs. Fresh isolated SQL regression retains strict pin/replay guard; reused-identity failure was not suppressed.",
+    "F6 is bounded report-only feasibility, not a runtime strategy replacement. Current guard/qualified-runtime constraints remain."
+  ],
+  "independentExecution": {
+    "nativeFocused": {
+      "pass": 20,
+      "skip": 1,
+      "skipped": "RealSQL case intentionally reused TrackA actual10-case result rather than rerun/reset its DB",
+      "log": "track-a-independent-final-native-tests.log",
+      "sha256": "0d037628b090a1f7793e96565f4db672ae58eec765c04f701652620a099919da"
+    },
+    "wholeIntervalArithmeticAudit": {
+      "status": "PASS",
+      "artifact": "query-envelope-independent-audit.json",
+      "sha256": "d8c3493794f4c10adb3511d606355e686ab2427d7a6beea15c69f15e71db849f"
+    }
+  },
+  "implementationEvidenceReviewed": {
+    "cases": 370,
+    "passed": 370,
+    "failed": 0,
+    "logs": {
+      "native-304-addendum.log": {
+        "passed": 304,
+        "sha256": "a3d3294e16524b88708bcfed93856a460e1cd118850a6264d19afa62e256f49c"
+      },
+      "f1-tests-addendum.log": {
+        "passed": 6,
+        "sha256": "02ae699d207e1463fae62be014bf1da92e875af3221f3903910cba05bb6940f4"
+      },
+      "independent-window-diagnostics-addendum.log": {
+        "passed": 22,
+        "sha256": "147edad5cee7f5b87dbbf86101a4d5c7dad63113fd5dcdf8b9f732becaf8b139"
+      },
+      "independent-window-supplement-addendum.log": {
+        "passed": 2,
+        "sha256": "4733c6409dfec3abe39678f1f436d51eaf7df7eae3e214c9835fc4cc26994651"
+      },
+      "existing-query-addendum-fresh.log": {
+        "passed": 18,
+        "sha256": "7a77ed432e805b8014c446b015a831532e5177abe0b74ceeceb910201ac411b2"
+      },
+      "query-50k-addendum.log": {
+        "passed": 3,
+        "sha256": "580e5356699894c63de54134ae15432e8e15396e1fb9a26544856a2fff5a2b1d"
+      },
+      "offer-time-addendum-final.log": {
+        "passed": 10,
+        "sha256": "a9a3aec9fc71a00f74fdef97ac2a237598779f782d58ac77309c44ed2f5398a1"
+      },
+      "guest-boundary-final.log": {
+        "passed": 5,
+        "sha256": "c3c00d1955b5e1ef0206adf15d94ab7a87bdbab2ba9da33db1bf56380fbd88f1"
+      }
+    }
+  },
+  "preservation": [
+    "No edits to reviewed implementation, original repository, index or Git.",
+    "No provider, cloud, IAM, notification or spending action."
+  ],
+  "limits": [
+    "370 implementation passes are TrackA evidence, not370 independent reviewer executions.",
+    "50k derived SQL fixture and small actual Flutter fixture are not national raw ingestion or hosted tail-latency qualification.",
+    "Final50k correctness rerun overlapped local recovery and does not establish performance confidence.",
+    "Parent owns combined Linux image identity and final execution evidence."
+  ]
+}

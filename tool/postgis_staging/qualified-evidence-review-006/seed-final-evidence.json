@@ -1,0 +1,220 @@
+{
+  "kind": "real-local-raw-Firestore-native-projections-journal-SQL",
+  "hosted": false,
+  "billingEvidence": false,
+  "plan": {
+    "version": 1,
+    "planId": "local-500-final",
+    "offset": 0,
+    "count": 500,
+    "nowMs": 1792440000000,
+    "operation": "seed",
+    "distribution": "mixed-national-v1",
+    "maxParentsPerInvocation": 250,
+    "maxInvocations": 6,
+    "maxSourceOperations": 3000000,
+    "maxSourceBytes": 2147483648
+  },
+  "attempts": [
+    {
+      "kind": "intentional-interruption",
+      "milliseconds": 114.94237500000008,
+      "counts": {
+        "directWrites": 13,
+        "directDeletes": 0,
+        "requestedDocuments": 13,
+        "queryReturnedDocuments": 0,
+        "transactionCalls": 2,
+        "transactionAttempts": 2,
+        "scheduledWrites": 20,
+        "scheduledDeletes": 0,
+        "commits": 0
+      }
+    },
+    {
+      "kind": "resume",
+      "result": {
+        "ready": false,
+        "phase": "incomplete",
+        "next": 251,
+        "planDigest": "569a6fb189606cc7e51f2503fba129903fed3fbe4a51bfa7cea0f04793a09ed2",
+        "completed": 250,
+        "reservedThisInvocation": {
+          "operations": 183020,
+          "bytes": 68939817
+        }
+      },
+      "milliseconds": 26576.442709000003,
+      "counts": {
+        "directWrites": 2741,
+        "directDeletes": 0,
+        "requestedDocuments": 11649,
+        "queryReturnedDocuments": 1,
+        "transactionCalls": 1660,
+        "transactionAttempts": 1660,
+        "scheduledWrites": 17578,
+        "scheduledDeletes": 0,
+        "commits": 0
+      }
+    },
+    {
+      "kind": "resume",
+      "result": {
+        "ready": true,
+        "phase": "complete",
+        "next": 500,
+        "planDigest": "569a6fb189606cc7e51f2503fba129903fed3fbe4a51bfa7cea0f04793a09ed2",
+        "completed": 249,
+        "reservedThisInvocation": {
+          "operations": 180606,
+          "bytes": 68030988
+        }
+      },
+      "milliseconds": 25659.522167,
+      "counts": {
+        "directWrites": 2707,
+        "directDeletes": 0,
+        "requestedDocuments": 11491,
+        "queryReturnedDocuments": 1,
+        "transactionCalls": 1638,
+        "transactionAttempts": 1638,
+        "scheduledWrites": 17352,
+        "scheduledDeletes": 0,
+        "commits": 0
+      }
+    }
+  ],
+  "checks": [
+    "different-plan-refused-while-incomplete",
+    "500-separate-saver-and-500-score-identities",
+    "interrupted-parent-replayed-and-completed"
+  ],
+  "budget": {
+    "planDigest": "569a6fb189606cc7e51f2503fba129903fed3fbe4a51bfa7cea0f04793a09ed2",
+    "minimumInvocationsByWorkBounds": 2,
+    "maximumReservedActiveSeconds": 3600,
+    "reservationCounts": {
+      "reads": 1800000,
+      "writes": 1200250,
+      "deletes": 210250
+    },
+    "datasetCounts": {
+      "pairs": 500,
+      "saverParents": 500,
+      "scoreParents": 500,
+      "totalParentRoots": 1000,
+      "offers": 1150,
+      "dishes": 1150,
+      "aggregates": 1150,
+      "rawDocuments": 4450
+    },
+    "totals": {
+      "reads": 204450,
+      "writes": 138450,
+      "deletes": 20950,
+      "operations": 363850,
+      "bytes": 137053698
+    },
+    "units": {
+      "count": "Saver/Score parent pairs",
+      "bytes": "conservative transfer/work allowance; not measured stored bytes"
+    },
+    "timingQualified": false
+  },
+  "seedCounts": {
+    "directWrites": 5461,
+    "directDeletes": 0,
+    "requestedDocuments": 23154,
+    "queryReturnedDocuments": 4,
+    "transactionCalls": 3300,
+    "transactionAttempts": 3300,
+    "scheduledWrites": 34950,
+    "scheduledDeletes": 0,
+    "commits": 0
+  },
+  "raw": {
+    "parents": 1000,
+    "coupons": 1150,
+    "dishes": 1150,
+    "aggregates": 1150,
+    "sourceBytes": 1885698,
+    "historyOrdinals": 630
+  },
+  "scenarios": {
+    "noOffer": 25,
+    "hidden": 25,
+    "expired": 25,
+    "national": 100,
+    "scheduled": 25,
+    "sparse": 25,
+    "historyCohort": 100
+  },
+  "publication": {
+    "ready": true,
+    "revision": "1",
+    "applied": 0,
+    "fence": [
+      197,
+      235,
+      206,
+      211,
+      215,
+      193,
+      201,
+      234,
+      189,
+      167,
+      238,
+      181,
+      205,
+      199,
+      216,
+      213
+    ],
+    "milliseconds": 9370.653166000004
+  },
+  "sqlCounts": [
+    {
+      "space": "saver",
+      "kind": "coupon",
+      "count": 1150
+    },
+    {
+      "space": "saver",
+      "kind": "restaurant",
+      "count": 500
+    },
+    {
+      "space": "score",
+      "kind": "dish",
+      "count": 1150
+    },
+    {
+      "space": "score",
+      "kind": "restaurant",
+      "count": 500
+    }
+  ],
+  "audit": {
+    "heads": 3300,
+    "partitions": 48,
+    "fence": [
+      197,
+      235,
+      206,
+      211,
+      215,
+      193,
+      201,
+      234,
+      189,
+      167,
+      238,
+      181,
+      205,
+      199,
+      216,
+      213
+    ]
+  }
+}

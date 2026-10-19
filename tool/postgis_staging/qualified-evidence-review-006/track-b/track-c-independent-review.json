@@ -1,0 +1,71 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006",
+  "reviewer": "Track B independent review of Track C",
+  "capturedAt": "2026-10-19T20:57:09.521617+00:00",
+  "verdict": "PASS \u2014 no unresolved material finding in reviewed source scope",
+  "sourceHashes": {
+    "lib/services/customer_search_http_transport.dart": "f3aaf4df3099d846fafd4ef2322affd6b1ddf79bf511eaa5239bb12cb5c8d54e",
+    "test/services/customer_search_http_transport_test.dart": "49f4005000c53aee47ee472f9ccab10e7f6a3a0c7518ca99c5e5f4c28bf58225",
+    "functions/src/postgis_synthetic_workload.ts": "560a4566ec2052e43c6ed7706f5db9ca952784587f9e70a1768044c729d66d58",
+    "functions/src/postgis_hosted_jobs.ts": "a2ccab43c0077168b642bfe30d1f6b828e5a1a8fd2819b999bb6963da57cecd4",
+    "functions/test/postgis_synthetic_workload.test.cjs": "d6bb6a47fbeb6340ada5c3b81f81b8d3400b152c6ef9f4df0c12fd9ee66d11e6",
+    "functions/test/postgis_synthetic_workload_emulator.test.cjs": "c465b5275fccdda7d57add6db60d256dc567716e5b747ee8c1c7d4ea4fb650b0",
+    "functions/src/postgis_phase_transition_approval.ts": "1a73e9e832c719f707b318ecd00a7d0e110276bae75c638f5141b4b29e915ccf",
+    "functions/test/postgis_phase_transition_approval.test.cjs": "fc0aa1b5a4e4f5b991b9ef2b42d83f99fb5a256149f4ceb1d53bcd309083418a",
+    "tool/postgis_staging/verify-approval.cjs": "9fbf0d5175ccef3170ab3db2c693420391e65da6a820bf9ad294354caf0914cc",
+    "tool/postgis_staging/scripts/cloud_controller.py": "509d78dc056be4b50ae572394b972ad9507b5d04eaf636e6bd480693d0f8d367",
+    "tool/postgis_staging/scripts/cloud_provider.py": "008f310b7920514e1b152a3efa406c76314a7d20b73f958900c935c0032664a6",
+    "tool/postgis_staging/scripts/phase_transition.py": "74aecdd7e3d4d9bbe74e2b9adc55949bae9d65da76c1ed8bd792bc66c32e8f64",
+    "tool/postgis_staging/scripts/provider_entrypoint.py": "ba17f6af9ea094ae768787abf7466237f52d80b5c722305afe731760371d039a",
+    "tool/postgis_staging/scripts/render_provider_descriptors.py": "70e4a18a883a3167b9456dd79aea6ec5a2416fcb530ada928f6236c4a0cd7534",
+    "tool/postgis_staging/scripts/test_phase_transition.py": "83faf618d85f1d62f64069e670c8f4ee2c91436789f3d7771e5a926a7683a14a",
+    "tool/postgis_staging/scripts/test_job_reservations.py": "3527e7ce3ee2cad6a5b7a4c3610d0fb5e76b367190c2b73601dad8669498503d",
+    "tool/postgis_staging/Controller.Dockerfile": "b4023f077bdb4554f363aa53c9d609a3a5bbecd2fa1808322742720747506e7f",
+    "tool/postgis_staging/PHASE-WORKLOAD-TRANSPORT-006.md": "435c7079c165aada9e8a3c8cbcdb2548d0eb9c0994aaeb9c2ebbdbd8e525e428"
+  },
+  "scope": [
+    "Signed diagnostic-to-serving transition and later SQL cleanup context",
+    "Finite exact job reservations and execution identity reconciliation",
+    "Bounded synthetic writer with native projections and 600-second lease",
+    "HTTP transport fallback, cancellation and byte bounds",
+    "Notification descriptors and retained operating policy"
+  ],
+  "resolvedFindings": [
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "issue": "Byte-identical old SQL proof could not cover the new candidate/resource incarnation",
+      "resolution": "Only evidence/evidenceDigest may refresh, after a genuine transition signature binds the next full configuration and original clock; every later ledger read clears and reconstructs the typed context by verifying archived signature at the original transition time. Fresh proof is checked before transition CAS. Initial pre-T0 policy remains unchanged."
+    },
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "issue": "Short work deadline could prematurely expire synthetic writer ownership",
+      "resolution": "Lease uses invocation start plus full 600-second platform lifetime; successful early completion releases only exact invocation ownership. Actual emulator regression is separately recorded by C."
+    }
+  ],
+  "independentExecutions": {
+    "python": {
+      "command": "python3 -m unittest -v test_phase_transition test_job_reservations test_cloud_controller",
+      "cwd": "selected-source/tool/postgis_staging/scripts",
+      "passed": 52,
+      "failed": 0,
+      "log": "review-c-python.log"
+    },
+    "node": {
+      "command": "Qualified Node24 --test --test-isolation=none test/postgis_phase_transition_approval.test.cjs test/postgis_synthetic_workload.test.cjs; POSTGIS_TEST_LIB=track-b/review-c-lib; NODE_PATH=selected-source/functions/node_modules",
+      "passed": 6,
+      "failed": 0,
+      "log": "review-c-node.log"
+    },
+    "compile": {
+      "command": "Qualified Node24 node_modules/typescript/bin/tsc --pretty false --outDir track-b/review-c-lib",
+      "passed": true,
+      "log": "review-c-build.log"
+    }
+  },
+  "limits": [
+    "Provider tests inject deterministic transports; no cloud access, notification delivery, effective IAM or live SQL deletion was executed.",
+    "Genuine Ed25519 verification and Python provider state tests exercise separate boundaries; no actual signed hosted admission was attempted.",
+    "Seed national elapsed capacity and hosted image qualification remain separate from static budget and local tests.",
+    "No operating exception, fresh run clock, cleanup downgrade, default activation or production readiness is granted."
+  ]
+}

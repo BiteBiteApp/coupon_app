@@ -1,0 +1,13 @@
+✔ integer-only guest progress keeps the existing fingerprint bytes (0.66575ms)
+✔ each permitted distance field is lossless, bounded and fingerprint-sensitive (0.963125ms)
+✔ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=false) (658.653375ms)
+✔ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=true) (286.709625ms)
+✔ one-ULP fractional progress tampering cannot reuse an accepted challenge token (8.037417ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 960.366583

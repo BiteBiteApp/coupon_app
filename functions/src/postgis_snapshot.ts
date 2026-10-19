@@ -1,6 +1,6 @@
 import {createHash} from "node:crypto";
 import {createReadStream} from "node:fs";
-import {open, mkdir, readFile, link, unlink, chmod, stat} from "node:fs/promises";
+import {open, mkdir, readFile, link, unlink, chmod, stat, lstat} from "node:fs/promises";
 import {resolve, join, isAbsolute} from "node:path";
 import {createInterface} from "node:readline";
 import {
@@ -9,11 +9,12 @@ import {
   type PostgisSourceFence, type PostgisJson,
 } from "./postgis_source.js";
 import {
-  postgisRecoveryDigestHeader, postgisRecoveryIdentity,
+  postgisRecoveryDigestHeader, postgisRecoveryIdentity, registerPostgisRecoveryArtifactReader,
   validatePostgisRecoverySnapshot, validatePostgisSourceFence,
   type PostgisRecoveryManifest, type PostgisRecoveryRow,
   type PostgisRecoverySnapshotReader,
 } from "./postgis_source_recovery.js";
+import {PostgisResumableSha256} from "./postgis_source_sha256.js";
 import {entityFromProjection} from "./postgis_semantics.js";
 import {insertEntity, type PostgisPool, type PostgisConnection} from "./postgis_store.js";
 import {cloudSqlPostgisIdentity, requireCloudSqlPostgisPool, type CloudSqlPostgisConfiguration} from "./postgis_cloudsql.js";
@@ -38,6 +39,16 @@ export class LocalPostgisSnapshotReader implements PostgisRecoverySnapshotReader
   constructor(directory: string) {
     if (!isAbsolute(directory)) throw new Error("Snapshot directory must be absolute.");
     this.directory = resolve(directory);
+    registerPostgisRecoveryArtifactReader(this, async id => {
+      const files = [];
+      for (const extension of ["manifest.json", "rows.jsonl", "offsets.json"] as const) {
+        const info = await lstat(this.path(id, extension), {bigint: true});
+        if (!info.isFile() || (info.mode & BigInt(0o222)) !== BigInt(0)) throw new Error("Recovery artifact is mutable or not a regular file.");
+        files.push({extension, dev:String(info.dev), ino:String(info.ino), size:String(info.size),
+          mtimeNs:String(info.mtimeNs), ctimeNs:String(info.ctimeNs), mode:String(info.mode)});
+      }
+      return {kind:"local-readonly", identity:postgisSourceDigest(files), validUntilMs:null};
+    });
   }
   path(id: string, extension: "manifest.json" | "rows.jsonl" | "offsets.json"): string {
     snapshotId(id); return join(this.directory, `${id}.${extension}`);
@@ -249,9 +260,8 @@ async function restoreSnapshot(
   await pool.query(`CREATE TABLE IF NOT EXISTS snapshot_restore_progress (
     singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton), snapshot_id text NOT NULL,
     digest text NOT NULL, manifest jsonb NOT NULL, after_identity text, restored_count bigint NOT NULL,
-    complete boolean NOT NULL DEFAULT false)`);
-  const existing = (await pool.query("SELECT * FROM snapshot_restore_progress WHERE singleton")).rows[0];
-  if (!existing) await validatePostgisRecoverySnapshot(reader, manifest);
+    complete boolean NOT NULL DEFAULT false, hash_state jsonb NOT NULL)`);
+
   const client = await pool.connect();
   let began = false;
   try {
@@ -267,17 +277,20 @@ async function restoreSnapshot(
           totals.ready || ingestion.target !== null || publication.fence.some((seq: number) => seq !== 0)) {
         throw new Error("Recovery restore requires a fresh empty derived database.");
       }
-      await client.query(`INSERT INTO snapshot_restore_progress(singleton,snapshot_id,digest,manifest,after_identity,restored_count)
-        VALUES(true,$1,$2,$3,NULL,0)`, [id, manifest.digest, manifest]);
+      await client.query(`INSERT INTO snapshot_restore_progress(singleton,snapshot_id,digest,manifest,after_identity,restored_count,hash_state)
+        VALUES(true,$1,$2,$3,NULL,0,$4)`, [id, manifest.digest, manifest,new PostgisResumableSha256().update(postgisRecoveryDigestHeader(manifest)).state()]);
       await client.query("UPDATE ingestion_progress SET state='blocked',failure=$1 WHERE singleton",
         [{kind: "snapshot_restore", snapshotId: id, digest: manifest.digest}]);
-      progress = {snapshot_id: id, digest: manifest.digest, manifest, after_identity: null, restored_count: 0, complete: false};
+      progress = {snapshot_id: id, digest: manifest.digest, manifest, after_identity: null, restored_count: 0, complete: false,
+        hash_state:new PostgisResumableSha256().update(postgisRecoveryDigestHeader(manifest)).state()};
     }
     if (progress.snapshot_id !== id || progress.digest !== manifest.digest ||
         postgisSourceDigest(progress.manifest) !== postgisSourceDigest(manifest as unknown as PostgisJson)) {
       throw new Error("Recovery resume changed its immutable snapshot.");
     }
     await client.query("COMMIT"); began = false;
+    const hash = new PostgisResumableSha256(progress.hash_state);
+    if (progress.complete && hash.digest() !== manifest.digest) throw new Error("Completed recovery hash checkpoint is corrupt.");
     if (progress.complete) return {ready: true, restored: Number(progress.restored_count), afterIdentity: progress.after_identity};
     const rows = await reader.readRecoveryRows(id, progress.after_identity, batchSize);
     if (rows.length > batchSize) throw new Error("Recovery reader exceeded its page bound.");
@@ -299,12 +312,13 @@ async function restoreSnapshot(
       await insertEntity(client, entity, 0);
       await client.query("INSERT INTO source_heads(index_path,shard,payload,digest) VALUES($1,$2,$3,$4)",
         [identity, postgisSourceShardFor(row.payload.collection, row.payload.indexDocumentId), row.payload, row.digest]);
+      hash.update("\n").update(postgisCanonicalJson(row));
       after = identity; restored++;
       if (restored > manifest.rowCount) throw new Error("Restore exceeds the immutable snapshot row count.");
     }
     const complete = rows.length < batchSize;
     if (complete) {
-      if (restored !== manifest.rowCount) throw new Error("Recovery restore is missing source rows.");
+      if (restored !== manifest.rowCount || hash.digest() !== manifest.digest) throw new Error("Recovery restore is incomplete or its exact manifest hash differs.");
       await verifyHeads(client, manifest.fence);
       const vector = JSON.stringify(manifest.fence.shards.map((shard) => shard.seq));
       await client.query("UPDATE revisions SET source_manifest=$1,fence=$2 WHERE revision=0", [manifest.fence, vector]);
@@ -312,7 +326,7 @@ async function restoreSnapshot(
       await client.query("UPDATE ingestion_progress SET fence=$1,state='ready',failure=NULL,target=NULL,epoch=$2 WHERE singleton", [vector, manifest.fence.epoch]);
       await client.query("UPDATE bootstrap SET ready=true WHERE singleton");
     }
-    await client.query("UPDATE snapshot_restore_progress SET after_identity=$1,restored_count=$2,complete=$3 WHERE singleton", [after, restored, complete]);
+    await client.query("UPDATE snapshot_restore_progress SET after_identity=$1,restored_count=$2,complete=$3,hash_state=$4 WHERE singleton", [after, restored, complete,hash.state()]);
     await client.query("COMMIT"); began = false;
     return {ready: complete, restored, afterIdentity: after};
   } catch (error) {

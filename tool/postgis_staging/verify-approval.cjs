@@ -10,8 +10,10 @@ async function main() {
   for await (const chunk of process.stdin) {bytes += chunk.length;if(bytes > 64*1024)throw Error("Approval input exceeds its bound.");body += chunk;}
   const input = JSON.parse(body);
   if (Object.keys(input).sort().join(",") !== "approval,expected") throw Error("Invalid verification input.");
-  const {verifyPostgisExecutionApproval} = require("../../functions/lib/postgis_execution_approval.js");
-  const claims = verifyPostgisExecutionApproval(input.approval, trust, input.expected);
+  const verify = input.expected?.purpose === "phase-transition"
+    ? require("../../functions/lib/postgis_phase_transition_approval.js").verifyPostgisPhaseTransitionApproval
+    : require("../../functions/lib/postgis_execution_approval.js").verifyPostgisExecutionApproval;
+  const claims = verify(input.approval, trust, input.expected);
   process.stdout.write(JSON.stringify({verified:true,claims}) + "\n");
 }
 if (require.main === module) main().catch(() => {process.stdout.write(JSON.stringify({verified:false,error:"approval_rejected"})+"\n");process.exitCode=1;});

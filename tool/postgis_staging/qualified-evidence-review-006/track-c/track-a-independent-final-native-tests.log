@@ -1,0 +1,29 @@
+✔ integer-only guest progress keeps the existing fingerprint bytes (0.956792ms)
+✔ each permitted distance field is lossless, bounded and fingerprint-sensitive (1.052875ms)
+✔ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=false) (725.615583ms)
+✔ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=true) (337.467167ms)
+✔ one-ULP fractional progress tampering cannot reuse an accepted challenge token (9.598958ms)
+✔ opt-in window requests one bounded membership batch; serial stays one row (268.088708ms)
+✔ whole prefetched batch rejected by current parent authority refills privately (84.918125ms)
+✔ whole first history batch rejected refills with exact page cursor and order (173.915583ms)
+✔ 75-ID global cap discards unused private tail and later resumes without loss (126.964625ms)
+✔ unused prefetched authority is rechecked and all-filtered exhaustion is truthful (137.077417ms)
+✔ accepted-answer interruption retains replay and no cross-account cached membership (103.001584ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-expired (1.864ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-start-submillisecond (0.727708ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-start-submicrosecond (0.617916ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-end-inclusive (0.517375ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-end-submillisecond (0.533ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-scheduled (0.477417ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-available (0.457ms)
+✔ SQL JSON round-trip preserves native time eligibility: daily-expired (0.677625ms)
+✔ SQL JSON round-trip preserves native time eligibility: daily-available (0.598583ms)
+﹣ real SQL selector and native membership agree for timestamp schedules and resumptions (0.20725ms) # SKIP
+ℹ tests 21
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 2244.566208

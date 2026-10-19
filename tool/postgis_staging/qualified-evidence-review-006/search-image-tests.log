@@ -1,0 +1,351 @@
+✔ signed prune job advances bounded validation pages then prunes in the same allowance (16.640208ms)
+✔ signed maxPages stops before unfinished validation can prune (1.349333ms)
+✔ failed validation closes resources and never prunes (1.781292ms)
+✔ fixture-stream requires provider execution identity before opening resources and forwards bounded permit checks (2.08425ms)
+✔ bounded recovery validation resumes across every page and process boundary with the original digest (147.301417ms)
+✔ partial hash corruption never publishes a successful validation (77.732542ms)
+✔ changed readonly file identity, missing files and writable artifacts cannot reuse proof (157.063542ms)
+✔ arbitrary reader success claims cannot supply immutable proof (39.048417ms)
+✔ GCS reusable validation requires actual locked retention and exact-generation bytes; ordinary reads remain available (115.179833ms)
+✔ serialized SHA256 matches native crypto including NIST and every block boundary (2904.033918ms)
+✔ malformed serialized hash state fails closed and shaped corruption cannot match digest (1.318416ms)
+▶ B006 finite admission, transactional incremental manifest and independent audit
+  ✔ one finite target survives process restart and unrelated continuous writes (182.664584ms)
+  ✔ duplicates, deletes, recreate and rollback maintain exact manifest (632.662501ms)
+  ✔ audit detects metadata corruption independently (53.923041ms)
+  ✔ publication aggregates fixed48 while full audit remains explicit (10.648084ms)
+✔ B006 finite admission, transactional incremental manifest and independent audit (4634.770043ms)
+✔ bounded SQL cleanup preserves active revisions, remaining foreign keys and unpublished source events (766.190709ms)
+✔ real Firestore bounded binding cleanup is inert, nonproduction guarded and retains live bindings (2290.983418ms)
+✔ unapproved/changed configuration never initializes connector or driver (2.116666ms)
+✔ mandatory encrypted PRIVATE IAM connector, bounded pool and exact identity probe (1.429375ms)
+✔ initial connector rejection is safe and does not invoke problematic rejected-cache close (0.783375ms)
+✔ pool/identity failures close initialized connector without leaking provider errors (1.452084ms)
+✔ failed queries destroy the leased connection; close destroys active leases once (0.810666ms)
+✔ restore uses only the separately approved database and the same IAM transport (0.453666ms)
+✔ caller mutation while credentials initialize cannot change the approved login target (0.498084ms)
+✔ timed-out initialization closes a later successful connector without creating a pool (1.458542ms)
+✔ late acquired client is destroyed after the acquisition deadline (1.248375ms)
+✔ integer-only guest progress keeps the existing fingerprint bytes (0.670042ms)
+✔ each permitted distance field is lossless, bounded and fingerprint-sensitive (2.290125ms)
+✔ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=false) (1298.777292ms)
+✔ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=true) (584.898042ms)
+✔ one-ULP fractional progress tampering cannot reuse an accepted challenge token (15.135291ms)
+✔ opt-in window requests one bounded membership batch; serial stays one row (438.047084ms)
+✔ whole prefetched batch rejected by current parent authority refills privately (140.846084ms)
+✔ whole first history batch rejected refills with exact page cursor and order (291.214417ms)
+✔ 75-ID global cap discards unused private tail and later resumes without loss (212.7255ms)
+✔ unused prefetched authority is rechecked and all-filtered exhaustion is truthful (210.8655ms)
+✔ accepted-answer interruption retains replay and no cross-account cached membership (187.513958ms)
+✔ candidate Score returns native pages, stable cursors, and isolated source identities (13.824792ms)
+✔ candidate Finder uses the existing eight-result contract and exact-first ranking (3.4065ms)
+✔ candidate Score admission is durable and failed pins keep the original deadline (1.272209ms)
+✔ candidate query failure is an error, never a successful empty page (0.795167ms)
+✔ candidate session expiry and account replacement precede SQL membership work (0.746916ms)
+﹣ actual hosted composition selects absent mode (0.099208ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ actual hosted composition selects false mode (0.026958ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ actual hosted composition selects true mode (0.023667ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ signed invalid JSON types reject before native/provider construction (0.035708ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ changed mode, stale permit and modified signature reject before key or provider access (0.024666ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ post-construction caller mutation cannot flip false signed mode (0.024ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ post-construction caller mutation cannot flip true signed mode (0.033ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ unsigned environment and caller request cannot enable absent signed mode (0.029584ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ signed hosted window enforces exact history intersection and global75 bound (0.016875ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ signed-in Saver retains native25-card behavior with either hosted guest setting (0.018125ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ BiteScore and Finder retain actual native results under either guest setting (0.063917ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+﹣ legacy native V1 remains serial even with context option true (0.048ms) # Hosted runtime unqualified: PostGIS hosted Linux runtime is unqualified; local qualification is insufficient.
+✔ controlled synthetic job exercises raw Firestore -> native maintenance -> atomic journal, interruption and tombstones (3725.76646ms)
+✖ guest remains unauthenticated and caller body identity cannot become verified auth (3.096833ms)
+✖ valid Firebase token is bound to configured project; invalid and cross-project tokens reject (0.661834ms)
+✖ exact approved browser CORS works for preflight and request; forged origins/headers reject (0.572667ms)
+✖ malformed envelopes, compressed input, excessive body and unsafe long numbers reject (0.527834ms)
+✖ AppCheck is verified when supplied and enforced only by signed configuration (0.641292ms)
+✖ unexpected handler failures expose only safe callable error shape (0.568917ms)
+✖ four active handlers bound admission and over-limit request fails without invoking (0.515917ms)
+✖ response deadline retains late-work admission until settlement instead of allowing unlimited replacement work (0.5045ms)
+▶ real Firestore maintenance → journal → PostGIS → native customer delivery
+  ✔ isolated fixture enrollment uses actual projection writes and finite source fence (14528.061715ms)
+  ✔ native Saver pages and Menu use SQL membership with opaque independent identities (3413.74971ms)
+  ✔ HTTP verifies real Auth emulator tokens and rejects malformed client binding (23.86275ms)
+  ✔ typed broad guest paging completes every native history challenge (16011.991174ms)
+  ✔ same-ID signed edit survives pinned membership, then current usage revokes it (1452.295376ms)
+  ✔ guest same-ID edit retains bounded history challenges and history suppression (4331.535544ms)
+  ✔ current withdrawal suppresses pinned membership and journaled SQL publication (803.952167ms)
+  ✔ actual Score and Finder native protocols consume SQL pages without private fields (1504.316876ms)
+✔ real Firestore maintenance → journal → PostGIS → native customer delivery (42572.862686ms)
+✔ import and dry-run do not initialize credentials, cloud clients or listeners (514.946ms)
+✔ authentic permit performs only fixed synthetic and metadata SQL with bounded IAM pool (291.443667ms)
+✔ forged signature and unknown trust reject before connector I/O (1.802917ms)
+✔ configuration or candidate changed after signing rejects before I/O (0.817916ms)
+✔ wrong Gate2 rejects even when genuinely signed for Gate2 (0.362ms)
+✔ production, demo and wrong project allowlist reject before I/O (0.665042ms)
+✔ non-diagnostic database, wrong principal and wrong instance reject before I/O (0.903583ms)
+✔ wrong job, action, protocol or extra plan keys reject before I/O (0.865084ms)
+✔ syntheticOnly must be literal true (0.472625ms)
+✔ expired, future and insufficient full-task approvals reject before I/O (1.006625ms)
+✔ caller mutations across await cannot change validated identity or receipt job (270.147875ms)
+✔ SQL error destroys diagnostic lease and closes pool/connector (238.683042ms)
+✔ approval expiry during SQL stops before next numerical operation and closes resources (205.506417ms)
+✔ work deadline stops the next SQL operation without late loop continuation (219.835459ms)
+✔ runtime NODE_OPTIONS cannot turn a diagnostic into a flag bypass (1.7335ms)
+✔ unrecognized CLI mode or empty job cannot reach real connection setup (1.296708ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-expired (4.868625ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-start-submillisecond (1.071042ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-start-submicrosecond (1.205833ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-end-inclusive (1.149584ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-end-submillisecond (0.925625ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-scheduled (0.84225ms)
+✔ SQL JSON round-trip preserves native time eligibility: coupon-available (0.832458ms)
+✔ SQL JSON round-trip preserves native time eligibility: daily-expired (1.337083ms)
+✔ SQL JSON round-trip preserves native time eligibility: daily-available (1.808542ms)
+✔ real SQL selector and native membership agree for timestamp schedules and resumptions (851.766626ms)
+✔ PostGIS pool refuses any nonlocal or production database target (0.618083ms)
+✔ PostGIS synthetic fixture uses real builders and preserves independent identities (69.530083ms)
+▶ real local PostGIS: mixed query, revision and resource qualification (synthetic event transport)
+  ✔ real extensions, bounded pool, exact float transport and full manifest publication (3.41825ms)
+  ✔ all dish sort modes exhaust in exact current-policy order (5902.197919ms)
+  ✔ alias, spelling, category and parent filters retain exact match semantics (1878.793584ms)
+  ✔ radius/near-tie ordering and >64-coordinate refinement have no missing later pages (4413.970293ms)
+  ✔ Finder suggestions and close matching use current eight-result contract (173.454375ms)
+  ✔ Saver excludes no-offer/hidden parents and matches current visible offers/Specials (1536.600667ms)
+  ✔ zero work budget returns truthful incomplete state with resumable frontier (7.242584ms)
+  ✔ same raw coupon ID under two accounts remains two derived children (115.531333ms)
+  ✔ edited/deleted/recreated source advances atomically while old valid pin protects paging (214.236042ms)
+  ✔ poison/conflicting receipt and missing event cannot publish incomplete revision (126.958458ms)
+  ✔ valid-digest semantic poison cannot publish and only a later source repair or delete recovers (453.263125ms)
+  ✔ native Saver provider translates tied-name/coordinate ID boundaries without losing later parents (738.205875ms)
+  ✔ offer-heavy native summary resumes from durable bounded checkpoints without duplicates (1430.622167ms)
+  ✔ statement/acquisition timeouts release connections and the bounded pool recovers (2096.947209ms)
+  ✔ concurrent real SQL useful selections report observations without hosted/UI claims (206.837417ms)
+✔ real local PostGIS: mixed query, revision and resource qualification (synthetic event transport) (21061.946218ms)
+✔ 2D recall emits wrapped envelopes only in its proved latitude domain (0.688334ms)
+{"name":"radius-0-1","expectedCount":49,"recallCount":588,"returnedItems":49,"partials":0,"sqlStatements":11,"returnedRows":682,"jsonBytes":2938316,"elapsedMs":545.3120840000047,"orderedIdSha256":"2aa46bd0dabfcef68b45026ac8e810f64ed19708f40ce56f4bf3509abb21555e"}
+{"name":"radius-0-3","expectedCount":88,"recallCount":656,"returnedItems":52,"partials":0,"sqlStatements":3,"returnedRows":192,"jsonBytes":842253,"elapsedMs":135.41366700000071,"orderedIdSha256":"221c60ac709086328dd9210f70d80182cbd29a8e0ea4b1a446a231bf80f9ec4e"}
+{"name":"radius-0-5","expectedCount":138,"recallCount":774,"returnedItems":52,"partials":0,"sqlStatements":3,"returnedRows":192,"jsonBytes":842253,"elapsedMs":38.74787500000093,"orderedIdSha256":"221c60ac709086328dd9210f70d80182cbd29a8e0ea4b1a446a231bf80f9ec4e"}
+{"name":"radius-0-10","expectedCount":281,"recallCount":942,"returnedItems":52,"partials":0,"sqlStatements":3,"returnedRows":192,"jsonBytes":842253,"elapsedMs":82.51774999999907,"orderedIdSha256":"221c60ac709086328dd9210f70d80182cbd29a8e0ea4b1a446a231bf80f9ec4e"}
+{"name":"radius-0-15","expectedCount":488,"recallCount":1172,"returnedItems":52,"partials":0,"sqlStatements":3,"returnedRows":192,"jsonBytes":842253,"elapsedMs":139.30483300000196,"orderedIdSha256":"221c60ac709086328dd9210f70d80182cbd29a8e0ea4b1a446a231bf80f9ec4e"}
+{"name":"radius-0-20","expectedCount":773,"recallCount":1378,"returnedItems":52,"partials":0,"sqlStatements":3,"returnedRows":192,"jsonBytes":842253,"elapsedMs":202.43620799999917,"orderedIdSha256":"221c60ac709086328dd9210f70d80182cbd29a8e0ea4b1a446a231bf80f9ec4e"}
+{"name":"radius-0-30","expectedCount":1216,"recallCount":1646,"returnedItems":52,"partials":0,"sqlStatements":3,"returnedRows":192,"jsonBytes":842253,"elapsedMs":156.0667500000127,"orderedIdSha256":"221c60ac709086328dd9210f70d80182cbd29a8e0ea4b1a446a231bf80f9ec4e"}
+{"name":"radius-1-1","expectedCount":9,"recallCount":110,"returnedItems":9,"partials":0,"sqlStatements":3,"returnedRows":130,"jsonBytes":576451,"elapsedMs":143.32912500000384,"orderedIdSha256":"d2f8a233304708440f9e5c8b37477f5da15dc285da77c6328c1562075554e97a"}
+{"name":"radius-1-3","expectedCount":53,"recallCount":178,"returnedItems":52,"partials":0,"sqlStatements":3,"returnedRows":192,"jsonBytes":852783,"elapsedMs":151.17470799999137,"orderedIdSha256":"ad82519c2c8770b530034bf8c921ba94b74160e0e4d7802a06469d7e4e7c2769"}
+{"name":"radius-1-5","expectedCount":97,"recallCount":296,"returnedItems":52,"partials":0,"sqlStatements":3,"returnedRows":192,"jsonBytes":852611,"elapsedMs":150.38762500000303,"orderedIdSha256":"ad82519c2c8770b530034bf8c921ba94b74160e0e4d7802a06469d7e4e7c2769"}
+{"name":"radius-1-10","expectedCount":247,"recallCount":464,"returnedItems":52,"partials":0,"sqlStatements":3,"returnedRows":192,"jsonBytes":852611,"elapsedMs":114.61466700000165,"orderedIdSha256":"ad82519c2c8770b530034bf8c921ba94b74160e0e4d7802a06469d7e4e7c2769"}
+{"name":"radius-1-15","expectedCount":474,"recallCount":694,"returnedItems":52,"partials":0,"sqlStatements":3,"returnedRows":192,"jsonBytes":852611,"elapsedMs":170.97149999999965,"orderedIdSha256":"ad82519c2c8770b530034bf8c921ba94b74160e0e4d7802a06469d7e4e7c2769"}
+{"name":"radius-1-20","expectedCount":746,"recallCount":900,"returnedItems":52,"partials":0,"sqlStatements":3,"returnedRows":192,"jsonBytes":852611,"elapsedMs":173.0420840000006,"orderedIdSha256":"ad82519c2c8770b530034bf8c921ba94b74160e0e4d7802a06469d7e4e7c2769"}
+{"name":"radius-1-30","expectedCount":1140,"recallCount":1168,"returnedItems":52,"partials":0,"sqlStatements":3,"returnedRows":192,"jsonBytes":852611,"elapsedMs":182.79833400000643,"orderedIdSha256":"ad82519c2c8770b530034bf8c921ba94b74160e0e4d7802a06469d7e4e7c2769"}
+{"name":"radius-2-1","expectedCount":18,"recallCount":110,"returnedItems":18,"partials":0,"sqlStatements":3,"returnedRows":148,"jsonBytes":657529,"elapsedMs":140.73283300000185,"orderedIdSha256":"eaa650d7fde0306c490ea838c1094b6a51558346b30afc6a757b5f9953da736e"}
+{"name":"radius-2-3","expectedCount":51,"recallCount":178,"returnedItems":51,"partials":0,"sqlStatements":6,"returnedRows":344,"jsonBytes":1519826,"elapsedMs":291.0294589999976,"orderedIdSha256":"c69cbdd106be1975b487e6247b130f04386990efa08f68229fa531cdc545cfbf"}
+{"name":"radius-2-5","expectedCount":93,"recallCount":296,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1412557,"elapsedMs":273.26483300000837,"orderedIdSha256":"470d96a99311d951b679dc6cf2e742be62c82c41057be443efa93dcf225d5495"}
+{"name":"radius-2-10","expectedCount":213,"recallCount":464,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1412557,"elapsedMs":279.73333399998955,"orderedIdSha256":"470d96a99311d951b679dc6cf2e742be62c82c41057be443efa93dcf225d5495"}
+{"name":"radius-2-15","expectedCount":405,"recallCount":694,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1412557,"elapsedMs":233.31345899999724,"orderedIdSha256":"470d96a99311d951b679dc6cf2e742be62c82c41057be443efa93dcf225d5495"}
+{"name":"radius-2-20","expectedCount":651,"recallCount":900,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1412557,"elapsedMs":280.5629169999884,"orderedIdSha256":"470d96a99311d951b679dc6cf2e742be62c82c41057be443efa93dcf225d5495"}
+{"name":"radius-2-30","expectedCount":1109,"recallCount":1168,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1412557,"elapsedMs":291.49541699999827,"orderedIdSha256":"470d96a99311d951b679dc6cf2e742be62c82c41057be443efa93dcf225d5495"}
+{"name":"radius-3-1","expectedCount":10,"recallCount":110,"returnedItems":10,"partials":0,"sqlStatements":3,"returnedRows":174,"jsonBytes":776179,"elapsedMs":64.00520800000231,"orderedIdSha256":"74dbb9c91d322c6eefee111de38dbd8080ef55e0fed5b73a264e01884280b0cb"}
+{"name":"radius-3-3","expectedCount":58,"recallCount":178,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1415277,"elapsedMs":223.1759999999922,"orderedIdSha256":"e6d03e8345ce7c156e4a6d5daacd7b1e1f02b22e017be5f2c865454e08f91cc9"}
+{"name":"radius-3-5","expectedCount":125,"recallCount":296,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1415277,"elapsedMs":255.57820800000627,"orderedIdSha256":"e6d03e8345ce7c156e4a6d5daacd7b1e1f02b22e017be5f2c865454e08f91cc9"}
+{"name":"radius-3-10","expectedCount":354,"recallCount":464,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1415277,"elapsedMs":219.44029100000625,"orderedIdSha256":"e6d03e8345ce7c156e4a6d5daacd7b1e1f02b22e017be5f2c865454e08f91cc9"}
+{"name":"radius-3-15","expectedCount":599,"recallCount":694,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1415277,"elapsedMs":278.2572910000017,"orderedIdSha256":"e6d03e8345ce7c156e4a6d5daacd7b1e1f02b22e017be5f2c865454e08f91cc9"}
+{"name":"radius-3-20","expectedCount":812,"recallCount":900,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1415277,"elapsedMs":231.83525000000373,"orderedIdSha256":"e6d03e8345ce7c156e4a6d5daacd7b1e1f02b22e017be5f2c865454e08f91cc9"}
+{"name":"radius-3-30","expectedCount":1156,"recallCount":1168,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1415277,"elapsedMs":285.1998329999915,"orderedIdSha256":"e6d03e8345ce7c156e4a6d5daacd7b1e1f02b22e017be5f2c865454e08f91cc9"}
+{"name":"radius-4-1","expectedCount":26,"recallCount":104,"returnedItems":26,"partials":0,"sqlStatements":3,"returnedRows":168,"jsonBytes":746871,"elapsedMs":142.73366699999315,"orderedIdSha256":"d3254a47c8bc9c8f155566073b8033b559a4972def81eecf2ebb63f476ef6cf5"}
+{"name":"radius-4-3","expectedCount":138,"recallCount":178,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1406423,"elapsedMs":250.84075000000303,"orderedIdSha256":"74e8fa6a687072bfa18a45d9c0a73e3fdadee29e14683edc475ff7163949666d"}
+{"name":"radius-4-5","expectedCount":246,"recallCount":296,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1406423,"elapsedMs":257.6336660000088,"orderedIdSha256":"74e8fa6a687072bfa18a45d9c0a73e3fdadee29e14683edc475ff7163949666d"}
+{"name":"radius-4-10","expectedCount":435,"recallCount":464,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1406423,"elapsedMs":277.6302089999954,"orderedIdSha256":"74e8fa6a687072bfa18a45d9c0a73e3fdadee29e14683edc475ff7163949666d"}
+{"name":"radius-4-15","expectedCount":662,"recallCount":694,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1406423,"elapsedMs":222.6217079999915,"orderedIdSha256":"74e8fa6a687072bfa18a45d9c0a73e3fdadee29e14683edc475ff7163949666d"}
+{"name":"radius-4-20","expectedCount":832,"recallCount":900,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1406423,"elapsedMs":282.9399579999881,"orderedIdSha256":"74e8fa6a687072bfa18a45d9c0a73e3fdadee29e14683edc475ff7163949666d"}
+{"name":"radius-4-30","expectedCount":1154,"recallCount":1168,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1406423,"elapsedMs":287.61945900000865,"orderedIdSha256":"74e8fa6a687072bfa18a45d9c0a73e3fdadee29e14683edc475ff7163949666d"}
+{"name":"saver-35","expectedCount":297,"recallCount":1031,"returnedItems":52,"partials":1,"sqlStatements":138,"returnedRows":396,"jsonBytes":2427730,"elapsedMs":305.22429199999897,"orderedIdSha256":"4b2880816c57010c75293ea4a02a5a784f9451510218e55a56f02124a597d746"}
+{"name":"saver-36","expectedCount":120,"recallCount":282,"returnedItems":52,"partials":1,"sqlStatements":105,"returnedRows":388,"jsonBytes":2367998,"elapsedMs":236.13250000000698,"orderedIdSha256":"ae7219fd6f125e974621df525f4b5edd181c8e02b71d9e408164bea2c739daa1"}
+{"name":"saver-37","expectedCount":0,"recallCount":5,"returnedItems":0,"partials":0,"sqlStatements":2,"returnedRows":5,"jsonBytes":26165,"elapsedMs":49.23933299999044,"orderedIdSha256":"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"}
+{"name":"saver-38","expectedCount":297,"recallCount":1031,"returnedItems":52,"partials":0,"sqlStatements":74,"returnedRows":533,"jsonBytes":3106306,"elapsedMs":351.6187920000084,"orderedIdSha256":"0b3270861d302d20ae3ccf1b7220ebb874403231ed4cb14baea4eec2a143fa31"}
+{"name":"dish-sort-Highest BiteScore","expectedCount":412,"recallCount":1056,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1773732,"elapsedMs":297.13379199999326,"orderedIdSha256":"d3e31dbf239d7a56de2031f1534a3bb02dd8ee8d1131706bc50a67dfc8994c24"}
+{"name":"dish-sort-Closest","expectedCount":412,"recallCount":1056,"returnedItems":52,"partials":0,"sqlStatements":2,"returnedRows":128,"jsonBytes":732664,"elapsedMs":129.3652080000029,"orderedIdSha256":"8b4552b42843df2615218802215de3a5a2e84f9483243929acf61d85503d233b"}
+{"name":"dish-sort-Most Reviewed","expectedCount":412,"recallCount":1056,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1770071,"elapsedMs":250.5477910000045,"orderedIdSha256":"7e5cd77749a6c1d4b74d186c78d023817c9d5c83627e45a51efc1a54906eea5c"}
+{"name":"dish-sort-Best Value","expectedCount":412,"recallCount":1056,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1774052,"elapsedMs":296.21854200000234,"orderedIdSha256":"d3e31dbf239d7a56de2031f1534a3bb02dd8ee8d1131706bc50a67dfc8994c24"}
+{"name":"dish-sort-Best Flavor","expectedCount":412,"recallCount":1056,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1774052,"elapsedMs":292.0432920000021,"orderedIdSha256":"d3e31dbf239d7a56de2031f1534a3bb02dd8ee8d1131706bc50a67dfc8994c24"}
+{"name":"dish-sort-Highest Quality","expectedCount":412,"recallCount":1056,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1774052,"elapsedMs":295.5512500000041,"orderedIdSha256":"d3e31dbf239d7a56de2031f1534a3bb02dd8ee8d1131706bc50a67dfc8994c24"}
+{"name":"dish-sort-Most Enjoyed","expectedCount":412,"recallCount":1056,"returnedItems":52,"partials":0,"sqlStatements":5,"returnedRows":320,"jsonBytes":1774052,"elapsedMs":253.1768749999901,"orderedIdSha256":"d3e31dbf239d7a56de2031f1534a3bb02dd8ee8d1131706bc50a67dfc8994c24"}
+{"name":"dish-sort-Dish Name","expectedCount":1,"recallCount":1,"returnedItems":1,"partials":0,"sqlStatements":1,"returnedRows":1,"jsonBytes":5482,"elapsedMs":0.8910419999883743,"orderedIdSha256":"3ed74958d5b5718c066a373b5b24a0f3c2aa2cdbb6e944f91451443ee5bbcb8a"}
+{"name":"text-s","expectedCount":411,"recallCount":1053,"returnedItems":52,"partials":0,"sqlStatements":2,"returnedRows":128,"jsonBytes":732664,"elapsedMs":145.482124999995,"orderedIdSha256":"8b4552b42843df2615218802215de3a5a2e84f9483243929acf61d85503d233b"}
+{"name":"text-Rare Juniper","expectedCount":1,"recallCount":1056,"returnedItems":1,"partials":0,"sqlStatements":17,"returnedRows":1070,"jsonBytes":5953565,"elapsedMs":1315.2313749999885,"orderedIdSha256":"7ebf9c3f49e1baedfe1c8fe6c9028be348adf52928a9508cf17ea5034114991f"}
+{"name":"text-submarine","expectedCount":265,"recallCount":1056,"returnedItems":52,"partials":0,"sqlStatements":4,"returnedRows":256,"jsonBytes":1443579,"elapsedMs":349.52545799998916,"orderedIdSha256":"f823eb480fc0034ca6d6d7657fc75119a220bab2cc58836537b3b12aeb920f20"}
+{"name":"text-hambuger","expectedCount":147,"recallCount":1056,"returnedItems":52,"partials":0,"sqlStatements":6,"returnedRows":384,"jsonBytes":2153623,"elapsedMs":491.7910419999971,"orderedIdSha256":"7cf05ccd3d41dac52612ca3988cb153e75bc53a3248a48903cb9e5783288d57e"}
+{"name":"text-not-a-real-rare-word","expectedCount":0,"recallCount":1056,"returnedItems":0,"partials":0,"sqlStatements":17,"returnedRows":1070,"jsonBytes":5953565,"elapsedMs":1340.4935010000045,"orderedIdSha256":"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"}
+{"name":"category","expectedCount":147,"recallCount":1056,"returnedItems":52,"partials":0,"sqlStatements":6,"returnedRows":384,"jsonBytes":2153623,"elapsedMs":487.5794590000005,"orderedIdSha256":"7cf05ccd3d41dac52612ca3988cb153e75bc53a3248a48903cb9e5783288d57e"}
+{"name":"finder-suggestions","expectedCount":50,"recallCount":50,"returnedItems":50,"partials":0,"sqlStatements":2,"returnedRows":100,"jsonBytes":408190,"elapsedMs":599.5202920000011,"orderedIdSha256":"b24ec3894bc3cab3d027766fb96da259ce49dc4ca9e85573269ffc39d153edf5"}
+{"name":"finder-close","expectedCount":50,"recallCount":50,"returnedItems":50,"partials":0,"sqlStatements":2,"returnedRows":100,"jsonBytes":408090,"elapsedMs":501.9961239999975,"orderedIdSha256":"b24ec3894bc3cab3d027766fb96da259ce49dc4ca9e85573269ffc39d153edf5"}
+✔ actual 50k-parent SQL plans, conservative recall and exhaustive native oracle (40649.187435ms)
+{"finderExactNativeScoreVectors":164,"maximumLength":800,"includes255And256":true}
+✔ Finder close bounded ASCII fast path exactly matches native scores and long fallback (9869.457921ms)
+✔ exact local Linux tuple is accepted and cached without granting hosted scope (8.680333ms)
+✔ Linux qualification refuses other binary, V8, Node, architecture, kernel and CPU tuples (3.410125ms)
+✔ scope and flags are checked again after cached local qualification (0.505584ms)
+✔ previous exact Darwin qualification remains unchanged (0.627875ms)
+✔ both hosted entry paths explicitly require hosted numerical qualification (0.457459ms)
+✔ actual qualified local process cannot unlock Linux hosted scope (0.3895ms)
+✔ construction and missing/forged approval are inert; production/mismatched config refused (5.31425ms)
+✔ immutable generation-pinned chunks round-trip beyond500 rows; retry is identical (51.864709ms)
+✔ lost upload acknowledgements reconcile verified bytes and do not duplicate (22.39825ms)
+✔ interrupted upload never publishes completeness and resumes create-if-absent (27.4995ms)
+✔ missing chunk rejects recovery evidence (23.829334ms)
+✔ corrupt chunk rejects recovery evidence (23.790209ms)
+✔ generation chunk rejects recovery evidence (22.674292ms)
+✔ metadata chunk rejects recovery evidence (19.853667ms)
+✔ terminal generation replacement/removal after pin is rejected even for identical bytes (20.843583ms)
+✔ conflicting create cannot overwrite previously durable rows (26.12875ms)
+✔ permission and timeout failures are not absence; bucket incarnation/scope and expiry fail closed (0.722292ms)
+✔ unverified source and storage overflow never produce a terminal manifest (18.075708ms)
+✔ empty complete snapshot retains fence and validates without data objects (2.410125ms)
+✔ malformed provider JSON and transport errors never expose response fragments (0.597791ms)
+✔ hosted streaming export uses branded approved SQL and no filesystem; restore binds exact store and ID (30.631958ms)
+✔ real Firestore bootstrap survives SQL loss via local-files, bounded resume and post-snapshot replay (48790.537648ms)
+ℹ Qualified 546 real projection rows; recovery evidence /evidence/recovery-snapshot-nwQ19H/qualification.json
+✔ real Firestore bootstrap survives SQL loss via simulated-gcs-json-api, bounded resume and post-snapshot replay (43147.918561ms)
+ℹ Qualified 546 real projection rows; recovery evidence /evidence/recovery-snapshot-1tIyzv/qualification.json
+✔ canonical source digests ignore key insertion order and reject non-JSON values (0.78425ms)
+✔ BiteSaver export keeps timestamp precision and internal/public identities while excluding private fields (0.810875ms)
+✔ BiteScore export preserves native public wrapper and strips admin/unknown nested fields (1.249333ms)
+✔ same textual source IDs remain separate across source sides and offers are parent scoped (0.167291ms)
+✔ finite source event validation detects poisoned payloads, invalid order and manifest tombstones (0.917583ms)
+✔ nonproduction source guard rejects production and a mismatched actual Firestore project (0.342833ms)
+✔ recovery snapshot validation streams strict identity order and verifies the complete fenced manifest (19.223708ms)
+▶ real Firestore source journaling, fenced bootstrap and interruption recovery
+  ✔ default writer remains dormant and pre-existing projections are not mistaken for an empty enrolled source (1207.458584ms)
+  ✔ real maintenance create/update/delete/recreate and duplicate delivery preserve a single identity sequence (847.470542ms)
+  ✔ interrupted source transaction cannot commit an event or advance a shard (167.683125ms)
+  ✔ bootstrap resumes after interruption, re-reads raced scan rows and captures an end fence only after every collection (1653.685085ms)
+  ✔ concurrent identity writes on the same shard cannot lose a committed sequence or count (4042.049293ms)
+  ✔ actual BiteSaver account/coupon/special and BiteScore dish/aggregate paths journal parent fanout and independent identities (2795.027418ms)
+  ✔ poison and missing-event gaps block delivery; restoring exact immutable evidence permits retry (820.077334ms)
+  ✔ epoch replacement and incomplete enrollment owner changes fail closed (67.002084ms)
+  ✔ source retention requires actual intact recovery files and preserves every change beyond the acknowledged fence (5849.983128ms)
+✔ real Firestore source journaling, fenced bootstrap and interruption recovery (17564.003841ms)
+✔ shared verified callable contexts ignore payload identities and preserve native actor domains (1.814958ms)
+✔ candidate numerical guard rejects option changes even after a cached qualification (0.159792ms)
+✔ inert staging registration rejects wrong targets and reuses exact native source handlers (8.14425ms)
+✔ 50k parent roots fit finite work/reservation bounds without claiming elapsed qualification (594.806082ms)
+✔ deterministic scenarios include distinct namespaces, variable children, actual usage rules, aliases and long suppressed cohort (65.044917ms)
+✔ offset/reservation/operation/byte/shape guards stay finite (1.0465ms)
+✔ real emulator lease refuses concurrent writers and resumes only the same plan after an injected lost-process lease (2213.817001ms)
+ℹ tests 167
+ℹ suites 0
+ℹ pass 147
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 12
+ℹ todo 0
+ℹ duration_ms 248381.168446
+
+✖ failing tests:
+
+test at test/postgis_hosted_transport.test.cjs:14:1
+✖ guest remains unauthenticated and caller body identity cannot become verified auth (3.096833ms)
+  Error: The hosted candidate requires approved isolated resources and exact browser origins.
+      at requireHostedPostgisConfiguration (/app/functions/lib/postgis_hosted_runtime.js:42:15)
+      at createHostedPostgisRequestListener (/app/functions/lib/postgis_hosted_transport.js:102:71)
+      at fixture (/app/functions/test/postgis_hosted_transport.test.cjs:10:33)
+      at TestContext.<anonymous> (/app/functions/test/postgis_hosted_transport.test.cjs:14:115)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+test at test/postgis_hosted_transport.test.cjs:15:1
+✖ valid Firebase token is bound to configured project; invalid and cross-project tokens reject (0.661834ms)
+  Error: The hosted candidate requires approved isolated resources and exact browser origins.
+      at requireHostedPostgisConfiguration (/app/functions/lib/postgis_hosted_runtime.js:42:15)
+      at createHostedPostgisRequestListener (/app/functions/lib/postgis_hosted_transport.js:102:71)
+      at fixture (/app/functions/test/postgis_hosted_transport.test.cjs:10:33)
+      at TestContext.<anonymous> (/app/functions/test/postgis_hosted_transport.test.cjs:15:125)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+test at test/postgis_hosted_transport.test.cjs:16:1
+✖ exact approved browser CORS works for preflight and request; forged origins/headers reject (0.572667ms)
+  Error: The hosted candidate requires approved isolated resources and exact browser origins.
+      at requireHostedPostgisConfiguration (/app/functions/lib/postgis_hosted_runtime.js:42:15)
+      at createHostedPostgisRequestListener (/app/functions/lib/postgis_hosted_transport.js:102:71)
+      at fixture (/app/functions/test/postgis_hosted_transport.test.cjs:10:33)
+      at TestContext.<anonymous> (/app/functions/test/postgis_hosted_transport.test.cjs:16:123)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+test at test/postgis_hosted_transport.test.cjs:17:1
+✖ malformed envelopes, compressed input, excessive body and unsafe long numbers reject (0.527834ms)
+  Error: The hosted candidate requires approved isolated resources and exact browser origins.
+      at requireHostedPostgisConfiguration (/app/functions/lib/postgis_hosted_runtime.js:42:15)
+      at createHostedPostgisRequestListener (/app/functions/lib/postgis_hosted_transport.js:102:71)
+      at fixture (/app/functions/test/postgis_hosted_transport.test.cjs:10:33)
+      at TestContext.<anonymous> (/app/functions/test/postgis_hosted_transport.test.cjs:17:117)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+test at test/postgis_hosted_transport.test.cjs:18:1
+✖ AppCheck is verified when supplied and enforced only by signed configuration (0.641292ms)
+  Error: The hosted candidate requires approved isolated resources and exact browser origins.
+      at requireHostedPostgisConfiguration (/app/functions/lib/postgis_hosted_runtime.js:42:15)
+      at createHostedPostgisRequestListener (/app/functions/lib/postgis_hosted_transport.js:102:71)
+      at fixture (/app/functions/test/postgis_hosted_transport.test.cjs:10:33)
+      at TestContext.<anonymous> (/app/functions/test/postgis_hosted_transport.test.cjs:18:109)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+test at test/postgis_hosted_transport.test.cjs:19:1
+✖ unexpected handler failures expose only safe callable error shape (0.568917ms)
+  Error: The hosted candidate requires approved isolated resources and exact browser origins.
+      at requireHostedPostgisConfiguration (/app/functions/lib/postgis_hosted_runtime.js:42:15)
+      at createHostedPostgisRequestListener (/app/functions/lib/postgis_hosted_transport.js:102:71)
+      at fixture (/app/functions/test/postgis_hosted_transport.test.cjs:10:33)
+      at TestContext.<anonymous> (/app/functions/test/postgis_hosted_transport.test.cjs:19:98)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+test at test/postgis_hosted_transport.test.cjs:20:1
+✖ four active handlers bound admission and over-limit request fails without invoking (0.515917ms)
+  Error: The hosted candidate requires approved isolated resources and exact browser origins.
+      at requireHostedPostgisConfiguration (/app/functions/lib/postgis_hosted_runtime.js:42:15)
+      at createHostedPostgisRequestListener (/app/functions/lib/postgis_hosted_transport.js:102:71)
+      at fixture (/app/functions/test/postgis_hosted_transport.test.cjs:10:33)
+      at TestContext.<anonymous> (/app/functions/test/postgis_hosted_transport.test.cjs:20:115)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+test at test/postgis_hosted_transport.test.cjs:21:1
+✖ response deadline retains late-work admission until settlement instead of allowing unlimited replacement work (0.5045ms)
+  Error: The hosted candidate requires approved isolated resources and exact browser origins.
+      at requireHostedPostgisConfiguration (/app/functions/lib/postgis_hosted_runtime.js:42:15)
+      at createHostedPostgisRequestListener (/app/functions/lib/postgis_hosted_transport.js:102:71)
+      at fixture (/app/functions/test/postgis_hosted_transport.test.cjs:10:33)
+      at TestContext.<anonymous> (/app/functions/test/postgis_hosted_transport.test.cjs:22:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)

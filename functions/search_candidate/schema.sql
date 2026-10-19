@@ -60,20 +60,25 @@ ALTER TABLE entities ADD COLUMN IF NOT EXISTS pref_city text NOT NULL DEFAULT ''
 ALTER TABLE entities ADD COLUMN IF NOT EXISTS pref_state text NOT NULL DEFAULT '';
 ALTER TABLE entities ADD COLUMN IF NOT EXISTS finder_tokens text[] NOT NULL DEFAULT '{}';
 CREATE OR REPLACE FUNCTION finder_close_score(n text,q text,nt text[],qt text[]) RETURNS float8 LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE AS $$
-DECLARE prev int[]; cur int[]; i int; j int; shared int; total int; score float8; longest int;
+DECLARE prev int[]; cur int[]; i int; j int; shared int; total int; score float8; longest int; edit_distance int;
 BEGIN
 IF n=q THEN RETURN 2; END IF;
 IF position(n in q)>0 OR position(q in n)>0 THEN RETURN 1; END IF;
 IF starts_with(n,q) OR starts_with(q,n) THEN RETURN 0.92; END IF;
 SELECT count(*) INTO shared FROM (SELECT unnest(nt) INTERSECT SELECT unnest(qt)) z;
 SELECT count(*) INTO total FROM (SELECT unnest(nt) UNION SELECT unnest(qt)) z;
+IF n ~ '^[a-z0-9 ]*$' AND q ~ '^[a-z0-9 ]*$' AND octet_length(n)<=255 AND octet_length(q)<=255 THEN
+ edit_distance:=levenshtein(n,q,1,1,1);
+ELSE
 prev:=ARRAY(SELECT generate_series(0,length(n)));
 FOR i IN 1..length(q) LOOP
  cur:=ARRAY[i];
  FOR j IN 1..length(n) LOOP cur:=array_append(cur,least(cur[j]+1,prev[j+1]+1,prev[j]+CASE WHEN substr(q,i,1)=substr(n,j,1) THEN 0 ELSE 1 END)); END LOOP;
  prev:=cur;
 END LOOP;
-longest:=greatest(length(n),length(q));score:=greatest(CASE WHEN total=0 THEN 0 ELSE shared::float8/total END,CASE WHEN longest=0 THEN 0 ELSE 1-prev[length(n)+1]::float8/longest END);
+ edit_distance:=prev[length(n)+1];
+END IF;
+longest:=greatest(length(n),length(q));score:=greatest(CASE WHEN total=0 THEN 0 ELSE shared::float8/total END,CASE WHEN longest=0 THEN 0 ELSE 1-edit_distance::float8/longest END);
 RETURN CASE WHEN score>=0.55 THEN score ELSE 0 END;
 END $$;
 
@@ -139,3 +144,52 @@ CREATE INDEX IF NOT EXISTS refinement_revision ON refinement_work(revision);
 CREATE TABLE IF NOT EXISTS projection_poison (
  index_path text PRIMARY KEY, revision bigint NOT NULL, shard smallint NOT NULL, seq bigint NOT NULL, digest text NOT NULL
 );
+
+-- Finite per-intent source watermark; retained through the pin lifetime.
+CREATE TABLE IF NOT EXISTS admission_targets (
+ id text PRIMARY KEY, expires_ms bigint NOT NULL, target jsonb NOT NULL
+);
+CREATE INDEX IF NOT EXISTS admission_target_expiry ON admission_targets(expires_ms,id);
+
+-- Ordinary publication reads these 48 rows. Initialization alone reconciles
+-- preexisting derived heads; a full independent audit remains explicit.
+CREATE TABLE IF NOT EXISTS source_manifest_partitions (
+ shard smallint NOT NULL CHECK(shard>=0 AND shard<16),
+ collection text NOT NULL CHECK(collection IN ('restaurant_search_index','dish_search_index','bitesaver_offer_index')),
+ count bigint NOT NULL CHECK(count>=0), xor bit(256) NOT NULL, PRIMARY KEY(shard,collection)
+);
+INSERT INTO source_manifest_partitions(shard,collection,count,xor)
+SELECT s,c,coalesce(h.count,0),coalesce(h.xor,repeat('0',256)::bit(256))
+FROM generate_series(0,15) s CROSS JOIN unnest(ARRAY['restaurant_search_index','dish_search_index','bitesaver_offer_index']) c
+LEFT JOIN (SELECT shard,payload->>'collection' AS collection,count(*) AS count,bit_xor(('x'||digest)::bit(256)) AS xor
+ FROM source_heads GROUP BY shard,payload->>'collection') h ON h.shard=s AND h.collection=c
+ON CONFLICT(shard,collection) DO NOTHING;
+CREATE OR REPLACE FUNCTION maintain_source_manifest() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ IF TG_OP='UPDATE' AND OLD.shard=NEW.shard AND OLD.payload->>'collection'=NEW.payload->>'collection' AND OLD.digest=NEW.digest THEN RETURN NEW; END IF;
+ IF TG_OP IN ('DELETE','UPDATE') THEN
+  UPDATE source_manifest_partitions SET count=count-1,xor=xor # ('x'||OLD.digest)::bit(256)
+   WHERE shard=OLD.shard AND collection=OLD.payload->>'collection';
+  IF NOT FOUND THEN RAISE EXCEPTION 'Missing old source manifest partition'; END IF;
+ END IF;
+ IF TG_OP IN ('INSERT','UPDATE') THEN
+  UPDATE source_manifest_partitions SET count=count+1,xor=xor # ('x'||NEW.digest)::bit(256)
+   WHERE shard=NEW.shard AND collection=NEW.payload->>'collection';
+  IF NOT FOUND THEN RAISE EXCEPTION 'Missing new source manifest partition'; END IF;
+ END IF;
+ IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+ RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS source_manifest_change ON source_heads;
+CREATE TRIGGER source_manifest_change AFTER INSERT OR UPDATE OR DELETE ON source_heads FOR EACH ROW EXECUTE FUNCTION maintain_source_manifest();
+
+CREATE OR REPLACE FUNCTION reset_source_manifest() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ UPDATE source_manifest_partitions SET count=0,xor=repeat('0',256)::bit(256);
+ RETURN NULL;
+END $$;
+DROP TRIGGER IF EXISTS source_manifest_truncate ON source_heads;
+CREATE TRIGGER source_manifest_truncate AFTER TRUNCATE ON source_heads
+FOR EACH STATEMENT EXECUTE FUNCTION reset_source_manifest();
+CREATE INDEX IF NOT EXISTS entity_parent_geometry ON entities USING gist ((geo::geometry))
+WHERE visible AND kind='restaurant';

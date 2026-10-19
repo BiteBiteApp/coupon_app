@@ -30,15 +30,7 @@ class SignedApproval:
         expected = {key: self.config[key] for key in ('projectId', 'projectNumber', 'runId', 'candidateDigest')}
         expected.update(configDigest=digest(self.config), gate=gate,
                         purpose='cleanup' if cleanup else 'execute', nowMs=int(self.clock() * 1000))
-        # No inherited Node preload flags, shell, stdin trust keys or credentials.
-        env = {'PATH': os.defpath}
-        result = subprocess.run([str(self.node), str(self.verifier), str(self.trusted_keys)],
-            input=canonical({'approval': self.envelope, 'expected': expected}),
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=5, env=env)
-        need(result.returncode == 0 and len(result.stdout) < 32768, 'execution approval rejected')
-        response = json.loads(result.stdout)
-        need(response.get('verified') is True, 'execution approval rejected')
-        claims = response['claims']
+        claims = self.verify_claims(self.envelope, expected)
         # The legacy pure guards consume this verified view, never a raw boolean.
         return {'approved': True, 'ownerApprovalReference': self.envelope['keyId'],
                 'runId': claims['runId'], 'projectId': claims['projectId'],
@@ -48,6 +40,17 @@ class SignedApproval:
                 'approvedGates': claims['allowedGates'],
                 'costCheckpointUsd': claims.get('costCheckpointUsd'),
                 'supervisedControlBootstrap': self.config['provider'].get('supervisedControlBootstrap') is True}
+
+    def verify_claims(self, envelope, expected):
+        # No inherited Node preload flags, shell, stdin trust keys or credentials.
+        env = {'PATH': os.defpath}
+        result = subprocess.run([str(self.node), str(self.verifier), str(self.trusted_keys)],
+            input=canonical({'approval': envelope, 'expected': expected}),
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=5, env=env)
+        need(result.returncode == 0 and len(result.stdout) < 32768, 'execution approval rejected')
+        response = json.loads(result.stdout)
+        need(response.get('verified') is True, 'execution approval rejected')
+        return response['claims']
 
 
 class Controller:
@@ -92,6 +95,12 @@ class Controller:
         need(state['firstBillableAt'] == self.config['provider']['firstBillableAtMs'] / 1000, 'signed original start changed')
         need(state['deadline'] == state['firstBillableAt'] + self.config['lifetimeSeconds'], 'reset deadline')
         need(state.get('schemaVersion') == 1 and isinstance(state.get('intents'), dict), 'invalid controller state')
+        # A process-local context never outlives its durable signed history.
+        self.resources.phase_context = None
+        need(state.get('phaseSequence', 0) in (0, 1), 'invalid phase sequence')
+        if state.get('phaseSequence') == 1:
+            from phase_transition import restore_verified_phase_context
+            restore_verified_phase_context(self, state)
         return current
 
     def _cas(self, current, state):
@@ -112,7 +121,7 @@ class Controller:
         need(self.clock() - started < self.config['bootstrapMaximumSeconds'], 'bootstrap initialization window expired')
         proposed = launch(self.config, approved, None, started)
         proposed.update(schemaVersion=1, intents={}, receipts={}, operations={}, polls={},
-                        absent={}, alertReceipts=[], reservationDigests={})
+                        absent={}, alertReceipts=[], reservationDigests={}, activePhase=self.config.get('phase', 'unclassified'))
         try:
             return self.store.write('0', proposed)
         except ProviderError as error:
@@ -150,6 +159,23 @@ class Controller:
         need(current['state']['status'] == 'provisioning' and current['state']['controlsVerified'] is True,
              'actual alert/shutdown proof required')
         state = copy.deepcopy(current['state']); state['status'] = 'running'
+        return self._cas(current, state)
+
+    def transition_to_serving(self, next_config, next_approval, transition_envelope, evidence_digest):
+        from phase_transition import transition_to_serving
+        return transition_to_serving(self, next_config, next_approval, transition_envelope, evidence_digest)
+
+    def confirm_phase_controls(self, receipt):
+        import re
+        current = self._read(); state = copy.deepcopy(current['state'])
+        need(state.get('phaseSequence') == 1 and state['status'] == 'phase-awaiting-controls', 'no pending serving phase')
+        for key in ('runId', 'projectId', 'configDigest', 'candidateDigest', 'firstBillableAt', 'deadline', 'phaseEvidenceDigest'):
+            need(receipt.get(key) == state[key], 'phase control receipt mismatch ' + key)
+        need(receipt.get('watchdogConfigObserved') is True and receipt.get('safetyActionObserved') is True and
+             receipt.get('alertDelivered') is True and re.fullmatch(r'[0-9a-f]{64}', receipt.get('evidenceDigest', '')),
+             'actual next-config independent control proof required')
+        need(self.clock() < state['deadline'] - self.config['teardownLeadSeconds'], 'phase control deadline exhausted')
+        state.update(status='provisioning', controlsVerified=True, phaseControlReceipt=copy.deepcopy(receipt), heartbeatAt=self.clock())
         return self._cas(current, state)
 
     def confirm_early_checkpoint(self, separate_approval):
@@ -274,13 +300,32 @@ class Controller:
     def run_job_once(self, resource, request):
         self.resources.spec(resource)
         need(resource['kind'] == 'run.job', 'job only')
-        need(request == resource.get('runReservation'), 'job reservation differs from signed cost plan')
+        reservations = resource.get('runReservations', [resource.get('runReservation')])
+        need(isinstance(reservations, list) and 0 < len(reservations) <= 32 and request in reservations and
+             all(isinstance(item, dict) for item in reservations) and
+             len({item['reservationId'] for item in reservations}) == len(reservations),
+             'job reservation differs from signed finite cost plan')
+        need(not ('runReservation' in resource and 'runReservations' in resource), 'ambiguous job reservation plan')
+        jobs = [job for job in self.config.get('hosted', {}).get('jobs', []) if job.get('id') == resource['id']]
+        if jobs and jobs[0].get('action') == 'fixture-stream':
+            plan = jobs[0]['workload']; maximum = plan.get('maxSourceOperations'); parents = plan.get('maxParentsPerInvocation')
+            need(type(maximum) is int and 0 < maximum <= 3000000 and type(parents) is int and 0 < parents <= 2500 and
+                 len(reservations) == plan.get('maxInvocations') and len(reservations) <= 32, 'unbounded synthetic workload reservation plan')
+            for name, amount in {'reads':(maximum * 3 + 4) // 5,
+                                 'writes':(maximum * 2 + 4) // 5 + parents,
+                                 'deletes':(maximum * 7 + 99) // 100 + parents}.items():
+                need(request['counts'].get(name, -1) >= amount, 'synthetic source operations are underreserved: ' + name)
         current = self._read(); state = current['state']
         key = resource['kind'] + '/' + resource['id']
         old = state.get('jobRuns', {}).get(key)
-        if old is not None:
-            need(old['requestDigest'] == digest(request), 'conflicting job retry')
+        history = state.get('jobRunHistory', {}).get(key, [])
+        if any(item['requestDigest'] == digest(request) for item in history) or (old and old['requestDigest'] == digest(request)):
             return {'state': 'reconcile-required', 'executionRepeated': False}
+        need(reservations[len(history) + (1 if old else 0)] == request if len(history) + (1 if old else 0) < len(reservations) else False,
+             'job reservation index is out of order')
+        if old is not None:
+            need(old['phase'] == 'completed' and old.get('execution', {}).get('state') == 'completed',
+                 'previous exact execution must be reconciled before resume')
         need(all(item['phase'] == 'completed' for item in state.get('jobRuns', {}).values()),
              'another job is pending; shared eight-connection reserve and sole-writer boundary')
         receipt = state['receipts'].get(key)
@@ -296,6 +341,15 @@ class Controller:
         approved = self.approval.verify(request['gate'])
         need(self.clock() + duration <= approved['validUntil'], 'job duration exceeds signed execution window')
         state = self._permit(approved, state, request)
+        if old is not None:
+            state.setdefault('jobRunHistory', {}).setdefault(key, []).append({**copy.deepcopy(old),
+                'operation':copy.deepcopy(state['operations'].get(key))})
+        state['operations'].pop(key, None)
+        state['polls'].pop(key, None)
+        state.get('lastPollAt', {}).pop(key, None)
+        # A newly admitted execution must obtain its own cancellation evidence.
+        for field in ('cleanupExecutionsQuiescent', 'cleanupTerminalRunObserved', 'cleanupAdoptedOperation'):
+            state.get(field, {}).pop(key, None)
         state.setdefault('jobRuns', {})[key] = {'requestDigest': digest(request), 'sentAt': self.clock(), 'phase': 'sent'}
         self._cas(current, state)  # Reserve and record single attempt before POST.
         operation = self.resources.run_job(resource, receipt)
@@ -315,7 +369,8 @@ class Controller:
         need(count < 120 and self.clock() - run.get('lastReconcileAt',-1000000) >= 5, 'job reconciliation bound/pacing')
         run.update(reconcileCount=count+1,lastReconcileAt=self.clock())
         self._cas(current,state)
-        result = self.resources.job_execution(resource,state['receipts'][key],run['sentAt'])
+        result = self.resources.job_execution(resource,state['receipts'][key],run['sentAt'],
+            completed_uids=[item['execution']['uid'] for item in state.get('jobRunHistory', {}).get(key, [])])
         if result['state'] == 'unknown': return result
         prior = run.get('execution')
         need(prior is None or all(prior[k] == result[k] for k in ('uid','name','createTime')), 'execution incarnation changed')
@@ -394,7 +449,8 @@ class Controller:
                 self._cas(fresh, changed)  # Persist before a possibly lost response.
             run = state.get('jobRuns', {}).get(key)
             cancellation = self.resources.cancel_job_executions(resource, receipt, reserve_cancel,
-                sent_at=run['sentAt'] if run is not None else None)
+                sent_at=run['sentAt'] if run is not None else None,
+                completed_uids=[item['execution']['uid'] for item in state.get('jobRunHistory', {}).get(key, [])])
             current = self._read(cleanup=True); state = copy.deepcopy(current['state'])
             state.setdefault('cleanupCancellationPending', {})[key] = cancellation['operations']
             self._cas(current, state)
@@ -531,7 +587,8 @@ class Controller:
         if resource['kind'] == 'run.job':
             run = state.get('jobRuns', {}).get(key)
             cancellation = self.resources.cancel_job_executions(resource, receipt,
-                sent_at=run['sentAt'] if run is not None else None)
+                sent_at=run['sentAt'] if run is not None else None,
+                completed_uids=[item['execution']['uid'] for item in state.get('jobRunHistory', {}).get(key, [])])
             need(not cancellation['pending'], 'execution cancellation pending; job absence unproven')
             need(run is None or cancellation['completedExecutionsObserved'], 'execution outcome unresolved')
         operation = self._delete_owned_resource(resource, receipt, state)

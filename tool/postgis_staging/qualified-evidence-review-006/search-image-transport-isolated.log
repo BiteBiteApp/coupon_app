@@ -1,0 +1,16 @@
+✔ guest remains unauthenticated and caller body identity cannot become verified auth (43.866ms)
+✔ valid Firebase token is bound to configured project; invalid and cross-project tokens reject (15.332792ms)
+✔ exact approved browser CORS works for preflight and request; forged origins/headers reject (8.656375ms)
+✔ malformed envelopes, compressed input, excessive body and unsafe long numbers reject (26.761417ms)
+✔ AppCheck is verified when supplied and enforced only by signed configuration (4.853083ms)
+✔ unexpected handler failures expose only safe callable error shape (3.248917ms)
+✔ four active handlers bound admission and over-limit request fails without invoking (8.893209ms)
+✔ response deadline retains late-work admission until settlement instead of allowing unlimited replacement work (4.3385ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 533.858542

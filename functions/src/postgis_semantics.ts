@@ -7,6 +7,7 @@ import * as score from "./customer_bitescore_search.js";
 import { customerBiteScoreUtf16Key, readCustomerBiteScorePublicProjection } from "./customer_bitescore_search_contract.js";
 import { evaluateCustomerBiteSaverOfferAvailability } from "./customer_bitesaver_offer_availability.js";
 import type { CustomerBiteSaverStoredDocument } from "./customer_bitesaver_search_store.js";
+import { decodePostgisProjection } from "./postgis_source.js";
 export { matcher, saver, contract, geo, score };
 // Stable hashing is only for the derived public index, never customer authority.
 export function canonical(value: unknown): unknown {
@@ -77,9 +78,13 @@ export function saverRank(criteria: any, row: any): any {
     return { rank0: preferred ? 0 : 1, rank1: preferred ? 0 : distance, rank2: 0, distanceMiles: distance };
 }
 export function available(criteria: any, parent: any, offer: any) {
-    if (offer.dto.customerParentEligibilityFingerprint !== parent.dto.customerParentEligibilityFingerprint)
+    // JSONB DTOs cannot retain Timestamp methods. Decode the canonical source
+    // projection, exactly as the native result builder does, so scheduled and
+    // inclusive/submillisecond expiry rules keep their original semantics.
+    const projection = decodePostgisProjection(offer.projection);
+    if (projection.customerParentEligibilityFingerprint !== parent.dto.customerParentEligibilityFingerprint)
         return { visible: false };
-    return evaluateCustomerBiteSaverOfferAvailability({ offerType: offer.kind, offer: offer.dto,
+    return evaluateCustomerBiteSaverOfferAvailability({ offerType: offer.kind, offer: projection,
         parentEligible: parent.visible, now: new Date(criteria.membershipMs), timeZone: criteria.timeZone,
         locationMode: criteria.locationMode, restaurantCoordinates: parent.dto,
         currentCoordinates: criteria.locationMode === "current" ? criteria.center : null, usage: null });

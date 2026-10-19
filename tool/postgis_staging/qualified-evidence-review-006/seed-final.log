@@ -1,0 +1,9 @@
+HttpsError: Search is temporarily unavailable.
+    at callableError (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/postgis_staging_runtime.js:60:12)
+    at Object.invoke (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/baseline-source/functions/lib/postgis_staging_runtime.js:98:19)
+    at async pages (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/seed-final.cjs:61:69)
+    at async main (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/seed-final.cjs:74:58) {
+  code: 'internal',
+  details: undefined,
+  httpErrorCode: { canonicalName: 'INTERNAL', status: 500 }
+}

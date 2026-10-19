@@ -1,0 +1,179 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006",
+  "createdAt": "2026-10-19T21:02:20.397222+00:00",
+  "reviewer": "Track A (independent of Track B author)",
+  "verdict": "PASS_WITH_EXPLICIT_LOCAL_ONLY_LIMITATIONS",
+  "sourceHashes": {
+    "functions/src/postgis_store.ts": "1c97a55c9d9b1780a3e8aec33afb65ec9c5247e4e10d9de93278192a794899cb",
+    "functions/search_candidate/schema.sql": "99f22dfcebe89c377d1348473b6acc75e41352ae7d48201d779dc268ce7b537d",
+    "functions/src/postgis_source_recovery.ts": "7395e291f43e994a5034ba6293189c559209b23d67b4f1c33920adb8f160019c",
+    "functions/src/postgis_source_sha256.ts": "0c54fb733c6ad2e498f1ee8e26e0e51e1f071853abfc383d94ba9c0c701df2ff",
+    "functions/src/postgis_source_firestore.ts": "952e48fd91c651e01f634ff81d9baca35215433fd2f9e1c0e285871f3214e565",
+    "functions/src/postgis_snapshot.ts": "363c8f31e7c829e4ad25ec77adad6d66418f8baa2ff691160d2c3901b3c9d937",
+    "functions/src/postgis_snapshot_gcs.ts": "2c1f0621f7921ba4eeecb43d56996c33acd61e8f9ba791bbbf20dd22f0590a99",
+    "functions/src/postgis_hosted_job_entrypoint.ts": "3cb7e87e71205382818a21e9c229f9471654efb6ac25d188f19f97bdb56a1c45"
+  },
+  "relevantDependencyHashes": {
+    "functions/src/postgis_source.ts": "db3fa2ffb832ce3d879b730a437bae4777502932838c9aebf2e16815c491e6a4",
+    "functions/src/postgis_semantics.ts": "24e18dae7e6b5fc07f5ff97097d4a2bacfe4670ff9cf503bb2b84a45c62e370a",
+    "functions/src/postgis_runtime.ts": "74887f3e8af5546a59402e79b4f18557c340db6c371aa9d2fd7ccb374cdeae85",
+    "functions/src/postgis_cloudsql.ts": "299c6645ef5beaddc682adae9197cc647b8309dbabdfc9455e72517cf50273fa",
+    "functions/src/postgis_execution_approval.ts": "3efec64518f5a89799e0ed1aa283ded06aed66b021e4690bfe4a0fdd0ea4cb9f",
+    "functions/src/postgis_synthetic_workload.ts": "560a4566ec2052e43c6ed7706f5db9ca952784587f9e70a1768044c729d66d58"
+  },
+  "scope": [
+    "F3 finite per-pin admission target persisted before retryable wait; strict expiry replay and epoch/source fence coverage.",
+    "F4 transactional48-partition metadata trigger; duplicate/delete/recreate/rollback; independent repeatable-read source-head audit; no metadata self-heal hiding corruption.",
+    "F5 standard resumable SHA256, exact artifact binding, missing/mutable/corrupt rejection, bounded64-row validation, zero-row-replay prune, fresh-database recovery/resume.",
+    "GCS retained generation identity plus actual provider locked-retention horizon before reusable prune proof.",
+    "Final hosted prune loop stays within signed maxPages/deadline and rechecks permit each page."
+  ],
+  "findings": [
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "status": "resolved_and_rechecked",
+      "issue": "One64-row validation page per hosted job wasted existing bounded execution allowance.",
+      "repair": "Use existing signed maxPages/deadline for validation/pruning with per-page permit checks; no allowance increase.",
+      "evidence": "job-pages.log4/4; final entrypoint SHA recorded."
+    }
+  ],
+  "unresolvedMaterialFindings": [],
+  "tests": {
+    "passed": 18,
+    "failed": 0,
+    "logs": {
+      "pure-recovery.log": {
+        "passed": 7,
+        "sha256": "bc97a4a6cfede4e428d1736302979caf0460c242dfaf1cc19a4e4b5bcf9be8ea"
+      },
+      "sql-sync.log": {
+        "passed": 5,
+        "sha256": "55417555ccf2221e1d9a92a2914b25ea37681f04fcb87804cb43bf5e578ae78a"
+      },
+      "job-pages.log": {
+        "passed": 4,
+        "sha256": "bd47db92e83616ae5c5fd18efb0ad8f7ab252c840a15fb95087d145b257aba0f"
+      },
+      "actual-recovery-linux.log": {
+        "passed": 2,
+        "sha256": "03a8d19d6ea3a86c0fc077326cee62b5a8e655043f796c5141eef06d81a7d69f"
+      }
+    }
+  },
+  "actualRecovery": [
+    {
+      "path": "track-a/review-b/recovery-snapshot-FPVgmb/qualification.json",
+      "sha256": "af2f9f2ea910f571e9dd9b4316f796dc2156bb5777149034da8411f88b427aeb",
+      "storage": "simulated-gcs-json-api",
+      "documents": 546,
+      "sourceDatabaseDeleted": true,
+      "sourceEventsPruned": 577,
+      "postSnapshotEventsReplayed": 1,
+      "validationMetrics": {
+        "rowReads": 9,
+        "returnedRows": 546,
+        "returnedRowBytes": 1057924,
+        "maximumPage": 64,
+        "validationPages": 9
+      },
+      "pruneMetrics": {
+        "rowReads": 0,
+        "returnedRows": 0,
+        "returnedRowBytes": 0
+      },
+      "interruptedRestoreResumed": true,
+      "concurrentIngestionRejected": true,
+      "concurrentMetrics": {
+        "writes": 30,
+        "attempts": 14,
+        "writesAtAdmission": 8,
+        "admissionMs": [
+          7.741125000000466,
+          9.847333000005165,
+          6.227667000006477,
+          8.164583999998285,
+          14.556165999994846,
+          5.53312499999447,
+          2.716416000002937,
+          56.743666999995185,
+          12.132041999997455,
+          1.9017919999969308,
+          2.101209000000381,
+          2.2151249999951688,
+          1.980374999999185,
+          57.08008300000074
+        ],
+        "intakeMs": [
+          145.3217500000028,
+          101.7902499999982
+        ],
+        "actualConcurrentFirestoreWrites": true
+      }
+    },
+    {
+      "path": "track-a/review-b/recovery-snapshot-iVGSQ4/qualification.json",
+      "sha256": "abe2156b59066680a776fa92c79336620a05a9e962dd25c5a5e2c4f3d4015344",
+      "storage": "local-files",
+      "documents": 546,
+      "sourceDatabaseDeleted": true,
+      "sourceEventsPruned": 577,
+      "postSnapshotEventsReplayed": 1,
+      "validationMetrics": {
+        "rowReads": 9,
+        "returnedRows": 546,
+        "returnedRowBytes": 1057924,
+        "maximumPage": 64,
+        "validationPages": 9
+      },
+      "pruneMetrics": {
+        "rowReads": 0,
+        "returnedRows": 0,
+        "returnedRowBytes": 0
+      },
+      "interruptedRestoreResumed": true,
+      "concurrentIngestionRejected": true,
+      "concurrentMetrics": {
+        "writes": 30,
+        "attempts": 10,
+        "writesAtAdmission": 6,
+        "admissionMs": [
+          3.8034589999988384,
+          3.25654200000281,
+          2.096417000000656,
+          2.8367080000025453,
+          2.094999999997526,
+          2.379665999997087,
+          2.0484159999978147,
+          3.3675419999999576,
+          3.391249999996944,
+          92.97816599999715
+        ],
+        "intakeMs": [
+          92.53312499999811,
+          52.8260420000006,
+          28.57416699999885
+        ],
+        "actualConcurrentFirestoreWrites": true
+      }
+    }
+  ],
+  "execution": {
+    "Darwin": "Qualified Node24.21.0 for16 pure/SQL/dispatch cases; own isolated sync DB bsgate0_b006_independent.",
+    "Linux": "Existing immutable005 image490d11883372dd938254efca22c13f35f4e9bb56e4c44934b1f55257130774d1, current source-compiled lib/tests mounted read-only, PG container loopback namespace,1CPU/1536MiB. This is not a newly frozen006 image.",
+    "runner": "track-a/review-b/run-linux-tests.sh",
+    "cloudContacted": false,
+    "realGcsContacted": false,
+    "guardBypassed": false
+  },
+  "retainedFailures": {
+    "pure-recovery-loader-first.log": "Report loader pointed at wrong compiled path; fixed loader only, then7/7 passed.",
+    "actual-recovery.log": "Darwin-to-container PostgreSQL connection is not server loopback; unchanged local snapshot guard correctly refused2/2. Linux loopback rerun2/2 passed."
+  },
+  "limitations": [
+    "Actual snapshot qualification uses546 canonical native projection rows with concurrent real Firestore writes; no50k Firestore ingestion claim.",
+    "B publication-50k.json was inspected as separate50842-head derived fixture evidence, not repeated here or mislabeled as actual50k Firestore source transport.",
+    "Provider GCS operations are simulated. Locked bucket retention is a consequential owner-controlled configuration and is required, not automatically created.",
+    "Bounded validation and restore still require enough separately approved job/page allowances at large catalog scale; no hosted timing or cost qualification follows.",
+    "Local readonly inode/stat binding is a local artifact proof; cloud proof additionally requires provider locked retention."
+  ]
+}

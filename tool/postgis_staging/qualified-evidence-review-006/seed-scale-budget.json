@@ -1,0 +1,73 @@
+{
+  "executionApproved": false,
+  "providerTimingQualified": false,
+  "billedOperations": false,
+  "cases": [
+    {
+      "count": 25000,
+      "planDigest": "3d900ee1e440bd57a9d2cf0de6162d0eec7323103d9352ed5cdb3d05a731e52d",
+      "minimumInvocationsByWorkBounds": 10,
+      "maximumReservedActiveSeconds": 19200,
+      "reservationCounts": {
+        "reads": 1800000,
+        "writes": 1202500,
+        "deletes": 212500
+      },
+      "datasetCounts": {
+        "pairs": 25000,
+        "saverParents": 25000,
+        "scoreParents": 25000,
+        "totalParentRoots": 50000,
+        "offers": 59950,
+        "dishes": 59950,
+        "aggregates": 59950,
+        "rawDocuments": 229850
+      },
+      "totals": {
+        "reads": 10523850,
+        "writes": 7125850,
+        "deletes": 1079350,
+        "operations": 18729050,
+        "bytes": 7058132056
+      },
+      "units": {
+        "count": "Saver/Score parent pairs",
+        "bytes": "conservative transfer/work allowance; not measured stored bytes"
+      },
+      "timingQualified": false
+    },
+    {
+      "count": 50000,
+      "planDigest": "fa6d5e8dc5122db86f5b0ee3c3bd4f9de224b68e7395747e6ee5015cde29038a",
+      "minimumInvocationsByWorkBounds": 20,
+      "maximumReservedActiveSeconds": 19200,
+      "reservationCounts": {
+        "reads": 1800000,
+        "writes": 1202500,
+        "deletes": 212500
+      },
+      "datasetCounts": {
+        "pairs": 50000,
+        "saverParents": 50000,
+        "scoreParents": 50000,
+        "totalParentRoots": 100000,
+        "offers": 119900,
+        "dishes": 119900,
+        "aggregates": 119900,
+        "rawDocuments": 459700
+      },
+      "totals": {
+        "reads": 21047700,
+        "writes": 14251700,
+        "deletes": 2158700,
+        "operations": 37458100,
+        "bytes": 14116575661
+      },
+      "units": {
+        "count": "Saver/Score parent pairs",
+        "bytes": "conservative transfer/work allowance; not measured stored bytes"
+      },
+      "timingQualified": false
+    }
+  ]
+}

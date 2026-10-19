@@ -1,0 +1,18 @@
+{
+  operation: 'continueCustomerBiteSaverGuestOfferCheckV2',
+  sequence: 10
+}
+PostgisCandidateError: Search preparation is continuing. Retry the same request.
+    at PostgisMembership.queryResults (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib/postgis_membership.js:142:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async Object.queryDocuments (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib/postgis_handlers.js:95:29)
+    at async Object.nextMembership (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib/customer_bitesaver_search_session.js:9348:20)
+    at async expandGuestRestaurantChallenge (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib/customer_bitesaver_search_session.js:9383:32)
+    at async processGuestRestaurantPage (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib/customer_bitesaver_search_session.js:9478:32)
+    at async processAndPersistGuestOperation (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib/customer_bitesaver_search_session.js:9898:15)
+    at async withCustomerBiteSaverRequestGate (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib/customer_bitesaver_search_session.js:1827:16)
+    at async call (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/seed-history.cjs:23:386)
+    at async pages (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/seed-history.cjs:34:15)
+    at async main (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/seed-history.cjs:41:225) {
+  code: 'unavailable'
+}

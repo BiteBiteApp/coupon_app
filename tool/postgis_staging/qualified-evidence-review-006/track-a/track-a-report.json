@@ -1,0 +1,115 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006",
+  "role": "Track A implementation and self-review; independent review pending",
+  "createdAt": "2026-10-19T20:47:06.433924+00:00",
+  "expectedAndObservedStartingHEAD": "a8c056c90e0e0fff8e39dac8d407087d3137ad25",
+  "scope": "isolated selected source only; no original repository edits, Git mutation, cloud action or serving strategy/runtime guard replacement",
+  "changedFiles": {
+    "functions/src/customer_bitesaver_search_session.ts": "ba1232da7e9615b692ed4b92bac1af9d480d6cdf17a6734f5b7ada3b73e23a7a",
+    "functions/src/postgis_query.ts": "6d47101b97599eae2361e5edf62145b1bf4350c6b5ba242648a89f447be9b736",
+    "functions/test/postgis_guest_membership_batching_006.test.cjs": "2a7a4de1d2f3984b977ede92cefd80e2d9a6be8f003ad7cfeba036da56185b7b",
+    "functions/test/postgis_query_006.test.cjs": "32c650bb29fda3d8ef719da1f5df161dcd52c52795547b37e10a3788ba2ac3df",
+    "functions/search_candidate/recall-envelope-006.md": "309fcbd715272bbc18674552f00fafe2e3f5084031f0f1671118b9154a4d5b2d",
+    "functions/search_candidate/recall-envelope-006-audit.py": "768083a9140efd8b78509e0b5b2954700fa6e52c68df676cc34b77c09ee1bd60"
+  },
+  "relevantDependencies": {
+    "functions/src/postgis_membership.ts": "75bb996e00cfd1c02ad80e937332a39068afc526c2e73010168a0adffdefdfc0",
+    "functions/src/postgis_semantics.ts": "1338d5b77d5d21db418221d1c0b9dd118b4b097bf8433feb8650e353731aaf7c",
+    "functions/src/postgis_runtime.ts": "74887f3e8af5546a59402e79b4f18557c340db6c371aa9d2fd7ccb374cdeae85",
+    "functions/src/restaurant_geo_helpers.ts": "8fc56748c811d848b853be0912522b451e1e7c01c0cd1060be2f1cde7ffd9066",
+    "functions/search_candidate/schema.sql": "99f22dfcebe89c377d1348473b6acc75e41352ae7d48201d779dc268ce7b537d",
+    "tool/postgis_staging/qualified-evidence-linux-004/linux-review/proof-input/distance-bound-arithmetic-audit.py": "b0445dca0915ceb2938085cdf7bd0bd0702bc967a9e45ede71364ea247d0d94d",
+    "tool/postgis_staging/qualified-evidence-linux-004/linux-review/proof-input/evidence/math/node-v24.21.0-ieee754.cc": "1bf999809d4c4c1d31ad5ff3578d32614796f159e08b9e7782560d017721a0c2"
+  },
+  "verification": {
+    "nativeHandlers": 304,
+    "newGuestBatching": 6,
+    "retainedGuestDiagnostics": 24,
+    "existingRealSQLRegression": 18,
+    "newQueryTests": 3,
+    "queryCriteria": 55,
+    "actualExplainAnalyzePlans": 110,
+    "exactNativeFinderScoreVectors": 164,
+    "exhaustiveNativeOracleOutsideTimedSelector": true,
+    "guardBypass": false,
+    "totalPassingTestCases": 355,
+    "newQueryFixture": {
+      "reused": true,
+      "parentCount": 50842
+    },
+    "queryFixtureTransport": "real projection builders and direct derived-entity insert; not a 50k source/publication qualification",
+    "runtime": "qualified Darwin Node 24.21.0 with original guard"
+  },
+  "findings": [
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "issue": "F1 one-row membership recomputation",
+      "resolution": "request-local 26-row PostGIS guest-window reader with bounded refill; all per-parent current authority, 75-ID bound, 100-item work, committed cursor and replay paths retained",
+      "status": "source corrected and locally tested"
+    },
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "issue": "F2 latitude stripe scans",
+      "resolution": "proved broad wrapped 4-degree geometry envelope only where whole latitude band is within \u00b160; unchanged latitude fallback and native exact ranking; partial geometry GiST index authored by B",
+      "status": "source corrected, exact-rational audit and 50k SQL/oracle tested"
+    },
+    {
+      "classification": "FIX NOW / DIRECTLY REQUIRED",
+      "issue": "dense same-city Finder close PL/pgSQL CPU cost",
+      "resolution": "B-authored exact unit-cost Levenshtein fast path for normalized ASCII <=255 bytes, original long/non-ASCII loop retained; same native scores for 164 vectors and all 50k oracle results",
+      "status": "source corrected and locally tested"
+    },
+    {
+      "classification": "PRODUCT DECISION REQUIRED",
+      "issue": "F6 runtime strategy replacement",
+      "resolution": "bounded report-only feasibility completed; retain present corrected strategy. Complete native enumeration removes SQL rank duplication but moves work into full candidate transfer/refinement, requiring separate authority/pin/checkpoint/latency qualification before adoption. No strategy change applied.",
+      "blocksThisAuthorizedCorrectionRun": false
+    }
+  ],
+  "limitations": [
+    "Local synthetic query and handler evidence only; not production/hosted/nationwide qualification.",
+    "Single plan observations and 5 local Flutter samples do not establish p95/p99 confidence.",
+    "SQL calls, returned rows, JSON bytes, Firestore requested paths, query-returned documents and transactions are separate instrumented counters, not billing claims.",
+    "High-latitude recall intentionally remains latitude-only; dense/adversarial patterns can still require bounded retry work.",
+    "Longer-than-255-byte Finder inputs retain original CPU-heavy exact fallback."
+  ],
+  "preservedFailures": [
+    "f1-tests-first.log: report loader initially loaded baseline compiled source; fixed normalized redirect path",
+    "f1-tests-second.log: new two-page fixture reused answer request IDs; test corrected to unique IDs",
+    "query-50k-first.log/json: test-only Dish Name criterion lacked required restaurantId; seeded fixture remained intact and test repaired"
+  ],
+  "evidenceFiles": {
+    "query-50k-first.json": "283d9b74b39b8261f6213632b53e61316810c4d81d123a3dbce5d32bf0976a98",
+    "f1-tests-final.log": "64fd9b9f608d46e9033834db21cff048bcc5ed7dadf48df46fefce59c1564eb2",
+    "feasibility.log": "5f970ddacccbaaf32eaa9c8cd23010d3d1ebea5b97d9db5c1e6de03a30383bfc",
+    "retained-arithmetic-audit.json": "8b866cb66b2efe2cd7147a48f256e2787669eac8875370db56a2ae439e9bb081",
+    "query-50k-second.json": "827b7f4a8eb37abaef575b1343860d177c78432a59b1b707774d576ea7812430",
+    "query-50k-final.log": "57103e36e7ed27c1841ec22b1dd463466b08f97555b20a85e986b41955af5df6",
+    "feasibility.cjs": "7499278d35b8f6f0f480b8d9cf1ff498fa574f2f4031ca6c447115a11f07c00f",
+    "feasibility.initial.json": "0e2ff3ade7bdc2bb6954b6515b0a6d4e8fe28e5a59abfa6038a3c0ec776c96a8",
+    "independent-window-observations.v3.json": "ec40eadd3d62ef3fc2381a803fd8dfbadae23c16da3f77ba1fa3f205df5f1d60",
+    "query-50k-second.log": "65b2d34fccbf2283fb50500b6f453bdd68fbf66728c5fdcb3442f273908c98a4",
+    "feasibility.json": "7e52929ea418bea600e9daecfecaee0e424708f84cfa7056206d70802fffd164",
+    "native-304.log": "a6447df5a8301ad03286a1cd91522044891a370d467fbc611dbecda6009818a3",
+    "feasibility.initial.log": "5f970ddacccbaaf32eaa9c8cd23010d3d1ebea5b97d9db5c1e6de03a30383bfc",
+    "query-50k-first.log": "ba1df7e9255c97f2d0e1c1d671c44357ed2c656ab814c11306920fb4d84fe488",
+    "feasibility.final.log": "8cc6f1d81e4d577146962f703c424e15ab7cca0d0f6f8be0e23350f19ce4c444",
+    "independent-window-supplement.log": "17fc35cd14a79aebd5795078c16f8f0b1313638d6ea845e1077445810265de1e",
+    "run-existing-query.cjs": "c78030bb57694d8b65c8ca3ccfe83e06b79586c0e2e833428dd537b521ec2d45",
+    "real-query-baseline.cjs": "ab6e6574dc179a99718f517e0c1e267814c25299f3b94a33661f798c12650934",
+    "independent-window-diagnostics.cjs": "f5c95d50e1e65132e0ed34e5a1cfaacfca9a6ce293bf854d2dfaaf3c46480b6c",
+    "build-f1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "envelope-arithmetic-audit.json": "d8c3493794f4c10adb3511d606355e686ab2427d7a6beea15c69f15e71db849f",
+    "run-native.cjs": "38b2782e48fdf249ef697c2087be21e7a23e6c0f1da67962e83afe31c258984e",
+    "build-f2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "query-50k-final.json": "8bca1f7d33deb19efe5842203409d6103f0c282a939f0e80cca0d207ec60891d",
+    "existing-query-regression.log": "4977eaee2e0c2b564ba0ce6bcaf4cf722c20fc45d3292346e8478b70ad0563da",
+    "real-query-baseline.json": "dcb1a83bd337ff5b9df5a91df5681f9fd8dbd8a8f716dd1840fcf7717aca3808",
+    "independent-window-supplement.cjs": "ff875049ce93081dc1bdd74927ad22a739bb496db87d8070c1885d3c9b5df166",
+    "independent-window-observations.supplement.json": "0c3e6875f2372f3c27c6fb42213be2f1140474983db4f4bbe8f430dd1490866e",
+    "f1-tests-second.log": "4955e3bd24df031025ca7b0bb2521d41e60de8d609cae98219b0748dfc28646c",
+    "independent-window-diagnostics.log": "35f6e7f60f6937e967078229d169ed5360fe3118923522056c112925b209164e",
+    "real-query-baseline.log": "8c2c70c026fdba878f420c05c0b211e7ab667198baffa72ee4efb3bd8220f3cc",
+    "f1-tests-first.log": "f8e79d8bce5e8e7222f1cdf2479c18e992f8d4ec7ddf7c03abe41aa4d297e67a"
+  }
+}

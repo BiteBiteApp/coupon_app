@@ -1,0 +1,79 @@
+✔ integer-only guest progress keeps the existing fingerprint bytes (0.425125ms)
+✖ each permitted distance field is lossless, bounded and fingerprint-sensitive (0.154833ms)
+✖ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=false) (60.36025ms)
+✖ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=true) (23.489833ms)
+✖ one-ULP fractional progress tampering cannot reuse an accepted challenge token (3.206833ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 1
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 90.535958
+
+✖ failing tests:
+
+test at functions/test/postgis_guest_boundary_006.test.cjs:19:1
+✖ each permitted distance field is lossless, bounded and fingerprint-sensitive (0.154833ms)
+  QueryFingerprintError: Search criteria could not be fingerprinted.
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:34:19)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:44:57
+      at Array.map (<anonymous>)
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:44:35)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:64:17
+      at Array.map (<anonymous>)
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:62:18)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:64:17
+      at Array.map (<anonymous>)
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:62:18) {
+    code: 'query_fingerprint_error'
+  }
+
+test at functions/test/postgis_guest_boundary_006.test.cjs:30:35
+✖ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=false) (60.36025ms)
+  QueryFingerprintError: Search criteria could not be fingerprinted.
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:34:19)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:44:57
+      at Array.map (<anonymous>)
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:44:35)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:64:17
+      at Array.map (<anonymous>)
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:62:18)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:64:17
+      at Array.map (<anonymous>)
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:62:18) {
+    code: 'query_fingerprint_error'
+  }
+
+test at functions/test/postgis_guest_boundary_006.test.cjs:30:35
+✖ fractional native guest boundaries survive >75 restricted history IDs, replay and later pages (window=true) (23.489833ms)
+  QueryFingerprintError: Search criteria could not be fingerprinted.
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:34:19)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:44:57
+      at Array.map (<anonymous>)
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:44:35)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:64:17
+      at Array.map (<anonymous>)
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:62:18)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:64:17
+      at Array.map (<anonymous>)
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:62:18) {
+    code: 'query_fingerprint_error'
+  }
+
+test at functions/test/postgis_guest_boundary_006.test.cjs:49:1
+✖ one-ULP fractional progress tampering cannot reuse an accepted challenge token (3.206833ms)
+  QueryFingerprintError: Search criteria could not be fingerprinted.
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:34:19)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:44:57
+      at Array.map (<anonymous>)
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:44:35)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:64:17
+      at Array.map (<anonymous>)
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:62:18)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:64:17
+      at Array.map (<anonymous>)
+      at canonicalize (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/track-a/baseline/lib/query_fingerprint.js:62:18) {
+    code: 'query_fingerprint_error'
+  }

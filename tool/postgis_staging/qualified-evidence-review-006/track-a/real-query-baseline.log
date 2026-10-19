@@ -1,0 +1,24 @@
+[
+  {
+    "mode": "26 separate one-row selects",
+    "counts": {
+      "sqlStatements": 87,
+      "candidateStatements": 26,
+      "offerProofStatements": 61,
+      "returnedRows": 1014,
+      "returnedJsonBytes": 5920332
+    },
+    "elapsedMs": 218.10037499999999
+  },
+  {
+    "mode": "one bounded 26-row select",
+    "counts": {
+      "sqlStatements": 33,
+      "candidateStatements": 1,
+      "offerProofStatements": 32,
+      "returnedRows": 89,
+      "returnedJsonBytes": 581445
+    },
+    "elapsedMs": 18.88562500000012
+  }
+]

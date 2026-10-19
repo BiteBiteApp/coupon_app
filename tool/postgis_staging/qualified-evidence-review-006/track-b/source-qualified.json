@@ -1,0 +1,65 @@
+{
+  "runId": "BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006",
+  "track": "B finite admission, transactional manifests, bounded recovery",
+  "capturedAt": "2026-10-19T20:53:26.222697+00:00",
+  "originalRepositoryWritten": false,
+  "cloudExecuted": false,
+  "sourceRoot": "/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source",
+  "sourceHashes": {
+    "functions/src/postgis_store.ts": "1c97a55c9d9b1780a3e8aec33afb65ec9c5247e4e10d9de93278192a794899cb",
+    "functions/search_candidate/schema.sql": "99f22dfcebe89c377d1348473b6acc75e41352ae7d48201d779dc268ce7b537d",
+    "functions/src/postgis_source_recovery.ts": "7395e291f43e994a5034ba6293189c559209b23d67b4f1c33920adb8f160019c",
+    "functions/src/postgis_source_sha256.ts": "0c54fb733c6ad2e498f1ee8e26e0e51e1f071853abfc383d94ba9c0c701df2ff",
+    "functions/src/postgis_source_firestore.ts": "952e48fd91c651e01f634ff81d9baca35215433fd2f9e1c0e285871f3214e565",
+    "functions/src/postgis_snapshot.ts": "363c8f31e7c829e4ad25ec77adad6d66418f8baa2ff691160d2c3901b3c9d937",
+    "functions/src/postgis_snapshot_gcs.ts": "2c1f0621f7921ba4eeecb43d56996c33acd61e8f9ba791bbbf20dd22f0590a99",
+    "functions/src/postgis_hosted_job_entrypoint.ts": "3cb7e87e71205382818a21e9c229f9471654efb6ac25d188f19f97bdb56a1c45",
+    "functions/test/postgis_b006_sync.test.cjs": "641a5cf743ce275792668d8c04a9554b01e7aa896a501d8be2dee8b9ad27d8e0",
+    "functions/test/postgis_b006_sha256.test.cjs": "01fe5ded5b64f120fb6987bfe2e96120cf901fa340f609dcb2a1c340da6ef79f",
+    "functions/test/postgis_b006_recovery_checkpoint.test.cjs": "791dfb78f3cb53f0a4917f7653b059737fd3d47f3537d26a1bd0ac0ce58aa5f0",
+    "functions/test/postgis_b006_job_pages.test.cjs": "0c29c6ece092cc25c907a7fb8e5f5b12fe250f31492c1db860788362066169ab",
+    "functions/test/postgis_source_emulator.test.js": "cc79ea1e28723dca9dc4400aaeb18ca60ee90208e3220110462de24d707f8bd8",
+    "functions/test/postgis_snapshot_integration.test.js": "d64e351c3c95b88bb0650091486fe3ccacbbc9557333060681ea13ded11adb48"
+  },
+  "tests": {
+    "syncAndSha": {
+      "pass": 7,
+      "fail": 0,
+      "log": "sync-sha.final.log"
+    },
+    "actualSourceAndRecoveryInitial": {
+      "pass": 17,
+      "fail": 0,
+      "log": "recovery-linux.initial.log",
+      "note": "before final restore narrowed to one hash/apply pass; source journaling suite unchanged"
+    },
+    "actualFinalRecovery": {
+      "pass": 2,
+      "fail": 0,
+      "log": "recovery-linux.final3.log"
+    },
+    "pureRecoveryShaAndGcs": {
+      "pass": 22,
+      "fail": 0,
+      "log": "pure-recovery.final.log"
+    },
+    "boundedJobComposition": {
+      "pass": 4,
+      "fail": 0,
+      "log": "job-pages.final.log"
+    }
+  },
+  "qualification": [
+    "recovery-snapshot-5BNOgL/qualification.json",
+    "recovery-snapshot-i42Pge/qualification.json",
+    "publication-50k.json"
+  ],
+  "limits": [
+    "Mounted selected-source JS on retained immutable005Linux runtime; final006image qualification is root-owned.",
+    "50,842head publication benchmark uses native projection derived fixture and synthetic event adapter; actual Firestore concurrent updates separately qualified on546head native fixture.",
+    "Timing measured locally with other workload contention; no hosted SLA claim.",
+    "GCS JSON API tests are injected transport; no live cloud operation.",
+    "GCS reusable prune proof requires separately approved existing locked retention covering fixed recovery/cleanup horizon. Without it source pruning fails closed; ordinary artifact reads and streamed exact-hash restore remain available."
+  ],
+  "reviewStatus": "Awaiting final independent A review; no source changes planned unless findings."
+}

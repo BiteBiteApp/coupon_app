@@ -1,0 +1,185 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.51kB done
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 3)
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 6)
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 27)
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12.13-slim-bookworm@sha256:6e13e65c55e33adf203d77ee371cf8bf5d81bd4902ef07565721f46bf44917af
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 24.57kB 0.0s done
+#5 DONE 0.0s
+
+#6 [build  1/20] FROM docker.io/library/python:3.12.13-slim-bookworm@sha256:6e13e65c55e33adf203d77ee371cf8bf5d81bd4902ef07565721f46bf44917af
+#6 resolve docker.io/library/python:3.12.13-slim-bookworm@sha256:6e13e65c55e33adf203d77ee371cf8bf5d81bd4902ef07565721f46bf44917af 0.0s done
+#6 DONE 0.0s
+
+#7 [node 1/1] FROM docker.io/library/node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd
+#7 resolve docker.io/library/node:24.21.0-bookworm-slim@sha256:51b1100cc2a83d370c6a60952e3f2989c8a43159d0e38586e090f3b3326efefd 0.0s done
+#7 DONE 0.0s
+
+#8 [build  2/20] COPY --from=node /usr/local/bin/node /usr/local/bin/node
+#8 CACHED
+
+#9 [build  9/20] COPY functions/package.json functions/package-lock.json ./
+#9 CACHED
+
+#10 [build  4/20] COPY --from=node /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+#10 CACHED
+
+#11 [build 10/20] RUN npm ci --ignore-scripts --no-audit --no-fund
+#11 CACHED
+
+#12 [build  8/20] WORKDIR /app/functions
+#12 CACHED
+
+#13 [build  5/20] COPY --from=node /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/libgcc_s.so.1
+#13 CACHED
+
+#14 [build  7/20] RUN node --version && npm --version && python3 --version && python3 -c "import ssl, sqlite3"
+#14 CACHED
+
+#15 [build  6/20] RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
+#15 CACHED
+
+#16 [build  3/20] COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+#16 CACHED
+
+#17 [build 11/20] COPY functions/tsconfig.json ./
+#17 CACHED
+
+#18 [build 12/20] COPY functions/src ./src
+#18 DONE 0.0s
+
+#19 [build 13/20] COPY functions/search_candidate ./search_candidate
+#19 DONE 0.0s
+
+#20 [build 14/20] COPY functions/test ./test
+#20 DONE 0.0s
+
+#21 [build 15/20] COPY tool/postgis_staging/verify-approval.cjs /app/tool/postgis_staging/verify-approval.cjs
+#21 DONE 0.0s
+
+#22 [build 16/20] COPY tool/postgis_staging/hosted /app/tool/postgis_staging/hosted
+#22 DONE 0.0s
+
+#23 [build 17/20] COPY tool/postgis_staging/scripts/guard.py tool/postgis_staging/scripts/cloud_provider.py /app/tool/postgis_staging/scripts/
+#23 DONE 0.0s
+
+#24 [build 18/20] RUN npm run build
+#24 0.529 
+#24 0.529 > build
+#24 0.529 > tsc
+#24 0.529 
+#24 DONE 11.4s
+
+#25 [build 19/20] RUN node --test test/postgis_execution_approval.test.cjs test/postgis_cloudsql.test.cjs test/postgis_hosted_transport.test.cjs test/postgis_hosted_entrypoint.test.cjs
+#25 0.783 ✔ unapproved/changed configuration never initializes connector or driver (35.884792ms)
+#25 0.784 ✔ mandatory encrypted PRIVATE IAM connector, bounded pool and exact identity probe (4.254375ms)
+#25 0.784 ✔ initial connector rejection is safe and does not invoke problematic rejected-cache close (5.00575ms)
+#25 0.784 ✔ pool/identity failures close initialized connector without leaking provider errors (3.748708ms)
+#25 0.786 ✔ failed queries destroy the leased connection; close destroys active leases once (3.981292ms)
+#25 0.787 ✔ restore uses only the separately approved database and the same IAM transport (0.540791ms)
+#25 0.790 ✔ caller mutation while credentials initialize cannot change the approved login target (0.580875ms)
+#25 0.796 ✔ timed-out initialization closes a later successful connector without creating a pool (30.463083ms)
+#25 0.798 ✔ late acquired client is destroyed after the acquisition deadline (5.718834ms)
+#25 1.515 ✔ authentic canonical Ed25519 approval creates a non-forgeable immutable permit (26.755667ms)
+#25 1.515 ✔ signature, key, canonical bytes and exact schemas fail closed (2.819959ms)
+#25 1.515 ✔ project, run, exact candidate/config digest, gates and lifetime bind the permit (15.443834ms)
+#25 1.515 ✔ expired execution can only retain signed bounded gate5 cleanup authority (0.820792ms)
+#25 1.515 ✔ optional early cost checkpoint requires exactly signed literal100 (0.775791ms)
+#25 1.515 ✔ offline CLI uses a separate trusted file; tampered approvals emit only a safe error (583.637167ms)
+#25 1.515 ✔ full configuration canonicalization includes lexically sorted numeric-looking keys (126.513084ms)
+#25 2.585 ✔ hosted modules import and dry-run without credential or network initialization (883.913917ms)
+#25 2.586 ✔ invalid approval fails before key-file access or provider initialization (239.123125ms)
+#25 2.587 ✔ descriptor defaults are bounded and immutable references are required (1.779209ms)
+#25 2.587 ✔ job entrypoint import/default dry run starts neither providers nor work (459.006584ms)
+#25 2.589 ✔ rendered service and real source job are accepted by the provider adapter exact-body contract (260.794959ms)
+#25 2.590 ✔ delayed job start with less than 600s approval fails before key-file or provider access (12.956042ms)
+#25 2.645 ✔ guest remains unauthenticated and caller body identity cannot become verified auth (91.519166ms)
+#25 2.645 ✔ valid Firebase token is bound to configured project; invalid and cross-project tokens reject (14.289ms)
+#25 2.645 ✔ exact approved browser CORS works for preflight and request; forged origins/headers reject (10.694542ms)
+#25 2.645 ✔ malformed envelopes, compressed input, excessive body and unsafe long numbers reject (17.003166ms)
+#25 2.646 ✔ AppCheck is verified when supplied and enforced only by signed configuration (5.039375ms)
+#25 2.646 ✔ unexpected handler failures expose only safe callable error shape (4.509125ms)
+#25 2.646 ✔ four active handlers bound admission and over-limit request fails without invoking (5.683208ms)
+#25 2.646 ✔ response deadline retains late-work admission until settlement instead of allowing unlimited replacement work (4.5965ms)
+#25 2.646 ℹ tests 30
+#25 2.646 ℹ suites 0
+#25 2.646 ℹ pass 30
+#25 2.646 ℹ fail 0
+#25 2.646 ℹ cancelled 0
+#25 2.646 ℹ skipped 0
+#25 2.646 ℹ todo 0
+#25 2.646 ℹ duration_ms 2311.172293
+#25 DONE 2.7s
+
+#26 [build 20/20] RUN node --test-isolation=none --test test/postgis_native_diagnostic.test.cjs test/postgis_native_diagnostic_descriptor.test.cjs
+#26 2.437 ✔ import and dry-run do not initialize credentials, cloud clients or listeners (498.070875ms)
+#26 2.437 ✔ authentic permit performs only fixed synthetic and metadata SQL with bounded IAM pool (350.535959ms)
+#26 2.437 ✔ forged signature and unknown trust reject before connector I/O (2.309666ms)
+#26 2.437 ✔ configuration or candidate changed after signing rejects before I/O (1.531ms)
+#26 2.437 ✔ wrong Gate2 rejects even when genuinely signed for Gate2 (0.571ms)
+#26 2.437 ✔ production, demo and wrong project allowlist reject before I/O (0.981292ms)
+#26 2.437 ✔ non-diagnostic database, wrong principal and wrong instance reject before I/O (2.136458ms)
+#26 2.437 ✔ wrong job, action, protocol or extra plan keys reject before I/O (1.283417ms)
+#26 2.437 ✔ syntheticOnly must be literal true (1.736042ms)
+#26 2.437 ✔ expired, future and insufficient full-task approvals reject before I/O (1.743792ms)
+#26 2.437 ✔ caller mutations across await cannot change validated identity or receipt job (251.259166ms)
+#26 2.437 ✔ SQL error destroys diagnostic lease and closes pool/connector (215.896917ms)
+#26 2.437 ✔ approval expiry during SQL stops before next numerical operation and closes resources (212.030834ms)
+#26 2.437 ✔ work deadline stops the next SQL operation without late loop continuation (211.598208ms)
+#26 2.437 ✔ runtime NODE_OPTIONS cannot turn a diagnostic into a flag bypass (1.291833ms)
+#26 2.437 ✔ unrecognized CLI mode or empty job cannot reach real connection setup (1.291167ms)
+#26 2.437 ✔ diagnostic descriptor has only three signed inputs, no server or runtime keys, fixed bounded command (0.664916ms)
+#26 2.437 ✔ diagnostic descriptor refuses substituted targets, mutable images, missing or moving input versions (1.000666ms)
+#26 2.438 ✔ fixed diagnostic descriptor satisfies the existing provider exact-body contract without provider requests (112.802917ms)
+#26 2.441 ℹ tests 19
+#26 2.441 ℹ suites 0
+#26 2.441 ℹ pass 19
+#26 2.441 ℹ fail 0
+#26 2.441 ℹ cancelled 0
+#26 2.441 ℹ skipped 0
+#26 2.441 ℹ todo 0
+#26 2.441 ℹ duration_ms 2137.353458
+#26 DONE 2.5s
+
+#27 [stage-2 2/5] WORKDIR /app
+#27 CACHED
+
+#28 [stage-2 3/5] COPY --from=build /app/functions /app/functions
+#28 DONE 1.3s
+
+#29 [stage-2 4/5] COPY tool/postgis_staging/hosted /app/tool/postgis_staging/hosted
+#29 DONE 0.1s
+
+#30 [stage-2 5/5] COPY tool/postgis_staging/linux /app/tool/postgis_staging/linux
+#30 DONE 0.0s
+
+#31 exporting to image
+#31 exporting layers
+#31 exporting layers 2.6s done
+#31 exporting manifest sha256:82c9e972f89fbc88bc713b1b741380ac4d9c5dbf30835f070047602eca453c4d done
+#31 exporting config sha256:0107395f538462912acb20e1b34ff0283be821996cdae71a504557b1c4bc851d done
+#31 exporting attestation manifest sha256:5346aee19437c2e6705ba0f201992b58f92a2deba475f5487a0ebf5248c0108c done
+#31 exporting manifest list sha256:2ed5837644b6a2e0957536f462a2e276b06a4557b9b81095db216c0e57cb1a46 done
+#31 naming to docker.io/library/bitestar-postgis-search-006:local done
+#31 unpacking to docker.io/library/bitestar-postgis-search-006:local
+#31 unpacking to docker.io/library/bitestar-postgis-search-006:local 1.2s done
+#31 DONE 3.8s
+
+ [33m3 warnings found (use docker --debug to expand):
+[0m - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 3)
+ - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 6)
+ - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 27)

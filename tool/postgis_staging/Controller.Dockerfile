@@ -7,9 +7,10 @@ COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so.6
 COPY --from=node /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/libgcc_s.so.1
 WORKDIR /app
-COPY tool/postgis_staging/scripts/guard.py tool/postgis_staging/scripts/cloud_provider.py tool/postgis_staging/scripts/cloud_controller.py tool/postgis_staging/scripts/provider_entrypoint.py /app/tool/postgis_staging/scripts/
+COPY tool/postgis_staging/scripts/guard.py tool/postgis_staging/scripts/cloud_provider.py tool/postgis_staging/scripts/cloud_controller.py tool/postgis_staging/scripts/provider_entrypoint.py tool/postgis_staging/scripts/phase_transition.py /app/tool/postgis_staging/scripts/
 COPY tool/postgis_staging/verify-approval.cjs /app/tool/postgis_staging/verify-approval.cjs
 COPY functions/lib/postgis_execution_approval.js /app/functions/lib/postgis_execution_approval.js
+COPY functions/lib/postgis_phase_transition_approval.js /app/functions/lib/postgis_phase_transition_approval.js
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 # These checks are build steps, not evidence that this source was built locally.
 RUN node --version && python3 --version && python3 -c "import ssl, sqlite3"

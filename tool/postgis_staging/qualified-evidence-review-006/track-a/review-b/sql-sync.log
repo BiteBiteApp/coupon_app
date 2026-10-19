@@ -1,0 +1,14 @@
+▶ B006 finite admission, transactional incremental manifest and independent audit
+  ✔ one finite target survives process restart and unrelated continuous writes (109.331167ms)
+  ✔ duplicates, deletes, recreate and rollback maintain exact manifest (199.334834ms)
+  ✔ audit detects metadata corruption independently (10.772ms)
+  ✔ publication aggregates fixed48 while full audit remains explicit (8.809041ms)
+✔ B006 finite admission, transactional incremental manifest and independent audit (3941.548167ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3951.58425

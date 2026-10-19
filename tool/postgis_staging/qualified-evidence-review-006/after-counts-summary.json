@@ -1,0 +1,382 @@
+{
+  "phase": "after",
+  "sampleNote": "Small shared-laptop observations, not tail confidence, hosted capacity or billed operations. First observation is retained, not claimed cold. Accepted center excludes geocoding. Authority and SDK counts are different views, never additive.",
+  "flows": {
+    "bitesaver-guest": {
+      "samples": [
+        {
+          "run": 0,
+          "status": "success",
+          "milliseconds": 1509.377,
+          "calls": 3,
+          "digest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+          "counts": {
+            "authorityRequestedDocuments": 608,
+            "sdkRequestedDocuments": 625,
+            "authorityQueryReturnedDocuments": 52,
+            "sdkQueryReturnedDocuments": 52,
+            "sdkTransactionAttempts": 90,
+            "sqlReturnedRows": 149,
+            "sql.allStatements": 77,
+            "sql.membershipQuery": 62,
+            "membership.queryResults": 1,
+            "firestore.transaction": 89,
+            "sdk.transaction": 90,
+            "firestore.commitWrites": 5
+          }
+        },
+        {
+          "run": 1,
+          "status": "success",
+          "milliseconds": 923.567,
+          "calls": 3,
+          "digest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+          "counts": {
+            "authorityRequestedDocuments": 608,
+            "sdkRequestedDocuments": 625,
+            "authorityQueryReturnedDocuments": 52,
+            "sdkQueryReturnedDocuments": 52,
+            "sdkTransactionAttempts": 90,
+            "sqlReturnedRows": 149,
+            "sql.allStatements": 77,
+            "sql.membershipQuery": 62,
+            "membership.queryResults": 1,
+            "firestore.transaction": 89,
+            "sdk.transaction": 90,
+            "firestore.commitWrites": 5
+          }
+        },
+        {
+          "run": 2,
+          "status": "success",
+          "milliseconds": 897.6,
+          "calls": 3,
+          "digest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+          "counts": {
+            "authorityRequestedDocuments": 608,
+            "sdkRequestedDocuments": 625,
+            "authorityQueryReturnedDocuments": 52,
+            "sdkQueryReturnedDocuments": 52,
+            "sdkTransactionAttempts": 90,
+            "sqlReturnedRows": 149,
+            "sql.allStatements": 77,
+            "sql.membershipQuery": 62,
+            "membership.queryResults": 1,
+            "firestore.transaction": 89,
+            "sdk.transaction": 90,
+            "firestore.commitWrites": 5
+          }
+        },
+        {
+          "run": 3,
+          "status": "success",
+          "milliseconds": 851.632,
+          "calls": 3,
+          "digest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+          "counts": {
+            "authorityRequestedDocuments": 608,
+            "sdkRequestedDocuments": 625,
+            "authorityQueryReturnedDocuments": 52,
+            "sdkQueryReturnedDocuments": 52,
+            "sdkTransactionAttempts": 90,
+            "sqlReturnedRows": 149,
+            "sql.allStatements": 77,
+            "sql.membershipQuery": 62,
+            "membership.queryResults": 1,
+            "firestore.transaction": 89,
+            "sdk.transaction": 90,
+            "firestore.commitWrites": 5
+          }
+        },
+        {
+          "run": 4,
+          "status": "success",
+          "milliseconds": 902.683,
+          "calls": 3,
+          "digest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+          "counts": {
+            "authorityRequestedDocuments": 608,
+            "sdkRequestedDocuments": 625,
+            "authorityQueryReturnedDocuments": 52,
+            "sdkQueryReturnedDocuments": 52,
+            "sdkTransactionAttempts": 90,
+            "sqlReturnedRows": 149,
+            "sql.allStatements": 77,
+            "sql.membershipQuery": 62,
+            "membership.queryResults": 1,
+            "firestore.transaction": 89,
+            "sdk.transaction": 90,
+            "firestore.commitWrites": 5
+          }
+        }
+      ],
+      "descriptiveMs": {
+        "n": 5,
+        "min": 851.632,
+        "median": 902.683,
+        "max": 1509.377
+      }
+    },
+    "bitesaver-signed": {
+      "samples": [
+        {
+          "run": 0,
+          "status": "success",
+          "milliseconds": 348.557,
+          "calls": 3,
+          "digest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+          "counts": {
+            "authorityRequestedDocuments": 411,
+            "sdkRequestedDocuments": 428,
+            "authorityQueryReturnedDocuments": 52,
+            "sdkQueryReturnedDocuments": 52,
+            "sdkTransactionAttempts": 11,
+            "sqlReturnedRows": 149,
+            "sql.allStatements": 77,
+            "sql.membershipQuery": 62,
+            "membership.queryResults": 1,
+            "firestore.transaction": 10,
+            "sdk.transaction": 11,
+            "firestore.commitWrites": 1
+          }
+        },
+        {
+          "run": 1,
+          "status": "success",
+          "milliseconds": 344.448,
+          "calls": 3,
+          "digest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+          "counts": {
+            "authorityRequestedDocuments": 411,
+            "sdkRequestedDocuments": 428,
+            "authorityQueryReturnedDocuments": 52,
+            "sdkQueryReturnedDocuments": 52,
+            "sdkTransactionAttempts": 11,
+            "sqlReturnedRows": 149,
+            "sql.allStatements": 77,
+            "sql.membershipQuery": 62,
+            "membership.queryResults": 1,
+            "firestore.transaction": 10,
+            "sdk.transaction": 11,
+            "firestore.commitWrites": 1
+          }
+        },
+        {
+          "run": 2,
+          "status": "success",
+          "milliseconds": 338.586,
+          "calls": 3,
+          "digest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+          "counts": {
+            "authorityRequestedDocuments": 411,
+            "sdkRequestedDocuments": 428,
+            "authorityQueryReturnedDocuments": 52,
+            "sdkQueryReturnedDocuments": 52,
+            "sdkTransactionAttempts": 11,
+            "sqlReturnedRows": 149,
+            "sql.allStatements": 77,
+            "sql.membershipQuery": 62,
+            "membership.queryResults": 1,
+            "firestore.transaction": 10,
+            "sdk.transaction": 11,
+            "firestore.commitWrites": 1
+          }
+        },
+        {
+          "run": 3,
+          "status": "success",
+          "milliseconds": 342.855,
+          "calls": 3,
+          "digest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+          "counts": {
+            "authorityRequestedDocuments": 411,
+            "sdkRequestedDocuments": 428,
+            "authorityQueryReturnedDocuments": 52,
+            "sdkQueryReturnedDocuments": 52,
+            "sdkTransactionAttempts": 11,
+            "sqlReturnedRows": 149,
+            "sql.allStatements": 77,
+            "sql.membershipQuery": 62,
+            "membership.queryResults": 1,
+            "firestore.transaction": 10,
+            "sdk.transaction": 11,
+            "firestore.commitWrites": 1
+          }
+        },
+        {
+          "run": 4,
+          "status": "success",
+          "milliseconds": 342.641,
+          "calls": 3,
+          "digest": "13a61728a12aacbbff6a3a4d16e0273ef7fa4583ebc3c611ef4f7e8221212fe1",
+          "counts": {
+            "authorityRequestedDocuments": 411,
+            "sdkRequestedDocuments": 428,
+            "authorityQueryReturnedDocuments": 52,
+            "sdkQueryReturnedDocuments": 52,
+            "sdkTransactionAttempts": 11,
+            "sqlReturnedRows": 149,
+            "sql.allStatements": 77,
+            "sql.membershipQuery": 62,
+            "membership.queryResults": 1,
+            "firestore.transaction": 10,
+            "sdk.transaction": 11,
+            "firestore.commitWrites": 1
+          }
+        }
+      ],
+      "descriptiveMs": {
+        "n": 5,
+        "min": 338.586,
+        "median": 342.855,
+        "max": 348.557
+      }
+    },
+    "bitescore-dish-home": {
+      "samples": [
+        {
+          "run": 0,
+          "status": "success",
+          "milliseconds": 182.783,
+          "calls": 2,
+          "digest": null,
+          "counts": {
+            "authorityRequestedDocuments": 129,
+            "sdkRequestedDocuments": 146,
+            "authorityQueryReturnedDocuments": 0,
+            "sdkQueryReturnedDocuments": 0,
+            "sdkTransactionAttempts": 6,
+            "sqlReturnedRows": 81,
+            "sql.allStatements": 20,
+            "sql.membershipQuery": 5,
+            "membership.queryResults": 1,
+            "firestore.transaction": 5,
+            "sdk.transaction": 6,
+            "firestore.commitWrites": 1
+          }
+        },
+        {
+          "run": 1,
+          "status": "success",
+          "milliseconds": 152.089,
+          "calls": 2,
+          "digest": null,
+          "counts": {
+            "authorityRequestedDocuments": 129,
+            "sdkRequestedDocuments": 146,
+            "authorityQueryReturnedDocuments": 0,
+            "sdkQueryReturnedDocuments": 0,
+            "sdkTransactionAttempts": 6,
+            "sqlReturnedRows": 81,
+            "sql.allStatements": 20,
+            "sql.membershipQuery": 5,
+            "membership.queryResults": 1,
+            "firestore.transaction": 5,
+            "sdk.transaction": 6,
+            "firestore.commitWrites": 1
+          }
+        },
+        {
+          "run": 2,
+          "status": "success",
+          "milliseconds": 149.699,
+          "calls": 2,
+          "digest": null,
+          "counts": {
+            "authorityRequestedDocuments": 129,
+            "sdkRequestedDocuments": 146,
+            "authorityQueryReturnedDocuments": 0,
+            "sdkQueryReturnedDocuments": 0,
+            "sdkTransactionAttempts": 6,
+            "sqlReturnedRows": 81,
+            "sql.allStatements": 20,
+            "sql.membershipQuery": 5,
+            "membership.queryResults": 1,
+            "firestore.transaction": 5,
+            "sdk.transaction": 6,
+            "firestore.commitWrites": 1
+          }
+        }
+      ],
+      "descriptiveMs": {
+        "n": 3,
+        "min": 149.699,
+        "median": 152.089,
+        "max": 182.783
+      }
+    },
+    "create-rate-finder": {
+      "samples": [
+        {
+          "run": 0,
+          "status": "success",
+          "milliseconds": 484.201,
+          "calls": 2,
+          "digest": null,
+          "counts": {
+            "authorityRequestedDocuments": 77,
+            "sdkRequestedDocuments": 94,
+            "authorityQueryReturnedDocuments": 0,
+            "sdkQueryReturnedDocuments": 0,
+            "sdkTransactionAttempts": 6,
+            "sqlReturnedRows": 38,
+            "sql.allStatements": 20,
+            "sql.membershipQuery": 5,
+            "membership.queryResults": 1,
+            "firestore.transaction": 5,
+            "sdk.transaction": 6,
+            "firestore.commitWrites": 1
+          }
+        },
+        {
+          "run": 1,
+          "status": "success",
+          "milliseconds": 448.292,
+          "calls": 2,
+          "digest": null,
+          "counts": {
+            "authorityRequestedDocuments": 77,
+            "sdkRequestedDocuments": 94,
+            "authorityQueryReturnedDocuments": 0,
+            "sdkQueryReturnedDocuments": 0,
+            "sdkTransactionAttempts": 6,
+            "sqlReturnedRows": 38,
+            "sql.allStatements": 20,
+            "sql.membershipQuery": 5,
+            "membership.queryResults": 1,
+            "firestore.transaction": 5,
+            "sdk.transaction": 6,
+            "firestore.commitWrites": 1
+          }
+        },
+        {
+          "run": 2,
+          "status": "success",
+          "milliseconds": 447.4,
+          "calls": 2,
+          "digest": null,
+          "counts": {
+            "authorityRequestedDocuments": 77,
+            "sdkRequestedDocuments": 94,
+            "authorityQueryReturnedDocuments": 0,
+            "sdkQueryReturnedDocuments": 0,
+            "sdkTransactionAttempts": 6,
+            "sqlReturnedRows": 38,
+            "sql.allStatements": 20,
+            "sql.membershipQuery": 5,
+            "membership.queryResults": 1,
+            "firestore.transaction": 5,
+            "sdk.transaction": 6,
+            "firestore.commitWrites": 1
+          }
+        }
+      ],
+      "descriptiveMs": {
+        "n": 3,
+        "min": 447.4,
+        "median": 448.292,
+        "max": 484.201
+      }
+    }
+  }
+}

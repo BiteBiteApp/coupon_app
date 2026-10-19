@@ -1,0 +1,30 @@
+✔ review differential sparse mixed exclusions (892.146917ms)
+✔ review differential dense unresolved first parent (803.0175ms)
+✔ review differential empty visible page after all history exclusions (427.201833ms)
+✔ review 75 IDs global across parents; 76th parent-group resumes without omission (112.736792ms)
+✔ review expired reissue preserves exact candidate and parent slices (52.112791ms)
+✔ review lost accepted answer recovers exactly once after token expiry (90.921958ms)
+✔ review withdrawn pending parent produces restart and no partial positive result (52.617125ms)
+✔ review option-off context refuses pending window without completing it (13.07225ms)
+✔ review deterministic differential matrix 1 (547.310792ms)
+✔ review deterministic differential matrix 2 (621.402625ms)
+✔ review deterministic differential matrix 3 (596.85075ms)
+✔ review deterministic differential matrix 4 (674.732167ms)
+✔ review deterministic differential matrix 5 (688.662083ms)
+✔ review deterministic differential matrix 6 (783.432167ms)
+✔ review deterministic differential matrix 7 (811.074125ms)
+✔ review deterministic differential matrix 8 (872.403333ms)
+✔ review deterministic differential matrix 9 (900.109458ms)
+✔ review deterministic differential matrix 10 (1004.14225ms)
+✔ review deterministic differential matrix 11 (1011.551959ms)
+✔ review deterministic differential matrix 12 (1119.790166ms)
+✔ review later-parent once-per-day candidate caps the entire challenge at local reset (110.363875ms)
+✔ review later-parent coupon occurrence replacement invalidates the old challenge (54.602334ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12245.624709

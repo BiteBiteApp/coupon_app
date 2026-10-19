@@ -10,6 +10,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass
 
 from guard import Rejected, digest, need, project_check
 
@@ -18,6 +19,27 @@ class ProviderError(RuntimeError):
     def __init__(self, status, message='Provider operation failed; reconcile before retry.'):
         self.status = status
         super().__init__(message)
+
+
+@dataclass(frozen=True)
+class VerifiedSqlPhaseContext:
+    """Constructed only by the signed phase verifier, never decoded from JSON."""
+    config_digest: str
+    transition_at_ms: int
+    first_billable_at_ms: int
+    deadline_ms: int
+    _seal: object
+
+
+_phase_seal = object()
+
+
+def _verified_sql_phase_context(config, claims, transition_at_ms):
+    need(claims['nextConfigDigest'] == digest(config) and claims['nextCandidateDigest'] == config['candidateDigest'] and
+         claims['firstBillableAtMs'] == config['provider']['firstBillableAtMs'] and
+         claims['deadlineMs'] == config['provider']['firstBillableAtMs'] + config['lifetimeSeconds'] * 1000,
+         'SQL phase approval target/clock mismatch')
+    return VerifiedSqlPhaseContext(digest(config), transition_at_ms, claims['firstBillableAtMs'], claims['deadlineMs'], _phase_seal)
 
 
 def canonical(value):
@@ -125,6 +147,12 @@ class GoogleResources:
     def __init__(self, config, transport):
         project_check(config)
         self.config, self.transport = copy.deepcopy(config), transport
+        self.phase_context = None
+
+    def bind_phase_context(self, context):
+        need(isinstance(context, VerifiedSqlPhaseContext) and context._seal is _phase_seal and
+             context.config_digest == digest(self.config), 'verified SQL phase context required')
+        self.phase_context = context
 
     def spec(self, resource):
         need(resource in self.config['provider']['resources'], 'unapproved resource specification')
@@ -264,7 +292,7 @@ class GoogleResources:
         # No caller-controlled overrides, environment, image or arguments.
         return self.transport.request('POST', self.url(resource) + ':run', {'etag': observed['etag']})
 
-    def cancel_job_executions(self, resource, receipt, before_cancel=None, sent_at=None):
+    def cancel_job_executions(self, resource, receipt, before_cancel=None, sent_at=None, completed_uids=()):
         need(resource['kind'] == 'run.job', 'job cancellation only')
         need(self.owned(resource, receipt) is not None, 'owned job absent; reconcile executions')
         response = self.transport.request('GET', self.url(resource) + '/executions?pageSize=50')
@@ -286,7 +314,7 @@ class GoogleResources:
         if sent_at is not None:
             from datetime import datetime
             try:
-                relevant = [row for row in rows if
+                relevant = [row for row in rows if row['uid'] not in completed_uids and
                     datetime.fromisoformat(row['createTime'].replace('Z','+00:00')).timestamp() >= sent_at - 5]
             except (ValueError, TypeError): raise Rejected('invalid execution creation time')
             need(len(relevant) <= 1, 'unexpected duplicate execution; supervise')
@@ -298,7 +326,7 @@ class GoogleResources:
         return {'pending': bool(operations), 'operations': operations,
                 'completedExecutionsObserved': bool(relevant) and all(row.get('completionTime') for row in relevant)}
 
-    def job_execution(self, resource, receipt, sent_at):
+    def job_execution(self, resource, receipt, sent_at, completed_uids=()):
         """Reconcile the sole approved run, never infer completion from run LRO."""
         need(resource['kind'] == 'run.job' and self.owned(resource, receipt) is not None, 'owned job required')
         response = self.transport.request('GET', self.url(resource) + '/executions?pageSize=50')
@@ -312,7 +340,7 @@ class GoogleResources:
             need(name.startswith(parent + '/executions/') and re.fullmatch(r'[a-z0-9-]+', name[len(parent + '/executions/'):]) and
                  row.get('job') == parent and row.get('labels') == self.labels() and row.get('uid') and row.get('createTime'), 'execution identity mismatch')
             created = datetime.fromisoformat(row['createTime'].replace('Z','+00:00')).timestamp()
-            if created >= sent_at - 5: matches.append(row)
+            if row['uid'] not in completed_uids and created >= sent_at - 5: matches.append(row)
         need(len(matches) <= 1, 'unexpected duplicate execution; admission remains blocked')
         if not matches: return {'state':'unknown'}
         row = matches[0]
@@ -349,8 +377,16 @@ class GoogleResources:
             need(isinstance(proof.get(key),str) and re.fullmatch(r'[0-9a-f]{64}',proof[key]),
                  'missing independent SQL ownership evidence artifact')
         reviewed, expires = proof.get('reviewedAtMs'), proof.get('validUntilMs')
+        review_ceiling = expected['firstBillableAtMs']
+        context = self.phase_context
+        if context is not None:
+            need(isinstance(context, VerifiedSqlPhaseContext) and context._seal is _phase_seal and
+                 context.config_digest == digest(self.config) and context.first_billable_at_ms == expected['firstBillableAtMs'] and
+                 context.deadline_ms == expected['deadlineMs'] and context.transition_at_ms <= now_ms,
+                 'SQL phase context is unbound or from the future')
+            review_ceiling = context.transition_at_ms
         need(type(now_ms) is int and type(reviewed) is int and type(expires) is int and
-             expected['firstBillableAtMs'] - 86400000 <= reviewed <= expected['firstBillableAtMs'] and
+             review_ceiling - 86400000 <= reviewed <= review_ceiling and
              reviewed <= now_ms <= expires and expected['deadlineMs'] <= expires <= expected['deadlineMs'] + 7200000,
              'stale SQL ownership evidence; supervise')
         return policy['evidenceDigest']

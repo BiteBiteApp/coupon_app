@@ -1,0 +1,64 @@
+✖ bounded recovery validation resumes across every page and process boundary with the original digest (22.893458ms)
+✖ partial hash corruption never publishes a successful validation (23.04625ms)
+✖ changed readonly file identity, missing files and writable artifacts cannot reuse proof (18.90075ms)
+✖ arbitrary reader success claims cannot supply immutable proof (14.847791ms)
+✔ serialized SHA256 matches native crypto including NIST and every block boundary (1430.550042ms)
+✔ malformed serialized hash state fails closed and shaped corruption cannot match digest (0.38075ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 2
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1594.620375
+
+✖ failing tests:
+
+test at test/postgis_b006_recovery_checkpoint.test.cjs:21:1
+✖ bounded recovery validation resumes across every page and process boundary with the original digest (22.893458ms)
+  Error: Invalid or poisoned PostGIS source event.
+      at validatePostgisSourceEvent (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib-b006/postgis_source.js:197:15)
+      at Object.postgisSourceManifest (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib-b006/postgis_source.js:202:9)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_recovery_checkpoint.test.cjs:13:41
+      at Array.from (<anonymous>)
+      at setup (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_recovery_checkpoint.test.cjs:12:21)
+      at async TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_recovery_checkpoint.test.cjs:22:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at test/postgis_b006_recovery_checkpoint.test.cjs:31:1
+✖ partial hash corruption never publishes a successful validation (23.04625ms)
+  Error: Invalid or poisoned PostGIS source event.
+      at validatePostgisSourceEvent (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib-b006/postgis_source.js:197:15)
+      at Object.postgisSourceManifest (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib-b006/postgis_source.js:202:9)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_recovery_checkpoint.test.cjs:13:41
+      at Array.from (<anonymous>)
+      at setup (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_recovery_checkpoint.test.cjs:12:21)
+      at async TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_recovery_checkpoint.test.cjs:32:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at test/postgis_b006_recovery_checkpoint.test.cjs:37:1
+✖ changed readonly file identity, missing files and writable artifacts cannot reuse proof (18.90075ms)
+  Error: Invalid or poisoned PostGIS source event.
+      at validatePostgisSourceEvent (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib-b006/postgis_source.js:197:15)
+      at Object.postgisSourceManifest (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib-b006/postgis_source.js:202:9)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_recovery_checkpoint.test.cjs:13:41
+      at Array.from (<anonymous>)
+      at setup (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_recovery_checkpoint.test.cjs:12:21)
+      at async TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_recovery_checkpoint.test.cjs:38:61)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at test/postgis_b006_recovery_checkpoint.test.cjs:45:1
+✖ arbitrary reader success claims cannot supply immutable proof (14.847791ms)
+  Error: Invalid or poisoned PostGIS source event.
+      at validatePostgisSourceEvent (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib-b006/postgis_source.js:197:15)
+      at Object.postgisSourceManifest (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/lib-b006/postgis_source.js:202:9)
+      at /Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_recovery_checkpoint.test.cjs:13:41
+      at Array.from (<anonymous>)
+      at setup (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_recovery_checkpoint.test.cjs:12:21)
+      at async TestContext.<anonymous> (/Users/colesmart/.codex/reports/BS-BITESTAR-POSTGIS-REVIEW-CORRECTIONS-006-20261019/selected-source/functions/test/postgis_b006_recovery_checkpoint.test.cjs:46:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

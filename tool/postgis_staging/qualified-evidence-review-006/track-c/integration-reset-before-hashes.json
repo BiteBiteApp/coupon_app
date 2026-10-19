@@ -1,0 +1,7 @@
+{
+  "functions/test/postgis_integration.test.js": "01f7f4c9e8a6ba0a1c81035867ee1008adbcc5a3623538d72b400113a49392e0",
+  "functions/src/postgis_store.ts": "1c97a55c9d9b1780a3e8aec33afb65ec9c5247e4e10d9de93278192a794899cb",
+  "functions/src/postgis_handlers.ts": "94eb93a362b84132d886c60827a6c797b57884d1f4830bf9343fdf70a5a37021",
+  "functions/src/postgis_search_binding.ts": "659edbdbce094605826d1cba88d194ca86e96c185380c91361b6e4ad041d1a9c",
+  "functions/search_candidate/schema.sql": "99f22dfcebe89c377d1348473b6acc75e41352ae7d48201d779dc268ce7b537d"
+}

@@ -1,0 +1,11 @@
+{
+  "tool/postgis_staging/Controller.Dockerfile": "b4023f077bdb4554f363aa53c9d609a3a5bbecd2fa1808322742720747506e7f",
+  "tool/postgis_staging/verify-approval.cjs": "9fbf0d5175ccef3170ab3db2c693420391e65da6a820bf9ad294354caf0914cc",
+  "functions/lib/postgis_execution_approval.js": "33ed71e19126f321b061fd266450b621c94e162f7448ccc7cf03137016b1a12e",
+  "functions/lib/postgis_phase_transition_approval.js": "a9d1bc041f915b4c20071db1b2de5d8cc5f06daa6aedf4992ca64f54774b5fcd",
+  "tool/postgis_staging/scripts/guard.py": "35727623fdb0caeec1666e672cd684785a60288d2837f0cf898d6e11dd32eb6d",
+  "tool/postgis_staging/scripts/cloud_provider.py": "008f310b7920514e1b152a3efa406c76314a7d20b73f958900c935c0032664a6",
+  "tool/postgis_staging/scripts/cloud_controller.py": "509d78dc056be4b50ae572394b972ad9507b5d04eaf636e6bd480693d0f8d367",
+  "tool/postgis_staging/scripts/provider_entrypoint.py": "ba17f6af9ea094ae768787abf7466237f52d80b5c722305afe731760371d039a",
+  "tool/postgis_staging/scripts/phase_transition.py": "74aecdd7e3d4d9bbe74e2b9adc55949bae9d65da76c1ed8bd792bc66c32e8f64"
+}

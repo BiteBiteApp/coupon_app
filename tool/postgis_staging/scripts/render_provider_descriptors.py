@@ -71,6 +71,27 @@ def render(config):
                 'filter':'resource.type="cloud_run_job" AND resource.labels.job_name="' + provider['watchdogJob'] + '" AND metric.type="run.googleapis.com/job/completed_execution_count" AND metric.labels.result="failed"',
                 'comparison':'COMPARISON_GT','thresholdValue':0,'duration':'0s',
                 'aggregations':[{'alignmentPeriod':'60s','perSeriesAligner':'ALIGN_SUM'}]}}]}
+    metric_filter = ('resource.type="cloud_run_job" AND resource.labels.project_id="' + project +
+        '" AND resource.labels.location="us-central1" AND resource.labels.job_name="' + provider['watchdogJob'] +
+        '" AND metric.type="run.googleapis.com/job/completed_execution_count"')
+    # Observe ALL results. A successful zero-work execution still proves the
+    # watchdog ran; a failed completion is separately covered above. Explicit
+    # missing-data handling also detects absence after a proved first baseline.
+    result['watchdogSilenceAlert'] = {'displayName':config['runId'] + ' watchdog missing or zero completion',
+        'enabled':True,'combiner':'OR','notificationChannels':channels,'conditions':[{
+            'displayName':'No independent watchdog completion in fifteen minutes', 'conditionThreshold':{
+                'filter':metric_filter,'comparison':'COMPARISON_LT','thresholdValue':1,'duration':'60s',
+                'evaluationMissingData':'EVALUATION_MISSING_DATA_ACTIVE',
+                'aggregations':[{'alignmentPeriod':'900s','perSeriesAligner':'ALIGN_SUM',
+                                 'crossSeriesReducer':'REDUCE_SUM','groupByFields':[]}],
+                'trigger':{'count':1}}}]}
+    result['watchdogSafetyActionAlert'] = {'displayName':config['runId'] + ' watchdog safety action',
+        'enabled':True,'combiner':'OR','notificationChannels':channels,
+        'alertStrategy':{'notificationRateLimit':{'period':'300s'},'autoClose':'1800s'},
+        'conditions':[{'displayName':'Independent watchdog stopped admission or requested cleanup',
+            'conditionMatchedLog':{'filter':'resource.type="cloud_run_job" AND resource.labels.project_id="' + project +
+                '" AND resource.labels.location="us-central1" AND resource.labels.job_name="' + provider['watchdogJob'] +
+                '" AND (jsonPayload.safetyAction="pause-load-stop-sql-and-alert" OR jsonPayload.safetyAction="stop-load-export-and-teardown")'}}]}
     return copy.deepcopy(result)
 
 
